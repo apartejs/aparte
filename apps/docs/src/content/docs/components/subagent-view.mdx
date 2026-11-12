@@ -1,0 +1,143 @@
+---
+title: Sub-agent view
+description: A sub-agent's conversation — its text, its reasoning, its tool calls, its own sub-agents — in a pane, a canvas or a dialog beside the chat, live while it works and saved with the conversation.
+catalog:
+  group: chat
+  order: 12
+  claims:
+    elements: [aparte-subagent-view]
+    plugin: '@aparte/plugin-subagents'
+  demos: [subagent-view, subagents]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import ViewApi from '../../../generated/api/elements/aparte-subagent-view.api.mdx';
+
+<Variant id="subagent-view" play="Why do quoted fields break?" />
+
+In the reply, a sub-agent is [one line](/guides/sub-agents/): its name, its task, what it is doing
+now. `<aparte-subagent-view>` shows what it said and did, where you put it: the other pane of a
+[split](/components/split/), a canvas, a dialog. Its text, its reasoning, its tool rows and its own
+sub-agents as lines, drawn by the same renderers as the reply. It is the same drawing the line opens
+on with `setupSubagents({ details: 'transcript' })`.
+
+It keeps nothing of its own. It reads the sub-agent from the chat, live while it works, and from
+the conversation once it is saved, so a reloaded conversation shows what was saved.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-subagents @aparte/core
+```
+
+```html
+<aparte-split position="50" single>
+  <aparte-chat id="chat"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+```
+
+```ts
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+const split = document.querySelector('aparte-split')!;
+const view = document.querySelector('aparte-subagent-view')!;
+document.getElementById('chat')!.addEventListener('aparte-subagent-start', (event) => {
+  view.setAttribute('message-id', event.detail.messageId);
+  view.setAttribute('agent-id', event.detail.agentId);
+  split.removeAttribute('single');
+});
+```
+
+Importing the package defines the element. Three attributes say what it shows: `for`, the `id` of
+the chat (`<aparte-chat>`, its viewport, or any element with `getMessages()`); `message-id`, the
+reply; `agent-id`, the sub-agent. A chat with no `id` is handed through the `chat` property
+(`SubagentViewSource`) instead. Until the three name a sub-agent that has started, the element draws nothing and carries
+`data-empty`, so a layout can fold the pane against it:
+
+```css
+aparte-subagent-view[data-empty] {
+  display: none;
+}
+```
+
+### Which sub-agents a reply has
+
+The chat dispatches two events, both bubbling:
+
+- `aparte-subagent-start` (`AparteSubagentStartEventDetail`) when a sub-agent starts, or starts
+  again after a pause: `messageId`, `agentId`, `name`, `description` (its task), and `toolCallId`
+  or `parentId` for the call or the sub-agent that opened it.
+- `aparte-subagent-end` (`AparteSubagentEndEventDetail`) when it ends, or the run ends without it:
+  `messageId`, `agentId` and `status` — `done`, `failed`, `waiting` or `stopped`.
+
+Both carry the chat's `id` as `targetId`, so a page with several chats can tell them apart. Together they
+are enough to keep a list of a reply's sub-agents and open the one a person picks:
+
+```ts
+import type { AparteSubagentStatus } from '@aparte/plugin-subagents';
+
+const chat = document.getElementById('chat')!;
+const agents = new Map<string, { name?: string; status: AparteSubagentStatus }>();
+
+chat.addEventListener('aparte-subagent-start', (event) => {
+  agents.set(event.detail.agentId, { name: event.detail.name, status: 'running' });
+});
+chat.addEventListener('aparte-subagent-end', (event) => {
+  const agent = agents.get(event.detail.agentId);
+  if (agent) agent.status = event.detail.status;
+});
+```
+
+### Reading a saved sub-agent
+
+A sub-agent is saved with the conversation, on the segment that stands for it: the call that
+opened it, or a `subagent` segment of the plugin's own (`AparteSubagentSegment`,
+`SUBAGENT_SEGMENT_TYPE`) for one no call opened. `subagentOf(segment)` returns it, an
+`AparteSubagent` (`id`, `name`, `description`, `status`, `result`, `error`, `parentId`, and its
+conversation in `segments`), and `subagentStatus(segment)` its state. Both are exported for Node
+too:
+
+```ts
+import type { AparteChatViewport } from '@aparte/core';
+import { subagentOf, subagentStatus } from '@aparte/plugin-subagents';
+
+const viewport = document.querySelector<AparteChatViewport>('aparte-chat-viewport')!;
+
+for (const message of viewport.getMessages()) {
+  for (const segment of message.segments ?? []) {
+    const agent = subagentOf(segment);
+    if (agent) console.info(agent.name, subagentStatus(segment), agent.result ?? agent.error ?? '');
+  }
+}
+```
+
+`subagentStatus` reads `stopped` for a sub-agent a reload or a Stop left unfinished, where the
+saved `status` still says how it was when the page closed. The sub-agent's conversation is never
+part of what the model reads.
+
+## In a framework
+
+The plugin ships no framework binding. A Vue or Svelte template accepts the tag as it is; Angular
+needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and `[attr.message-id]` to bind an
+attribute. In a React `.tsx` file the tag is a compile error until you declare it once, which the
+[sub-agents guide](/guides/sub-agents/#show-the-conversation-elsewhere) shows with a component.
+The class is exported as `AparteSubagentView`, for the type of a `ref`.
+
+## Customize
+
+The view is light DOM, like the chat: its rows are the chat's, and they take your theme as they
+do in the reply. `--aparte-subagent-indent` is the space between the rule down its leading edge
+and the conversation.
+
+## API
+
+<ViewApi />
+
+## Related
+
+- [Sub-agents](/guides/sub-agents/) — the line in the reply, and the three ways sub-agents reach the page.
+- [Split](/components/split/) — the two panes this view usually sits in.
+- [Tool](/components/tool/) — the row a sub-agent's line is drawn on.

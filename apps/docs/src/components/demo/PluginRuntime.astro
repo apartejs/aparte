@@ -24,6 +24,7 @@ import MathPlugin from './plugins/MathPlugin.astro';
 import MarkdownRuntime from './MarkdownRuntime.astro';
 import ModelSelectorPlugin from './plugins/ModelSelectorPlugin.astro';
 import ScenarioRuntime from '../ScenarioRuntime.astro';
+import SubagentsPlugin from './plugins/SubagentsPlugin.astro';
 import type { DemoPlugin } from './plugins';
 
 interface Props {
@@ -44,4 +45,5 @@ const has = (name: DemoPlugin) => plugins.includes(name);
 {has('model-selector') && <ModelSelectorPlugin />}
 {has('compaction') && <CompactionPlugin />}
 {has('artifacts') && <ArtifactsPlugin />}
+{has('subagents') && <SubagentsPlugin />}
 {has('scenario') && <ScenarioRuntime />}

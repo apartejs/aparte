@@ -47,7 +47,8 @@ It answers `{ toolCallId, content }`: `content` is what the model reads, and an 
 The context also carries `run`, an `AparteToolRun`: the run the call belongs to, from which a
 handler opens a sub-agent with `runSubAgent(context.run, { name, request }, signal)`, exported by
 `@aparte/core` as by [the engine](/guides/engine/#events). The sub-agent's text and tool calls stay
-out of the reply.
+out of the reply; [Sub-agents](/guides/sub-agents/#a-tool-of-your-own-loop) shows the whole tool and
+the line the page draws for it.
 
 A tool's `systemPrompt` tells the model when to use it, and its `maxTurns` is the last turn of a
 reply in which it may still run. On the client, `toolTimeoutMs` is the time a handler may take,
@@ -192,7 +193,8 @@ unchanged.
 
 When the call belongs to a sub-agent that was given a name, the question says who asks:
 "Allow Delete a file a.ts for Researcher?", from the locale key `approvalAskBy`
-(`Allow {tool} for {agent}?`). A sub-agent with no name gets the `approvalAsk` question.
+(`Allow {tool} for {agent}?`). A sub-agent with no name gets the `approvalAsk` question
+([Sub-agents](/guides/sub-agents/#approvals)).
 
 - **Approve** runs the handler.
 - **Reject** never runs it: the model reads the refusal, the other calls of that turn are skipped,

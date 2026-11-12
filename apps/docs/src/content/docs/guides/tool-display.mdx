@@ -323,7 +323,8 @@ A `'*'` hide therefore leaves a tool with a renderer of its own drawn, such as
 ## A line a plugin fills
 
 A plugin that knows more about a call than its name, such as the sub-agent a `delegate` call
-started, fills the same row with `setToolLineProvider`. It returns an `AparteToolLine`, all plain
+started, fills the same row with `setToolLineProvider`: that is how
+[`@aparte/plugin-subagents`](/guides/sub-agents/) draws a sub-agent's line. It returns an `AparteToolLine`, all plain
 text:
 
 - `label` and `target`, used only when your display gives no label or summary;

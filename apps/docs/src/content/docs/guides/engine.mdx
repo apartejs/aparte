@@ -126,6 +126,8 @@ and its sub-agents', register an `AparteRunEventObserver` with `config.observeRu
 it is called before the reply handles each event, with an `AparteRunEventContext` holding the
 `messageId`, the chat's `target` and `targetId`, and the chat's `config`, and it returns a function
 that removes it. A chat hears the observers of its own config, then those of the global one.
+[Sub-agents](/guides/sub-agents/) draws them, one line per sub-agent, with
+`@aparte/plugin-subagents`.
 
 `toolRefusal(decision)` writes the refusal for you, and a runner that answers an agent elsewhere
 should use it so the model reads the same sentence:

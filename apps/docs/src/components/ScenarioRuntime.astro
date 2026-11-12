@@ -19,7 +19,7 @@
 
 <script>
     import { aparteGlobalConfig, AparteClient, AparteDirectTransport, filesToAttachments } from '@aparte/core';
-    import { createScenarioProvider } from '@aparte/provider-scenario';
+    import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
     import { showcase } from '@aparte/provider-scenario/showcase';
 
     const scripted = createScenarioProvider({
@@ -28,9 +28,10 @@
     });
     aparteGlobalConfig.registerAIProvider(scripted);
     aparteGlobalConfig.setModelConfig({ defaultProvider: scripted.id, defaultModel: 'scripted' });
-    // The factory, for a demo that needs more providers than this one (the model picker).
+    // The factory, for a demo that needs more providers than this one (the model picker), and
+    // the tool that runs a scripted model's sub-agents, for the demo that delegates.
     const host = window as unknown as { apartePlugins?: Record<string, unknown> };
-    (host.apartePlugins ??= {}).scenario = { createScenarioProvider };
+    (host.apartePlugins ??= {}).scenario = { createScenarioProvider, scenarioSubagentTool };
     aparteGlobalConfig.registerTool(
         {
             name: 'get_weather',

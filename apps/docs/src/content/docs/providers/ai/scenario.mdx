@@ -47,6 +47,7 @@ or a list of `ScenarioStep`s:
 | `{ text }` | streams the text, drawn as [Markdown](/guides/markdown/) once a Markdown plugin is set up |
 | `{ thinking }` | streams reasoning |
 | `{ tool, input?, id? }` | calls the tool of that name: the loop runs the handler you registered and calls the provider again with its result |
+| `{ subagents, toolName?, id? }` | delegates to [sub-agents](#sub-agents), each playing turns of its own |
 | `{ error }` | fails the turn with that message; the steps after it do not run |
 | `{ sources, citations? }` | sends the [sources](/guides/citations/) the turn's text cites, and where — offsets into the text the turn has streamed |
 | `{ wait }` | pauses for that many milliseconds |
@@ -108,6 +109,46 @@ in a `match` of your own, from the last message: earlier results stay in the his
 later call. It returns a scenario's key, or `undefined` to leave the call to the rule above, which
 ships as `defaultMatch`; a key it does not know streams an empty turn and says so in the console.
 Here the creation warning is expected: your `match` routes the result.
+
+## Sub-agents
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+const provider = createScenarioProvider({
+  turns: [
+    [{ text: 'Let me hand that off.' }, { subagents: [
+      { name: 'Researcher', task: 'Read the parser', turns: [
+        [{ tool: 'read_file', input: { path: 'src/parser.ts' } }],
+        'It splits the input on commas and never checks for quotes.',
+      ] },
+    ] }],
+    'The parser does not handle quoted commas. Want a fix?',
+  ],
+});
+aparteGlobalConfig.registerAIProvider(provider);
+const { tool, handler } = scenarioSubagentTool(provider);
+aparteGlobalConfig.registerTool(tool, handler);
+setupSubagents();   // one line per sub-agent
+```
+
+A `subagents` step makes the model delegate: it calls one ordinary tool, `delegate`, with
+`{ agents: [{ name, task }] }`, which is what a real model would send. Each entry is a
+`ScenarioSubagent`: its `name`, its `task` — the one message of its conversation, and the task on
+its line — and the `turns` its own model plays, answered in order, the last one repeating.
+`scenarioSubagentTool(provider)` returns that tool and its handler, which runs each sub-agent through
+the real loop as a nested run: its `{ tool }` steps run the handlers registered on the config
+(`read_file` above is yours to register), and a `subagents` step in its turn delegates again.
+Several sub-agents in one step run side by side, each on a line of its own.
+
+What the model reads back is the sub-agent's last text, or, for several, one `name: text` block
+each; a sub-agent that fails is said in a sentence and does not fail the call. Stop ends them with
+the turn. With `scenarios`, route the answer with `after: 'delegate'`, as for any tool, and name the
+tool otherwise with `toolName` on the step and `scenarioSubagentTool(provider, { name })`. The
+handler needs the agent loop: called outside it, with no `context.run`, it throws.
+[Sub-agents](/guides/sub-agents/) is what the page draws.
 
 ## Pace, usage and models
 

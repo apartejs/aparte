@@ -199,7 +199,7 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/plugin-compaction', 0],
     // plugin-storage-idb: the factory and its two types, on the persistence guide.
     ['@aparte/plugin-storage-idb', 0],
-    // plugin-subagents: every export is named in its README until its guide page lands.
+    // plugin-subagents: every export is on its guide (/guides/sub-agents/) or its component page.
     ['@aparte/plugin-subagents', 0],
     ['@aparte/provider-scenario', 1],
     // runner-ag-ui: the runner and its options, both on the AG-UI page.
