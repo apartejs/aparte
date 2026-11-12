@@ -472,6 +472,7 @@
     ],
     "@aparte/engine": [
       "runStreamAgent",
+      "runSubAgent",
       "toolRefusal",
       "unansweredTail"
     ],

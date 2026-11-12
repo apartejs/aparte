@@ -16,6 +16,8 @@
 // Structured-stream agent loop: runStreamAgent + its DOM-free events.
 export * from './agent/stream-events.js';
 export * from './agent/stream-run.js';
+// A tool's sub-agent: the nested loop a handler opens through its `run`.
+export * from './agent/sub-agent.js';
 // `deriveArtifactKind` lived here (D1) and left with the artifact (D7): it is
 // `@aparte/plugin-artifacts`' now, with the tool and the card it serves.
 
