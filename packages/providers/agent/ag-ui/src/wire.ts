@@ -13,6 +13,8 @@ export interface AgUiInterrupt {
     toolCallId?: string;
     responseSchema?: unknown;
     metadata?: Record<string, unknown>;
+    /** The sub-agent invocation that raised it; absent, the run's own agent. */
+    subagentRunId?: string;
 }
 
 /** The events the runner maps; any other `type` is read and ignored. */
