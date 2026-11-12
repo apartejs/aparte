@@ -1,7 +1,7 @@
 /**
  * The Agent workshop's behaviour: Markdown and highlighting, the four tools, the plan and the
- * artifact tool, the approval modes, a scripted model behind the real client, the workspace panel, and the three
- * modes (src/templates/runtime.ts).
+ * artifact tool, the approval modes, a scripted model behind the real client, its sub-agents, the workspace panel,
+ * and the three modes (src/templates/runtime.ts).
  */
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport, type AparteMessage, type AparteSegment } from '@aparte/core';
 import { setupApproval } from '@aparte/plugin-approval';
@@ -10,7 +10,8 @@ import { setupPlanCard } from '@aparte/plugin-cards/plan';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
-import { createScenarioProvider } from '@aparte/provider-scenario';
+import { setupSubagents } from '@aparte/plugin-subagents';
+import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import diff from '@shikijs/langs/diff';
 import json from '@shikijs/langs/json';
 import typescript from '@shikijs/langs/typescript';
@@ -20,7 +21,7 @@ import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { followTheme, reducedMotion, replyPacing, templateMode, typeAndSend, whenShown } from '../runtime';
 import { initialFiles } from './repo';
-import { PLAY_QUESTION, route, SCENARIOS, SEED_STEPS, SUGGESTIONS } from './scenario';
+import { INVESTIGATORS, PLAY_QUESTION, route, SCENARIOS, SEED_STEPS, SUGGESTIONS } from './scenario';
 import { createToolbox, PLAN_TOOL, planReceipt, statusOf, summaryOf, TOOLS, type ToolName } from './tools';
 import { createWorkspace } from './workspace';
 
@@ -96,6 +97,23 @@ async function main(): Promise<void> {
         models: [{ id: 'workshop-coder', name: 'Coder', contextWindow: 32000, capabilities: ['streaming', 'function_calling'] }],
     });
     aparteGlobalConfig.registerAIProvider(model);
+
+    // Sub-agents: the model hands parts of a job to `delegate`, which runs each one as a loop of
+    // its own on this page's tools. Each gets one line under the call (its name, its task, what it
+    // is running, "1 tool · 2 s"), and the line opens on its own rows and terminal output.
+    const delegate = scenarioSubagentTool(model);
+    aparteGlobalConfig.registerTool(delegate.tool, delegate.handler);
+    setupSubagents({ details: 'transcript' });
+    // Read like the other rows: `delegate to 3 sub-agents`, saying Running and Done, and each
+    // sub-agent's line (named by the agent) too.
+    aparteGlobalConfig.registerToolDisplay(delegate.tool.name, {
+        summary: (segment) => {
+            const agents = segment.toolCall.input['agents'];
+            return Array.isArray(agents) && agents.length > 1 ? `to ${agents.length} sub-agents` : '';
+        },
+        quiet: false,
+    });
+    for (const agent of INVESTIGATORS) aparteGlobalConfig.registerToolDisplay(agent.name, { quiet: false });
     aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'workshop-coder' });
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
     new AparteClient().start();

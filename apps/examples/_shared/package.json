@@ -18,6 +18,7 @@
     "@aparte/plugin-katex": "workspace:*",
     "@aparte/plugin-mermaid": "workspace:*",
     "@aparte/plugin-streaming-markdown": "workspace:*",
+    "@aparte/plugin-subagents": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/runner-ag-ui": "workspace:*",

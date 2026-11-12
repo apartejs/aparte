@@ -117,6 +117,35 @@ export class ChatPage {
         return this.scope.locator(`.aparte-segment-${type}`);
     }
 
+    /** The tool rows of a reply (the last one by default), in order. */
+    toolRows(reply: Locator = this.lastReply): Locator {
+        return reply.locator('.aparte-segment-tool-call');
+    }
+
+    /**
+     * The tool row a reply shows under this NAME — what a person reads first on the row: the
+     * app's label, else the one a plugin gives (a sub-agent's line reads its agent's name),
+     * else the tool's identifier. Exact, so "Changelog reader" never matches a longer name.
+     */
+    toolRow(name: string, reply: Locator = this.lastReply): Locator {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const exact = new RegExp(`^${escaped}$`);
+        return this.toolRows(reply).filter({ has: this.page.locator('.aparte-tool-name', { hasText: exact }) });
+    }
+
+    /** What a row targets (the summary, or a sub-agent's task), its live activity, and its note ("1 tool · 2s"). */
+    toolTarget(row: Locator): Locator {
+        return row.locator('.aparte-tool-target').first();
+    }
+
+    toolActivity(row: Locator): Locator {
+        return row.locator('.aparte-tool-activity').first();
+    }
+
+    toolNote(row: Locator): Locator {
+        return row.locator('.aparte-tool-note').first();
+    }
+
     /**
      * The composer's bottom row. One element in every example -- vanilla writes it
      * by hand, the four wrappers render it from their `toolbar` slot -- which is the

@@ -20,6 +20,7 @@
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/plugin-subagents": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/react": "workspace:*",

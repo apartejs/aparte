@@ -170,6 +170,9 @@ importers:
       '@aparte/plugin-streaming-markdown':
         specifier: workspace:*
         version: link:../../packages/plugins/streaming-markdown
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../packages/plugins/subagents
       '@aparte/plugin-titler':
         specifier: workspace:*
         version: link:../../packages/plugins/titler
@@ -278,6 +281,9 @@ importers:
       '@aparte/plugin-streaming-markdown':
         specifier: workspace:*
         version: link:../../../packages/plugins/streaming-markdown
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/plugin-triggers':
         specifier: workspace:*
         version: link:../../../packages/plugins/triggers
@@ -320,6 +326,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/runner-ag-ui':
         specifier: workspace:*
         version: link:../../../packages/providers/agent/ag-ui
@@ -378,6 +387,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -439,6 +451,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -509,6 +524,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -576,6 +594,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -643,6 +664,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
@@ -708,6 +732,9 @@ importers:
       '@aparte/plugin-shiki':
         specifier: workspace:*
         version: link:../../../packages/plugins/shiki
+      '@aparte/plugin-subagents':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/subagents
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat

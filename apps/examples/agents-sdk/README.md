@@ -29,12 +29,23 @@ To run it on a real model, set the environment before `dev`:
 | `server/ag-ui.ts` | the bridge: AG-UI's `RunAgentInput` in, AG-UI events out, as a Web `Request` → `Response` handler |
 | `server/model.ts` | which model, from the environment |
 | `server/demo-model.ts` | the keyless model, on the SDK's `ScriptedModel` |
-| `server/endpoint.ts` | the three together, mounted at `/agent` by `vite.config.ts` |
-| `src/main.ts` | the page: `AparteClient` with `createAgUiRunner({ endpoint: '/agent' })` |
+| `server/subagents.ts` | a scripted AG-UI run with two sub-agents, replayed as written |
+| `server/endpoint.ts` | the agent, mounted at `/agent` by `vite.config.ts`, and the scripted run at `/subagents` |
+| `src/main.ts` | the page: `AparteClient` with `createAgUiRunner({ endpoint: '/agent' })`, and `setupSubagents()` |
 
 `server/__tests__/ag-ui.test.ts` runs the agent with no key and no network, checks every event
 against AG-UI's schemas, reads the stream with aparté's AG-UI runner, and runs the same agent over
 HTTP against a local Chat Completions server. `e2e/tests/agents-sdk.spec.ts` drives the page.
+
+## Sub-agents
+
+Open the page with `?subagents` to read a scripted run instead of the agent: the support agent
+calls `delegate`, which opens an order tracker (`parentToolCallId`), and starts a returns desk on
+its own; their events interleave, each tagged with its `subagentRunId`, and the agent answers once
+both are back. `@aparte/plugin-subagents` gives each one a line, and their words stay out of the
+reply. The Agents SDK streams no sub-agents itself, so this route replays the events rather than
+running it. `server/__tests__/subagents.test.ts` reads the run with aparté's AG-UI runner, and
+`e2e/tests/agents-sdk-subagents.spec.ts` drives the page.
 
 ## What the bridge leaves out
 

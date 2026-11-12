@@ -10,7 +10,7 @@
  */
 import { contentToText, type AparteChatRequest } from '@aparte/core';
 import type { PlanStatus } from '@aparte/plugin-cards/plan';
-import type { Scenario, ScenarioStep, ScenarioTurn } from '@aparte/provider-scenario';
+import type { Scenario, ScenarioStep, ScenarioSubagent, ScenarioTurn } from '@aparte/provider-scenario';
 import { initialFiles } from './repo';
 import { PLAN_TOOL, type PlanStep, type ToolName } from './tools';
 import { unifiedDiff } from './workspace';
@@ -23,11 +23,13 @@ export const SUGGESTIONS = [
     { label: 'Fix issue #42', prompt: PLAY_QUESTION },
     { label: 'Explain the parser', prompt: "How does parse() read '1h 30m'? Walk me through it." },
     { label: 'Run the tests', prompt: 'Run the whole test suite.' },
+    { label: 'Investigate with sub-agents', prompt: 'Split issue #42 between sub-agents: one reads the parser, one finds its callers, one runs the tests. Then fix it.' },
 ];
 
 const FIX = /#42|1\.5h|decimal|\bfix\b/i;
 const EXPLAIN = /how does|explain|walk me/i;
 const APPLY = /apply it|go ahead/i;
+const DELEGATE = /sub-?agents?\b/i;
 
 const FIX_EDIT = { path: 'src/parse.ts', find: 'parseInt(amount, 10)', replace: 'Number(amount)' };
 const PARSER_TESTS = 'pnpm test tests/parse.test.ts';
@@ -51,6 +53,41 @@ function plan(...statuses: PlanStatus[]): { tool: typeof PLAN_TOOL.name; input: 
     const steps: PlanStep[] = FIX_STEPS.map(([title, activeForm], i) => ({ title, activeForm, status: statuses[i] ?? 'pending' }));
     return { tool: PLAN_TOOL.name, input: { title: 'Fix #42', steps } };
 }
+
+/** The fix itself, once the cause is known: the plan moves to its third step, and the edit. */
+const WRITE_FIX: ScenarioStep[] = [plan('done', 'done', 'in-progress'), { tool: 'write_file', input: FIX_EDIT }];
+
+/**
+ * The sub-agents the investigation is split between, each with its task and its own model's
+ * turns. They call the page's real tools, so their reads open in Files and their test run lands
+ * in Terminal, and their rows are drawn like the agent's own under each line (app.ts).
+ */
+export const INVESTIGATORS: ScenarioSubagent[] = [
+    {
+        name: 'Parser reader',
+        task: 'Read src/parse.ts and find where the amount becomes a number',
+        turns: [
+            [{ thinking: 'The amount is captured by the pattern, then turned into a number in the replace callback.' }, { tool: 'read_file', input: { path: 'src/parse.ts' } }],
+            'Line 15 reads the amount with `parseInt(amount, 10)`, which stops at the decimal point: `1.5` becomes `1`. The pattern on line 7 already accepts decimals, so that call is the only place the fraction is lost.',
+        ],
+    },
+    {
+        name: 'Caller search',
+        task: 'Find every caller of parse() in the repository',
+        turns: [
+            [{ wait: 400 }, { tool: 'search', input: { query: 'parse(' } }],
+            "No code in `src/` calls `parse()` besides its own definition. Its callers are the tests, six in `tests/parse.test.ts` and the round-trip in `tests/format.test.ts`, and the README, which already promises decimal amounts: `parse('1.5h')`.",
+        ],
+    },
+    {
+        name: 'Test runner',
+        task: 'Run the test suite and report what fails',
+        turns: [
+            [{ wait: 900 }, { tool: 'run_command', input: { command: 'pnpm test' } }],
+            '1 of 11 tests fails: *reads decimal amounts* in `tests/parse.test.ts`, `expected 3600000 to be 5400000`. The other 10 pass.',
+        ],
+    },
+];
 
 /**
  * The tests pass after the fix: the plan's last update, then the patch. Reached from the fix run,
@@ -78,6 +115,26 @@ function usage(inputTokens: number, outputTokens: number): ScenarioStep {
 export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
     default:
         'That is outside what this demo agent is scripted for. I work in **spanwise**, the repository beside this chat: I can search and read it, edit its files and run its tests, and I ask before I write or run anything. Try one of the suggestions.',
+
+    // ── Investigate #42 with sub-agents, then fix it ─────────────────────────
+    // Before `fix`, whose pattern the prompt also matches. The three run side by side; once they
+    // are back the agent writes the fix, and the fix path below takes over from its edit
+    // (`rerun`, `verified`, `wrapped`).
+    investigate: {
+        when: DELEGATE,
+        turn: [
+            { thinking: 'Three independent questions: how the amount is read, who calls parse(), and what the tests say. They can run at once.' },
+            { text: 'Three questions, three sub-agents: what `parse` does with the amount, who calls it, and what the tests say.' },
+            { subagents: INVESTIGATORS },
+        ],
+    },
+    investigated: {
+        after: 'delegate',
+        turn: [
+            { text: 'All three point at one line: `parseInt` on line 15 drops the fraction, and *reads decimal amounts* is the one failing test. No code in `src/` calls `parse()`, so reading the amount with `Number` changes nothing else.' },
+            ...WRITE_FIX,
+        ],
+    },
 
     // ── Fix issue #42 ────────────────────────────────────────────────────────
     // The plan first, the way a coding agent writes its task list before it starts; it updates
@@ -108,8 +165,7 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
         after: 'run_command',
         turn: [
             { text: 'Reproduced: *reads decimal amounts* fails with `expected 3600000 to be 5400000`, one hour instead of ninety minutes. `Number` keeps the fraction.' },
-            plan('done', 'done', 'in-progress'),
-            { tool: 'write_file', input: FIX_EDIT },
+            ...WRITE_FIX,
         ],
     },
     rerun: { after: 'write_file', turn: [{ tool: 'run_command', input: { command: PARSER_TESTS } }] },

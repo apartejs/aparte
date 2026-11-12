@@ -50,6 +50,7 @@
         "@aparte/plugin-mermaid": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/plugin-streaming-markdown": "workspace:*",
+        "@aparte/plugin-subagents": "workspace:*",
         "@aparte/plugin-titler": "workspace:*",
         "@aparte/plugin-triggers": "workspace:*",
         "katex": "^0.19.1",

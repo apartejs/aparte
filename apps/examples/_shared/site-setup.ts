@@ -52,10 +52,12 @@ import { setupApproval } from '@aparte/plugin-approval';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
 import { runStreamAgent } from '@aparte/engine';
 import { setupCompaction } from '@aparte/plugin-compaction';
+import { setupSubagents } from '@aparte/plugin-subagents';
 import type { AparteTrigger } from '@aparte/plugin-triggers';
-import { createScenarioProvider } from '@aparte/provider-scenario';
+import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
+import { DELEGATE, delegateLabel, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -186,8 +188,11 @@ async function run(): Promise<SiteSetup> {
     //    A Chat node's buttons (a workflow with response nodes) are asked at the composer.
     if (n8nUrl) setupN8nButtons();
     if (scenarioMode) {
-        aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+        const scripted = createScenarioProvider({
             scenarios: {
+                // The three sub-agent paths (sub-agents.ts), first: their prompts also say
+                // "release", which the showcase's `release` listens for.
+                ...SUBAGENT_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,
@@ -201,10 +206,18 @@ async function run(): Promise<SiteSetup> {
             match: (request) => {
                 const last = request.messages[request.messages.length - 1];
                 if (last?.role !== 'tool') return undefined;
-                return REFUSAL.test(contentToText(last.content)) ? 'refused' : undefined;
+                return REFUSAL.test(contentToText(last.content)) ? 'refused' : routeDelegation(request);
             },
             models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
-        }));
+        });
+        aparteGlobalConfig.registerAIProvider(scripted);
+        // The tool the scripted model delegates through: it runs each sub-agent's script as a
+        // nested run of the real loop, so their calls go through the handlers and the
+        // approval policy below. Not under a server or an agent of its own, like the weather.
+        if (!agentUrl && !agUiUrl && !n8nUrl) {
+            const { tool, handler } = scenarioSubagentTool(scripted);
+            aparteGlobalConfig.registerTool(tool, handler);
+        }
         // The showcase's weather turn calls this tool. An app that never registered it
         // would see the call fail — also a scenario, but the round-trip is the point here.
         //
@@ -271,6 +284,14 @@ async function run(): Promise<SiteSetup> {
     aparteGlobalConfig.registerToolDisplay('read_file', { label: tense('Reading a file…', 'Read a file', 'Read file'), icon: 'file', summary: (s) => arg(s, 'path') });
     aparteGlobalConfig.registerToolDisplay('write_file', { label: tense('Writing a file…', 'Wrote a file', 'Write file'), icon: 'edit', summary: (s) => arg(s, 'path') });
     aparteGlobalConfig.registerToolDisplay('run_command', { label: tense('Running a command…', 'Ran a command', 'Run command'), icon: 'terminal', summary: (s) => arg(s, 'cmd', 'command') });
+    // A call that opened several sub-agents says so, above their lines; one that opened ONE is
+    // that sub-agent's line, and keeps the name `@aparte/plugin-subagents` gives it.
+    aparteGlobalConfig.registerToolDisplay(DELEGATE, { label: delegateLabel });
+
+    // 2a''. Sub-agents: one line each — its name, its task, what it is doing, "1 tool · 3 s" —
+    //       with its own text and calls kept out of the reply. Whichever model answers: an AG-UI
+    //       agent's sub-agents get the same lines as the scripted model's.
+    setupSubagents();
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model
