@@ -107,6 +107,20 @@ composer.addEventListener('aparte-composer-change', (e) => {
 myButton.addEventListener('click', () => composer.submit());
 ```
 
+A letter typed after a click or a selection in the chat goes to the input: someone who selects a
+few words of a reply to copy them goes on typing without clicking the input again. Only when the
+person was last in the chat, so the page around an embedded chat keeps its own keys. For an app
+whose page is the chat, `type-to-focus="page"` takes a letter typed anywhere in the page, and
+`"off"` turns it off:
+
+```html
+<aparte-chat type-to-focus="page"></aparte-chat>
+```
+
+On the framework components the prop is `typeToFocus`, and its three values are the type
+`AparteTypeToFocus`. A key typed in a field, a shortcut, the space bar, <kbd>Tab</kbd> and the
+arrows are never taken.
+
 ## API
 
 ### `<aparte-composer>`

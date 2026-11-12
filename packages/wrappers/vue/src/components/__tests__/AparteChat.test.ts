@@ -525,3 +525,21 @@ describe('AparteChat while a conversation is on its way', () => {
         expect((wrapper.element as HTMLElement).querySelector('aparte-composer')?.hasAttribute('disabled')).toBe(true);
     });
 });
+
+describe('typeToFocus', () => {
+    it('writes nothing for the default and the value for the two others', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        const composer = wrapper.element.querySelector('aparte-composer')!;
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+
+        await wrapper.setProps({ typeToFocus: 'page' });
+        expect(composer.getAttribute('type-to-focus')).toBe('page');
+
+        await wrapper.setProps({ typeToFocus: 'off' });
+        expect(composer.getAttribute('type-to-focus')).toBe('off');
+
+        await wrapper.setProps({ typeToFocus: 'chat' });
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+        wrapper.unmount();
+    });
+});

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -19,6 +19,8 @@ interface Props {
   typingText?: string;
   /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
   submitOnEnter?: boolean;
+  /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
+  typeToFocus?: AparteTypeToFocus;
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
   layoutTransitionMs?: number;
   /**
@@ -74,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
   isTyping: false,
   typingText: undefined,
   submitOnEnter: true,
+  typeToFocus: 'chat',
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
   loading: false,
@@ -310,6 +313,7 @@ defineExpose({
       :placeholder.attr="placeholder"
       :disabled.attr="disabled || waiting ? '' : null"
       :submit-on-enter="submitOnEnter ? null : 'false'"
+      :type-to-focus="typeToFocus === 'chat' ? null : typeToFocus"
     >
       <!-- Custom composer via the `composer` slot; falls back to the default
            shell (input · send, plus the attachment primitives when `attachments`

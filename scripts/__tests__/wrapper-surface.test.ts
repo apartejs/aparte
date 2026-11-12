@@ -100,12 +100,12 @@ describe('the wrapper data-prop and render-hook proofs', () => {
         // to know it is checked separately) but excluded from the gate's loop.
         expect(PROPS.map((p) => p.react)).toEqual([
             'id', 'messages', 'placeholder', 'disabled', 'isTyping', 'typingText',
-            'submitOnEnter', 'layoutTransitionMs', 'centerWhenEmpty', 'loading',
-            'overlayComposer', 'attachments', 'elicitation', 'className', 'style',
-            'conversationId', 'renderBubble', 'config',
+            'submitOnEnter', 'typeToFocus', 'layoutTransitionMs', 'centerWhenEmpty',
+            'loading', 'overlayComposer', 'attachments', 'elicitation', 'className',
+            'style', 'conversationId', 'renderBubble', 'config',
         ]);
         expect(PROPS.find((p) => p.react === 'renderBubble')?.kind).toBe('render-hook');
-        expect(PROPS.filter((p) => p.kind === 'data')).toHaveLength(17);
+        expect(PROPS.filter((p) => p.kind === 'data')).toHaveLength(18);
     });
 
     const sources = {

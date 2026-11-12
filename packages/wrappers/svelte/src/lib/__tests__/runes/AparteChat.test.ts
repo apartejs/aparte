@@ -213,3 +213,23 @@ describe('<AparteChat> for Svelte 5', () => {
         expect(api.getMessages().map((m) => m.id)).toContain('a1');
     });
 });
+
+describe('typeToFocus', () => {
+    afterEach(cleanup);
+
+    it('writes nothing for the default and the value for the two others', async () => {
+        const { container, rerender } = render(AparteChat);
+        const composer = container.querySelector('aparte-composer')!;
+        await tick();
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+
+        await rerender({ typeToFocus: 'page' });
+        expect(composer.getAttribute('type-to-focus')).toBe('page');
+
+        await rerender({ typeToFocus: 'off' });
+        expect(composer.getAttribute('type-to-focus')).toBe('off');
+
+        await rerender({ typeToFocus: 'chat' });
+        expect(composer.hasAttribute('type-to-focus')).toBe(false);
+    });
+});
