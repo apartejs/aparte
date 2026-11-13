@@ -64,7 +64,7 @@ describe('a sub-agent never ends the run', () => {
         const { transportCall, requests } = scripted({ child: [[text('never'), done]] });
         // A run of the parent's shape, handed by hand: what a tool sees once the Stop landed.
         const run = {
-            canAsk: true, transportCall, toolLookup: () => undefined, maxTurns: 10, toolTimeoutMs: 1000,
+            canAsk: true, canBackground: true, transportCall, toolLookup: () => undefined, maxTurns: 10, toolTimeoutMs: 1000,
             idGen: (p: string) => `${p}-0`,
             startAgent: () => { throw new Error('must not open'); },
         };
