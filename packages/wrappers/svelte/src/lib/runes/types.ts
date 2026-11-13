@@ -1,5 +1,5 @@
 import type { Snippet } from 'svelte';
-import type { AparteConfig } from '@aparte/core';
+import type { AparteConfig, AparteTypeToFocus } from '@aparte/core';
 import type { AparteActionEventDetail, AparteMessage, AparteSendEventDetail } from '../types.js';
 
 /**
@@ -19,6 +19,8 @@ export interface AparteChatProps {
     typingText?: string;
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
     submitOnEnter?: boolean;
+    /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
+    typeToFocus?: AparteTypeToFocus;
     /** Freeze viewport spacer recalculation for this many ms after a conversation swap. */
     layoutTransitionMs?: number;
     /** The composer sits centred, with `emptyState` above it, until the first message. */

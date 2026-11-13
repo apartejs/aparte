@@ -188,7 +188,7 @@ export type { AparteLauncherToggleDetail } from './components/index.js';
 export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 // From its own file, not the components barrel: it registers a code language on a config and

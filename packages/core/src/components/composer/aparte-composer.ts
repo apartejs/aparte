@@ -1,4 +1,5 @@
 import type { AparteComposerInput } from './aparte-composer-input.js';
+import { installTypeToFocus } from './type-to-focus.js';
 import type { AparteComposerAttachments } from './aparte-composer-attachments.js';
 import type { AparteAttachmentState } from '../../types/index.js';
 import type { AparteSendEventDetail } from '../../types/index.js';
@@ -149,6 +150,11 @@ export interface AparteComposerChangeEventDetail {
  * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
  *   default); set it to the string `"false"` to swap them. Read lazily by the
  *   `submitOnEnter` getter rather than observed.
+ * @attr {'chat'|'page'|'off'} type-to-focus - A key typed while no field has the caret
+ *   returns to the input. `chat` (the default): only after a click or a selection in the
+ *   chat, so the page around an embedded chat keeps its own keys. `page`: from anywhere in
+ *   the page, for an app whose page is the chat. `off`: never. Read at every key rather
+ *   than observed.
  * @attr {boolean} data-panel-active - Reflected BY the element while a panel (an elicitation, an
  *   approval) is mounted inside it; the shipped stylesheet keys off it. Read-only.
  * @attr {string} data-panel-mode - Reflected BY the element while a panel is active: what the send
@@ -284,6 +290,9 @@ export class AparteComposer extends HTMLElement {
         return ['placeholder', 'disabled', 'target'];
     }
 
+    /** Stops the document listeners of `type-to-focus`; null while disconnected. */
+    private _offTypeToFocus: (() => void) | null = null;
+
     connectedCallback(): void {
         window.addEventListener('aparte-message-start', this._onMessageStart);
         window.addEventListener('aparte-message-done', this._onMessageDone);
@@ -301,6 +310,8 @@ export class AparteComposer extends HTMLElement {
         queueMicrotask(() => this._warnIfUnattached());
         this._evaluateModelGate();
         this._applyDirection();
+        this._offTypeToFocus?.();
+        this._offTypeToFocus = installTypeToFocus(this);
     }
 
     disconnectedCallback(): void {
@@ -310,6 +321,8 @@ export class AparteComposer extends HTMLElement {
         window.removeEventListener('aparte-message-aborted', this._onMessageDone);
         window.removeEventListener('aparte-config-change', this._onConfigChangeEvent);
         this._listeners.clear();
+        this._offTypeToFocus?.();
+        this._offTypeToFocus = null;
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {

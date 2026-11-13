@@ -8,7 +8,7 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
 /** Detail of `aparte-sidebar-toggle`: the state just entered. */
 export interface AparteSidebarToggleDetail {
     collapsed: boolean;
-    /** True while the sidebar is a drawer — the window is under the breakpoint. */
+    /** True while the sidebar is a drawer: the window is under the breakpoint, or it is in a floating chat's card. */
     drawer: boolean;
 }
 
@@ -29,7 +29,8 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  *
  * **Collapse.** `collapsed` is an attribute, reflected, so the host can set it, read
  * it and persist it. Any element carrying `data-aparte-sidebar-toggle` anywhere on
- * the page toggles the nearest sidebar (or the one whose id the attribute names), so
+ * the page toggles its sidebar: the one it is in, else the one of the `.aparte-app-shell`
+ * it is in, else the first of the page (or the one whose id the attribute names). So
  * a hamburger in the header needs no script — and the sidebar keeps `aria-expanded`
  * and `aria-controls` on that control in step, whoever changed the state (it gives
  * itself an id when the host wrote none). `aparte-sidebar-toggle` fires on every
@@ -44,6 +45,14 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * get away with. Collapsed — folded as a column or slid off as a drawer — it carries
  * `inert` and `aria-hidden`, so nothing invisible keeps a tab stop.
  *
+ * **In the floating chat.** Inside `<aparte-launcher>` the chat is a card a few hundred pixels
+ * wide in the widest window, so a sidebar that is the direct child of the card's
+ * `.aparte-app-shell` follows the chat and not the window: a drawer in the card, held by the
+ * shell, whose scrim covers the card and not the page; a column again once the chat fills the
+ * window (maximized, unless `maximizable="panel"`, which is still narrow); and closed when the
+ * chat closes. `breakpoint="none"` keeps it a column there too. Anywhere else in a card it
+ * follows the window, as it does on a page.
+ *
  * **Search.** An input carrying `data-aparte-sidebar-search` filters the conversation
  * list below it by title as the user types — rows that do not match are hidden, and a
  * date group with nothing left hides with them. Client-side, on the titles the list
@@ -52,8 +61,8 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * @element aparte-sidebar
  *
  * @attr {boolean} collapsed - Hidden (in the flow) or closed (as a drawer). Reflected; set it to start closed.
- * @attr {string} breakpoint - The window width under which the sidebar becomes a drawer: a length (default `48rem`), or `none` for a column that never does.
- * @attr {boolean} data-drawer - Reflected BY the element while the window is narrower than `breakpoint` (48rem unless you set it). Read-only.
+ * @attr {string} breakpoint - The window width under which the sidebar becomes a drawer: a length (default `48rem`), or `none` for a column that never does, in a floating chat's card included.
+ * @attr {boolean} data-drawer - Reflected BY the element while the window is narrower than `breakpoint` (48rem unless you set it), and in the card of an `<aparte-launcher>` when it is the direct child of the card's `.aparte-app-shell`. Read-only.
  *
  * @fires {CustomEvent<AparteSidebarToggleDetail>} aparte-sidebar-toggle - The sidebar opened or closed, by a toggle, by Escape, by a click on the scrim or by `collapsed` being set. Bubbles.
  *
@@ -136,6 +145,10 @@ export class AparteSidebar extends HTMLElement {
     /** Raised around `_applyDrawer`'s own writes, so the breakpoint is never read as a host's intent. */
     private _auto = false;
 
+    /** The floating chat this sidebar is in, if any: its size decides the drawer, not the window's. */
+    private _launcher: Element | null = null;
+    private _launcherWatch: MutationObserver | null = null;
+
     /**
      * The element wrote `inert`/`aria-hidden` and may take them back. A host that inerts
      * the sidebar behind its own modal wrote them itself, and `_syncHidden` runs on every
@@ -157,7 +170,7 @@ export class AparteSidebar extends HTMLElement {
         this.toggleAttribute('collapsed', presenceOn(value));
     }
 
-    /** True while the window is under the breakpoint and the sidebar is a drawer. */
+    /** True while the sidebar is a drawer: the window is under the breakpoint, or it is in a floating chat's card. */
     get drawer(): boolean {
         return this.hasAttribute('data-drawer');
     }
@@ -185,6 +198,11 @@ export class AparteSidebar extends HTMLElement {
         document.addEventListener('keydown', this._onKeydown);
         document.addEventListener('click', this._onDocumentClick);
         window.addEventListener('aparte-config-change', this._onConfigChange);
+        this._launcher = this.closest('aparte-launcher');
+        if (this._launcher && typeof MutationObserver === 'function') {
+            this._launcherWatch = new MutationObserver(() => this._followLauncher());
+            this._launcherWatch.observe(this._launcher, { attributes: true, attributeFilter: ['open', 'maximized', 'maximizable'] });
+        }
         this._watchBreakpoint();
         this._syncHidden();
         // Last: `_watchBreakpoint` may have closed the sidebar on its way in, and that
@@ -204,15 +222,61 @@ export class AparteSidebar extends HTMLElement {
         this._media?.removeEventListener('change', this._onMediaChange);
         this._media = null;
         const attr = (this.getAttribute('breakpoint') ?? '').trim();
-        if (attr === 'none') {
-            this._applyDrawer(false);
+        if (attr !== 'none' && typeof matchMedia === 'function') {
+            const query = attr ? `(max-width: ${attr})` : DRAWER_QUERY;
+            this._media = matchMedia(query);
+            this._media.addEventListener('change', this._onMediaChange);
+        } else if (attr !== 'none' && !this._launcher) {
+            // No media queries here and no card to follow: the state is left as it stands.
             return;
         }
-        if (typeof matchMedia !== 'function') return;
-        const query = attr ? `(max-width: ${attr})` : DRAWER_QUERY;
-        this._media = matchMedia(query);
-        this._media.addEventListener('change', this._onMediaChange);
-        this._applyDrawer(this._media.matches);
+        this._applyDrawer(this._wantsDrawer());
+    }
+
+    /**
+     * A drawer under the window's breakpoint, and in the card of a floating chat whatever
+     * the window: the card is narrow in the widest one. `breakpoint="none"` is the host's
+     * word for a column at any width, and it holds in a card too.
+     */
+    private _wantsDrawer(): boolean {
+        if ((this.getAttribute('breakpoint') ?? '').trim() === 'none') return false;
+        return (this._media?.matches ?? false) || this._inCard();
+    }
+
+    /**
+     * In a floating chat that does not fill the window: its card, or the panel
+     * `maximizable="panel"` runs along the window's edge, which is as narrow. Only as the
+     * child of the card's shell, which is what holds the drawer there: anywhere else in a
+     * card a drawer is fixed to the window, and one forced on a wide window would open over
+     * the page the chat floats on.
+     */
+    private _inCard(): boolean {
+        const launcher = this._launcher;
+        if (!launcher || !this._cardShell()) return false;
+        return !(launcher.hasAttribute('maximized') && launcher.getAttribute('maximizable') !== 'panel');
+    }
+
+    /**
+     * The floating chat opened, closed or changed size. Its size decides the drawer, and a
+     * drawer does not outlive the chat it is in: left open under a closed chat it would still
+     * answer Escape for the whole page, and stand over the chat when it opens again.
+     */
+    private _followLauncher(): void {
+        this._applyDrawer(this._wantsDrawer());
+        if (this.drawer && !this.collapsed && !this._launcher?.hasAttribute('open')) {
+            // No focus to hand back: the chat's own button has it.
+            this._opener = null;
+            this.close();
+        }
+    }
+
+    /**
+     * The shell the scrim covers in a floating chat, when the sidebar is that shell's own
+     * child: the stylesheet positions the drawer against it there (`sidebar.css`).
+     */
+    private _cardShell(): Element | null {
+        const shell = this._launcher ? this.parentElement : null;
+        return shell?.classList.contains('aparte-app-shell') ? shell : null;
     }
 
     disconnectedCallback(): void {
@@ -224,6 +288,12 @@ export class AparteSidebar extends HTMLElement {
         window.removeEventListener('aparte-config-change', this._onConfigChange);
         this._media?.removeEventListener('change', this._onMediaChange);
         this._media = null;
+        this._launcherWatch?.disconnect();
+        this._launcherWatch = null;
+        this._launcher = null;
+        // In a floating chat the scrim is the shell's child, not this element's: it would stay.
+        this._scrim?.remove();
+        this._scrim = null;
         this._ready = false;
     }
 
@@ -275,7 +345,7 @@ export class AparteSidebar extends HTMLElement {
 
     // ─── Drawer ───────────────────────────────────────────────────────────
 
-    private _onMediaChange = (e: MediaQueryListEvent): void => this._applyDrawer(e.matches);
+    private _onMediaChange = (): void => this._applyDrawer(this._wantsDrawer());
 
     /**
      * Entering the drawer state closes the sidebar: a narrow window that opens on an
@@ -284,6 +354,10 @@ export class AparteSidebar extends HTMLElement {
      */
     private _applyDrawer(drawer: boolean): void {
         const was = this.drawer;
+        // The control that opened the drawer is where the focus goes back when THAT drawer
+        // closes. Kept across a change of state, it took the focus from whatever brought the
+        // drawer back: the button that restores a maximized chat to its card.
+        if (drawer !== was) this._opener = null;
         this.toggleAttribute('data-drawer', drawer);
         this._auto = true;
         try {
@@ -372,7 +446,16 @@ export class AparteSidebar extends HTMLElement {
             this._scrim.className = 'aparte-sidebar__scrim';
             this._scrim.setAttribute('aria-hidden', 'true');
             this._scrim.addEventListener('click', () => this.close());
-            this.appendChild(this._scrim);
+            // Over the page from inside this element, which is fixed to the window. In a
+            // floating chat the drawer is positioned against the card's shell instead, and a
+            // child of this element would be clipped to it: the scrim goes beside it.
+            const shell = this._cardShell();
+            if (shell) {
+                this._scrim.classList.add('aparte-sidebar__scrim--contained');
+                shell.appendChild(this._scrim);
+            } else {
+                this.appendChild(this._scrim);
+            }
         } else if (!wanted && this._scrim) {
             this._scrim.remove();
             this._scrim = null;
@@ -382,6 +465,9 @@ export class AparteSidebar extends HTMLElement {
     private _onKeydown = (e: KeyboardEvent): void => {
         if (!this.drawer || this.collapsed) return;
         if (e.key === 'Escape') {
+            // Answered already by something inside, which cancelled it: a row's menu closing.
+            // That Escape is spent, and the next one is the drawer's.
+            if (e.defaultPrevented) return;
             e.preventDefault();
             this.close();
             return;
@@ -518,8 +604,15 @@ function visibleFocusable(root: ParentNode): HTMLElement[] {
  * control that names no id work inside a consumer's shadow root — and what stops a
  * sidebar in the light DOM from answering it.
  */
+/**
+ * The sidebar a control drives when it names none: the one it is in, else the one of the
+ * shell it is in, else the first of its tree. The shell comes before the page because a page
+ * can hold two: its own, and the one in a floating chat's card, whose header toggle opened the
+ * page's column.
+ */
 function nearestSidebar(control: HTMLElement): Element | null {
     return control.closest('aparte-sidebar')
+        ?? control.closest('.aparte-app-shell')?.querySelector('aparte-sidebar')
         ?? rootOf(control).querySelector('aparte-sidebar')
         ?? document.querySelector('aparte-sidebar');
 }

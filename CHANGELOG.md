@@ -4,6 +4,42 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.5.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [50014a4](https://github.com/apartejs/aparte/commit/50014a4): A sidebar in the shell of an `<aparte-launcher>` card is now a drawer in that card, and `<aparte-conversation-list target="…">` drives one chat. To keep a column in the card, set `breakpoint="none"` on the sidebar.
+
+  - **A sidebar in the floating chat** followed the window's width: in a wide window it stayed a column inside a card a few hundred pixels wide, and as a drawer it opened over the page the chat floats on. As the direct child of the card's `.aparte-app-shell`, it is now a drawer in the card, its scrim covers the card, and it is a column again once the chat is maximized (not with `maximizable="panel"`, which is still narrow). Escape closes the drawer before it closes the chat, and closing the chat closes the drawer.
+  - **A shell as the card has the card's height.** `.aparte-app-shell` directly inside `<aparte-launcher>` was as tall as what it held; it now takes `--aparte-launcher-height`, like any other card.
+  - **A sidebar toggle that names no sidebar drives the one of its own shell.** `data-aparte-sidebar-toggle` in a shell's header opened the first sidebar of the page, which is not its own on a page with two shells.
+  - **Escape on a row's menu inside an open drawer** closes the menu and leaves the drawer open; it closed both.
+  - **`target` on `<aparte-conversation-list>`**: the id of the chat the list drives. A row's click then carries `targetId` in `aparte-conversation-select`, so only that chat opens the conversation; on a page with two chats, every chat used to. And `manage` acts on that chat's conversation manager, where a list beside a chat that has a configuration of its own found none.
+  - `AparteConversationSelectDetail` gains the optional `targetId`.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
+## 1.4.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [83a6ad3](https://github.com/apartejs/aparte/commit/83a6ad3): A letter typed after a click or a selection in the chat now goes to the input. Nothing to change; `type-to-focus="off"` (`typeToFocus="off"` on the framework components) turns it off.
+
+  Someone who selects a few words of a reply to copy them, then goes on typing, used to type into nothing: the click had taken the caret out of the input. The composer now takes it back on the first key that writes a character.
+
+  - It applies when the person was last in the chat: the last click was in the chat, or the focus is on one of its controls. The page around an embedded chat keeps its own keys.
+  - `type-to-focus="page"` takes a letter typed anywhere in the page, for an app whose page is the chat.
+  - Never taken: a key typed in a field (yours or the chat's), a shortcut, the space bar, Tab, Enter, the arrows, a key another handler cancelled.
+  - The attribute is read on `<aparte-composer>`, and `<aparte-chat>` forwards it. New exported type: `AparteTypeToFocus`.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.3.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

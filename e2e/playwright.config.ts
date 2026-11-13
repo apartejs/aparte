@@ -174,6 +174,10 @@ const ARTIFACTS = /artifacts\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
 const TOOLBAR = /composer-toolbar\.spec\.ts/;
+// A key typed in the chat returns to the input. On all five, like TOOLBAR: the composer has
+// to find "the chat" around it, which is `<aparte-chat>` in raw core and under Angular and a
+// `[data-aparte-chat]` div under React, Vue and Svelte.
+const TYPE_TO_FOCUS = /type-to-focus\.spec\.ts/;
 // The scroll button's rendered geometry (sticky vs the spacer). Both transcript
 // modes matter: vanilla is core mode (absolute button), react is framework-managed
 // (sticky inside the scrolling host) - where it floated `padding + spacer` too high.
@@ -320,24 +324,24 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS] :
+    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS] :
+    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS] :
     // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
     // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
     // set it before the element is inserted, so only Angular proves the viewport follows it.
-    [SMOKE, REAL, AXE, TOOLBAR, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...(k === 'angular' ? [OVERLAY] : [])];
+    [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

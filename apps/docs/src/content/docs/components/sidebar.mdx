@@ -38,6 +38,12 @@ Under `breakpoint` (48rem of window by default, or `none` for a column that neve
 sidebar slides over the page. Open, it dims the page behind a scrim, moves the focus inside,
 closes on Escape or a click outside, and gives the focus back to the button that opened it.
 
+In the card of a [floating chat](/components/launcher/#with-a-list-of-conversations), as the
+direct child of the card's `.aparte-app-shell`, it is a drawer whatever the window's width,
+since the card is narrow in the widest window: it slides over the card, not over the page, and
+is a column again once the chat is maximized to the whole window. `breakpoint="none"` keeps a
+column there too.
+
 ## Usage
 
 <Usage />

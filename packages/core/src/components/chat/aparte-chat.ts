@@ -80,6 +80,10 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
  *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
  *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
+ * @attr {'chat'|'page'|'off'} type-to-focus - Forwarded to the composer: a key typed while no
+ *   field has the caret returns to the input. `chat` (the default): only after a click or a
+ *   selection in the chat. `page`: from anywhere in the page. `off`: never. The four wrappers
+ *   expose it as `typeToFocus`.
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  * @attr {boolean} data-empty - Reflected BY the element while its viewport holds no
  *   `<aparte-chat-bubble>` and is not `loading` — set again when the conversation is cleared.
@@ -127,7 +131,7 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'submit-on-enter', 'attachments'];
+    return ['placeholder', 'disabled', 'submit-on-enter', 'attachments', 'type-to-focus'];
   }
 
   private _observer: MutationObserver | null = null;
@@ -152,6 +156,7 @@ export class AparteChat extends HTMLElement {
     this._forwardAttr('placeholder');
     this._forwardAttr('disabled');
     this._forwardAttr('submit-on-enter');
+    this._forwardAttr('type-to-focus');
     this._syncEmptyWatch();
     this._syncLoadingWatch();
     this._watchForViewport();
@@ -174,6 +179,14 @@ export class AparteChat extends HTMLElement {
     if (oldValue === newValue) return;
     if (name === 'attachments') {
       this._syncAttachments();
+      return;
+    }
+    // Where a typed key goes says nothing about the files already picked: mirrored as is,
+    // without the attachment reset the forwards below end with.
+    if (name === 'type-to-focus') {
+      const composer = this.querySelector('aparte-composer');
+      if (newValue !== null) composer?.setAttribute(name, newValue);
+      else composer?.removeAttribute(name);
       return;
     }
     // placeholder / disabled forward to the inner composer. An explicit removal

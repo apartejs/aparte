@@ -68,6 +68,14 @@
   background: var(--aparte-surface);
 }
 
+/* As the card of a floating chat the shell takes the card's height. `100%` of a launcher,
+   which has no height of its own, is the height of what the shell holds: a card as short as
+   an empty chat, that grew with every reply. The launcher's sheet and maximized rules outweigh
+   this one, and let the card fill the window. */
+aparte-launcher > .aparte-app-shell {
+  block-size: var(--aparte-launcher-height);
+}
+
 .aparte-app-shell > aparte-sidebar,
 .aparte-app-shell > .aparte-sidebar {
   grid-row: 1 / -1;

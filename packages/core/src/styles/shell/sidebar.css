@@ -9,10 +9,11 @@
 
 /*
  * aparte-sidebar — the column beside the chat.
- * A sized column that becomes a drawer under 48rem of window. The recipe draws the
- * column and its four regions; `<aparte-sidebar>` adds the behaviour (collapse, the
- * drawer, the search filter) and sets `data-drawer` on itself from the media query,
- * which is the one attribute the rules below read.
+ * A sized column that becomes a drawer under 48rem of window, and in the card of a
+ * floating chat. The recipe draws the column and its four regions; `<aparte-sidebar>`
+ * adds the behaviour (collapse, the drawer, the search filter) and sets `data-drawer` on
+ * itself, from the media query or from the launcher it is in: the one attribute the rules
+ * below read.
  *
  *     <aside class="aparte-sidebar">
  *       <div class="aparte-sidebar__header">
@@ -150,4 +151,23 @@ aparte-sidebar,
   inset: 0;
   z-index: -1;
   background: var(--aparte-scrim);
+}
+
+/* In the floating chat the shell is the chat's card, not the page: the drawer and its scrim
+   cover the card. They are positioned AGAINST the shell, which is not made a containing block
+   for fixed descendants (`contain`, a transform): that would also take the row menus, the
+   selects and the citation cards, which are placed against the window. The closed drawer and
+   the scrim's edges are cut by the card, which the launcher clips. The scrim is the shell's
+   child here (the element puts it there): inside the drawer it would be clipped to it. */
+aparte-launcher .aparte-app-shell {
+  position: relative;
+}
+
+aparte-launcher .aparte-app-shell > .aparte-sidebar[data-drawer] {
+  position: absolute;
+}
+
+.aparte-sidebar__scrim--contained {
+  position: absolute;
+  z-index: calc(var(--aparte-z-dropdown) - 1);
 }

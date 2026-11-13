@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
 
   /**
@@ -17,6 +17,8 @@
   export let typingText: string | undefined = undefined;
   /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
   export let submitOnEnter = true;
+  /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
+  export let typeToFocus: AparteTypeToFocus = 'chat';
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
   export let layoutTransitionMs = 0;
   /**
@@ -181,6 +183,7 @@
     composerRef.setAttribute('placeholder', placeholder);
     toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
+    toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
   }
 
   function handleSend(event: Event) {
