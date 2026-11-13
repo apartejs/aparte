@@ -1,6 +1,6 @@
 ---
 title: Add an AI chat to a Laravel app
-description: Install apartejs/laravel and put a streaming chat in a Blade, Livewire or Filament page, wired to the Laravel AI SDK, with tool calls a person can approve and no JavaScript build step.
+description: Install apartejs/laravel and put a streaming chat in a Blade, Livewire or Filament page, wired to the Laravel AI SDK, with each person's conversations kept in your database, tool calls a person can approve and no JavaScript build step.
 head:
   - tag: title
     content: Laravel AI chat for Blade, Livewire and Filament — apartejs/laravel | aparté
@@ -12,8 +12,9 @@ sidebar:
 [`apartejs/laravel`](https://github.com/apartejs/laravel) is a Composer package that ships the chat
 already built and connects it to the [Laravel AI SDK](https://laravel.com/docs/ai-sdk). Your app needs
 no React and no front-end build, and the model runs on your server, so API keys stay in `.env`. Replies
-stream with Markdown, tool calls show as they run, and a person can approve or refuse them. To add
-aparté's plugins, you build the chat with your own Vite: see [Add plugins](#add-plugins).
+stream with Markdown, tool calls show as they run, and a person can approve or refuse them. Each
+person's conversations can be kept in your database and listed in the chat. To add aparté's plugins,
+you build the chat with your own Vite: see [Add plugins](#add-plugins).
 
 It needs PHP 8.3+, Laravel 12 or 13 and `laravel/ai` 1.3+.
 
@@ -124,6 +125,93 @@ $panel->plugin(
 
 These options need `apartejs/laravel` 0.3 or later.
 
+To keep each person's conversations and list them in the chat, publish the table once (see
+[Keep conversations](#keep-conversations)) and call `conversations()`:
+
+```php
+$panel->plugin(
+    ApartePlugin::make()
+        ->agent(App\Ai\Agents\Assistant::class)
+        ->maximizable()
+        ->conversations(),
+);
+```
+
+A menu button in the chat's header opens the list, a drawer in the chat's card and a column beside
+the chat once it is maximized. The routes are added behind the panel's authentication, and each
+panel keeps a list of its own.
+
+## Keep conversations
+
+The chat keeps what is on screen for the tab. To keep it for the person signed in, on every device,
+publish the package's table:
+
+```bash
+php artisan vendor:publish --tag=aparte-migrations
+php artisan migrate
+```
+
+Add the routes beside the chat's, behind the middleware that signs people in, and name them on the
+component:
+
+```php
+// routes/web.php
+Route::middleware(['auth'])->group(function () {
+    Route::aparte('/chat', App\Ai\Agents\Assistant::class);
+    Route::aparteConversations('/chat/conversations');
+});
+```
+
+```blade
+<x-aparte::chat endpoint="/chat" conversations="/chat/conversations" style="height: 32rem" />
+<x-aparte::launcher endpoint="/chat" conversations="/chat/conversations" label="Help" maximizable />
+```
+
+The floating chat then draws its list itself, in its card. A conversation opens as it was left, tool
+calls included, and deleting it from the list also deletes the model's memory of it in the SDK.
+
+- **Each list has a scope.** Two chats that answer with two agents keep two lists: the routes of the
+  second one name their own, `Route::aparteConversations('/help/conversations', 'help')`.
+- **If the server does not answer,** the chat goes on, and what is said is sent once it answers
+  again. A conversation the server refuses (heavier than `conversations.max_bytes`, 2 MB, or sent
+  once nobody is signed in) is not kept, and the page is told with an `aparte-conversations-problem`
+  event.
+- **Limits** are in `config/aparte.php`, and the routes take your own middleware:
+  `Route::aparteConversations('/chat/conversations')->middleware('throttle:120,1')`.
+- **Elsewhere than that table:** bind your own `Aparte\Laravel\Conversations\ConversationRepository`.
+
+This needs `apartejs/laravel` 0.4 or later.
+
+## A list in your own layout
+
+The list, a new-chat button and the conversation's title can sit anywhere in a view, around the
+chat, with no script: aparté's own [sidebar](/components/sidebar/) and
+[conversation list](/components/conversation-list/), and two attributes of the package.
+
+```blade
+<div class="aparte-app-shell" style="height: 40rem" wire:ignore>
+    <aparte-sidebar>
+        <div class="aparte-sidebar__header">
+            <button type="button" class="aparte-btn aparte-btn--surface" data-aparte-new-chat>New chat</button>
+        </div>
+        <div class="aparte-sidebar__body">
+            <aparte-conversation-list manage></aparte-conversation-list>
+        </div>
+    </aparte-sidebar>
+    <header class="aparte-app-header">
+        <button type="button" class="aparte-btn aparte-app-header__toggle" data-aparte-sidebar-toggle>Chats</button>
+        <span class="aparte-app-header__title" data-aparte-title>New chat</span>
+    </header>
+    <div class="aparte-app-shell__main">
+        <x-aparte::chat endpoint="/chat" conversations="/chat/conversations" style="height: 100%" />
+    </div>
+</div>
+```
+
+An element belongs to the chat in the same block as it. With several chats on a page, give a chat an
+id (`<x-aparte::chat id="support" ...>`) and name it on the element: `for="support"`. Without
+`conversations`, the list shows the tab's conversations.
+
 ## Approve tool calls
 
 A tool that needs a person uses the SDK's approvals:
@@ -198,9 +286,11 @@ $panel->renderHook(PanelsRenderHook::HEAD_END, fn (): string => Blade::render("@
 A separate entry keeps your `app.js` out of the panel: a second Alpine, or your app's styles, would
 break Filament's.
 
-- `onAparteSetup` receives each chat's config, and the chat element as its second argument. What it
-  returns, if a function, runs when the chat stops. Call it at the top level of that entry and keep it
-  synchronous: a chat starts once the entry has run.
+- `onAparteSetup` receives each chat's config, the chat element, and its options: `options.storage`
+  (where its conversations are kept) and `options.client.streamRunner` (what answers it) are yours to
+  replace before the chat starts, with any aparté [storage adapter](/guides/conversation-persistence/)
+  or [runner](/providers/). What it returns, if a function, runs when the chat stops. Call it at the
+  top level of that entry and keep it synchronous: a chat starts once the entry has run.
 - The import reads from `vendor/`, so run `composer install` before `npm run build`, in CI and Docker
   builds too.
 - If you install the package from a local path (a Composer path repository), Vite follows the link to
@@ -215,9 +305,10 @@ This needs `apartejs/laravel` 0.2 or later.
 - **The look** is set with aparté's [CSS variables](/guides/theming/). It follows the system's light or
   dark mode; `follow-dark-class` makes it follow Tailwind's `dark` class instead.
 - **What is kept:** the SDK keeps the conversation in your database, tied to the signed-in user, and the
-  model's memory comes from there. What is on screen is kept for the tab: closing it starts a new
-  conversation.
-- **A conversation** is identified by an id the browser creates, or by `thread="..."` on the component.
+  model's memory comes from there. What is on screen is kept for the tab, unless you
+  [keep conversations](#keep-conversations).
+- **A conversation** is identified by an id the browser creates, or by `thread="..."` on a chat that
+  has one conversation and no list.
 - **Guests** can chat if your route allows them. Their conversations belong to nobody, so the id is all
   that protects one.
 - **In production,** replies stream through nginx and PHP-FPM with no configuration: the SDK tells nginx
