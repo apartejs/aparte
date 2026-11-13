@@ -16,8 +16,8 @@ export const weight = (id) => kb(WEIGHTS.find((row) => row.id === id).total);
 If you are choosing a chat UI library for an LLM product, the libraries below are the ones you
 will shortlist. This page says what each is good at and where aparté differs — including
 the cases where you should pick the other one. Claims about other projects were checked
-against their public docs and npm packages in **October 2026**; the weights below, and the AI
-Elements, assistant-ui, ChatKit and TanStack AI rows, were re-checked in **November 2026**.
+against their public docs and npm packages in **October 2026**; the weights below, the sub-agents
+row, and the AI Elements, assistant-ui, ChatKit and TanStack AI rows, were re-checked in **November 2026**.
 They move fast, so verify before deciding. One change to know before you read on:
 Vercel's AI Elements announces on its own site that it will be deprecated at the end of
 November 2026 ([details below](#vercel-ai-elements)).
@@ -59,6 +59,7 @@ row was not verified for that library, and we do not guess.
 | Weight of a working chat (JavaScript and CSS, gzipped) | **{weight('aparte')}** | {weight('assistant-ui')}, React included | not measured: its components are copied into your app | {weight('deep-chat')} | {weight('loquix')}, no model client | not measured |
 | Framework you must adopt | **None** — and no third-party dependency in `@aparte/core` | React | React + the AI SDK | None | None (Lit is bundled) | None |
 | Human-in-the-loop: tool approval, typed questions | **Approval at the composer, [typed elicitation panel](/guides/elicitation/)** | Generic tool UI | Confirmation component | — | Rendered, not run | Rendered, not run |
+| Sub-agents | **Yes** — [one line per sub-agent](/guides/sub-agents/), its conversation under the line or in a pane of yours; from an AG-UI agent, from your own loop (held, or working while the chat goes on) or a backend | Yes, React: a task lane per sub-agent (opt-in), its conversation nested, from AG-UI or LangChain | No sub-agent component: the AI SDK streams one as a tool's output, drawn by your own code | not measured | No: a flat list of tool calls | No: a flat list of steps |
 | Edit / retry / branch a conversation | **[Yes, with a version picker](/guides/conversations-branching/)** | Yes | Partial | — | Partial | — |
 | Persistence | [An IndexedDB adapter in the browser (`@aparte/plugin-storage-idb`), or a storage interface for your own database](/guides/conversation-persistence/) | Assistant Cloud (a free tier, then paid), or threads you persist yourself | Your own | — | — | — |
 | Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables (Shadow DOM) |
@@ -69,7 +70,7 @@ row was not verified for that library, and we do not guess.
 | Voice | — | Yes (realtime) | Yes | Yes | — | — |
 | Slash commands and @ mentions | **Yes — [any trigger character, submenus, pills](/guides/commands-and-mentions/)** | Yes | — | — | — | Yes |
 | Citations / sources | Yes — [a chip at the end of each cited passage, a card, the source list](/guides/citations/): OpenAI and OpenRouter annotations, Perplexity, the AI SDK | Partial | Yes | — | Yes | — |
-| Floating / modal chat | Yes — [`<aparte-launcher>`](/components/launcher/): a card with a header, enlarged on demand, a sheet on a phone | Yes | — | Yes (embed) | Partial | — |
+| Floating / modal chat | Yes — [`<aparte-launcher>`](/components/launcher/): a card with a header, enlarged on demand, a sheet on a phone, and [its list of conversations](/components/launcher/#with-a-list-of-conversations) | Yes | — | Yes (embed) | Partial | — |
 | Best fit for | Multi-framework teams that want the runtime included | React teams, all-in on React | Apps already built on it; new projects should read its move to shadcn/ui first | A config-driven embed, fast | A polished presentational kit (Lit) | A minimal presentational kit |
 | Licence | MIT | MIT | Apache-2.0 | MIT | MIT | MIT |
 
