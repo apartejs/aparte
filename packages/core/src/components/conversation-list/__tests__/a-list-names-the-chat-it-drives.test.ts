@@ -67,7 +67,8 @@ describe('a list names the chat it drives', () => {
     });
 
     it('says the conversation and nothing else without a target', () => {
-        expect(select(mount())).toEqual({ id: 'c1' });
+        // Strict: a `targetId` that is there and undefined is still a key a host can read.
+        expect(select(mount())).toStrictEqual({ id: 'c1' });
     });
 
     it('reads its target at every click, so it can be named after the list mounted', () => {
@@ -86,6 +87,32 @@ describe('manage, on a list beside its chat', () => {
         const chats = chatWithItsOwnManager('support');
 
         deleteFromTheMenu(mount({ target: 'support', manage: '' }));
+        await Promise.resolve();
+
+        expect(chats.delete).toHaveBeenCalledWith('c1');
+        expect(pages.delete).not.toHaveBeenCalled();
+    });
+
+    it('finds the chat it targets inside the shadow root they share', async () => {
+        const pages = { delete: vi.fn(async () => undefined) };
+        aparteGlobalConfig.setConversationManager(pages as unknown as AparteConversationManager);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = host.attachShadow({ mode: 'open' });
+        const chat = document.createElement('div');
+        chat.id = 'support';
+        chat.setAttribute('data-aparte-chat', '');
+        const chats = { delete: vi.fn(async () => undefined) };
+        const config = new AparteConfig();
+        config.setConversationManager(chats as unknown as AparteConversationManager);
+        attachConfig(chat, config);
+        const el = document.createElement('aparte-conversation-list') as ListEl;
+        el.setAttribute('target', 'support');
+        el.setAttribute('manage', '');
+        root.append(chat, el);
+        el.conversations = ITEMS;
+
+        deleteFromTheMenu(el);
         await Promise.resolve();
 
         expect(chats.delete).toHaveBeenCalledWith('c1');

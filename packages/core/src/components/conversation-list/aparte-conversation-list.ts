@@ -818,7 +818,9 @@ export class AparteConversationList extends HTMLElement {
         // The manager of the chat this list drives: beside a chat that has a configuration of
         // its own, where the list sits resolves to the page's, which holds no manager.
         const target = this.getAttribute('target');
-        const chat = target ? this.ownerDocument.getElementById(target) : null;
+        // In the list's own tree first: a chat inside a shadow root is not found from the document.
+        const root = this.getRootNode() as Document | ShadowRoot;
+        const chat = target ? (root.getElementById?.(target) ?? this.ownerDocument.getElementById(target)) : null;
         const manager = resolveConfig(chat ?? this).getConversationManager();
         if (!manager) {
             if (this._warnedNoManager) return;
