@@ -56,8 +56,9 @@ const safeJson = (value: unknown): string => {
  * A message's text — the rule core's history serializer follows, so the summariser
  * reads what the model would have read: streamed replies keep their text in
  * `segments` (fences and the language tag kept, a type this plugin does not know by
- * its `content` else its `fallback`), and `content` is the fallback for a
- * non-streaming reply that wrote no segments at all.
+ * its `content` else its `fallback`; reasoning, calls, errors and an agent's activity
+ * left out), and `content` is the fallback for a non-streaming reply that wrote no
+ * segments at all.
  */
 export function messageText(message: AparteMessage): string {
     const parts: string[] = [];
@@ -68,7 +69,9 @@ export function messageText(message: AparteMessage): string {
         } else if (segment.type === 'code') {
             const lang = (segment as { language?: string }).language ?? '';
             parts.push(`\`\`\`${lang}\n${typeof content === 'string' ? content : ''}\n\`\`\``);
-        } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
+        } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error' || segment.type === 'activity') {
+            // An activity is progress shown to a person, never read back by the model (core's
+            // serializer names it too): its content is the agent's data, not the reply's text.
             continue;
         } else if (typeof content === 'string' && content) {
             parts.push(content);
