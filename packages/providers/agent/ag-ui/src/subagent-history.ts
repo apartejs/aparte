@@ -20,6 +20,13 @@ export interface SubagentRecord {
     interruptIds?: string[];
     /** The metadata its `SUBAGENT_STARTED` carried: a TanStack AI router's plan rides there. */
     metadata?: Record<string, unknown>;
+    /**
+     * Run by TanStack AI: the stream it came in tagged its events with `metadata.tanstack`
+     * (TanStack puts it on its runs, calls and plans — not on an agent tool's `SUBAGENT_STARTED`,
+     * so the sub-agent's own announcement cannot say). Only such a sub-agent's messages go back
+     * on a resume — TanStack needs them; another AG-UI agent keeps its sub-agents' work itself.
+     */
+    tanstack?: true;
     /** What it wrote and ran, as AG-UI messages: its text, its calls, their results. */
     messages: AgUiMessage[];
 }
@@ -45,7 +52,7 @@ export function createSubagentHistory(from: readonly SubagentRecord[] = []) {
     };
     return {
         /** Announced (again, by a resumed run: the same invocation going on). */
-        start(id: string, info: Omit<SubagentRecord, 'id' | 'status' | 'messages' | 'interruptIds'>): void {
+        start(id: string, info: Omit<SubagentRecord, 'id' | 'status' | 'messages' | 'interruptIds' | 'tanstack'>): void {
             const at = record(id);
             Object.assign(at, info);
             at.status = 'running';
@@ -91,8 +98,9 @@ export function createSubagentHistory(from: readonly SubagentRecord[] = []) {
         result(owner: string, messageId: string | undefined, toolCallId: string, content: string): void {
             record(owner).messages.push({ id: messageId ?? `${toolCallId}:result`, role: 'tool', toolCallId, content });
         },
-        records(): SubagentRecord[] {
-            return [...records.values()];
+        /** The run's sub-agents, `tanstack` set on each when the run was TanStack AI's. */
+        records(tanstack = false): SubagentRecord[] {
+            return [...records.values()].map((r) => (tanstack ? { ...r, tanstack: true as const } : r));
         },
     };
 }
@@ -103,9 +111,14 @@ export function createSubagentHistory(from: readonly SubagentRecord[] = []) {
  * card for it — `metadata.tanstack.subagent`: name, status, the interrupts it waits on, its
  * `SUBAGENT_STARTED` metadata — which is what TanStack reads to know which sub-agent an answer
  * is for, and which of them had already finished (those it does not run again).
+ *
+ * Only the sub-agents TanStack announced (`tanstack`): no other agent reads them. `answers` are
+ * the page's answers to calls the agent left to the browser, by call id: one a sub-agent made
+ * joins its messages, after the run of messages that declares and answers its step — tagged
+ * like them, never ahead of the call it answers.
  */
-export function subagentMessages(records: readonly SubagentRecord[]): AgUiMessage[] {
-    return records.flatMap((r) => r.messages.map((m, i): AgUiMessage => {
+export function subagentMessages(records: readonly SubagentRecord[], answers: ReadonlyMap<string, AgUiMessage> = new Map()): AgUiMessage[] {
+    return records.filter((r) => r.tanstack).flatMap((r) => withAnswers(r.messages, answers).map((m, i): AgUiMessage => {
         if (m.role !== 'assistant' && m.role !== 'tool') return m;
         const card = i === 0
             ? {
@@ -126,4 +139,22 @@ export function subagentMessages(records: readonly SubagentRecord[]): AgUiMessag
             : {};
         return { ...m, subagentRunId: r.id, ...card };
     }));
+}
+
+/** A sub-agent's messages with the page's answers to its calls placed after the step that declares them. */
+function withAnswers(messages: readonly AgUiMessage[], answers: ReadonlyMap<string, AgUiMessage>): AgUiMessage[] {
+    if (answers.size === 0) return [...messages];
+    const out: AgUiMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+        const m = messages[i]!;
+        out.push(m);
+        if (m.role !== 'assistant' || !m.toolCalls?.length) continue;
+        // After the results the step already has: they answer the same assistant message.
+        while (messages[i + 1]?.role === 'tool') out.push(messages[++i]!);
+        for (const call of m.toolCalls) {
+            const answer = answers.get(call.id);
+            if (answer) out.push(answer);
+        }
+    }
+    return out;
 }

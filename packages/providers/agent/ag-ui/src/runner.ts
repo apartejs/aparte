@@ -296,25 +296,34 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // `tool` messages after the history; answers to interrupts go in one `resume`
         // batch, since the protocol refuses a partial one.
         const messages: AgUiMessage[] = toAgUiMessages(request.messages, flatten, warn);
+        const pausedAgents = Array.isArray(ticket?.subagents) ? ticket.subagents : [];
+        // The sub-agents whose messages go back (TanStack's, see below): an answer to one of
+        // their calls goes with them, after the message that declares the call.
+        const sentBack = new Set(pausedAgents.filter((r) => r.tanstack).map((r) => r.id));
+        const answers = new Map<string, AgUiMessage>();
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
             if (interrupted.has(toolCallId)) continue;
             // A page tool the page refused (its `needsApproval`, its policy): the refusal is
             // the call's result, the sentence the model reads. An approval needs no message.
             if (outcome.kind === 'decision' && outcome.approved) continue;
-            messages.push({
+            const answer: AgUiMessage = {
                 id: `aparte-result-${toolCallId}`,
                 role: 'tool',
                 toolCallId,
                 content: outcome.kind === 'failed' ? `Error: ${outcome.error}`
                     : outcome.kind === 'decision' ? rejectionText(outcome)
                     : outcome.content,
-            });
+            };
+            const owner = ticket?.agents?.[toolCallId];
+            if (owner !== undefined && sentBack.has(owner)) answers.set(toolCallId, answer);
+            else messages.push(answer);
         }
         // The paused run's sub-agents, as they wrote and ran, after the history: the page's
-        // history holds none of it (their lines draw it), and the agent resumes a paused
-        // sub-agent from its own messages (TanStack AI refuses the answer otherwise).
-        const pausedAgents = Array.isArray(ticket?.subagents) ? ticket.subagents : [];
-        messages.push(...subagentMessages(pausedAgents));
+        // history holds none of it (their lines draw it), and TanStack AI resumes a paused
+        // sub-agent only from its own messages (it refuses the answer otherwise). Only the
+        // sub-agents TanStack announced: any other agent keeps its sub-agents' work itself, and
+        // gets the history and the answers alone.
+        messages.push(...subagentMessages(pausedAgents, answers));
         const left = ticket ? [] : (unanswered.get(threadId) ?? []);
         unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
@@ -387,6 +396,12 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const agents = new Map<string, { open: boolean; parent?: string; name?: string }>();
         /** What each sub-agent wrote and ran, kept for the ticket if the run pauses. */
         const transcripts = createSubagentHistory(pausedAgents);
+        /**
+         * Whether TanStack AI serves the run: it tags its events with `metadata.tanstack`. Its
+         * sub-agents are then marked so in the ticket, and their messages go back on the resume
+         * — the one agent that needs them.
+         */
+        let tanstackRun = false;
         /** Whether the run's own model has spoken since the last RUN_FINISHED: `readUsage` reads its report then. */
         let ownStep = false;
 
@@ -590,6 +605,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             // all the same (AG-UI 1.0 accepts unannounced attribution): it starts here.
             const tag = tagOf(event);
             if (tag !== undefined && !event.type.startsWith('SUBAGENT_')) meet(tag);
+            const metadata = (event as { metadata?: unknown }).metadata;
+            if (metadata && typeof metadata === 'object' && typeof (metadata as { tanstack?: unknown }).tanstack === 'object') tanstackRun = true;
             switch (event.type) {
                 case 'RUN_STARTED': {
                     // A run after a failed one supersedes it: the stream ran again, and the new
@@ -931,7 +948,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 runId: finished.runId,
                 interrupts: [...interrupts, ...cancelled],
                 ...(owned.length ? { agents: Object.fromEntries(owned) } : {}),
-                ...(transcripts.records().length ? { subagents: transcripts.records() } : {}),
+                ...(transcripts.records().length ? { subagents: transcripts.records(tanstackRun) } : {}),
                 ...(routerPlan ? { plan: { id: planId, steps: routerPlan.steps, status: Object.fromEntries(routerPlan.status) } } : {}),
             };
             track.suspended = true;
