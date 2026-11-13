@@ -25,7 +25,7 @@ import type {
     AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolSummary, AparteToolInputFormatter, AparteToolCall, AparteToolMatcher, AparteToolDisplay,
     AparteApprovalPolicy, AparteApprovalRuling, AparteToolLine,
 } from '../types/tools.js';
-import type { AparteSegmentDefaults, AparteToolCallSegment } from '../types/segments.js';
+import type { AparteActivityRenderer, AparteSegmentDefaults, AparteToolCallSegment } from '../types/segments.js';
 import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteCompactor } from '../types/compactor.js';
 import type { AparteBubbleActionsConfig, AparteTurnSummaryOptions, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
@@ -449,6 +449,8 @@ export class AparteConfig {
     /** Bumped by `reset()`: a restore function from before it must not undo what came after. */
     private _overrideGeneration = 0;
     private _toolDisplays = new ToolTable<AparteToolDisplay>();
+    /** By activity type — see {@link registerActivityRenderer}. */
+    private _activityRenderers = new Map<string, AparteActivityRenderer>();
     /** What a plugin says about a call, read after the app's display — see {@link setToolLineProvider}. */
     private _toolLineProvider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null = null;
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
@@ -1807,6 +1809,47 @@ export class AparteConfig {
         notifyRenderersChanged(this);
     }
 
+    /**
+     * Draw one type of agent activity — the structured progress an agent reports while it
+     * works ("3 of 5 sources read"), which reaches the reply as an `activity` segment and is
+     * updated in place each time the agent sends it again. Returns the function that takes
+     * this renderer off again (it changes nothing once another one has replaced it).
+     *
+     * An activity with no renderer for its type is kept on the message and draws nothing:
+     * no row, no room, no orphan header on a turn that holds nothing else. It is never sent
+     * to the model either way. Activities already on screen follow a registration.
+     *
+     * @example
+     * const off = aparteGlobalConfig.registerActivityRenderer('search-progress', {
+     *   render: (segment) => {
+     *     const el = document.createElement('p');
+     *     const { read, of } = segment.content as { read: number; of: number };
+     *     el.textContent = `${read} of ${of} sources read`;
+     *     return el;
+     *   },
+     *   update: (el, segment) => {
+     *     const { read, of } = segment.content as { read: number; of: number };
+     *     el.textContent = `${read} of ${of} sources read`;
+     *   },
+     * });
+     */
+    registerActivityRenderer(activityType: string, renderer: AparteActivityRenderer): () => void {
+        if (this._activityRenderers.get(activityType) !== renderer) {
+            this._activityRenderers.set(activityType, renderer);
+            notifyRenderersChanged(this);
+        }
+        return () => {
+            if (this._activityRenderers.get(activityType) !== renderer) return;
+            this._activityRenderers.delete(activityType);
+            notifyRenderersChanged(this);
+        };
+    }
+
+    /** The renderer registered for an activity type, or undefined. */
+    getActivityRenderer(activityType: string): AparteActivityRenderer | undefined {
+        return this._activityRenderers.get(activityType);
+    }
+
     /** The renderer that draws a tool named `toolName` — exact, pattern or `'*'` — or undefined. */
     getToolRenderer(toolName: string): AparteToolRenderer | undefined {
         return this._toolRenderers.resolve(toolName)?.value;
@@ -2310,6 +2353,7 @@ export class AparteConfig {
         this._tools.clear();
         this._toolRenderers.clear();
         this._toolRendererOverrides.clear();
+        this._activityRenderers.clear();
         this._overrideGeneration++;
         notifyRenderersChanged(this);
         this._toolDisplays.clear();

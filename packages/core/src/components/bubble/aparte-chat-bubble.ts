@@ -17,19 +17,28 @@ import type {
   AparteToolCallSegment,
   AparteSegmentRenderer,
   AparteToolRenderer,
+  AparteActivityRenderer,
+  AparteActivitySegment,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 
 /**
- * A segment as drawn: its element, the renderer that drew it and — for a tool call — the
- * tool renderer in effect then. Kept so `cleanup` reaches the renderer that DREW the
- * element, and so a registry change can tell which segments to draw again.
+ * A segment as drawn: its element, the renderer that drew it and — for a tool call or an
+ * activity — the tool or activity renderer in effect then. Kept so `cleanup` reaches the
+ * renderer that DREW the element, and so a registry change can tell which segments to draw again.
  */
 interface DrawnSegment {
   el: HTMLElement;
   renderer: AparteSegmentRenderer | undefined;
-  tool: AparteToolRenderer | null;
+  tool: AparteToolRenderer | AparteActivityRenderer | null;
   segment: AparteSegment;
+}
+
+/** The tool or activity renderer behind a drawn element, as its segment renderer recorded it. */
+function innerRendererThatDrew(segment: AparteSegment, el: Element): AparteToolRenderer | AparteActivityRenderer | null {
+  if (segment.type === 'tool_call') return toolRendererThatDrew(el);
+  if (segment.type === 'activity') return activityRendererThatDrew(el);
+  return null;
 }
 import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
@@ -37,6 +46,7 @@ import { relabelCitations, renderSourceList } from '../../renderers/citations.js
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
+import { activityRenderer, activityRendererThatDrew } from '../../renderers/segments/activity.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
@@ -482,6 +492,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     return cfg.getToolRenderer(name) ?? null;
   }
 
+  /** The tool or activity renderer in effect for a segment, when core's own renderer for its type is what draws it. */
+  private _innerRendererFor(segment: AparteSegment): AparteToolRenderer | AparteActivityRenderer | null {
+    if (segment.type !== 'activity') return this._toolRendererFor(segment);
+    if (resolveSegmentRenderer('activity', this._cfg) !== activityRenderer) return null;
+    return this._cfg.getActivityRenderer((segment as AparteActivitySegment).activityType) ?? null;
+  }
+
   /**
    * Record a segment as drawn, set it up, then read back which tool renderer is behind the
    * row (tool-call.ts records it as the row is set up — one record, not a second lookup).
@@ -502,7 +519,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // again, so what was just mounted cannot outlive it.
     if (!this.isConnected) this._scheduleReleaseCheck();
     if (renderer?.setup) runWithConfig(this._cfg, () => renderer.setup!(el, drawnAs));
-    if (segment.type === 'tool_call') drawn.tool = toolRendererThatDrew(el);
+    drawn.tool = innerRendererThatDrew(segment, el);
   }
 
   /**
@@ -594,7 +611,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /** The renderer that drew this segment is still the one in effect (for a tool call, the tool renderer too). */
   private _stillDrawnByCurrent(segment: AparteSegment, drawn: DrawnSegment): boolean {
     return resolveSegmentRenderer(segment.type, this._cfg) === drawn.renderer
-      && this._toolRendererFor(segment) === drawn.tool;
+      && this._innerRendererFor(segment) === drawn.tool;
   }
 
   /**
@@ -628,7 +645,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * as that renderer is still the one in effect.
    */
   private _keepsItsDrawing(segment: AparteSegment, drawn: DrawnSegment): boolean {
-    const mounted = isMountedRenderer(drawn.renderer) || (segment.type === 'tool_call' && isMountedRenderer(drawn.tool));
+    const mounted = isMountedRenderer(drawn.renderer) || isMountedRenderer(drawn.tool);
     return mounted && this._stillDrawnByCurrent(segment, drawn);
   }
 
@@ -1565,7 +1582,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         const now = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
         if (now && now !== drawn.el) {
           drawn.el = now;
-          drawn.tool = segment.type === 'tool_call' ? toolRendererThatDrew(now) : null;
+          drawn.tool = innerRendererThatDrew(segment, now);
         }
       }
     } else {
@@ -2359,7 +2376,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    */
   private _copyableText(): string {
     return (this._content || this._segments
-      .filter(s => s.type !== 'thinking')
+      // An activity is progress, not the reply, and its content is the agent's data.
+      .filter(s => s.type !== 'thinking' && s.type !== 'activity')
       .map(s => (s as { content?: string }).content ?? '')
       .join('\n')).trim();
   }

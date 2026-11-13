@@ -116,21 +116,36 @@ function step(doc: unknown, op: Record<string, unknown>): unknown {
  * from the patch, the rest applies. Both are told to `warn`; neither fails the run.
  */
 export function applyStateDelta(state: unknown, delta: unknown, warn: (message: string) => void): unknown {
-    if (!Array.isArray(delta)) {
-        warn('Failed to apply state patch: STATE_DELTA carried no list of operations; the state is left as it was.');
-        return state;
+    return applyPatch(state, delta, warn, { event: 'STATE_DELTA', field: 'delta', what: 'state' });
+}
+
+/**
+ * The content of an activity after an `ACTIVITY_DELTA`: the same rules as the state's — whole
+ * or not at all, an unknown operation dropped, both told to `warn`. A patch that fails returns
+ * `content` itself (the same reference), so the caller can tell nothing changed.
+ */
+export function applyActivityDelta(content: unknown, patch: unknown, warn: (message: string) => void): unknown {
+    return applyPatch(content, patch, warn, { event: 'ACTIVITY_DELTA', field: 'patch', what: 'activity' });
+}
+
+/** An RFC 6902 patch applied whole or not at all; `names` is how its warnings call the event, its field and what it patches. */
+function applyPatch(doc: unknown, patch: unknown, warn: (message: string) => void, names: { event: string; field: string; what: string }): unknown {
+    const { event, field, what } = names;
+    if (!Array.isArray(patch)) {
+        warn(`Failed to apply ${what} patch: ${event} carried no list of operations; the ${what} is left as it was.`);
+        return doc;
     }
     const ops: Record<string, unknown>[] = [];
-    delta.forEach((op, i) => {
+    patch.forEach((op, i) => {
         if (isContainer(op) && !Array.isArray(op) && OPS.has(String(op['op']))) ops.push(op);
-        else warn(`dropped /delta/${i}: ${JSON.stringify(op)} is not a JSON Patch operation.`);
+        else warn(`dropped /${field}/${i}: ${JSON.stringify(op)} is not a JSON Patch operation.`);
     });
     try {
-        let doc = structuredClone(state);
-        for (const op of ops) doc = step(doc, op);
-        return doc;
+        let next = structuredClone(doc);
+        for (const op of ops) next = step(next, op);
+        return next;
     } catch (error) {
-        warn(`Failed to apply state patch: ${(error as Error).message}; the state is left as it was.`);
-        return state;
+        warn(`Failed to apply ${what} patch: ${(error as Error).message}; the ${what} is left as it was.`);
+        return doc;
     }
 }

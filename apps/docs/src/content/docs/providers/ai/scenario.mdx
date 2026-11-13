@@ -49,6 +49,7 @@ or a list of `ScenarioStep`s:
 | `{ tool, input?, id? }` | calls the tool of that name: the loop runs the handler you registered and calls the provider again with its result |
 | `{ subagents, toolName?, id? }` | delegates to [sub-agents](#sub-agents), each playing turns of its own |
 | `{ step }`, `{ endStep }` | opens a named [step](#steps) of the work, and ends it |
+| `{ activity: { type, content, id? } }` | reports an [activity](#activities); the same `id` later updates it |
 | `{ error }` | fails the turn with that message; the steps after it do not run |
 | `{ sources, citations? }` | sends the [sources](/guides/citations/) the turn's text cites, and where — offsets into the text the turn has streamed |
 | `{ wait }` | pauses for that many milliseconds |
@@ -183,6 +184,31 @@ createScenarioProvider({
 
 In a sub-agent's `turns`, the step is the sub-agent's. [Steps](/guides/sub-agents/#steps) says how
 a real agent announces them.
+
+## Activities
+
+An `activity` reports the model's progress as an agent does — a type, and its whole current content.
+A later step with the same `id` updates it in place, in the same turn or a later one; without an
+`id`, each step is an activity of its own. It is drawn by the renderer the page registers for its
+type, kept with the reply, and never read by the model.
+
+```ts
+import { createScenarioProvider } from '@aparte/provider-scenario';
+
+createScenarioProvider({
+  turns: [
+    [
+      { activity: { type: 'search-progress', content: { read: 0, of: 5 }, id: 'p1' } },
+      { wait: 600 },
+      { activity: { type: 'search-progress', content: { read: 5, of: 5 }, id: 'p1' } },
+      { text: 'All five sources agree.' },
+    ],
+  ],
+});
+```
+
+In a sub-agent's `turns`, the activity is the sub-agent's. [Activity](/guides/activity/) says how to
+draw one.
 
 ## Pace, usage and models
 

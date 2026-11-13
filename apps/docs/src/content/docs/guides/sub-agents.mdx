@@ -351,6 +351,10 @@ is passed on as is.
 An app that wants to keep a mark of a step in the reply draws it from
 [`config.observeRunEvents`](/guides/engine/#events), which hears every `step-start` and `step-end`.
 
+A sub-agent can also report its progress as an [activity](/guides/activity/) — "3 of 5 sources
+read" — which the renderer you register for its type draws in that sub-agent's conversation, under
+its line and in `<aparte-subagent-view>`, updated in place as it changes.
+
 ## Show the conversation elsewhere
 
 `<aparte-subagent-view>` shows a sub-agent's conversation where you put it: the other pane of a

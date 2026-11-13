@@ -102,6 +102,27 @@ createScenarioProvider({
 });
 ```
 
+## Activities
+
+An `activity` reports the model's progress as an agent does: a `type`, the key the page's
+renderer is registered under (`config.registerActivityRenderer`), and the whole current
+`content`. A later step with the same `id` updates it in place, in the same turn or a later one;
+without an `id`, each step is an activity of its own. It is kept with the reply and never read by
+the model; in a sub-agent's `turns` it is that sub-agent's.
+
+```ts
+createScenarioProvider({
+  turns: [
+    [
+      { activity: { type: 'search-progress', content: { read: 0, of: 5 }, id: 'p1' } },
+      { wait: 600 },
+      { activity: { type: 'search-progress', content: { read: 5, of: 5 }, id: 'p1' } },
+      { text: 'All five sources agree.' },
+    ],
+  ],
+});
+```
+
 ## Sub-agents
 
 A `subagents` step makes the model delegate: it calls one ordinary tool, `delegate`, with

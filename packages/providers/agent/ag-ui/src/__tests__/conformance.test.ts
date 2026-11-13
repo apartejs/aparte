@@ -83,15 +83,12 @@ function observable(messages: unknown, unobservable: Record<string, string> = UN
  * not asserted; what is left — at least that the stream is accepted — still is.
  */
 const NOT_DRAWN: Record<string, { keys: string[]; reason: string }> = {
-    'activity-snapshot-then-delta': { keys: ['messages', 'messageCount'], reason: 'ACTIVITY_* messages are drawn with the agentic lot (steps, subagents, activity)' },
-    'activity-replace-false-preserves': { keys: ['messages', 'messageCount'], reason: 'ACTIVITY_* messages are drawn with the agentic lot' },
     'messages-snapshot-reconciles-by-id': { keys: ['messages', 'messageCount'], reason: 'MESSAGES_SNAPSHOT would rewrite messages already drawn, which needs a core seam a runner does not have' },
     'unknown-part-in-message-list': { keys: ['messages', 'messageCount'], reason: 'the message arrives in a MESSAGES_SNAPSHOT, which is not applied (see messages-snapshot-reconciles-by-id)' },
 };
 
 /** Fixtures left with nothing but `outcome` on this lane, and why that is still worth running. */
 const OUTCOME_ONLY: Record<string, string> = {
-    'activity-replace-false-preserves': 'the runner must still accept a stream carrying activities',
     'messages-snapshot-reconciles-by-id': 'the runner must still accept a stream carrying a messages snapshot',
 };
 
@@ -195,6 +192,7 @@ function messagesOf(fixture: Fixture, events: { type: string; [key: string]: unk
         return at;
     };
     const assistantNow = (owner: string): Record<string, unknown> => (of(owner).assistant ??= make(owner, 'assistant'));
+    const activityMessages = new Map<string, Record<string, unknown>>();
     for (const e of events) {
         const owner = ownerOf(e);
         switch (e.type) {
@@ -214,6 +212,20 @@ function messagesOf(fixture: Fixture, events: { type: string; [key: string]: unk
                 const message = assistantNow(owner);
                 const calls = (message['toolCalls'] ??= []) as unknown[];
                 calls.push({ id: e['toolCallId'], type: 'function', function: { name: e['name'], arguments: JSON.stringify(e['input']) } });
+                break;
+            }
+            case 'activity': {
+                // One message per activity, its content replaced whole by each event: the
+                // runner applied the patches, so what it hands on is what a client would hold.
+                const id = `activity\u0000${String(e['id'])}`;
+                let message = activityMessages.get(id);
+                if (!message) {
+                    message = { role: 'activity', ...(owner ? { subagentRunId: owner } : {}) };
+                    activityMessages.set(id, message);
+                    out.push(message);
+                }
+                message['activityType'] = e['activityType'];
+                message['content'] = e['content'];
                 break;
             }
             case 'tool-resolved':

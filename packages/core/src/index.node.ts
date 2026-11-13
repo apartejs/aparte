@@ -56,6 +56,8 @@ export type {
     AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
+    AparteActivitySegment,
+    AparteActivityRenderer,
     // The same five the browser barrel gained, and they belong here for the same reason:
     // a type has no DOM. `AparteSegmentBase` is the constraint on the exported
     // `AparteSegmentRenderer<T>`, so an SSR consumer writing a renderer for a segment type

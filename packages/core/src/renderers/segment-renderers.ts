@@ -26,6 +26,7 @@ import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
 import { errorRenderer } from './segments/error.js';
 import { toolCallRenderer } from './segments/tool-call.js';
+import { activityRenderer } from './segments/activity.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -364,4 +365,5 @@ const DEFAULT_RENDERERS = [
     codeRenderer,
     errorRenderer,
     toolCallRenderer,
+    activityRenderer,
 ] as readonly AparteSegmentRenderer[];

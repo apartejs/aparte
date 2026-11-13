@@ -80,6 +80,8 @@ export type {
     AparteSegmentTypes,
     AparteCustomSegment,
     AparteToolCallSegment,
+    AparteActivitySegment,
+    AparteActivityRenderer,
     AparteSegmentType,
     AparteSegmentRenderer,
     AparteSegmentMount,

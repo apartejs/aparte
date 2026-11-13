@@ -7,7 +7,7 @@ import type {
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
 import { enforce } from './enforce.js';
-import { applyStateDelta } from './state.js';
+import { applyActivityDelta, applyStateDelta } from './state.js';
 import { createTranslator } from './translate.js';
 import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
@@ -397,6 +397,16 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             }
         };
         track.closeSteps = closeSteps;
+        /**
+         * Each activity's type, content and owner as it stands, by its message id: a delta is
+         * applied here and the page receives the whole result. A patch never changes the
+         * object it reads (it works on a copy), so content already handed on stays as it was.
+         */
+        const activities = new Map<string, { activityType: string; content: unknown; owner: string }>();
+        const showActivity = (id: string, at: { activityType: string; content: unknown; owner: string }) => {
+            activities.set(id, at);
+            emit({ type: 'activity', id, activityType: at.activityType, content: at.content, ...by(at.owner) });
+        };
         const endAgent = (agentId: string, status: 'done' | 'failed' | 'waiting', detail: { result?: string; error?: string } = {}) => {
             // Its steps end with it: its line would otherwise say one it is no longer on.
             closeSteps(agentId);
@@ -708,8 +718,29 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     }
                     break;
                 }
+                // An activity is structured progress, drawn by the renderer the app registered for
+                // its type. A snapshot overwrites it unless it says `replace: false` (AG-UI 1.0:
+                // "only an explicit false asks a consumer to leave what is already there") — its
+                // type included; a delta patches what is held. Either way the page gets it whole.
+                case 'ACTIVITY_SNAPSHOT': {
+                    const id = String(event['messageId'] ?? '');
+                    const held = activities.get(id);
+                    if (held && event['replace'] === false) break;
+                    showActivity(id, { activityType: String(event['activityType'] ?? ''), content: event['content'], owner: held?.owner ?? tag ?? PARENT });
+                    break;
+                }
+                case 'ACTIVITY_DELTA': {
+                    const id = String(event['messageId'] ?? '');
+                    const held = activities.get(id);
+                    // Skipped, never failed, and nothing invented from the delta (the corpus's
+                    // `activity-delta-missing-target-tolerated`); the specification asks for a warning.
+                    if (!held) { warn(`ACTIVITY_DELTA for "${id}", an activity no ACTIVITY_SNAPSHOT created: skipped.`); break; }
+                    const content = applyActivityDelta(held.content, event['patch'], warn);
+                    if (content !== held.content) showActivity(id, { ...held, content });
+                    break;
+                }
                 default:
-                    // MESSAGES_SNAPSHOT, ACTIVITY_*, RAW, CUSTOM: agent state aparté does not draw.
+                    // MESSAGES_SNAPSHOT, RAW, CUSTOM: agent state aparté does not draw.
                     break;
             }
         }

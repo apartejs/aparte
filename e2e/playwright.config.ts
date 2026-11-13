@@ -283,6 +283,9 @@ const PLUGIN_CARDS = /plugin-cards\.spec\.ts/;
 // example, PLUGIN_CARDS' reason: what each framework does to a message on screen is the variable.
 // Anchored, so it does not also match `agents-sdk-subagents.spec.ts`.
 const SUBAGENTS = /[\\/]subagents\.spec\.ts$/;
+// An agent's activity drawn by the renderer the site registers for its type, updated in place.
+// Core's own drawing, the same everywhere: vanilla carries it.
+const ACTIVITY = /[\\/]activity\.spec\.ts$/;
 // A compaction end to end: the plugin every example sets up, a small window, the separator
 // drawn by the bubble, the request read off the mock. A DEEP suite — the plugin and the
 // separator are the same everywhere — on the two apps where the bubble is drawn by core and
@@ -324,7 +327,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three

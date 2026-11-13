@@ -376,6 +376,60 @@ export interface AparteCustomSegment extends AparteSegmentBase {
     data?: unknown;
 }
 
+/**
+ * An agent's activity — structured progress it reports while it works ("3 of 5 sources
+ * read"), placed in the reply where it first arrived and updated in place each time the
+ * agent sends it again. The stream carries it as an `activity` run event (AG-UI's
+ * `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA`, a model stream, a sub-agent), always whole.
+ *
+ * Drawn by the renderer the app registers for its `activityType`
+ * (`config.registerActivityRenderer`). With none, it is kept on the message and draws
+ * nothing. Never sent to the model.
+ *
+ * @example
+ * {
+ *   id: 'activity-a1',
+ *   type: 'activity',
+ *   activityId: 'a1',
+ *   activityType: 'search-progress',
+ *   content: { read: 3, of: 5 },
+ * }
+ */
+export interface AparteActivitySegment extends AparteSegmentBase {
+    type: 'activity';
+    /** The activity's own id, as the agent named it: a later event with this id updates this segment. */
+    activityId: string;
+    /** What kind of activity it is — the agent's vocabulary, and the key its renderer is registered under. */
+    activityType: string;
+    /** Its whole current value, as the agent sent it last. Untrusted: the agent chose it. */
+    content: unknown;
+}
+
+/**
+ * How one type of activity is drawn — `config.registerActivityRenderer(type, renderer)`.
+ * The same contract as a segment renderer, for one `activityType`.
+ *
+ * `content` is whatever the agent sent: untrusted. Return an **HTMLElement** and set
+ * `textContent`, or return a **string** and escape every value you interpolate
+ * (`escapeHtml`). Keep one root element: core finds it again by its segment's id.
+ */
+export interface AparteActivityRenderer {
+    /** Draw the activity, as a DOM element or an HTML string. An empty string draws nothing. */
+    render(segment: AparteActivitySegment): string | HTMLElement;
+    /** After `render`, with its element: listeners, a framework mount. */
+    setup?(element: HTMLElement, segment: AparteActivitySegment): void;
+    /**
+     * The agent sent the activity again: patch `element` in place. Without it, core draws it
+     * again from `render()` on every change, which loses whatever the element held (a focused
+     * control, an opened disclosure).
+     */
+    update?(element: HTMLElement, segment: AparteActivitySegment): void;
+    /** Re-read the locale or the icon provider without adding or removing a child node. */
+    relabel?(element: HTMLElement, segment: AparteActivitySegment): void;
+    /** The element leaves the page for good: unmount what `setup` mounted. */
+    cleanup?(element: HTMLElement, segment: AparteActivitySegment): void;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Union Type
 // ─────────────────────────────────────────────────────────────────────────────
@@ -393,6 +447,7 @@ export type AparteSegment =
     | AparteErrorSegment
     | AparteCustomSegment
     | AparteToolCallSegment
+    | AparteActivitySegment
     | AparteSegmentTypes[keyof AparteSegmentTypes];
 
 /**

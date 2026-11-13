@@ -58,6 +58,7 @@ import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-s
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
 import { DELEGATE, delegateLabel, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -185,6 +186,8 @@ async function run(): Promise<SiteSetup> {
                 // The three sub-agent paths (sub-agents.ts), first: their prompts also say
                 // "release", which the showcase's `release` listens for.
                 ...SUBAGENT_SCENARIOS,
+                // An activity the model reports while it reads (activity.ts).
+                ...ACTIVITY_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,
@@ -285,6 +288,8 @@ async function run(): Promise<SiteSetup> {
     //       with its own text and calls kept out of the reply. Whichever model answers: an AG-UI
     //       agent's sub-agents get the same lines as the scripted model's.
     setupSubagents();
+    //       An agent's activity ("Read 2 of 3 sources") is drawn by the renderer of its type.
+    setupActivity();
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model

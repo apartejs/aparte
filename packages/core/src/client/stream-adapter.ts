@@ -20,6 +20,7 @@ import { segmentContentUpdate } from '../utils/segments.js';
 import { aparteGlobalConfig, type AparteConfig, type AparteRunEventObserver, type AparteRunEventContext } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent, AparteSource, AparteCitation } from '../types/index.js';
 import type {
+    AparteActivitySegment,
     AparteThinkingSegment,
     AparteToolCallSegment,
 } from '../types/segments.js';
@@ -291,6 +292,22 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         showStep();
     };
 
+    /** The text the parser holds is final: written, and the sources placed again over it. */
+    const flushText = (): void => {
+        const finals = parser.finalize();
+        for (const s of finals) {
+            noteText(s);
+            if (!streaming.has(s.id)) target.addSegment?.(s);
+            else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
+        }
+        // The segments are final now: place again what came before them.
+        placeSources();
+    };
+
+    // The reply's activities, by segment id, for the whole run: a later event with the same id
+    // updates the segment the first one placed.
+    const activities = new Set<string>();
+
     const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
             case 'step-start':
@@ -384,15 +401,23 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
             }
 
-            case 'text-flush': {
-                const finals = parser.finalize();
-                for (const s of finals) {
-                    noteText(s);
-                    if (!streaming.has(s.id)) target.addSegment?.(s);
-                    else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
+            case 'text-flush':
+                flushText();
+                break;
+
+            case 'activity': {
+                const id = `activity-${e.id}`;
+                if (activities.has(id)) {
+                    // The same activity again, whole: its segment changes in place, never a second one.
+                    target.updateSegment?.(id, { activityType: e.activityType, content: e.content } as Partial<AparteSegment>);
+                    break;
                 }
-                // The segments are final now: place again what came before them.
-                placeSources();
+                activities.add(id);
+                // Where it first arrived: the text before it ends there, and what follows is
+                // written after it, as around a tool call.
+                flushText();
+                const segment: AparteActivitySegment = { id, type: 'activity', activityId: e.id, activityType: e.activityType, content: e.content };
+                target.addSegment?.(segment);
                 break;
             }
 

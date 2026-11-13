@@ -111,6 +111,8 @@ export type {
     AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
+    AparteActivitySegment,
+    AparteActivityRenderer,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
     // and its union names all its members, yet the error segment could not be written
     // down: narrowing on `type: 'error'` gave a

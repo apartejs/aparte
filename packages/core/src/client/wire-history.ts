@@ -178,6 +178,8 @@ export const isInFlight = (m: AparteMessage): boolean => m.status === 'streaming
  * what goes around its content (`wire`): the tag a grammar read it from, with the id the
  * model needs to name it again.
  *
+ * `activity` stays out too: it is progress shown to a person, and its content the agent's data.
+ *
  * `thinking` and `tool_call` stay out on purpose — the first is the model's own
  * scratchpad, and most APIs neither want it back nor bill for it kindly; the
  * second is not text: `wireMessages` sends a reply's calls as the assistant's
@@ -194,7 +196,9 @@ export function segmentsToWireText(segments: AparteMessage['segments']): string 
         } else if (segment.type === 'code') {
             const lang = (segment as { language?: string }).language ?? '';
             parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
-        } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
+        } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error' || segment.type === 'activity') {
+            // An activity is shown to a person, never read back by the model: named here, because
+            // the rule below would send its content.
             continue;
         } else if (typeof content === 'string' && content) {
             // What the segment says goes around its content (`AparteSegmentBase.wire`).

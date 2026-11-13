@@ -587,6 +587,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continue;
                 }
 
+                if (event.type === 'activity') {
+                    // Whole each time, and not the loop's to read: passed on as it came.
+                    emitter({ type: 'activity', id: event.id, activityType: event.activityType, content: event.content });
+                    continue;
+                }
+
                 if (event.type === 'done') {
                     if (event.usage) lastUsage = event.usage;
                     if (event.finishReason) lastFinishReason = event.finishReason;

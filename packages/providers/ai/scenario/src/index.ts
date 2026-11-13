@@ -78,6 +78,14 @@ export type ScenarioStep =
     | { step: string }
     /** End the step of that name opened last. */
     | { endStep: string }
+    /**
+     * Report an activity, as an agent reports its progress: `type` is its kind, the key a
+     * renderer is registered under (`config.registerActivityRenderer`), and `content` its whole
+     * current value. A later step with the same `id` updates it in place, in this turn or a
+     * later one; without an `id` each step is an activity of its own. Kept with the reply,
+     * never read by the model; in a scripted sub-agent it is the sub-agent's.
+     */
+    | { activity: { type: string; content: unknown; id?: string } }
     /** Fail the turn with this message — what a provider error looks like to the UI. */
     | { error: string }
     /** Pause, in milliseconds — a slow model, a long tool. */
@@ -338,6 +346,9 @@ function play(
                         controller.enqueue({ type: 'step-start', name: step.step });
                     } else if ('endStep' in step) {
                         controller.enqueue({ type: 'step-end', name: step.endStep });
+                    } else if ('activity' in step) {
+                        const { type, content, id } = step.activity;
+                        controller.enqueue({ type: 'activity', id: id ?? `scenario_${++sequence}`, activityType: type, content });
                     } else if ('error' in step) {
                         controller.enqueue({ type: 'error', message: step.error });
                         controller.close();
