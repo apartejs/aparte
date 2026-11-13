@@ -176,7 +176,9 @@ Some things do not depend on which call finishes first:
 - **A Stop, the turn limit or a crash stops them all.** The calls still running end as
   `tool-aborted` with the cause `'stopped'`.
 - **With `deferral`**, a call that pauses does not stop the calls already running. The run pauses
-  once all of them have finished or paused, and `run-suspended` lists every paused call.
+  once all of them have finished or paused, and `run-suspended` lists every paused call. If one
+  of them stops the run instead (a timeout, a missing handler), the run ends as it would one call
+  after another: the paused calls end as `tool-aborted` (`'stopped'`) and nothing is suspended.
 
 To run them one after another, each finished before the next is read, pass `parallelTools: false`:
 
