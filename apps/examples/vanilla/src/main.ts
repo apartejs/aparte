@@ -130,6 +130,32 @@ async function main(): Promise<void> {
             launcher.prepend(chatEl);
         }
     }
+    //   ?layout=launcher-shell — the floating chat with its list: the page's whole shell
+    //                            (sidebar, header, chat) is the launcher's card. The shell has
+    //                            a header of its own, so the launcher draws none, and the two
+    //                            controls it would have drawn are placed in that header.
+    if (layoutParam === 'launcher-shell') {
+        const shell = document.querySelector<HTMLElement>('.aparte-app-shell');
+        if (shell) {
+            const launcher = document.createElement('aparte-launcher');
+            launcher.setAttribute('label', 'Help');
+            launcher.setAttribute('maximizable', '');
+            const actions = shell.querySelector<HTMLElement>('.aparte-app-header__actions');
+            for (const [mark, icon, name] of [['maximize', 'maximize', 'Maximize'], ['close', 'close', 'Close']] as const) {
+                const control = document.createElement('button');
+                control.type = 'button';
+                control.className = 'aparte-btn aparte-btn--icon aparte-btn--sm';
+                control.setAttribute('aria-label', name);
+                control.setAttribute(`data-aparte-launcher-${mark}`, '');
+                const glyph = document.createElement('aparte-icon');
+                glyph.setAttribute('name', icon);
+                control.append(glyph);
+                actions?.append(control);
+            }
+            document.body.append(launcher);
+            launcher.prepend(shell);
+        }
+    }
     if (layoutParam === 'split' || layoutParam === 'shell') {
         const chatEl = document.querySelector<HTMLElement>('aparte-chat');
         const actions = document.querySelector<HTMLElement>('.aparte-app-header__actions');

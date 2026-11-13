@@ -404,3 +404,107 @@ test.describe('the launcher, on a phone', () => {
         }
     });
 });
+
+// ─── The floating chat with a list of conversations ──────────────────────────────────────
+//
+// `?layout=launcher-shell` makes the page's whole shell (sidebar, header, chat) the launcher's
+// card. A sidebar turns drawer under a WINDOW width and fixes its drawer to the window: in a
+// card a few hundred pixels wide it stayed a column, and as a drawer it opened over the page
+// the chat floats on. Geometry is compared between boxes, never with a pixel constant.
+test.describe('the launcher, with a list of conversations in its card', () => {
+    const shell = (page: Page) => page.locator('aparte-launcher > .aparte-app-shell');
+    const sidebar = (page: Page) => page.locator('aparte-launcher aparte-sidebar');
+    const scrim = (page: Page) => page.locator('aparte-launcher .aparte-sidebar__scrim');
+    const rows = (page: Page) => page.locator('aparte-launcher aparte-conversation-list [data-conv-id]');
+
+    type Box = { x: number; y: number; width: number; height: number };
+    const within = (inner: Box, outer: Box): boolean =>
+        inner.x >= outer.x - 1 && inner.y >= outer.y - 1
+        && inner.x + inner.width <= outer.x + outer.width + 1
+        && inner.y + inner.height <= outer.y + outer.height + 1;
+
+    async function openCard(page: Page): Promise<string[]> {
+        const errors = collectPageErrors(page);
+        await installLlmMock(page);
+        await page.goto('/?layout=launcher-shell&scenario&fast');
+        await button(page).click();
+        await expect(shell(page)).toBeVisible();
+        await shell(page).evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+        return errors;
+    }
+
+    /** Open the drawer from the card's header and wait for its slide to end. */
+    async function openDrawer(page: Page): Promise<void> {
+        await page.locator('aparte-launcher .aparte-app-header [data-aparte-sidebar-toggle]').click();
+        await expect(sidebar(page)).not.toHaveAttribute('collapsed', /.*/);
+        await sidebar(page).evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+    }
+
+    test('the list is a drawer inside the card, and its scrim covers the card and not the page', async ({ page }) => {
+        const errors = await openCard(page);
+        // A window wide enough for a column anywhere else.
+        expect(page.viewportSize()!.width).toBeGreaterThan(768);
+        await expect(sidebar(page)).toHaveAttribute('data-drawer', '');
+        await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+
+        await openDrawer(page);
+        const cardBox = (await shell(page).boundingBox())!;
+        expect(within((await sidebar(page).boundingBox())!, cardBox), 'the drawer is inside the card').toBe(true);
+        await expect(rows(page).first()).toBeVisible();
+
+        // What the scrim shows of itself is the card: the page beside the card stays in reach.
+        const dimmed = await scrim(page).evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            const card = el.closest('aparte-launcher')!.querySelector(':scope > .aparte-app-shell')!.getBoundingClientRect();
+            const hit = (x: number, y: number) => document.elementFromPoint(x, y);
+            return {
+                coversTheCard: rect.left <= card.left + 1 && rect.right >= card.right - 1 && rect.top <= card.top + 1 && rect.bottom >= card.bottom - 1,
+                // A point of the page well outside the card, on the other side of the window.
+                pageBesideIsFree: !hit(8, 8)?.closest('aparte-launcher'),
+            };
+        });
+        expect(dimmed.coversTheCard, 'the scrim covers the card').toBe(true);
+        expect(dimmed.pageBesideIsFree, 'the page beside the card is not under the launcher').toBe(true);
+
+        // A click on the part of the scrim that shows closes the drawer.
+        const side = (await sidebar(page).boundingBox())!;
+        await page.mouse.click(Math.min(cardBox.x + cardBox.width - 8, side.x + side.width + 24), cardBox.y + cardBox.height / 2);
+        await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('a row\'s menu still opens at its row', async ({ page }) => {
+        const errors = await openCard(page);
+        await openDrawer(page);
+        const more = rows(page).first().locator('.aparte-conv-item__more');
+        await rows(page).first().hover();
+        await more.click();
+        const menu = page.locator('[role="menu"]');
+        await expect(menu).toBeVisible();
+        const moreBox = (await more.boundingBox())!;
+        const menuBox = (await menu.boundingBox())!;
+        // Placed against the window from the button's own box: it must be next to the button,
+        // which it is not once an ancestor becomes the containing block of fixed descendants.
+        const gapY = Math.max(0, menuBox.y - (moreBox.y + moreBox.height), moreBox.y - (menuBox.y + menuBox.height));
+        const gapX = Math.max(0, menuBox.x - (moreBox.x + moreBox.width), moreBox.x - (menuBox.x + menuBox.width));
+        expect(gapY, 'the menu touches its button vertically').toBeLessThan(16);
+        expect(gapX, 'and horizontally').toBeLessThan(16);
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('maximized, the list is a column beside the chat, and a drawer again in the card', async ({ page }) => {
+        const errors = await openCard(page);
+        await page.locator('aparte-launcher [data-aparte-launcher-maximize]').click();
+        await expect(sidebar(page)).not.toHaveAttribute('data-drawer', /.*/);
+        await expect(sidebar(page)).not.toHaveAttribute('collapsed', /.*/);
+        const side = (await sidebar(page).boundingBox())!;
+        const chat = (await page.locator('aparte-launcher aparte-chat').boundingBox())!;
+        expect(side.width, 'a column').toBeGreaterThan(100);
+        expect(chat.x, 'with the chat beside it').toBeGreaterThanOrEqual(side.x + side.width - 1);
+
+        await page.locator('aparte-launcher [data-aparte-launcher-maximize]').click();
+        await expect(sidebar(page)).toHaveAttribute('data-drawer', '');
+        await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+});
