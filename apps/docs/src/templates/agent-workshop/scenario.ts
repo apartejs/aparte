@@ -65,6 +65,12 @@ const WRITE_FIX: ScenarioStep[] = [plan('done', 'done', 'in-progress'), { tool: 
 /** What the Test runner says when its `pnpm test` did not run; `route` reads it in its report. */
 const TESTS_NOT_RUN = 'I could not run the tests: `pnpm test` was refused';
 
+/** The file the agent reads itself while its sub-agents investigate. */
+const FAILING_TEST = 'tests/parse.test.ts';
+
+/** How the loop says that the sub-agents started in the background are back. */
+const BACK = /sub-agents? you started (is|are) back/i;
+
 /**
  * Whether a tool result is a refusal, and whose: the approval plugin's in Plan mode, or the
  * loop's when the person rejects a call.
@@ -137,16 +143,26 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
         'That is outside what this demo agent is scripted for. I work in **spanwise**, the repository beside this chat: I can search and read it, edit its files and run its tests, and I ask before I write or run anything. Try one of the suggestions.',
 
     // ── Investigate #42 with sub-agents, then fix it ─────────────────────────
-    // Before `fix`, whose pattern the prompt also matches. The three run side by side; once they
-    // are back the agent writes the fix, and the fix path below takes over from its edit
-    // (`rerun`, `verified`, `wrapped`).
+    // Before `fix`, whose pattern the prompt also matches. The three run side by side, in the
+    // background: the agent reads the failing test itself while they work, and once they are back
+    // it writes the fix, and the fix path below takes over from its edit (`rerun`, `verified`,
+    // `wrapped`).
     investigate: {
         when: DELEGATE,
         turn: [
-            { thinking: 'Three independent questions: how the amount is read, who calls parse(), and what the tests say. They can run at once.' },
+            { thinking: 'Three independent questions: how the amount is read, who calls parse(), and what the tests say. They can run at once, and I can read the failing test while they do.' },
             { text: 'Three questions, three sub-agents: what `parse` does with the amount, who calls it, and what the tests say.' },
-            { subagents: INVESTIGATORS },
+            { subagents: INVESTIGATORS, background: true },
         ],
+    },
+    investigating: {
+        turn: [
+            { text: 'While they look, I read the test that fails.' },
+            { tool: 'read_file', input: { path: FAILING_TEST } },
+        ],
+    },
+    waiting: {
+        turn: '*reads decimal amounts* expects `parse("1.5h")` to be ninety minutes. Waiting for the three of them before I touch anything.',
     },
     investigated: {
         after: 'delegate',
@@ -236,9 +252,31 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
  * The turns that depend on what a tool result said. Anything else returns `undefined`, and the
  * provider's default rule answers: the `after` of the tool, or the first `when` that matches.
  */
+/** The call a `tool` message answers. */
+function callOf(messages: AparteChatRequest['messages'], id: string | undefined) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const call = messages[i]!.toolCalls?.find((c) => c.id === id);
+        if (call) return call;
+    }
+    return undefined;
+}
+
 export function route(request: AparteChatRequest): string | undefined {
     const { messages } = request;
     const last = messages[messages.length - 1];
+    // The message the loop writes once the sub-agents started in the background are back: the
+    // investigation's end, unless the Test runner reports that its run was refused.
+    if (last?.role === 'user') {
+        const report = contentToText(last.content);
+        if (!BACK.test(report)) return undefined;
+        let asked = '';
+        for (let i = messages.length - 2; i >= 0; i--) {
+            if (messages[i]!.role === 'user' && !BACK.test(contentToText(messages[i]!.content))) { asked = contentToText(messages[i]!.content); break; }
+        }
+        if (report.includes(`${TESTS_NOT_RUN} in Plan mode`)) return FIX.test(asked) ? 'planned' : 'refused';
+        if (report.includes(TESTS_NOT_RUN)) return 'declined';
+        return 'investigated';
+    }
     if (last?.role !== 'tool') return undefined;
     const result = contentToText(last.content);
 
@@ -254,6 +292,9 @@ export function route(request: AparteChatRequest): string | undefined {
     if (why === 'person') return 'declined';
 
     const name = last.toolName as ToolName | undefined;
+    // The investigation is started, not over: the agent goes on while the three work.
+    if ((name as string | undefined) === 'delegate' && result.startsWith('Started ')) return 'investigating';
+    if (name === 'read_file' && callOf(messages, last.toolCallId)?.input['path'] === FAILING_TEST) return 'waiting';
     // The Test runner's refusal, as it reported it: the same answer as a refused run of the agent's own.
     if ((name as string | undefined) === 'delegate' && result.includes(TESTS_NOT_RUN)) {
         if (!result.includes(`${TESTS_NOT_RUN} in Plan mode`)) return 'declined';

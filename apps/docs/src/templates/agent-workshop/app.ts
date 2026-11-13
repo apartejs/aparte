@@ -52,16 +52,25 @@ async function main(): Promise<void> {
     const workspace = createWorkspace(root.querySelector('.agent-workshop__workspace')!, initialFiles());
     const toolbox = createToolbox(workspace);
     const status = root.querySelector('aparte-chat-status')!;
+    // The status line under the reply speaks for the agent's own calls: a sub-agent's say what they
+    // do on its line, and a second voice under the reply, coming and going, moved the reply.
+    const subagentCalls = new Set<string>();
+    aparteGlobalConfig.observeRunEvents((event) => {
+        if (event.type === 'tool-start' && event.agentId) subagentCalls.add(event.toolCallId);
+    });
 
     for (const tool of TOOLS) {
         aparteGlobalConfig.registerTool(tool, async (call) => {
-            status.setAttribute('text', statusOf(tool.name, call.input));
-            status.setAttribute('visible', '');
+            const own = !subagentCalls.has(call.id);
+            if (own) {
+                status.setAttribute('text', statusOf(tool.name, call.input));
+                status.setAttribute('visible', '');
+            }
             try {
                 await pause(LATENCY[tool.name]);
                 return { toolCallId: call.id, content: toolbox[tool.name](call.input) };
             } finally {
-                status.removeAttribute('visible');
+                if (own) status.removeAttribute('visible');
             }
         });
         // An agent's workshop: the reader follows the work, so each row says Running and Done.

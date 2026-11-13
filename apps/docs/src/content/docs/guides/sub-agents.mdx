@@ -172,6 +172,41 @@ several sub-agents side by side, open them in the same tool with `Promise.all`, 
 `detached: true`: one call's line can stand for only one sub-agent, so each of them gets a line of
 its own.
 
+#### While the chat goes on
+
+`runSubAgent` holds its call until the sub-agent is back, so the reply waits at the delegation.
+`startSubAgent` starts it in the background instead: the call answers at once, and the model goes
+on, writing and calling its own tools, while the sub-agent works on its line. The reply does not
+end before it is back: once the model has nothing more to say, the loop waits for the sub-agents
+still at work, tells the model how each ended in one message, and asks it again. That last answer
+is the reply's end.
+
+```ts
+import { aparteGlobalConfig, startSubAgent, type AparteTool, type AparteToolHandler } from '@aparte/core';
+
+const research: AparteTool = {
+  name: 'research',
+  description: 'Hand a question to a researcher and go on: its answer comes back to you.',
+  inputSchema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+};
+
+const handleResearch: AparteToolHandler = async (call, _signal, context) => {
+  startSubAgent(context!.run!, {
+    name: 'Researcher',
+    description: String(call.input['question']),
+    request: { modelId: 'gpt-4.1-mini', messages: [{ role: 'user', content: String(call.input['question']) }] },
+  });
+  return { toolCallId: call.id, content: 'The researcher is on it. Go on; its answer comes back to you.' };
+};
+
+aparteGlobalConfig.registerTool(research, handleResearch);
+```
+
+Each one started this way gets a line of its own, and is stopped with the run: by Stop, by the turn
+limit, and by a pause of the run (a server loop waiting for a person's decision holds nothing). The
+message the model reads when they are back is the loop's ("The sub-agents you started are back."),
+a user message in the run's history, and it is not shown: the model's answer to it is.
+
 ### A backend in any language
 
 A backend that is not JavaScript writes the [engine's run events](/guides/engine/#events) as
@@ -363,8 +398,12 @@ the sub-agent.
 ## What it does not do yet
 
 - **Side by side, inside one tool.** The engine runs a reply's tool calls one at a time, so two
-  delegating calls in one step run one after the other. Sub-agents run side by side when one tool
-  opens them together, or when an agent framework runs them.
+  delegating calls in one step run one after the other with `runSubAgent`. Sub-agents run side by
+  side when one tool opens them together, when they are started in the background, or when an
+  agent framework runs them.
+- **What the model was told stays in the run.** The message saying the sub-agents started in the
+  background are back is in that run's history only: the next turn's history is drawn from the
+  reply, and reads the model's answer to it, not the message.
 - **A paused sub-agent does not survive a reload.** A sub-agent that was waiting for an approval
   reads **Stopped** after a reload, and does not resume.
 - **Without the plugin, a sub-agent is neither drawn nor kept.** Its text and its tool calls stay
@@ -376,7 +415,9 @@ the sub-agent.
 
 The [scenario provider](/providers/ai/scenario/#sub-agents) scripts a model that delegates: a
 `subagents` step calls one tool, `delegate`, and each sub-agent's own model plays the turns you
-wrote, through the real loop and your registered tools. This is what drives the demo above.
+wrote, through the real loop and your registered tools. This is what drives the demo above. With
+`background: true` on the step, they are started in the background: the next turn you wrote plays
+while they work, and the one after it answers once they are back.
 
 ```ts
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';

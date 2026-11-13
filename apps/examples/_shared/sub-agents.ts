@@ -2,8 +2,9 @@
  * The scripted model delegating to sub-agents: three paths, each asked for in so many words.
  *
  * - "Get the release ready with three sub-agents." Three sub-agents side by side, each with
- *   a task of its own and one of the site's read tools; the model answers from what they
- *   returned.
+ *   a task of its own and one of the site's read tools, started in the BACKGROUND: the model
+ *   goes on working while they look (it searches the docs itself), then waits for them and
+ *   answers from what they returned.
  * - "Ask a sub-agent for the last release." One sub-agent: its line is the delegate call's
  *   own row.
  * - "Have a sub-agent run the build." One sub-agent whose `run_command` is gated, so the
@@ -26,6 +27,12 @@ export const SUBAGENT_PROMPTS = {
     one: 'Ask a sub-agent for the last release.',
     gated: 'Have a sub-agent run the build.',
 } as const;
+
+/** What the model searches for itself while the three sub-agents work. */
+const MEANWHILE_QUERY = 'open release issues';
+
+/** How the loop says that sub-agents started in the background are back. */
+const BACK = /sub-agents? you started (is|are) back/i;
 
 /** The first sub-agent of each delegation, which says which answer follows it. */
 const LEAD = {
@@ -62,6 +69,8 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
         turn: [
             { text: 'Three things to check before a release, so three sub-agents: the checklist, the changelog, the versioning rules.' },
             {
+                // Started, not waited for: the model goes on while they look.
+                background: true,
                 subagents: [
                     {
                         name: LEAD.team,
@@ -108,6 +117,15 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
         ],
     },
 
+    // While the three work: the model does a part of the job itself, then says it waits.
+    subagentsMeanwhile: {
+        turn: [
+            { text: 'While they look, I check what is still open for this release.' },
+            { tool: 'search_docs', input: { query: MEANWHILE_QUERY } },
+        ],
+    },
+    subagentsWaiting: { turn: 'Nothing else is open. Waiting for the three of them.' },
+
     // What the model says once its sub-agents are back, one per path (`routeDelegation`).
     subagentsDone: {
         turn: 'Ready to cut **0.17.0**: the checklist wants a changelog entry and a green build, the last release was 0.16.11, and a feature release is a minor bump. Say *ship it* and I will write the entry and run the build.',
@@ -127,13 +145,18 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
 export function routeDelegation(request: AparteChatRequest): string | undefined {
     const { messages } = request;
     const last = messages[messages.length - 1];
+    // The message the loop writes once sub-agents started in the background are back.
+    if (last?.role === 'user') return BACK.test(contentToText(last.content)) ? 'subagentsDone' : undefined;
     if (last?.role !== 'tool') return undefined;
     for (let i = messages.length - 1; i >= 0; i--) {
         const call = messages[i]!.toolCalls?.find((c) => c.id === last.toolCallId);
         if (!call) continue;
+        // The search the model runs itself while the three work.
+        if (call.name === 'search_docs' && call.input['query'] === MEANWHILE_QUERY) return 'subagentsWaiting';
         if (call.name !== DELEGATE) return undefined;
         const lead = leadOf(call.input);
-        if (lead === LEAD.team) return 'subagentsDone';
+        // Started in the background: the call is answered at once, and the model goes on.
+        if (lead === LEAD.team) return 'subagentsMeanwhile';
         if (lead === LEAD.one) return 'subagentDone';
         // The tool result is the sub-agent's last text: it says whether the build ran.
         if (lead === LEAD.gated) return contentToText(last.content).includes(BUILD_REFUSED) ? 'subagentApprovalRefused' : 'subagentApprovalDone';

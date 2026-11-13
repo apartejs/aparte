@@ -4,9 +4,11 @@
  * real tools, and `@aparte/plugin-subagents` gives each one its line.
  *
  * What a person sees: one line per sub-agent with its name and its task; several at once while
- * they work; "1 tool · 2s" once each is done; none of their words in the reply, which holds only
- * the model's own answer. One sub-agent is the delegate call's own row. A sub-agent whose call
- * needs approval is named by the panel. Stop leaves the lines reading stopped.
+ * they work, started in the background, with the model going on meanwhile (its own search, its
+ * own words) and answering once they are back; "1 tool · 2s" once each is done; none of their
+ * words in the reply, which holds only the model's own. One sub-agent is the delegate call's own
+ * row, and the reply waits for it. A sub-agent whose call needs approval is named by the panel.
+ * Stop leaves the lines reading stopped.
  *
  * The three paths are the examples' (`apps/examples/_shared/sub-agents.ts`), asked for in so
  * many words on the scripted model (`?scenario`).
@@ -44,7 +46,7 @@ async function replyText(chat: ChatPage): Promise<string> {
     return chat.lastReply.evaluate((bubble) => [...bubble.querySelectorAll('.aparte-segment-text')].map((el) => el.textContent ?? '').join('\n'));
 }
 
-test('three sub-agents work side by side, each on its line, and the reply keeps only the model’s answer', async ({ page }) => {
+test('three sub-agents work side by side in the background while the model goes on, and the reply keeps only the model’s words', async ({ page }) => {
     const errors = collectPageErrors(page);
     const chat = await openSite(page);
     await chat.send(TEAM);
@@ -55,8 +57,11 @@ test('three sub-agents work side by side, each on its line, and the reply keeps 
         await expect(line).toHaveCount(1);
         await expect(chat.toolTarget(line)).toHaveText(agent.task);
     }
-    await expect(chat.toolRows().and(page.locator('[data-status="pending"]'))).toHaveCount(4);
-    await expect(chat.toolRow('Delegating to 3 sub-agents…')).toHaveCount(1);
+    // Started, not waited for: the call is answered at once, and the model goes on while they
+    // work — its own search, its own words, under their lines.
+    await expect(chat.toolRow('Delegated to 3 sub-agents')).toHaveAttribute('data-status', 'resolved');
+    await expect(chat.lastReply).toContainText('Waiting for the three of them.');
+    await expect(chat.toolRows().and(page.locator('[data-status="pending"]')), 'they still work').not.toHaveCount(0);
     const working = await chat.lastReply.innerText();
     for (const agent of TEAM_AGENTS) expect(working, `${agent.name}'s words stay out of the reply`).not.toContain(agent.says);
     // Heights while they work, to hold against the heights once they are done: a line that grew
@@ -74,12 +79,14 @@ test('three sub-agents work side by side, each on its line, and the reply keeps 
         await expect(chat.toolActivity(line)).toHaveText(DONE_NOTE);
     }
     expect(await heightsOf(), 'each line keeps its height from its start to its end').toEqual(whileWorking);
-    await expect(chat.toolRow('Delegated to 3 sub-agents')).toHaveAttribute('data-status', 'resolved');
-    // Four rows: the call and its three sub-agents. Their own calls are theirs, not the reply's.
-    await expect(chat.toolRows()).toHaveCount(4);
+    // Five rows: the call, its three sub-agents, and the model's own search. Their calls are theirs.
+    await expect(chat.toolRows()).toHaveCount(5);
     const text = await chat.lastReply.innerText();
     for (const agent of TEAM_AGENTS) expect(text).not.toContain(agent.says);
-    expect(await replyText(chat)).toContain('Ready to cut 0.17.0');
+    // What the model said while they worked comes before its answer, which came once they were back.
+    const said = await replyText(chat);
+    expect(said.indexOf('Waiting for the three of them.')).toBeGreaterThan(-1);
+    expect(said.indexOf('Waiting for the three of them.')).toBeLessThan(said.indexOf('Ready to cut 0.17.0'));
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 

@@ -197,7 +197,8 @@ async function run(): Promise<SiteSetup> {
             // through to it by returning `undefined`.
             match: (request) => {
                 const last = request.messages[request.messages.length - 1];
-                if (last?.role !== 'tool') return undefined;
+                // A user message too: the one saying the sub-agents started in the background are back.
+                if (last?.role !== 'tool') return routeDelegation(request);
                 return REFUSAL.test(contentToText(last.content)) ? 'refused' : routeDelegation(request);
             },
             models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
