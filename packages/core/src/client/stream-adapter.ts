@@ -138,10 +138,17 @@ export interface StreamAdapterTarget {
     /**
      * The message as the target holds it, read for its segments: a reply that resumes after a
      * pause is written by a NEW adapter, and what the paused run placed is found there — an
-     * activity sent again under the same id is that one going on, updated in place. A target
-     * without it is written as if the reply were new.
+     * activity sent again under the same id is that one going on, updated in place. The
+     * viewport and a wrapper's host have it. A target with neither this nor `segments` is
+     * written as if the reply were new.
      */
-    getMessage?(id: string): { readonly segments?: readonly AparteSegment[] } | undefined;
+    getMessage?(id: string): AparteMessage | undefined;
+    /**
+     * The segments, when the target is itself one list rather than a chat (`createSegmentList`,
+     * a sub-agent's conversation): read for the same reason as `getMessage`. Not a message: a
+     * list is not a chat that can be asked for one.
+     */
+    readonly segments?: readonly AparteSegment[];
     dispatchEvent(event: Event): boolean;
 }
 
@@ -316,7 +323,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     const activities = new Set<string>();
     const placed = (id: string): boolean => {
         if (activities.has(id)) return true;
-        if (!target.getMessage?.(messageId)?.segments?.some((s) => s.id === id)) return false;
+        const existing = target.getMessage ? target.getMessage(messageId)?.segments : target.segments;
+        if (!existing?.some((s) => s.id === id)) return false;
         activities.add(id);
         return true;
     };

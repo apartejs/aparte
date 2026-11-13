@@ -89,11 +89,6 @@ export function createSegmentList(opts: {
             segments = next;
             changed();
         },
-        // The list is the message's segments: what an adapter reads to find what a run before
-        // it placed (a resumed run's adapter is a new one).
-        getMessage(id) {
-            return id === messageId ? { segments } : undefined;
-        },
         updateMessage() { /* no message here */ },
         setUsage() { /* no message here */ },
         dispatchEvent() {
