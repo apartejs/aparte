@@ -95,6 +95,15 @@ archiving and deleting then happen on that manager, and `preventDefault()` on th
 takes the gesture back. `manage` does not select: a click sends `aparte-conversation-select`, which
 a chat bound to the manager answers by opening that conversation.
 
+On a page with more than one chat, or when the chat has a configuration of its own, say which
+chat the list drives. A click then opens the conversation in that chat alone, and `manage` acts
+on that chat's manager:
+
+```html
+<aparte-conversation-list target="support-chat" manage></aparte-conversation-list>
+<aparte-chat id="support-chat"></aparte-chat>
+```
+
 The rows come from the array, so the element takes no children: put the new-chat button and the
 search field around it, in the [sidebar](/components/sidebar/).
 
