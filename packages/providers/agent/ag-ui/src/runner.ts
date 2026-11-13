@@ -727,6 +727,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                         ...(parent ? { parentSubagentRunId: parent } : {}),
                         ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { metadata: metadata as Record<string, unknown> } : {}),
                     });
+                    // A router's plan comes with its direct children; a nested router's never does.
+                    // It is ticked BEFORE the agent is announced: the plan's card is placed where
+                    // it first arrives, so it stands above the agents' lines rather than between
+                    // the first and the second.
+                    if (!parent) {
+                        if (!routerPlan) {
+                            const steps = routerPlanOf(event);
+                            if (steps) routerPlan = { steps, status: new Map() };
+                        }
+                        tickRouterPlan(name, 'in-progress');
+                    }
                     emit({
                         type: 'agent-start',
                         agentId,
@@ -735,14 +746,6 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                         ...(toolCallId ? { toolCallId } : {}),
                         ...(parent ? { parentAgentId: parent } : {}),
                     });
-                    // A router's plan comes with its direct children; a nested router's never does.
-                    if (!parent) {
-                        if (!routerPlan) {
-                            const steps = routerPlanOf(event);
-                            if (steps) routerPlan = { steps, status: new Map() };
-                        }
-                        tickRouterPlan(name, 'in-progress');
-                    }
                     break;
                 }
                 case 'SUBAGENT_FINISHED':

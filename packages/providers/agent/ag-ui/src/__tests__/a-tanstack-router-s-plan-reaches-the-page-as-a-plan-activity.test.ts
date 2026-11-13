@@ -82,9 +82,10 @@ describe('a TanStack router’s plan reaches the page as a plan activity', () =>
         // Drawn as soon as the first agent starts: the rest still to do.
         expect(steps(all[0])).toEqual(['researcher:in-progress', 'checker:pending', 'writer:pending']);
         expect(steps(all.at(-1))).toEqual(['researcher:done', 'checker:done', 'writer:done']);
-        // Never before the agent it ticks has started: the plan reaches the page with the agents.
+        // Right before the first agent is announced: the card is placed where it first arrives,
+        // so it stands above the agents' lines, not between the first and the second.
         const firstStart = events.findIndex((e) => e.type === 'agent-start');
-        expect(events.indexOf(all[0]!)).toBeGreaterThan(firstStart);
+        expect(events.indexOf(all[0]!)).toBe(firstStart - 1);
     });
 
     it('marks the agent that failed', async () => {
