@@ -28,6 +28,9 @@ const TEAM_AGENTS = [
     { name: 'Version checker', task: 'Say which version number comes next', says: 'so it is a minor bump' },
 ];
 
+/** The steps the one-sub-agent path announces (`STEPS` in the examples' script): the model's, and its sub-agent's. */
+const STEPS = { reply: 'Checking the changelog', subagent: 'Reading CHANGELOG.md' };
+
 /** "1 tool · 2s", on the line's second line once it is over: a count and a duration, in whatever unit the duration takes. */
 const DONE_NOTE = /^1 tool · \S/;
 
@@ -95,12 +98,21 @@ test('one sub-agent is the delegate call’s own row', async ({ page }) => {
     const chat = await openSite(page);
     await chat.send(ONE);
 
+    // The step the model announces, beside the waiting dots before it writes.
+    const step = chat.lastReply.locator('.aparte-waiting:not([hidden]) .aparte-waiting-step:not([hidden])');
+    await expect(step).toHaveText(STEPS.reply);
+
     const line = chat.toolRow('Changelog reader');
     await expect(line).toHaveCount(1);
     await expect(line).toHaveAttribute('data-tool-name', 'delegate');
     await expect(chat.toolTarget(line)).toHaveText('Find the last release in the changelog');
+    // The sub-agent's own step, on its line while none of its calls runs.
+    await expect(chat.toolActivity(line)).toHaveText(STEPS.subagent);
 
     await expect(chat.lastReply).toContainText('The last release was 0.16.11', { timeout: 20_000 });
+    // Live only: nothing of either step is left once the reply is over.
+    await expect(chat.lastReply.locator('.aparte-waiting-step:not([hidden])')).toHaveCount(0);
+    expect(await chat.lastReply.innerText()).not.toContain(STEPS.reply);
     await expect(chat.streaming()).toHaveCount(0);
     await expect(chat.toolRows()).toHaveCount(1);
     await expect(line).toHaveAttribute('data-status', 'resolved');

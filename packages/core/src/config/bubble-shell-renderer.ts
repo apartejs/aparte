@@ -51,6 +51,9 @@
  * screen-reader user gets no word that the branch moved — the arrows deliberately do
  * not take focus, so nothing else announces it.
  *
+ * The step the agent announces ("Reading the parser") is written beside the dots, in a
+ * `.aparte-waiting-step` span the bubble adds to your waiting region when it has none.
+ *
  * ARIA is the one thing this list does NOT ask of you. A shell is markup, and a contract
  * that also demanded a `role` and a name would lose both the first time an author forgot
  * one, silently. So the bubble writes `role="article"` and the accessible name onto your

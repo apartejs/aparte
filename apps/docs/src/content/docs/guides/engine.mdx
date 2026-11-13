@@ -86,6 +86,7 @@ turns are back to `'auto'`.
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
 | `agent-start` | a sub-agent begins: `{ agentId, name, description, toolCallId, parentAgentId }`, the call that opened it and the sub-agent it runs under, when there is one |
 | `agent-end` | a sub-agent ends, once: `{ agentId, status, result, error }`, `status` being `'done'`, `'failed'`, `'waiting'` or `'stopped'` |
+| `step-start`, `step-end` | a named step of the work begins and ends: `{ name, agentId }`. The loop passes on what the model's stream, a runner or a sub-agent announces; steps may nest and overlap, and one ends the latest open step of its name |
 | `run-aborted` | the run was stopped; `run-done` follows |
 | `run-done` | the run ends, with its usage |
 | `run-suspended` | the run ends paused, with its pending calls, in place of `run-done` |

@@ -223,6 +223,13 @@ export interface AparteStreamEventMap {
      * arrive; a later event adds to the earlier ones.
      */
     sources:  { sources: AparteSource[]; citations?: AparteCitation[] }
+    /**
+     * A named step of the agent's work begins ("Reading the parser"); `step-end` with the same
+     * name ends it. Shown while it lasts — the reply's waiting indicator, a sub-agent's line —
+     * and never stored. Steps may nest and overlap.
+     */
+    'step-start': { name: string }
+    'step-end':   { name: string }
 }
 
 /** Discriminated union derived from AparteStreamEventMap — stays in sync automatically. */

@@ -33,6 +33,7 @@ import {
     type StreamAdapterTarget,
 } from '@aparte/core';
 import { subagentOf } from './status.js';
+import { stepEnded, stepStarted, stepsEnded } from './steps.js';
 import {
     SUBAGENT_SEGMENT_TYPE,
     type AparteSubagent,
@@ -328,6 +329,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (run.closed) return;
         for (const lane of run.lanes.values()) {
             const working = lane.status === 'running' || lane.status === 'waiting';
+            stepsEnded(run.messageId, lane.id);
             settleLane(lane, true);
             lane.streaming = false;
             run.dirty.add(lane);
@@ -339,6 +341,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
     /** Drop a run without writing anything. */
     const forget = (run: Run): void => {
+        for (const lane of run.lanes.values()) stepsEnded(run.messageId, lane.id);
         run.closed = true;
         stopFrame(run);
         run.unlisten();
@@ -443,6 +446,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
     /** A lane whose id a new sub-agent now carries: settled as it stands, written, and no longer reached by its id. */
     const retire = (run: Run, lane: Lane): void => {
         run.lanes.delete(lane.id);
+        stepsEnded(run.messageId, lane.id);
         if (lane.status === 'running' || lane.status === 'waiting') {
             lane.status = 'stopped';
             settleLane(lane, true);
@@ -561,6 +565,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (e.error !== undefined) lane.error = e.error;
         // Waiting is not over: its text and its calls stay as they are, its segment streams on.
         if (e.status !== 'waiting') {
+            stepsEnded(run.messageId, lane.id);
             settleLane(lane, false);
             lane.streaming = false;
         }
@@ -575,6 +580,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             if (event.type === 'tool-awaiting-approval') lane.asking.add(event.toolCallId);
             else if (event.type !== 'tool-start') lane.asking.delete(event.toolCallId);
         }
+        // Its step is said on its line, live, and kept out of its conversation: the line reads
+        // it at the draw this event's write brings about.
+        if (event.type === 'step-start') stepStarted(run.messageId, lane.id, event.name);
+        else if (event.type === 'step-end') stepEnded(run.messageId, lane.id, event.name);
         const before = lane.list.segments.length;
         lane.emit(event as AparteStreamRunEvent);
         if (event.type === 'tool-start') callStarted(run, lane, event.toolCallId);

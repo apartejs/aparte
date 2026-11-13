@@ -110,6 +110,13 @@ function readTicket(token: string | undefined): Ticket | undefined {
     }
 }
 
+/** What a run leaves the turn that ran it: its thread, whether it paused, how to close its steps. */
+interface Track {
+    threadId?: string;
+    suspended: boolean;
+    closeSteps?: () => void;
+}
+
 /** The run's own events. */
 const PARENT = '';
 
@@ -243,7 +250,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     const stableThread = options.threadId !== undefined;
     /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
     const unanswered = new Map<string, string[]>();
-    const runOnce = async (opts: AparteStreamRunOptions, track: { threadId?: string; suspended: boolean }): Promise<Usage | undefined> => {
+    const runOnce = async (opts: AparteStreamRunOptions, track: Track): Promise<Usage | undefined> => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
         const request = opts.baseRequest as AparteChatRequest;
@@ -378,7 +385,21 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             agents.set(agentId, { open: true });
             emit({ type: 'agent-start', agentId });
         };
+        /** The steps open, in the order they opened, each with its owner (`''` for the run's own). */
+        const openSteps: { owner: string; name: string }[] = [];
+        /** Close what is still open — one owner's, or everyone's — the latest first, so nothing is left lit. */
+        const closeSteps = (owner?: string) => {
+            for (let i = openSteps.length - 1; i >= 0; i -= 1) {
+                const step = openSteps[i]!;
+                if (owner !== undefined && step.owner !== owner) continue;
+                openSteps.splice(i, 1);
+                emit({ type: 'step-end', name: step.name, ...by(step.owner) });
+            }
+        };
+        track.closeSteps = closeSteps;
         const endAgent = (agentId: string, status: 'done' | 'failed' | 'waiting', detail: { result?: string; error?: string } = {}) => {
+            // Its steps end with it: its line would otherwise say one it is no longer on.
+            closeSteps(agentId);
             const agent = agents.get(agentId);
             if (agent) agent.open = false;
             emit({ type: 'agent-end', agentId, status, ...detail, ...(agent?.parent ? { parentAgentId: agent.parent } : {}) });
@@ -666,12 +687,33 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     };
                     break;
                 }
+                // A step is a name with a start and an end, its owner's: shown while it lasts
+                // (the waiting indicator, a sub-agent's line). Steps may nest and overlap, and
+                // one ends the latest open step of its name under the same owner.
+                case 'STEP_STARTED': {
+                    const owner = tag ?? PARENT;
+                    const name = String(event['stepName'] ?? '');
+                    openSteps.push({ owner, name });
+                    emit({ type: 'step-start', name, ...by(owner) });
+                    break;
+                }
+                case 'STEP_FINISHED': {
+                    const owner = tag ?? PARENT;
+                    const name = String(event['stepName'] ?? '');
+                    for (let i = openSteps.length - 1; i >= 0; i -= 1) {
+                        if (openSteps[i]!.owner !== owner || openSteps[i]!.name !== name) continue;
+                        openSteps.splice(i, 1);
+                        emit({ type: 'step-end', name, ...by(owner) });
+                        break;
+                    }
+                    break;
+                }
                 default:
-                    // STEP_*, MESSAGES_SNAPSHOT, ACTIVITY_*, RAW, CUSTOM: agent state aparté
-                    // does not draw.
+                    // MESSAGES_SNAPSHOT, ACTIVITY_*, RAW, CUSTOM: agent state aparté does not draw.
                     break;
             }
         }
+        closeSteps();
         if (opts.signal.aborted) return usage;
         if (runError) {
             for (const [toolCallId, call] of started) if (!answered.has(toolCallId)) emit({ type: 'tool-aborted', toolCallId, ...by(call.owner) });
@@ -753,13 +795,15 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         return usage;
     };
     return async (opts) => {
-        const track: { threadId?: string; suspended: boolean } = { suspended: false };
+        const track: Track = { suspended: false };
         try {
             return await runOnce(opts, track);
         } finally {
             // A thread minted for one turn is forgotten when the turn ends, however it ends —
             // done, failed or stopped — unless it paused, since only a resume reuses it.
             if (track.threadId && !stableThread && !track.suspended) states.delete(track.threadId);
+            // A stream refused or cut mid-way: the steps it left open go out with it.
+            track.closeSteps?.();
         }
     };
 }

@@ -4,7 +4,8 @@
  * The plugin gives core a tool-line provider (`setToolLineProvider`): for a call that carries
  * a sub-agent — the call that opened it, or the call the plugin's own segment stands in for —
  * it says the sub-agent's name and its task, and on a second line, from the sub-agent's start to
- * its end, what it is on ("Starting…", then its latest call) and once it is over what it did
+ * its end, what it is on ("Starting…", then its running call, else the step it announced, else
+ * its latest call) and once it is over what it did
  * ("3 tools · 12s"). The second line is there the whole time, so the row keeps its height: one
  * that grew a line when the sub-agent began acting and lost it at its end moved every row under
  * it twice, and a count that grew beside the task moved the task. Core reads it AFTER the app's
@@ -22,6 +23,7 @@ import {
     type AparteToolLine,
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
+import { currentStep } from './steps.js';
 import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
 import type { AparteSubagent, AparteSubagentStatus, SubagentsOptions } from './types.js';
@@ -66,13 +68,14 @@ function callLine(call: AparteToolCallSegment, config: AparteConfig): string {
 }
 
 /**
- * What it is doing now: its LATEST call, as that call's row names it — the one running or
- * waiting, else the last one that finished. Only a call open at that instant used to count,
+ * What it is doing now: the call running or waiting, as that call's row names it; else the
+ * step it announced and is still on ("Reading the parser"); else its LATEST call, the last one
+ * that finished. Only a call open at that instant used to count,
  * and with fast tools the line never said anything: the call was over before the next draw.
  * The caller asks only while the sub-agent runs or waits, so a finished call reads as the
  * step it is on until the next one starts (it is thinking or writing about that result).
  */
-function activityOf(sub: AparteSubagent, config: AparteConfig): string {
+function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | undefined): string {
     let latest: AparteToolCallSegment | undefined;
     for (let i = sub.segments.length - 1; i >= 0; i -= 1) {
         const segment = sub.segments[i]!;
@@ -80,6 +83,7 @@ function activityOf(sub: AparteSubagent, config: AparteConfig): string {
         if (isOpenCall(segment)) return callLine(segment, config);
         latest ??= segment as AparteToolCallSegment;
     }
+    if (step) return step;
     return latest ? callLine(latest, config) : '';
 }
 
@@ -156,7 +160,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
             // The second line, from its start to its end: what it is on, then what it did (in
             // the state's word when there is no count to give, so the line is never empty).
             line.activity = live
-                ? activityOf(sub, config) || word(config, 'subagentsStarting')
+                ? activityOf(sub, config, currentStep(segment.messageId, sub.id)) || word(config, 'subagentsStarting')
                 : summary() || stateWord(config, status);
         } else if (!live) {
             // One line: what it did comes after the state, once, at its end.

@@ -86,16 +86,24 @@ export const INVESTIGATORS: ScenarioSubagent[] = [
         name: 'Parser reader',
         task: 'Read src/parse.ts and find where the amount becomes a number',
         turns: [
-            [{ thinking: 'The amount is captured by the pattern, then turned into a number in the replace callback.' }, { tool: 'read_file', input: { path: 'src/parse.ts' } }],
-            'Line 15 reads the amount with `parseInt(amount, 10)`, which stops at the decimal point: `1.5` becomes `1`. The pattern on line 7 already accepts decimals, so that call is the only place the fraction is lost.',
+            // A step its line says while no call of it runs: before the read, and after it.
+            [{ step: 'Reading the parser' }, { thinking: 'The amount is captured by the pattern, then turned into a number in the replace callback.' }, { tool: 'read_file', input: { path: 'src/parse.ts' } }],
+            [
+                { wait: 500 },
+                { endStep: 'Reading the parser' },
+                { text: 'Line 15 reads the amount with `parseInt(amount, 10)`, which stops at the decimal point: `1.5` becomes `1`. The pattern on line 7 already accepts decimals, so that call is the only place the fraction is lost.' },
+            ],
         ],
     },
     {
         name: 'Caller search',
         task: 'Find every caller of parse() in the repository',
         turns: [
-            [{ wait: 400 }, { tool: 'search', input: { query: 'parse(' } }],
-            "No code in `src/` calls `parse()` besides its own definition. Its callers are the tests, six in `tests/parse.test.ts` and the round-trip in `tests/format.test.ts`, and the README, which already promises decimal amounts: `parse('1.5h')`.",
+            [{ step: 'Searching the repository' }, { wait: 400 }, { tool: 'search', input: { query: 'parse(' } }],
+            [
+                { endStep: 'Searching the repository' },
+                { text: "No code in `src/` calls `parse()` besides its own definition. Its callers are the tests, six in `tests/parse.test.ts` and the round-trip in `tests/format.test.ts`, and the README, which already promises decimal amounts: `parse('1.5h')`." },
+            ],
         ],
     },
     {

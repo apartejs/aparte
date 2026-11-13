@@ -33,6 +33,18 @@
   gap: var(--aparte-waiting-dot-gap);
 }
 
+/* The step the agent is on, beside the dots ("Reading the parser"): the words a reasoning
+   block's label wears, sweeping while they last (`aparte-shimmer`, which stops under
+   reduced motion). One line: a long step name is cut, not wrapped under the dots. */
+.aparte-waiting-step {
+  margin-inline-start: var(--aparte-space-3);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--aparte-font-size-sm);
+}
+
 /* Staggered so it reads as "working", not as three synchronized blobs. Scoped to
    the waiting region — the status element keeps its single-dot pulse. */
 .aparte-waiting .aparte-dot:nth-child(2) {

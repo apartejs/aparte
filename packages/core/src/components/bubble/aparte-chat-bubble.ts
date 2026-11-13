@@ -338,6 +338,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _role: AparteBubbleRole = 'assistant';
   private _attachments: AparteAttachment[] = [];
   private _usage: AparteUsage | null = null;
+  /** The step the agent is on while this reply waits: live only, never part of the message. */
+  private _step: string | null = null;
   private _finishReason: AparteFinishReason | null = null;
   /** The checkpoint this message carries: the separator above it is drawn from it. */
   private _contextSummary: AparteContextSummary | null = null;
@@ -1093,6 +1095,22 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
+   * Say the step the agent is on ("Reading the parser") while this reply waits, or `null`
+   * when it is on none. The client calls it as the run announces steps.
+   *
+   * Live only: the words show beside the waiting dots while the reply has nothing to show
+   * (or between two calls), and are what a screen reader hears in place of "Typing". They
+   * are never one of the message's segments, never saved and never sent to the model, and
+   * they go with the reply's end even when nobody closed the step.
+   */
+  setStep(name: string | null): void {
+    const next = typeof name === 'string' && name.trim() ? name.trim() : null;
+    if (next === this._step) return;
+    this._step = next;
+    this._updateWaiting();
+  }
+
+  /**
    * Say why the model stopped writing this reply (assistant only).
    *
    * Only `'length'` draws anything: a quiet note after the content that the reply was cut
@@ -1633,7 +1651,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
             <div class="aparte-content" dir="auto"></div>
             <div class="aparte-waiting" hidden>
               <span class="aparte-dots" aria-hidden="true"><span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span></span>
-              <span class="aparte-sr-only"></span>
+              <span class="aparte-waiting-step aparte-shimmer" aria-hidden="true" dir="auto" hidden></span>
+              <span class="aparte-sr-only" aria-live="polite">${escapeHtml(this._cfg.getLocale().typing ?? '')}</span>
             </div>
           </div>
           <div class="aparte-footer">
@@ -1794,8 +1813,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
     if (!el) return;
     el.hidden = !waiting;
+    // The step the agent is on, beside the dots: the visible words are hidden from a screen
+    // reader, which hears them from the label instead — once, as they change.
+    const step = waiting ? this._step : null;
+    let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
+    if (!words && step) {
+      // A shell of the app's own may not have it: added where the default shell has it.
+      words = document.createElement('span');
+      words.className = 'aparte-waiting-step aparte-shimmer';
+      words.setAttribute('aria-hidden', 'true');
+      words.dir = 'auto';
+      const dots = el.querySelector('.aparte-dots');
+      if (dots) dots.after(words);
+      else el.prepend(words);
+    }
+    if (words) {
+      words.hidden = !step;
+      if (step && words.textContent !== step) words.textContent = step;
+    }
     if (!waiting) return;
-    const label = this._cfg.getLocale().typing;
+    const label = step ?? this._cfg.getLocale().typing;
     const sr = el.querySelector('.aparte-sr-only');
     if (sr && sr.textContent !== label) sr.textContent = label;
   }
@@ -2790,6 +2827,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _updateStreaming(streaming: boolean): void {
     const wasStreaming = this._streaming;
     this._streaming = streaming;
+    // A step lives as long as the reply streams: one nobody closed does not outlive it.
+    if (!streaming) this._step = null;
     const message = this.querySelector('.aparte-message');
     if (message) {
       message.setAttribute('data-streaming', String(streaming));

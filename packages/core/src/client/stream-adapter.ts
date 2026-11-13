@@ -128,6 +128,12 @@ export interface StreamAdapterTarget {
     updateSegment?(segmentId: string, updates: Partial<AparteSegment>): void;
     typeName?(text: string): void;
     setUsage?(id: string, usage: AparteUsage): void;
+    /**
+     * The step the reply is on, live: its name while one is open (the latest one opened),
+     * `null` once none is. Told only when it changes, and `null` when the run ends. Never
+     * stored — a target that shows nothing of it leaves it out.
+     */
+    setStep?(id: string, name: string | null): void;
     dispatchEvent(event: Event): boolean;
 }
 
@@ -270,8 +276,35 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         thinkingCollapsed = true;
     };
 
+    // The reply's steps still open, in the order they opened: the latest shows, and when it
+    // ends the one before it shows again. Live only — nothing of it reaches the message.
+    const steps: string[] = [];
+    let shownStep: string | null = null;
+    const showStep = (): void => {
+        const next = steps.at(-1) ?? null;
+        if (next === shownStep) return;
+        shownStep = next;
+        target.setStep?.(messageId, next);
+    };
+    const endSteps = (): void => {
+        steps.length = 0;
+        showStep();
+    };
+
     const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
+            case 'step-start':
+                steps.push(e.name);
+                showStep();
+                break;
+
+            case 'step-end': {
+                const at = steps.lastIndexOf(e.name);
+                if (at >= 0) steps.splice(at, 1);
+                showStep();
+                break;
+            }
+
             case 'run-start':
                 target.updateMessage?.(messageId, { status: 'streaming' });
                 break;
@@ -452,10 +485,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
 
             case 'run-aborted':
+                endSteps();
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
 
             case 'run-suspended': {
+                endSteps();
                 // A server loop paused: each pending call records why it waits and the
                 // server's ticket (the wire adds `ticket` to this event), so the paused
                 // call lives in the conversation the app saves and a reload can answer it.
@@ -482,6 +517,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'run-done':
+                endSteps();
                 // Persisted with the message, so a reload shows a cut-off reply as cut off.
                 target.updateMessage?.(messageId, {
                     status: 'completed',

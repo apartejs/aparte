@@ -28,6 +28,12 @@ export const SUBAGENT_PROMPTS = {
     gated: 'Have a sub-agent run the build.',
 } as const;
 
+/** The steps the one-sub-agent path announces: the model's own, and its sub-agent's. */
+export const STEPS = {
+    reply: 'Checking the changelog',
+    subagent: 'Reading CHANGELOG.md',
+} as const;
+
 /** What the model searches for itself while the three sub-agents work. */
 const MEANWHILE_QUERY = 'open release issues';
 
@@ -100,17 +106,22 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
             },
         ],
     },
+    // With steps, as an agent announces the stage it is in: the model's shows in the reply's
+    // waiting indicator until it writes, and lasts until its answer (`subagentDone`); the
+    // sub-agent's shows on its line while none of its calls runs.
     subagent: {
         when: /\bsub-?agent\b/i,
         turn: [
+            { step: STEPS.reply },
+            { wait: 800 },
             { text: 'A sub-agent can look that up.' },
             {
                 subagents: [{
                     name: LEAD.one,
                     task: 'Find the last release in the changelog',
                     turns: [
-                        [{ thinking: 'The newest entry is at the top of CHANGELOG.md.' }, { wait: 1200 }, { tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
-                        'The last entry is 0.16.11.',
+                        [{ step: STEPS.subagent }, { thinking: 'The newest entry is at the top of CHANGELOG.md.' }, { wait: 1200 }, { tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
+                        [{ endStep: STEPS.subagent }, { text: 'The last entry is 0.16.11.' }],
                     ],
                 }],
             },
@@ -130,7 +141,7 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
     subagentsDone: {
         turn: 'Ready to cut **0.17.0**: the checklist wants a changelog entry and a green build, the last release was 0.16.11, and a feature release is a minor bump. Say *ship it* and I will write the entry and run the build.',
     },
-    subagentDone: { turn: 'The last release was **0.16.11**, so the next one is 0.17.0.' },
+    subagentDone: { turn: [{ endStep: STEPS.reply }, { text: 'The last release was **0.16.11**, so the next one is 0.17.0.' }] },
     subagentApprovalDone: { turn: 'The build is green: 12.4 s, no errors.' },
     subagentApprovalRefused: { turn: 'The build did not run: its command was refused, so I cannot say whether it passes.' },
     // A delegation no path above wrote (a local model calling the tool on its own).

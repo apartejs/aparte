@@ -828,6 +828,14 @@ export class AparteChatViewport extends HTMLElement {
         this._notifyBubble(messageId, 'setUsage', usage);
     }
 
+    /**
+     * Say the step the agent is on ("Reading the parser") in the reply's waiting indicator,
+     * or `null` for none. Live only: handed to the bubble, never written on the message.
+     */
+    setStep(messageId: string, name: string | null): void {
+        this._notifyBubble(messageId, 'setStep', name);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Message Management
     // ─────────────────────────────────────────────────────────────────────────
@@ -1436,6 +1444,7 @@ export class AparteChatViewport extends HTMLElement {
             updateSegment?: (segmentId: string, updates: Partial<AparteSegment>) => void;
             removeSegment?: (segmentId: string) => void;
             setUsage?: (usage: AparteUsage) => void;
+            setStep?: (name: string | null) => void;
             updateMessage?: (updates: Partial<AparteMessage>) => void;
         };
 
@@ -1461,6 +1470,9 @@ export class AparteChatViewport extends HTMLElement {
                 break;
             case 'setUsage':
                 bubble.setUsage?.(payload as AparteUsage);
+                break;
+            case 'setStep':
+                bubble.setStep?.(payload as string | null);
                 break;
             case 'update': {
                 // Atomic update: forward it when it carries anything the bubble
