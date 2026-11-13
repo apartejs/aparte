@@ -95,8 +95,8 @@ export function toolTargetPartsOf(
 }
 
 /**
- * What the call is doing now, from the tool-line provider — only while it runs or waits for
- * a person: a finished call is not doing anything.
+ * The row's second line, from the tool-line provider, in every state it gives one: what the
+ * call is doing now, and once it is over what it did. Core says nothing there on its own.
  */
 export function toolActivityOf(_segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
     // In every state the provider gives one: a row keeps its height from its start to its end

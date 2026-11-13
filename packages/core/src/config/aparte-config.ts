@@ -1909,8 +1909,9 @@ export class AparteConfig {
      *
      * One provider per config; `null` removes it. It is consulted AFTER the app's display,
      * field by field, so the app always wins: `label` and `target` are read when the display
-     * gives none, `details` when the display has no `details` key. `activity` shows while
-     * the call runs or waits; `note` shows in every state. A function, called whenever the
+     * gives none, `details` when the display has no `details` key. `activity`, a second
+     * line under the name, and `note` show in every state they are given: give `activity` for
+     * the call's whole life, or never, or the row changes height. A function, called whenever the
      * row is drawn, updated or relabelled — never text stored on the segment — so its words
      * follow a language switch. One that throws, or returns nothing, leaves the default
      * line. A chat with a config of its own and no provider reads {@link aparteGlobalConfig}'s.

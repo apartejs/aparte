@@ -388,7 +388,7 @@ function setTarget(element: Element, segment: AparteToolCallSegment, line: Apart
 /**
  * Write what the call is doing now (the tool-line provider's `activity`) into its container —
  * always in the line, like the target, so a relabel can write it without adding a node, and
- * `hidden` once the call has settled or when there is nothing to say. Its own line under the
+ * `hidden` when there is nothing to say. Its own line under the
  * name (the stylesheet wraps it there), so it is the line's last child, after the note. Plain text, and no
  * live region of its own: inside the transcript's log, a streaming reply is `aria-busy`, so
  * its changes are not announced one by one; a screen reader reads it with the row.

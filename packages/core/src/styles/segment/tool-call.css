@@ -200,7 +200,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 .aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
     order: 1;
 }
-/* What the call is doing now (`setToolLineProvider`'s `activity`), while it runs or waits: a
+/* What the call is doing now, then what it did (`setToolLineProvider`'s `activity`): a
    line of its own under the first, starting where the NAME starts. Beside the target, in the
    same muted ink, the two read as one run-on sentence ("Run the build and report any errors
    Run command pnpm build"), and in a narrow column it was the first thing cut.
