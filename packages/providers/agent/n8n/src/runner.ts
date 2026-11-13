@@ -467,7 +467,21 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             const agents: Agent[] = [];
             let owner: Agent | undefined;
             const by = (agent: Agent | undefined) => (agent?.id ? { agentId: agent.id } : {});
-            const endAgent = (agent: Agent, status: 'done' | 'failed') => emit({
+            // What was taken for the reply's agent's sub-agents, held until that agent streams
+            // again — the one proof n8n gives. Then it goes out as it was, attributed. If the
+            // proof never comes, none of it was a sub-agent, and its text is the reply's: drawn
+            // there once, rather than on a line first and in the reply after.
+            let held: Parameters<typeof emit>[0][] | undefined;
+            const send = (event: Parameters<typeof emit>[0]) => {
+                if (held) held.push(event);
+                else emit(event);
+            };
+            const release = () => {
+                const events = held ?? [];
+                held = undefined;
+                for (const event of events) emit(event);
+            };
+            const endAgent = (agent: Agent, status: 'done' | 'failed') => send({
                 type: 'agent-end',
                 agentId: agent.id!,
                 status,
@@ -479,13 +493,16 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 if (at >= 0) {
                     // The caller streams again: what it waited on has answered.
                     while (agents.length > at + 1) endAgent(agents.pop()!, 'done');
+                    // The reply's agent is back: what it waited on was its sub-agents after all.
+                    if (at === 0) release();
                 } else {
                     // A sub-agent that answered is done when its caller calls another.
                     while (agents.length > 1 && !agents.at(-1)!.empty) endAgent(agents.pop()!, 'done');
                     const caller = agents.at(-1);
                     if (caller?.empty) {
                         const agent: Agent = { stream, id: `n8n-${uuid()}`, parent: caller, empty: true, text: '' };
-                        emit({ type: 'agent-start', agentId: agent.id!, ...(node ? { name: node } : {}), ...(caller.id ? { parentAgentId: caller.id } : {}) });
+                        if (agents.length === 1) held ??= [];
+                        send({ type: 'agent-start', agentId: agent.id!, ...(node ? { name: node } : {}), ...(caller.id ? { parentAgentId: caller.id } : {}) });
                         agents.push(agent);
                     } else {
                         agents.length = 0;
@@ -496,7 +513,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 owner.empty = true;
             };
             const flush = () => {
-                if (textOpen) emit({ type: 'text-flush', ...by(owner) });
+                if (textOpen) send({ type: 'text-flush', ...by(owner) });
                 textOpen = false;
             };
             const draw = (text: string) => {
@@ -507,7 +524,7 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                     owner.text += text;
                 }
                 if (!owner?.id) drawn = true;
-                emit({ type: 'text-delta', delta: text, ...by(owner) });
+                send({ type: 'text-delta', delta: text, ...by(owner) });
             };
             const open = (stream: string, node?: string) => {
                 active = stream;
@@ -533,6 +550,8 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             /** The workflow failed: the sub-agents still open failed with it. */
             const fail = () => {
                 flush();
+                // No proof either way: what was taken for sub-agents goes out as it was, and fails.
+                release();
                 for (const agent of agents.splice(1).reverse()) endAgent(agent, 'failed');
             };
 
@@ -595,15 +614,17 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
                 open(stream, queued.node);
                 for (const text of queued.text) draw(text);
             }
-            // A caller that never streamed again was not waiting on them — two agents in a
-            // row, the first answering nothing: what they streamed is the answer after all.
-            const unanswered = agents.splice(1);
+            // A reply's agent that never streamed again was not waiting on them — two agents in a
+            // row, the first answering nothing: none of what followed was a sub-agent, and what
+            // it streamed is the answer, in the order it came. Nothing of it went out yet.
             flush();
-            for (const agent of [...unanswered].reverse()) endAgent(agent, 'done');
+            const unproven = held ?? [];
+            held = undefined;
+            agents.splice(1);
             owner = agents[0];
-            for (const agent of unanswered) {
-                flush();
-                draw(agent.text);
+            for (const event of unproven) {
+                if (event.type === 'text-delta') draw(event.delta);
+                else if (event.type === 'text-flush') flush();
             }
             if (!drawn) throw new AparteError(whole ? EMPTY_WHOLE : EMPTY_STREAM, AparteErrorCode.PROVIDER_MISCONFIGURED);
             flush();
