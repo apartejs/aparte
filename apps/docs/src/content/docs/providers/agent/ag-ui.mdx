@@ -37,6 +37,7 @@ the approval panel work as they do with aparté's own loop.
 | `REASONING_*` | a [reasoning block](/components/reasoning/) |
 | `TOOL_CALL_START`, `TOOL_CALL_ARGS` or `TOOL_CALL_CHUNK`, `TOOL_CALL_END` | a [tool row](/components/tool/), drawn with its whole arguments once the call ends |
 | `TOOL_CALL_RESULT` | the row's result |
+| `SUBAGENT_STARTED`, `SUBAGENT_FINISHED`, `SUBAGENT_ERROR`, and the `subagentRunId` on a sub-agent's events | nothing in the reply: a [sub-agent's](/guides/sub-agents/) work, handed to the page as its own, drawn as one line per sub-agent by `@aparte/plugin-subagents` |
 | `RUN_FINISHED` | the end of the reply, with its usage — or, with an interrupt, a decision to make or a tool the page runs |
 | `RUN_ERROR` | the [error card's](/components/error/#what-the-card-says) sentence, below what the stream drew; the agent's message goes to the console and stays on the segment |
 | `STATE_SNAPSHOT`, `STATE_DELTA` | nothing drawn: the agent's state, kept for the thread and sent back as the next run's `state` |
@@ -47,9 +48,20 @@ its last step, as a run in the page does: the size of what the model last saw, w
 context gauge reads. A `RUN_ERROR` does not cut the stream: the runner reads it to the end, as the
 protocol asks, and the error lands below what was drawn — unless the agent runs again in the same
 stream, in which case the new run decides how the reply ends and the failure goes to `onWarning`. A stream that ends without
-`RUN_FINISHED` ends the reply with an error. `STEP_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW`,
-`CUSTOM` and sub-agent events are checked, not drawn. The runner reads the answer as server-sent
+`RUN_FINISHED` ends the reply with an error. `STEP_*`, `MESSAGES_SNAPSHOT`, `ACTIVITY_*`, `RAW` and
+`CUSTOM` are checked, not drawn. The runner reads the answer as server-sent
 events, or as NDJSON when its content type says so.
+
+## Sub-agents
+
+An agent that hands work to sub-agents announces each one with `SUBAGENT_STARTED`, and tags what
+it streams with its `subagentRunId`. The runner keeps that work out of the reply — a sub-agent's
+text is not the answer, and the model never reads it back — and hands it to the page as the
+sub-agent's, several at once if they interleave. Add `@aparte/plugin-subagents` and each sub-agent is
+one line in the reply, on the row of the call that opened it; without it, the call shows as an
+ordinary tool row. A sub-agent's interrupt is asked about like the agent's own, and the question
+names the sub-agent. Most integrations announce sub-agents only when told to:
+[Sub-agents](/guides/sub-agents/#an-ag-ui-agent) lists the option each one documents.
 
 ## The protocol's own rules
 

@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-vanilla",
-    "version": "0.0.72",
+    "version": "0.0.73",
     "private": true,
     "type": "module",
     "description": "Minimal vanilla example — @aparte/core web components + a real (BYOK / local) model.",
@@ -20,6 +20,7 @@
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/plugin-shiki": "workspace:*",
+        "@aparte/plugin-subagents": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",
         "@aparte/provider-scenario": "workspace:*",
         "@shikijs/langs": "^4.0.0",

@@ -83,6 +83,8 @@ turns are back to `'auto'`.
 | `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it; a rejection carries `reason` (the sentence the model reads), `by` and the person's `instruction` |
 | `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either; an abort carries a `cause` |
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
+| `agent-start` | a sub-agent begins: `{ agentId, name, description, toolCallId, parentAgentId }`, the call that opened it and the sub-agent it runs under, when there is one |
+| `agent-end` | a sub-agent ends, once: `{ agentId, status, result, error }`, `status` being `'done'`, `'failed'`, `'waiting'` or `'stopped'` |
 | `run-aborted` | the run was stopped; `run-done` follows |
 | `run-done` | the run ends, with its usage |
 | `run-suspended` | the run ends paused, with its pending calls, in place of `run-done` |
@@ -93,6 +95,39 @@ The fields the row speaks from: `tool-rejected` has `by`, `'person' | 'policy' |
 `'stopped'`, `'timeout'`, `'no-handler'` or `'no-resolver'`, and none for a call the run ended
 before reaching. A runner of your own may leave them out. An `approvalResolver` can return `by`
 beside a `reason`; without it a `reason` is a policy's and an `instruction` a person's.
+
+Every event but the four `run-*` may carry `agentId`: the event is that sub-agent's, not part of
+the reply. A sub-agent never starts or ends the run, so the `run-*` events never carry one. A
+tool opens a sub-agent from the third argument its handler receives, a `StreamToolRun`:
+`runSubAgent(run, { name, request }, signal)` runs a nested loop on its own conversation and
+resolves `{ status, text }`, a `StreamAgentStatus` and what the sub-agent wrote last; a failed
+sub-agent is returned, not thrown. `run.startAgent({ name })` announces one by hand and returns a
+`StreamAgentHandle`, whose `emit` passes an event on as the sub-agent's and `end` closes it. A
+Stop or the call's timeout ends a sub-agent as `'stopped'` before its call is aborted. In a run
+given `deferral`, `run.canAsk` is false, and a sub-agent's call that needs a decision is
+aborted with the cause `'no-resolver'`.
+
+```ts
+import { runSubAgent, type StreamToolHandler } from '@aparte/engine';
+
+const research: StreamToolHandler = async (call, signal, run) => {
+    const answer = await runSubAgent(run!, {
+        name: 'researcher',
+        request: { modelId: 'my-model', messages: [{ role: 'user', content: String(call.input.topic) }] },
+    }, signal);
+    return { content: answer.status === 'failed' ? `The research failed: ${answer.error}` : answer.text };
+};
+```
+
+In `@aparte/core`, the adapter keeps a sub-agent's events out of the reply, whether or not anything
+else draws them; a sub-agent's call that waits for a decision still sends
+`aparte-tool-approval-request`, with its `agentId`. To hear every event of a run, the reply's own
+and its sub-agents', register an `AparteRunEventObserver` with `config.observeRunEvents(observer)`:
+it is called before the reply handles each event, with an `AparteRunEventContext` holding the
+`messageId`, the chat's `target` and `targetId`, and the chat's `config`, and it returns a function
+that removes it. A chat hears the observers of its own config, then those of the global one.
+[Sub-agents](/guides/sub-agents/) draws them, one line per sub-agent, with
+`@aparte/plugin-subagents`.
 
 `toolRefusal(decision)` writes the refusal for you, and a runner that answers an agent elsewhere
 should use it so the model reads the same sentence:

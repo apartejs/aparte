@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/example-vue",
-  "version": "0.0.72",
+  "version": "0.0.73",
   "private": true,
   "type": "module",
   "description": "Minimal Vue example — @aparte/vue + a real (BYOK / local) model.",
@@ -20,6 +20,7 @@
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",
+    "@aparte/plugin-subagents": "workspace:*",
     "@aparte/provider-openai-compat": "workspace:*",
     "@aparte/provider-scenario": "workspace:*",
     "@aparte/vue": "workspace:*",

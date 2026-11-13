@@ -134,7 +134,7 @@ const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.inc
 /**
  * The Agent Builder article's demo: an OpenAI Agents SDK agent served over AG-UI by
  * `apps/examples/agents-sdk`, page and agent in one Vite process, on the SDK's scripted
- * model — no key. Not one of the framework apps, so it runs only `agents-sdk.spec.ts`, in
+ * model — no key. Not one of the framework apps, so it runs only its two specs, in
  * Chromium; `E2E_ONLY=agents-sdk` picks it alone. The words come 120 ms apart so Stop
  * lands mid-reply.
  */
@@ -278,6 +278,11 @@ const FRAMEWORK_TOOL_UI = /framework-tool-ui\.spec\.ts/;
 // outlive what each framework does to a message on screen — a save, a follow-up turn, the
 // conversation reopened. On every example: the framework is the variable.
 const PLUGIN_CARDS = /plugin-cards\.spec\.ts/;
+// Sub-agents (`@aparte/plugin-subagents`, the scripted model's `delegate`): one line per sub-agent,
+// written into a segment of the message the framework mirrors, and kept out of the reply. On every
+// example, PLUGIN_CARDS' reason: what each framework does to a message on screen is the variable.
+// Anchored, so it does not also match `agents-sdk-subagents.spec.ts`.
+const SUBAGENTS = /[\\/]subagents\.spec\.ts$/;
 // A compaction end to end: the plugin every example sets up, a small window, the separator
 // drawn by the bubble, the request read off the mock. A DEEP suite — the plugin and the
 // separator are the same everywhere — on the two apps where the bubble is drawn by core and
@@ -319,24 +324,24 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS] :
+    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS] :
+    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS] :
     // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
     // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
     // set it before the element is inserted, so only Angular proves the viewport follows it.
-    [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, ...(k === 'angular' ? [OVERLAY] : [])];
+    [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
@@ -458,7 +463,8 @@ export default defineConfig({
         ...(runAgentsSdk ? [{
             name: 'agents-sdk',
             use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${AGENTS_SDK_PORT}` },
-            testMatch: /agents-sdk\.spec\.ts/,
+            // The agent, and the scripted run with two sub-agents beside it (`?subagents`).
+            testMatch: /agents-sdk(-subagents)?\.spec\.ts/,
         }] : []),
     ],
 });

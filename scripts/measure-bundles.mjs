@@ -39,16 +39,16 @@ const OUT = join(root, 'apps/docs/src/data/bundle-sizes.json');
 const WORK = resolve(process.argv[2] ?? join(tmpdir(), 'aparte-bundle-weights'));
 
 /** Every library, aparté included, at its latest version published before this instant. */
-const BEFORE = '2026-11-03T00:00:00Z';
+const BEFORE = '2026-11-14T00:00:00Z';
 const ESBUILD = '0.27.7';
 const REACT = { react: '19.3.1', 'react-dom': '19.3.1' };
 
 /**
  * The source assistant-ui's docs copy into an app for its <Thread/>, at the commit tagged
- * @assistant-ui/react@0.15.32: the thread.aui item and every local file it imports, resolved the
+ * @assistant-ui/react@0.15.36: the thread.aui item and every local file it imports, resolved the
  * way the repo's own example resolves its aliases (ui/base first).
  */
-const ASSISTANT_UI_COMMIT = '2769cdf4db1b95f8e3f627910caf12b39a58216e';
+const ASSISTANT_UI_COMMIT = '95d3550d5a4f0fdbf64794d00cd54264cf9c10d6';
 const ASSISTANT_UI_FILES = [
     'components/react/assistant-ui/elements/thread.aui.tsx',
     'components/react/assistant-ui/elements/attachment.aui.tsx',
@@ -86,8 +86,8 @@ const LIBRARIES = [
     {
         id: 'aparte',
         name: 'aparté',
-        version: '0.32.1',
-        packages: { '@aparte/core': '0.32.1', '@aparte/provider-openai-compat': '0.32.1', '@aparte/plugin-marked': '0.32.1', '@aparte/plugin-streaming-markdown': '0.32.1' },
+        version: '1.5.0',
+        packages: { '@aparte/core': '1.5.0', '@aparte/provider-openai-compat': '1.5.0', '@aparte/plugin-marked': '1.5.0', '@aparte/plugin-streaming-markdown': '1.5.0' },
         files: {
             'entry.js': `import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import '@aparte/core/styles.css';
@@ -212,13 +212,13 @@ document.body.appendChild(chat);
     {
         id: 'assistant-ui',
         name: 'assistant-ui',
-        version: '0.15.32',
+        version: '0.15.36',
         framework: 'react',
         packages: {
-            '@assistant-ui/react': '0.15.32',
-            '@assistant-ui/ai-sdk': '0.0.16',
-            '@assistant-ui/react-markdown': '0.14.24',
-            ai: '7.0.159',
+            '@assistant-ui/react': '0.15.36',
+            '@assistant-ui/ai-sdk': '0.0.18',
+            '@assistant-ui/react-markdown': '0.14.26',
+            ai: '7.0.172',
             '@base-ui/react': '1.9.0',
             'lucide-react': '1.66.0',
             cn: '0.4.0',
@@ -302,9 +302,9 @@ createRoot(document.getElementById('root')!).render(<App />);
     {
         id: 'copilotkit',
         name: 'CopilotKit',
-        version: '1.83.0',
+        version: '1.87.1',
         framework: 'react',
-        packages: { '@copilotkit/react-core': '1.83.0', '@copilotkit/react-ui': '1.83.0', zod: '4.6.7' },
+        packages: { '@copilotkit/react-core': '1.87.1', '@copilotkit/react-ui': '1.87.1', zod: '4.6.7' },
         files: {
             'entry.tsx': `import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -338,6 +338,8 @@ function install(dir, packages, before) {
     execFileSync('npm', ['install', '--prefix', dir, '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', `--before=${before}`], {
         stdio: 'inherit',
         shell: process.platform === 'win32',
+        // No console window of its own on Windows: it would take the foreground.
+        windowsHide: true,
     });
 }
 

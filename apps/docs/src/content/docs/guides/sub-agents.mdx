@@ -1,0 +1,454 @@
+---
+title: Show an agent's sub-agents
+description: One line per sub-agent in the reply — its name, its task, what it is doing now, how far it got — for an AG-UI agent, a tool of your own loop, or a backend in any language, with its conversation under the line or in a pane of its own.
+sidebar:
+  order: 4.5
+  label: Sub-agents
+guide:
+  group: agents
+---
+
+import Cards from '../../../components/content/Cards.astro';
+import Variant from '../../../components/catalog/Variant.astro';
+
+A sub-agent is an agent another agent hands part of its work to: it gets one task, works on it with
+its own model calls and its own tools, and reports back. Its work is not the reply, so the chat keeps
+it out of the reply and out of what the model reads next. With `@aparte/plugin-subagents`, each
+sub-agent becomes one line in the reply.
+
+<Variant id="subagents" play="Why does the CSV import break on quoted fields?" caption="Three sub-agents side by side, each on its own line. The model here is scripted; the loop and the tools are real." />
+
+The line says who works and on what: its name, then its task. Under it, a second line says what it
+is on — *Starting…*, then its latest tool call — and once it is over what it did: `3 tools · 12s`.
+That second line is there from its start to its end, so the line keeps its height and nothing
+under it moves while it works. It reads one of five states: **Running**,
+**Waiting** (a call of its own waits for a person), **Done**, **Failed**, or **Stopped** (a Stop,
+or a reload while it worked). By default the line has nothing behind it; what it can open on is
+[yours to choose](#what-the-line-shows).
+
+## Turn it on
+
+```bash
+npm install @aparte/plugin-subagents @aparte/core
+```
+
+```ts
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+```
+
+`setupSubagents()` works on the page's config, or on the one you pass last, like every setup
+function, and returns the function that takes it off again. The words follow the chat's language:
+the counts (`subagentsTools`), the word before its first call (`subagentsStarting`) and the name of
+an agent given none (`subagentsUnnamed`) ship with the
+plugin in the same ten languages as [`@aparte/locales`](/guides/localization/), and `extendLocale`
+replaces them.
+
+## Three ways sub-agents reach the page
+
+### An AG-UI agent
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+new AparteClient({
+  streamRunner: createAgUiRunner({ endpoint: 'https://agents.example.com/agui' }),
+}).start();
+```
+
+The [AG-UI runner](/providers/agent/ag-ui/) reads AG-UI's `SUBAGENT_STARTED`, `SUBAGENT_FINISHED`
+and `SUBAGENT_ERROR`, and the `subagentRunId` on everything a sub-agent streams. Several sub-agents
+can stream at once: their events interleave and each line follows its own. A sub-agent started by a
+tool call (`parentToolCallId`) is drawn on that call's line; one started without a call gets a line
+of its own; a sub-agent of a sub-agent is a line in its parent's conversation. Nothing is needed on
+the page beyond the plugin.
+
+The agent's side has to announce them, and the AG-UI integrations that can do it keep it off by
+default, because a client older than sub-agents fails on their events. What each one documents:
+
+| Agent framework | Its AG-UI integration announces sub-agents with |
+| --- | --- |
+| LangGraph, Python (deep agents' `task` sub-agents) | `subagent_visibility="attributed"` |
+| Mastra | `subagentVisibility: "attributed"` — its agents; workflows used as tools and `agent.network()` are not attributed |
+| Google ADK, JavaScript | `subagents: "attributed"` |
+| AWS Strands | `subagent_visibility="attributed"` |
+| [TanStack AI](/providers/agent/tanstack-ai/) | `chat({ subagents })`: each sub-agent's events carry its `subagentRunId`, between `SUBAGENT_STARTED` and `SUBAGENT_FINISHED` |
+
+An integration that does not announce its sub-agents streams their work as the agent's own, and
+the chat draws it as part of the reply.
+
+### A tool of your own loop
+
+A tool opens a sub-agent from the run it was called in, `context.run`, with `runSubAgent`. The
+sub-agent runs a loop of its own on the conversation you give it, with the run's model connection
+and the run's tools, and its events reach the page as its own:
+
+```ts
+import { AparteClient, aparteGlobalConfig, runSubAgent, type AparteTool, type AparteToolHandler } from '@aparte/core';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+declare function readProjectFile(path: string): Promise<string>; // yours
+
+const readFile = {
+  name: 'read_file',
+  description: 'Read a file of the project.',
+  inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+} satisfies AparteTool;
+
+const research = {
+  name: 'research',
+  description: 'Hand one question to a researcher, who reads the files it needs and answers it.',
+  inputSchema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+} satisfies AparteTool;
+
+const handleResearch: AparteToolHandler = async (call, signal, context) => {
+  if (!context?.run) return { toolCallId: call.id, content: 'No researcher can run here.' };
+  const question = String(call.input['question']);
+  const answer = await runSubAgent(context.run, {
+    name: 'Researcher',
+    description: question,
+    request: {
+      modelId: 'gpt-4.1-mini',
+      messages: [
+        { role: 'system', content: 'Answer one question about the project. Read the files you need.' },
+        { role: 'user', content: question },
+      ],
+      tools: [readFile],
+    },
+  }, signal);
+  return {
+    toolCallId: call.id,
+    content: answer.status === 'done' ? answer.text : `The researcher did not finish (${answer.error ?? answer.status}).`,
+  };
+};
+
+aparteGlobalConfig.registerTool(readFile, async (call) => ({
+  toolCallId: call.id,
+  content: await readProjectFile(String(call.input['path'])),
+}));
+aparteGlobalConfig.registerTool(research, handleResearch);
+setupSubagents();
+new AparteClient().start();
+```
+
+`name` is the line's name and `description` its task. `request` is the sub-agent's whole
+conversation — the parent's is not handed on — and `request.tools` is what its model may call, run
+by the handlers registered on the config. `runSubAgent` resolves `{ status, text }`: `'done'`,
+`'failed'` with an `error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
+rejects for a sub-agent that failed, so the tool decides what the model reads: what the handler
+returns as `content`, as for any tool. The model never reads the sub-agent's conversation. A
+sub-agent ends with its tool: a handler that returns while one it opened still runs (a `runSubAgent`
+it did not await) ends it **Stopped**, one that throws ends it **Failed**, and nothing more of it
+is shown.
+
+The same handler runs on [the server](/guides/server-loop/): pass it in `createAparteAgentHandler`'s
+`tools`, and its `context.run` is the server's run. The sub-agent calls the model with the server's
+provider and key, and its events go down the same stream as the run's own:
+
+{/* doc-check: skip excerpt — `isSignedIn`, `readFileTool`, `readFileHandler`, `research` and `handleResearch` are your own, as above */}
+```ts
+import { createAparteAgentHandler } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+export const POST = createAparteAgentHandler({
+  providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  defaultModel: 'gpt-4.1-mini',
+  resolveKey: () => process.env.OPENAI_API_KEY,
+  authorize: (req) => isSignedIn(req),
+  secret: process.env.AGENT_SECRET!,
+  tools: [
+    { tool: readFileTool, handler: readFileHandler },
+    { tool: research, handler: handleResearch },   // opens its sub-agent with runSubAgent(context.run, …)
+  ],
+});
+```
+
+A sub-agent's tools are found among the run's: on the server, the tools the request offers. To run
+several sub-agents side by side, open them in the same tool with `Promise.all`, each with
+`detached: true`: one call's line can stand for only one sub-agent, so each of them gets a line of
+its own.
+
+#### While the chat goes on
+
+`runSubAgent` holds its call until the sub-agent is back, so the reply waits at the delegation.
+`startSubAgent` starts it in the background instead: the call answers at once, and the model goes
+on, writing and calling its own tools, while the sub-agent works on its line. The reply does not
+end before it is back: once the model has nothing more to say, the loop waits for the sub-agents
+still at work, tells the model how each ended in one message, and asks it again. That last answer
+is the reply's end.
+
+```ts
+import { aparteGlobalConfig, startSubAgent, type AparteTool, type AparteToolHandler } from '@aparte/core';
+
+const research: AparteTool = {
+  name: 'research',
+  description: 'Hand a question to a researcher and go on: its answer comes back to you.',
+  inputSchema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+};
+
+const handleResearch: AparteToolHandler = async (call, _signal, context) => {
+  startSubAgent(context!.run!, {
+    name: 'Researcher',
+    description: String(call.input['question']),
+    request: { modelId: 'gpt-4.1-mini', messages: [{ role: 'user', content: String(call.input['question']) }] },
+  });
+  return { toolCallId: call.id, content: 'The researcher is on it. Go on; its answer comes back to you.' };
+};
+
+aparteGlobalConfig.registerTool(research, handleResearch);
+```
+
+Each one started this way gets a line of its own, and is stopped with the run: by Stop, by the turn
+limit, and by the tool time limit counted from its start. It cannot be started in a run that can
+pause (the [server loop](/guides/server-loop/), which would end at the pause without its answer):
+`startSubAgent` throws there, and `runSubAgent` is the one to use. The
+message the model reads when they are back is the loop's ("The sub-agents you started are back."),
+a user message in the run's history, and it is not shown: the model's answer to it is.
+
+### A backend in any language
+
+A backend that is not JavaScript writes the [engine's run events](/guides/engine/#events) as
+NDJSON, one per line, and the page reads them with `createAgentStreamRunner`:
+
+```ts
+import { AparteClient, createAgentStreamRunner } from '@aparte/core';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+new AparteClient({ streamRunner: createAgentStreamRunner({ endpoint: '/api/agent' }) }).start();
+```
+
+A sub-agent is opened with an `agent-start` line, its own events carry its `agentId`, and an
+`agent-end` line closes it, once. Put `toolCallId` on `agent-start` to draw it on the line of the
+call that opened it:
+
+```json
+{"type":"run-start"}
+{"type":"turn-start"}
+{"type":"text-delta","delta":"I will ask a researcher."}
+{"type":"tool-start","toolCallId":"call_1","name":"research","input":{"question":"Why do quoted fields break?"}}
+{"type":"agent-start","agentId":"r1","name":"Researcher","description":"Why do quoted fields break?","toolCallId":"call_1"}
+{"type":"turn-start","agentId":"r1"}
+{"type":"tool-start","toolCallId":"call_2","name":"read_file","input":{"path":"src/parser.ts"},"agentId":"r1"}
+{"type":"tool-resolved","toolCallId":"call_2","result":"export function parse(line) { … }","agentId":"r1"}
+{"type":"turn-start","agentId":"r1"}
+{"type":"text-delta","delta":"It splits on commas and never looks for quotes.","agentId":"r1"}
+{"type":"agent-end","agentId":"r1","status":"done","result":"It splits on commas and never looks for quotes."}
+{"type":"tool-resolved","toolCallId":"call_1","result":"It splits on commas and never looks for quotes."}
+{"type":"turn-start"}
+{"type":"text-delta","delta":"A comma inside quotes splits the field: the parser needs a fix."}
+{"type":"run-done"}
+```
+
+`agent-end`'s `status` is `done`, `failed` (with `error`), `waiting` or `stopped`. The four run
+lines — `run-start`, `run-done`, `run-aborted`, `run-suspended` — belong to the run and never carry
+an `agentId`: a sub-agent never starts or ends it, and the runner drops such a line with a warning.
+A sub-agent of a sub-agent names its parent in `parentAgentId`. An `agentId` names one sub-agent for
+the whole reply, a pause and its resume included: an `agent-start` for an id already seen continues
+that sub-agent when it names the same `toolCallId`, or none, and opens a new line when it names
+another call. Mint ids that do not repeat across requests. The request the page sends is the
+one [the server loop's wire](/guides/server-loop/#the-wire) describes.
+
+## What the line shows
+
+The line is the row of the call that opened the sub-agent, so everything you declare for that tool
+with [`registerToolDisplay`](/guides/tool-display/) applies, and wins over what the plugin says:
+`label`, `icon`, `summary`, `quiet`, `hidden`, `open` and `details`. A sub-agent no call opened,
+or a second one opened by the same call, gets a line of its own, named by the agent: reach it with
+the agent's name, `registerToolDisplay('Researcher', …)`.
+
+```ts
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents({
+  activity: true,          // a second line: what it is on, then what it did
+  counts: true,            // "3 tools · 12s", once it is over
+  details: 'transcript',   // its conversation under the line; false (the default) for nothing
+});
+```
+
+The three are `SubagentsOptions`. `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
+conversation under it — the task it was given, its text, its reasoning, its own tool rows and its
+own sub-agents as lines, drawn by the reply's renderers and kept up to date while it works — closed
+until the reader opens it. A function puts what it returns there, as a tool display's `details`
+does. `subagentTranscript` is that conversation as such a function, for one tool's line only, open
+by default here:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupSubagents, subagentTranscript } from '@aparte/plugin-subagents';
+
+setupSubagents();
+aparteGlobalConfig.registerToolDisplay('research', { details: subagentTranscript, open: true });
+```
+
+In a conversational chat, where the person should see the answer and not who worked on it, hide the
+tool that delegates. A sub-agent with a line of its own is hidden by its name:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('research', { hidden: true });
+aparteGlobalConfig.registerToolDisplay('Researcher', { hidden: true });
+```
+
+A hidden line is still saved with the conversation, its sub-agent's conversation with it.
+
+With [a turn's steps folded behind one line](/guides/tool-display/#fold-a-turn-behind-one-line), a
+sub-agent drawn on its call's line folds with the turn's other steps. One with a line of its own
+stays in view, as a step that waits or failed does.
+
+## Show the conversation elsewhere
+
+`<aparte-subagent-view>` shows a sub-agent's conversation where you put it: the other pane of a
+[split](/components/split/), a canvas, a dialog. Name the chat with `for`, the reply with
+`message-id` and the sub-agent with `agent-id`; `aparte-subagent-start`, which bubbles out of the
+chat as each sub-agent starts, carries the three:
+
+<Variant id="subagent-view" play="Why do quoted fields break?" caption="The pane opens when the sub-agent starts, and follows it live." />
+
+```html
+<aparte-split position="50" single>
+  <aparte-chat id="chat"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+```
+
+```ts
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+const split = document.querySelector('aparte-split')!;
+const view = document.querySelector('aparte-subagent-view')!;
+document.getElementById('chat')!.addEventListener('aparte-subagent-start', (event) => {
+  view.setAttribute('message-id', event.detail.messageId);
+  view.setAttribute('agent-id', event.detail.agentId);
+  split.removeAttribute('single');
+});
+```
+
+It follows the sub-agent live, shows the saved conversation after a reload, and draws nothing until
+there is something to show. `aparte-subagent-end` says how each one ended. The
+[component page](/components/subagent-view/) has the rest.
+
+The plugin ships no framework binding: the element is a plain tag in every framework. A Vue or
+Svelte template accepts it as it is, and Angular with `CUSTOM_ELEMENTS_SCHEMA` on the component
+that hosts it (bind with `[attr.message-id]`). In a React `.tsx` file, declare the tag once:
+
+```ts
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'aparte-subagent-view': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
+        for?: string;
+        'message-id'?: string;
+        'agent-id'?: string;
+      };
+    }
+  }
+}
+```
+
+{/* doc-check: skip excerpt — the tag is declared in JSX as in the fence above */}
+```tsx
+import { useEffect, useRef, useState } from 'react';
+import { AparteChat } from '@aparte/react';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+export function Workspace() {
+  const box = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState<{ messageId: string; agentId: string }>();
+  useEffect(() => {
+    const onStart = (event: HTMLElementEventMap['aparte-subagent-start']) =>
+      setShown({ messageId: event.detail.messageId, agentId: event.detail.agentId });
+    box.current?.addEventListener('aparte-subagent-start', onStart);
+    return () => box.current?.removeEventListener('aparte-subagent-start', onStart);
+  }, []);
+  return (
+    <div ref={box} className="workspace">
+      <AparteChat id="chat" />
+      {shown && <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId} />}
+    </div>
+  );
+}
+```
+
+## Approvals
+
+A sub-agent's tool asks like any other: a `needsApproval` tool, or a call your
+[approval policy](/components/approval-mode/) answers `ask`, opens the
+[approval panel](/guides/tools/#require-approval-human-in-the-loop), and the question names the
+sub-agent: "Allow read_file for Researcher?", from the locale key `approvalAskBy`
+(`Allow {tool} for {agent}?`). Its line reads **Waiting** until the person answers. A sub-agent
+with no name is asked about with `approvalAsk`.
+
+In the [server loop](/guides/server-loop/), a sub-agent's call cannot ask: the run there pauses
+instead of waiting, and a sub-agent lives inside one tool call, which must answer. A call of a
+sub-agent that needs a decision is stopped (`tool-aborted`, cause `no-resolver`). Give the tools a
+sub-agent calls on the server no `needsApproval`, and let the approval sit on the tool that opens
+the sub-agent.
+
+## What it does not do yet
+
+- **Side by side, inside one tool.** The engine runs a reply's tool calls one at a time, so two
+  delegating calls in one step run one after the other with `runSubAgent`. Sub-agents run side by
+  side when one tool opens them together, when they are started in the background, or when an
+  agent framework runs them.
+- **What the model was told stays in the run.** The message saying the sub-agents started in the
+  background are back is in that run's history only: the next turn's history is drawn from the
+  reply, and reads the model's answer to it, not the message.
+- **A paused sub-agent does not survive a reload.** A sub-agent that was waiting for an approval
+  reads **Stopped** after a reload, and does not resume.
+- **Without the plugin, a sub-agent is neither drawn nor kept.** Its text and its tool calls stay
+  out of the reply either way; the call that opened it shows as an ordinary tool row, and the
+  console says once that nothing draws sub-agents. `config.observeRunEvents` hears their events,
+  once each and with their `agentId`, if you draw them yourself.
+
+## Test it with no model
+
+The [scenario provider](/providers/ai/scenario/#sub-agents) scripts a model that delegates: a
+`subagents` step calls one tool, `delegate`, and each sub-agent's own model plays the turns you
+wrote, through the real loop and your registered tools. This is what drives the demo above. With
+`background: true` on the step, they are started in the background: the next turn you wrote plays
+while they work, and the one after it answers once they are back.
+
+```ts
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+const model = createScenarioProvider({
+  turns: [
+    [{ text: 'Two questions, two sub-agents.' }, { subagents: [
+      { name: 'Reader', task: 'Read the parser', turns: ['It splits each line on commas.'] },
+      { name: 'Tester', task: 'Run the tests', turns: [[{ wait: 1500 }, { text: '12 pass, 1 fails on a quoted field.' }]] },
+    ] }],
+    'Both are back: a comma inside quotes splits the field.',
+  ],
+});
+aparteGlobalConfig.registerAIProvider(model);
+const { tool, handler } = scenarioSubagentTool(model);
+aparteGlobalConfig.registerTool(tool, handler);
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+setupSubagents();
+new AparteClient().start();
+```
+
+## Next
+
+<Cards
+    cards={[
+        { href: '/components/subagent-view/', title: 'Sub-agent view', line: "A sub-agent's conversation, wherever you put it." },
+        { href: '/guides/tool-display/', title: 'Showing tool calls', line: 'Every lever of the row a sub-agent\'s line is drawn on.' },
+        { href: '/providers/agent/ag-ui/', title: 'AG-UI agents', line: 'An agent on its own server, its sub-agents included.' },
+    ]}
+/>

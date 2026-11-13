@@ -21,8 +21,13 @@
  *   turns: ['Hello! Ask me anything.', [{ thinking: 'Let me see…' }, { text: 'Here is my answer.' }]],
  * }));
  * ```
+ *
+ * It scripts sub-agents too: a `subagents` step delegates through one ordinary tool call,
+ * and `scenarioSubagentTool` is the tool that runs them — each a real nested loop whose
+ * model is that sub-agent's script.
  */
 
+import { readableToAsyncIterable, runSubAgent, startSubAgent } from '@aparte/core';
 import type {
     AparteAIModel,
     AparteAIProvider,
@@ -30,6 +35,8 @@ import type {
     AparteChatRequest,
     AparteChatResponse,
     AparteStreamEvent,
+    AparteTool,
+    AparteToolHandler,
     AparteUsage,
     AparteFinishReason,
     AparteSource,
@@ -46,6 +53,20 @@ export type ScenarioStep =
     | { thinking: string }
     /** Call a tool. The loop runs the registered handler, then calls the provider again with the result. */
     | { tool: string; input?: Record<string, unknown>; id?: string }
+    /**
+     * Delegate to sub-agents: the model calls ONE tool (`toolName`, default `delegate`) with
+     * `{ agents: [{ name, task }] }`, what a real model would send, and each sub-agent's
+     * `turns` are kept for that call. Register {@link scenarioSubagentTool} under the same
+     * name: it runs each sub-agent as a nested loop whose model plays its `turns` — several
+     * side by side — and answers the call with what they wrote. In `scenarios` mode, route
+     * the answer with `after: 'delegate'`, as for any tool.
+     *
+     * `background: true` starts them and answers the call at once, the way a model hands off
+     * work and goes on: the model's next turn plays while they work, and once it has nothing
+     * more to say the loop waits for them and asks it again, with a user message saying how
+     * each ended ("… is back"). In `scenarios` mode that last answer is routed by that message.
+     */
+    | { subagents: ScenarioSubagent[]; toolName?: string; id?: string; background?: boolean }
     /** Fail the turn with this message — what a provider error looks like to the UI. */
     | { error: string }
     /** Pause, in milliseconds — a slow model, a long tool. */
@@ -64,6 +85,36 @@ export type ScenarioStep =
 
 /** What the model does for ONE call. A bare string is one text step. */
 export type ScenarioTurn = string | ScenarioStep[];
+
+/** A scripted sub-agent: who it is, what it was asked, and what its model does. */
+export interface ScenarioSubagent {
+    /** Its name, on its line. */
+    name: string;
+    /** Its task: the one user message of its conversation, and the line's description. */
+    task: string;
+    /**
+     * Its model's calls, answered in order; the last one repeats. A `{ tool }` step runs the
+     * page's registered handler and the next turn follows its result; a `{ subagents }` step
+     * delegates in turn.
+     *
+     * A turn may be a function of the request the nested loop sends, called when that turn is
+     * played: it reads the conversation so far — the result of the sub-agent's last tool call
+     * included — and returns the turn, so a script can answer what its tool said (a command
+     * that was refused, say).
+     *
+     * @example
+     * turns: [
+     *   [{ tool: 'run_command', input: { command: 'pnpm build' } }],
+     *   (request) => {
+     *     const last = request.messages[request.messages.length - 1];
+     *     return /rejected|refused|Plan mode:/.test(contentToText(last?.content ?? ''))
+     *       ? 'I could not run the build: the command was refused.'
+     *       : 'The build passed.';
+     *   },
+     * ]
+     */
+    turns: (ScenarioTurn | ((request: AparteChatRequest) => ScenarioTurn))[];
+}
 
 /** A turn with the conditions under which it answers. */
 export interface Scenario {
@@ -187,10 +238,18 @@ const estimateTokens = (chars: number): number => Math.ceil(chars / 4);
 
 let sequence = 0;
 
+/** The tool a `subagents` step calls when it names none. */
+const DELEGATE = 'delegate';
+
+/** Where a `subagents` step leaves its scripts: under the id the LOOP will give its call. */
+type KeepScripts = (callId: string, agents: ScenarioSubagent[]) => void;
+
 /**
  * Play one turn as the event stream the loop reads.
  *
- * Exported for a test or a tool that wants the events without a provider around them.
+ * Exported for a test or a tool that wants the events without a provider around them. A
+ * `subagents` step played here emits its call, but its scripts are kept only by a provider
+ * (`createScenarioProvider`), which is what {@link scenarioSubagentTool} reads them from.
  */
 export function playTurn(
     turn: ScenarioTurn,
@@ -198,10 +257,34 @@ export function playTurn(
     pacing: ScenarioPacing | 'instant' = {},
     signal?: AbortSignal,
 ): ReadableStream<AparteStreamEvent> {
+    return play(turn, request, pacing, signal);
+}
+
+function play(
+    turn: ScenarioTurn,
+    request: AparteChatRequest,
+    pacing: ScenarioPacing | 'instant' = {},
+    signal?: AbortSignal,
+    keep?: KeepScripts,
+): ReadableStream<AparteStreamEvent> {
     const chunk = pacing === 'instant' ? Number.POSITIVE_INFINITY : Math.max(1, pacing.chunk ?? 12);
     const delay = pacing === 'instant' ? 0 : Math.max(0, pacing.delay ?? 24);
     const steps = stepsOf(turn);
     const inputChars = request.messages.reduce((n, m) => n + textOf(m).length, 0);
+    /*
+     * The id the loop gives each call of this model call. It renames a repeat within one
+     * model call (`id`, then `id#2`, …) so that each call has its own row and history slot,
+     * and the handler is handed the RENAMED id. Scripts are filed under that same name, by
+     * the same rule applied to the same sequence of calls, so two `subagents` steps that
+     * share an `id` in one turn still find their own scripts.
+     */
+    const idsThisCall = new Set<string>();
+    const loopIdOf = (raw: string): string => {
+        let id = raw;
+        for (let n = 2; idsThisCall.has(id); n++) id = `${raw}#${n}`;
+        idsThisCall.add(id);
+        return id;
+    };
 
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
@@ -226,8 +309,20 @@ export function playTurn(
                             outputChars += delta.length;
                             if (delay > 0 && i + chunk < body.length) await sleep(delay, signal);
                         }
+                    } else if ('subagents' in step) {
+                        // Before `tool`: this step may carry a `tool` (its name) too.
+                        const id = step.id ?? `scenario_${++sequence}`;
+                        // Kept before the call is read: the loop runs the handler only after.
+                        keep?.(loopIdOf(id), step.subagents);
+                        const agents = step.subagents.map(({ name, task }) => ({ name, task }));
+                        controller.enqueue({
+                            type: 'tool_use', id, name: step.toolName ?? DELEGATE,
+                            input: { agents, ...(step.background ? { background: true } : {}) },
+                        });
                     } else if ('tool' in step) {
-                        controller.enqueue({ type: 'tool_use', id: step.id ?? `scenario_${++sequence}`, name: step.tool, input: step.input ?? {} });
+                        const id = step.id ?? `scenario_${++sequence}`;
+                        loopIdOf(id);
+                        controller.enqueue({ type: 'tool_use', id, name: step.tool, input: step.input ?? {} });
                     } else if ('error' in step) {
                         controller.enqueue({ type: 'error', message: step.error });
                         controller.close();
@@ -302,10 +397,12 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
             const turn = asScenario(v)?.turn ?? (v as ScenarioTurn);
             const steps = Array.isArray(turn) ? turn : [];
             for (const step of steps) {
-                if (typeof step === 'object' && step !== null && 'tool' in step
-                    && typeof step.tool === 'string' && !routed.has(step.tool)) {
-                    orphans.add(step.tool);
-                }
+                if (typeof step !== 'object' || step === null) continue;
+                // A delegation is a tool call like any other, `delegate` unless it names one.
+                const called = 'subagents' in step ? (step.toolName ?? DELEGATE)
+                    : 'tool' in step && typeof step.tool === 'string' ? step.tool
+                        : undefined;
+                if (called !== undefined && !routed.has(called)) orphans.add(called);
             }
         }
         if (orphans.size > 0) {
@@ -361,7 +458,10 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
         return scenario?.turn ?? '';
     };
 
-    return {
+    const scripts = new Map<string, ScenarioSubagent[]>();
+    const keep: KeepScripts = (callId, agents) => { scripts.set(callId, agents); };
+
+    const provider: AparteAIProvider = {
         id,
         getMetadata: () => ({
             id,
@@ -373,7 +473,183 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
         getModels: () => models,
         fetchModels: async () => models,
         async chat(request: AparteChatRequest, _config?: unknown, ctx?: { providerId: string; signal?: AbortSignal }): Promise<AparteChatResponse> {
-            return playTurn(pick(request), request, options.pacing, ctx?.signal);
+            return play(pick(request), request, options.pacing, ctx?.signal, keep);
         },
     };
+    delegations.set(provider, { scripts, keep, pacing: options.pacing, modelId: models[0]?.id ?? 'scripted' });
+    return provider;
+}
+
+// ─── Sub-agents ──────────────────────────────────────────────────────────────
+
+/** What a provider keeps for its delegations: the scripts, by call id, and how to play them. */
+interface Delegations {
+    scripts: Map<string, ScenarioSubagent[]>;
+    keep: KeepScripts;
+    pacing: ScenarioPacing | 'instant' | undefined;
+    modelId: string;
+}
+
+const delegations = new WeakMap<AparteAIProvider, Delegations>();
+
+/** How one sub-agent ended, in the words the parent model reads. */
+type Outcome = Awaited<ReturnType<typeof runSubAgent>>;
+
+const reportOf = (agent: ScenarioSubagent, outcome: Outcome, alone: boolean): string => {
+    if (outcome.status === 'done' && outcome.text) return alone ? outcome.text : `${agent.name}: ${outcome.text}`;
+    const what = outcome.status === 'failed' ? `failed (${outcome.error ?? 'no reason given'})`
+        : outcome.status === 'done' ? 'finished without an answer'
+            : 'was stopped before it answered';
+    return alone ? `${agent.name} ${what}.` : `${agent.name}: ${what}.`;
+};
+
+/**
+ * The tool a `subagents` step calls, and its handler — register both with
+ * `config.registerTool(tool, handler)`. `name` is the tool's (default `delegate`), and must
+ * be the one the steps name.
+ *
+ * For each sub-agent of the call, the handler runs `runSubAgent` through the run it was
+ * called in (`context.run`), with a model that plays that sub-agent's `turns` at the
+ * provider's pace: the real nested loop, so the sub-agent's tool calls run the page's
+ * registered handlers and its events reach the page as its own. One sub-agent is the call's
+ * own (its line is the call's row); several run side by side, each on a line of its own.
+ * With `background: true` in the call's input, it starts them with `startSubAgent` and
+ * answers at once: each gets a line of its own, and their answers reach the model when it
+ * has nothing more to say.
+ *
+ * What the parent model reads: the sub-agent's last text, or, for several, one `name: text`
+ * block each. A sub-agent that fails or is stopped is said in a sentence; it does not fail
+ * the call. A call the scripts never wrote (a real model calling the tool on its own, a
+ * replayed call) answers that no script exists for it. Called outside the agent loop (no
+ * `context.run`), the handler rejects.
+ *
+ * @example
+ * const provider = createScenarioProvider({
+ *   turns: [
+ *     [{ subagents: [{ name: 'Researcher', task: 'Read the parser', turns: ['It reads tokens.'] }] }],
+ *     'The parser reads tokens.',
+ *   ],
+ * });
+ * aparteGlobalConfig.registerAIProvider(provider);
+ * const { tool, handler } = scenarioSubagentTool(provider);
+ * aparteGlobalConfig.registerTool(tool, handler);
+ */
+export function scenarioSubagentTool(
+    provider: AparteAIProvider,
+    options: { name?: string } = {},
+): { tool: AparteTool; handler: AparteToolHandler } {
+    const state = delegations.get(provider);
+    if (!state) {
+        throw new TypeError(
+            'scenarioSubagentTool() needs a provider made by createScenarioProvider(): the sub-agents\' scripts '
+            + 'are kept by that provider, under the call that delegates to them.',
+        );
+    }
+    const name = options.name ?? DELEGATE;
+    const tool: AparteTool = {
+        name,
+        description: 'Delegate work to sub-agents. Each one gets a single task, works on it on its own with its own tools, '
+            + 'and reports back; several run side by side. Use it for independent parts of a larger job.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agents: {
+                    type: 'array',
+                    description: 'One entry per sub-agent.',
+                    minItems: 1,
+                    items: {
+                        type: 'object',
+                        properties: {
+                            name: { type: 'string', description: 'A short name for the sub-agent.' },
+                            task: { type: 'string', description: 'What it must do, written so it can be done without this conversation.' },
+                        },
+                        required: ['name', 'task'],
+                    },
+                },
+                background: {
+                    type: 'boolean',
+                    description: 'Start them and go on: their answers come back to you once you have nothing more to say. '
+                        + 'Without it, this call waits for them and returns their answers.',
+                },
+            },
+            required: ['agents'],
+        },
+    };
+
+    // A sub-agent's model: its turns in order, the last one repeating, played at the
+    // provider's pace on the call's signal. A step that delegates in turn keeps its scripts
+    // with the provider, where this same handler — looked up by the nested loop — finds them.
+    // `signal` is read at each call: a sub-agent in the background is given its own only once
+    // it has started.
+    const modelOf = (agent: ScenarioSubagent, signal: () => AbortSignal) => {
+        let calls = 0;
+        return async (request: AparteChatRequest): Promise<AsyncIterable<AparteStreamEvent>> => {
+            const scripted = agent.turns.length > 0 ? agent.turns[Math.min(calls++, agent.turns.length - 1)]! : '';
+            const turn = typeof scripted === 'function' ? scripted(request) : scripted;
+            return readableToAsyncIterable(play(turn, request, state.pacing, signal(), state.keep), signal());
+        };
+    };
+
+    const handler: AparteToolHandler = async (call, signal, context) => {
+        const run = context?.run;
+        if (!run) {
+            throw new Error(
+                `[provider-scenario] \`${name}\` runs scripted sub-agents as nested runs of the agent loop, and this call `
+                + 'came without one (`context.run` is missing): it was called outside the agent loop, by an app\'s own loop '
+                + 'or as a browser tool answering a paused server run. Register it where the loop runs the tools.',
+            );
+        }
+        const agents = state.scripts.get(call.id);
+        if (!agents) {
+            return {
+                toolCallId: call.id,
+                content: `No script exists for this call (${call.id}): the scripted model did not write this delegation, so no sub-agent ran.`,
+            };
+        }
+        state.scripts.delete(call.id);
+        if (call.input['background'] === true) {
+            for (const agent of agents) {
+                // Its own signal paces it: it outlives this call. Set before its first model
+                // call, which `startSubAgent` makes once it has returned.
+                const own: { signal?: AbortSignal } = {};
+                const started = startSubAgent(run, {
+                    name: agent.name,
+                    description: agent.task,
+                    request: { modelId: state.modelId, messages: [{ role: 'user', content: agent.task }] },
+                    transportCall: modelOf(agent, () => own.signal!),
+                });
+                own.signal = started.signal;
+            }
+            const names = agents.map((agent) => agent.name).join(', ');
+            return {
+                toolCallId: call.id,
+                content: `Started ${agents.length === 1 ? 'one sub-agent' : `${agents.length} sub-agents`} in the background (${names}). `
+                    + 'Their answers come back to you once you have nothing more to say.',
+                structuredContent: { agents: agents.map((agent) => ({ name: agent.name, task: agent.task, status: 'started' })) },
+            };
+        }
+        const alone = agents.length === 1;
+        const outcomes = await Promise.all(agents.map((agent) => runSubAgent(run, {
+            name: agent.name,
+            description: agent.task,
+            // Several from one call: each its own line, since the call's row can be only one.
+            detached: !alone,
+            request: { modelId: state.modelId, messages: [{ role: 'user', content: agent.task }] },
+            transportCall: modelOf(agent, () => signal),
+        }, signal)));
+        return {
+            toolCallId: call.id,
+            content: agents.map((agent, i) => reportOf(agent, outcomes[i]!, alone)).join('\n\n'),
+            structuredContent: {
+                agents: agents.map((agent, i) => ({
+                    name: agent.name,
+                    task: agent.task,
+                    status: outcomes[i]!.status,
+                    text: outcomes[i]!.text,
+                    ...(outcomes[i]!.error !== undefined ? { error: outcomes[i]!.error } : {}),
+                })),
+            },
+        };
+    };
+    return { tool, handler };
 }

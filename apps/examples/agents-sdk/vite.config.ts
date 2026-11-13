@@ -30,27 +30,32 @@ async function send(response: Response, res: ServerResponse): Promise<void> {
     res.end();
 }
 
+type Handler = (request: Request) => Promise<Response>;
+
 /**
- * Mounts `server/endpoint.ts` at `/agent` on the dev server, so `pnpm dev` is the page and the
- * agent in one process. Loaded through Vite on each request: an edit to the agent applies on
- * the next message.
+ * Mounts `server/endpoint.ts` on the dev server, so `pnpm dev` is the page and the agent in one
+ * process: the agent at `/agent`, the scripted sub-agent run at `/subagents`. Loaded through Vite
+ * on each request: an edit to the agent applies on the next message.
  */
 function agentEndpoint(): Plugin {
+    const routes = { '/agent': 'handle', '/subagents': 'handleSubagents' } as const;
     return {
         name: 'agent-endpoint',
         configureServer(server: ViteDevServer) {
-            server.middlewares.use('/agent', (req, res) => {
-                void (async () => {
-                    try {
-                        const { handle } = await server.ssrLoadModule('/server/endpoint.ts') as { handle: (r: Request) => Promise<Response> };
-                        await send(await handle(toRequest(req, res)), res);
-                    } catch (error) {
-                        server.config.logger.error(String(error));
-                        if (!res.headersSent) res.statusCode = 500;
-                        res.end();
-                    }
-                })();
-            });
+            for (const [path, name] of Object.entries(routes)) {
+                server.middlewares.use(path, (req, res) => {
+                    void (async () => {
+                        try {
+                            const handlers = await server.ssrLoadModule('/server/endpoint.ts') as Record<typeof name, Handler>;
+                            await send(await handlers[name](toRequest(req, res)), res);
+                        } catch (error) {
+                            server.config.logger.error(String(error));
+                            if (!res.headersSent) res.statusCode = 500;
+                            res.end();
+                        }
+                    })();
+                });
+            }
         },
     };
 }

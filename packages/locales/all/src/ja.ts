@@ -29,6 +29,7 @@ export const ja: AparteLocale = {
     approvalOptionsLabel: "あなたの判断",
     approvalArgsLabel: "引数",
     approvalAsk: "{tool} を許可しますか？",
+    approvalAskBy: "{agent} に {tool} を許可しますか？",
     approvalWaiting: "待機中",
     scrollToBottom: "一番下へスクロール",
     suggestionsLabel: "おすすめのプロンプト",

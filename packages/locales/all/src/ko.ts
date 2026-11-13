@@ -29,6 +29,7 @@ export const ko: AparteLocale = {
     approvalOptionsLabel: "내 결정",
     approvalArgsLabel: "인수",
     approvalAsk: "{tool}을(를) 허용할까요?",
+    approvalAskBy: "{agent}에 대해 {tool}을(를) 허용할까요?",
     approvalWaiting: "대기 중",
     scrollToBottom: "맨 아래로 스크롤",
     suggestionsLabel: "추천 프롬프트",

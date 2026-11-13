@@ -29,6 +29,14 @@
        the hover surface symmetric with it. */
     padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline: calc(var(--aparte-space-3) * -1);
     border-radius: var(--aparte-tool-row-radius);
+    /* Wraps for one reason: what the call is doing now (`.aparte-tool-activity`) takes a line
+       of its own under the first. Nothing else wraps: every part that yields grows from a zero
+       basis (see the name's rule), so the first line's parts always fit on it; and
+       `align-items` centres each flex line on its own, so the first line's parts do not move
+       when the second arrives or leaves. No gap between the two: the activity is the row's
+       continuation, not a second row. */
+    flex-wrap: wrap;
+    row-gap: 0;
 }
 .aparte-tool-summary { cursor: pointer; list-style: none; }
 .aparte-tool-summary:hover { background: var(--aparte-surface-2); }
@@ -125,6 +133,17 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 /* A fixed square, and the glyph centred in it. The icon was baseline-aligned
    inside an inline box, so it sat low against the name and moved with whatever
    glyph the icon provider returned. */
+/* Inside core's own line the label lends its children to the line: the name, the target and
+   the note have to yield in one order (the target first, then the note, the name last), and a
+   flex item cannot hand a nested container's space to its sibling — measured in a 458px agent
+   row, the note was cut to 0px while the target still showed 244px of its task. The label
+   keeps its type (size, weight, ink, no selection): those are inherited. Its gap was
+   --aparte-space-3 and the line's is --aparte-space-4, so the name and the target take the
+   difference back. */
+:is(.aparte-tool-summary, .aparte-tool-line) > .aparte-tool-label { display: contents; }
+:is(.aparte-tool-summary, .aparte-tool-line) > .aparte-tool-label > :is(.aparte-tool-name, .aparte-tool-target) {
+    margin-inline-start: calc(var(--aparte-space-3) - var(--aparte-space-4));
+}
 .aparte-tool-icon {
     display: grid;
     place-items: center;
@@ -134,8 +153,17 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 }
 .aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
 /* The name yields last, and with an ellipsis: it used to spill over the state word at
-   375px once a note shared the line (the label shrank, the text inside it did not). */
+   375px once a note shared the line (the label shrank, the text inside it did not).
+
+   Who yields first is said by GROWING from a zero basis up to each part's own width, not by
+   shrinking: a shrink factor is weighted by the part's width, so `flex-shrink: 1000` on the
+   target still left the name a sliver of every deficit — 0.05px in a 458px row, enough for
+   the ellipsis to eat its last two letters ("Parser read…") while the target showed 244px.
+   Growth is handed out by factor and each part stops at its `max-width`, so the name is whole
+   before the note gets a pixel, and the note before the target. */
 .aparte-tool-name {
+    flex: 1000000 1 0;
+    max-width: max-content;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -148,9 +176,10 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 /* What the call targets (`registerToolSummary`): the name's quieter continuation. One
    line, cut with an ellipsis, so a long path gives way before the state word does. */
 .aparte-tool-target {
+    /* Gives way first: before the note and the name (see the name's rule). */
+    flex: 1 1 0;
+    max-width: max-content;
     min-width: 0;
-    /* Gives way before the name does. */
-    flex-shrink: 1000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -165,8 +194,42 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
 .aparte-segment-tool-call[data-quiet] .aparte-tool-target {
     font-family: inherit;
 }
+/* A target the tool-line provider gave (a sub-agent's task) is a sentence, not a path read
+   off the arguments: the chat's face on an agent's row too, as a declared label is. */
+.aparte-tool-target--words { font-family: inherit; }
 .aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
     order: 1;
+}
+/* What the call is doing now, then what it did (`setToolLineProvider`'s `activity`): a
+   line of its own under the first, starting where the NAME starts. Beside the target, in the
+   same muted ink, the two read as one run-on sentence ("Run the build and report any errors
+   Run command pnpm build"), and in a narrow column it was the first thing cut.
+
+   The whole width and the last place (after a quiet row's trailing chevron), so the line
+   wraps before it; indented by the icon's box (1em of the label's size) and the gap after it,
+   plus the leading chevron and its gap on an agent's row. Logical properties, so a
+   right-to-left row indents from its own start. One line cut with an ellipsis: its text
+   changing never changes the row's height, only its arriving and leaving do. Words for a
+   person, so the chat's own face on every row. No motion of its own, so reduced motion has
+   nothing to hold still. */
+.aparte-tool-activity {
+    order: 2;
+    /* Figures of one width: "9s" becoming "10s", or a count going up, moves nothing after it. */
+    font-variant-numeric: tabular-nums;
+    flex: 1 0 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    padding-inline-start: calc(var(--aparte-font-size-md) + var(--aparte-space-3));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: inherit;
+    font-size: var(--aparte-font-size-sm);
+    font-weight: var(--aparte-font-weight-normal);
+    color: var(--aparte-text-muted);
+}
+.aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-summary > .aparte-tool-activity {
+    padding-inline-start: calc(var(--aparte-space-8) + var(--aparte-space-4) + var(--aparte-font-size-md) + var(--aparte-space-3));
 }
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
@@ -185,13 +248,17 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     user-select: none;
 }
 .aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
-/* Why the call ended — who refused, why it stopped — for the person reading the row.
-   The state word's quieter continuation, as the target is the name's: one line, cut
-   with an ellipsis before it can push the row wider. */
+/* Why the call ended — who refused, why it stopped — for the person reading the row, then
+   what a tool-line provider adds ("3 tools · 12 s"), in every state. The state word's
+   quieter continuation, as the target is the name's: one line, cut with an ellipsis before
+   it can push the row wider. */
 .aparte-tool-note {
+    font-variant-numeric: tabular-nums;
+    /* Gives way after the target and before the name (see the name's rule); its full text is
+       its title. */
+    flex: 1000 1 0;
+    max-width: max-content;
     min-width: 0;
-    /* Gives way first, before the label; its full text is its title. */
-    flex-shrink: 1000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

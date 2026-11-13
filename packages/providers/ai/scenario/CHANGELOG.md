@@ -1,5 +1,71 @@
 # @aparte/provider-scenario
 
+## 1.6.0
+
+### Minor Changes
+
+- 570cdcc: A scripted turn can now delegate to scripted sub-agents: add a `{ subagents: [...] }` step, and register the tool that runs them with `scenarioSubagentTool(provider)`.
+
+  ```ts
+  import { aparteGlobalConfig } from "@aparte/core";
+  import {
+    createScenarioProvider,
+    scenarioSubagentTool,
+  } from "@aparte/provider-scenario";
+
+  const provider = createScenarioProvider({
+    turns: [
+      [
+        {
+          subagents: [
+            {
+              name: "Reader",
+              task: "Read the parser",
+              turns: ["It splits on commas."],
+            },
+          ],
+        },
+      ],
+      "The parser splits on commas.",
+    ],
+  });
+  aparteGlobalConfig.registerAIProvider(provider);
+  const { tool, handler } = scenarioSubagentTool(provider);
+  aparteGlobalConfig.registerTool(tool, handler);
+  ```
+
+  The step makes the model call one ordinary tool, `delegate`, with `{ agents: [{ name, task }] }`, as a real model would. Each `ScenarioSubagent` has a `name`, a `task` and the `turns` its own model plays; the handler runs each one through the real agent loop as a sub-agent, so its `{ tool }` steps run your registered handlers, and several in one step run side by side. The model reads back each sub-agent's last text; one that fails is said in a sentence and does not fail the call. `toolName` on the step and `scenarioSubagentTool(provider, { name })` rename the tool; with `scenarios`, route the answer with `after: 'delegate'`. Add `@aparte/plugin-subagents` to see one line per sub-agent.
+
+  A sub-agent's turn can also be a function of the request its loop sends, `(request) => turn`, so a script can answer what its tool returned: a build runner that says so when its command was refused.
+
+- 9c3de09: A tool can now start a sub-agent in the background and let the chat go on: call `startSubAgent(context.run, { name, request })` from its handler and return at once.
+
+  ```ts
+  import { startSubAgent, type AparteToolHandler } from "@aparte/core";
+
+  const research: AparteToolHandler = async (call, _signal, context) => {
+    startSubAgent(context!.run!, {
+      name: "Researcher",
+      request: {
+        modelId: "gpt-4.1-mini",
+        messages: [{ role: "user", content: String(call.input["question"]) }],
+      },
+    });
+    return {
+      toolCallId: call.id,
+      content: "The researcher is on it; its answer comes back to you.",
+    };
+  };
+  ```
+
+  - **While it works**, the model goes on writing and calling its own tools, and the sub-agent has a line of its own. The reply does not end before it is back: once the model has nothing more to say, the loop waits for the sub-agents still at work, tells the model how each ended in one user message, and asks it again.
+  - **It stops with the run**: Stop, the turn limit, the tool time limit counted from its start, or a crash.
+  - **Not in a server loop**: a run that can pause would end at the pause without what it answered, so `startSubAgent` throws there (`run.canBackground` is false); use `runSubAgent`.
+  - **What the model was told stays in the run**: the next turn's history is drawn from the reply, so it holds the model's answer to the sub-agents, not the message that told it how they ended.
+  - **`runSubAgent` is unchanged**: it holds its call until the sub-agent is back.
+  - **In the engine**, `StreamToolRun.startAgent` takes `background`, `StreamToolRun` gains `canBackground`, and `StreamAgentHandle` gains `signal`, what its work answers to.
+  - **In `@aparte/provider-scenario`**, a `subagents` step takes `background: true`: the next scripted turn plays while they work.
+
 ## 1.5.0
 
 ## 1.4.0

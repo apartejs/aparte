@@ -36,6 +36,10 @@ import type {
     StreamDeferredReason,
     StreamRefusalOrigin,
     StreamAbortCause,
+    StreamRunEvent,
+    StreamToolRun,
+    StreamAgentHandle,
+    StreamAgentStatus,
 } from './stream-events.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
@@ -72,9 +76,11 @@ export interface StreamRunOptions {
     /**
      * Called for every turn the loop appends to the history — the assistant message
      * carrying the turn's calls, each `tool` message answering one (resolved or
-     * rejected), and a pipeline phase's reply — in order, and always before the
-     * transport call that would carry it. Never called for the messages you passed
-     * in `baseRequest`.
+     * rejected), a pipeline phase's reply, and, when sub-agents started in the background
+     * are back, what the model said while it waited (a plain assistant message, when it
+     * said something) then the user message telling it how they ended — in order, and
+     * always before the transport call that would carry it. Never called for the messages
+     * you passed in `baseRequest`.
      *
      * For hosts that own their own transcript. The loop re-sends its `messages`
      * array every turn, which suits stateless message APIs but not a **prefix
@@ -189,6 +195,16 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     let idSeq = 0;
     const idGen = opts.idGen ?? ((prefix: string) => `${prefix}-${idSeq++}`);
 
+    // What every tool call of this run is handed as its `run` (see `createToolRun`). A run
+    // that can pause, or has nobody to ask, cannot hold a sub-agent's question.
+    // The sub-agents its tools start in the background: the run waits for them before it ends.
+    const background = createBackground(emitter, idGen, signal, toolTimeoutMs);
+    const runBase: ToolRunBase = {
+        emitter, canAsk: !deferral && approvalResolver !== undefined, canBackground: !deferral,
+        transportCall, toolLookup, toolConfigLookup, approvalResolver, maxTurns, toolTimeoutMs, idGen,
+        background,
+    };
+
     // Mutable history the loop enriches with the assistant and `tool` turns of a tool round-trip. Every
     // enrichment goes through `append`, so a caller owning its own transcript sees
     // the same turns in the same order (see `onHistoryAppend`).
@@ -209,6 +225,16 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // Leading write before turn 1: mark the message streaming.
     emitter({ type: 'run-start' });
 
+    try {
+        return await runTurns();
+    } finally {
+        // A crash leaves by here too: nothing of a sub-agent may come after the run, and none
+        // starts once it is over.
+        background.close();
+    }
+
+    async function runTurns(): Promise<StreamUsage | undefined> {
+
     // ── Resume: answer what a previous run left pending, before asking the model ──
     // The envelope is already in `messages` (it came with the request), so a resumed
     // call is declared by it: nothing to declare again, and no `tool-start` either —
@@ -216,7 +242,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     const tail = deferral ? unansweredTail(messages) : [];
     if (tail.length > 0) {
         const stillPending: StreamDeferredCall[] = [];
-        const ctx: CallContext = { turns: 1, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall: () => {}, append, deferral };
+        const ctx: CallContext = { turns: 1, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall: () => {}, append, deferral, runBase };
         for (const [i, call] of tail.entries()) {
             if (stillPending.length > 0) {
                 stillPending.push({ toolCallId: call.id, name: call.name, input: call.input, reason: queuedReason(call, toolConfigLookup) });
@@ -247,6 +273,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             }
         }
         if (stillPending.length > 0 && !signal.aborted) {
+            // A paused run holds nothing: what works in the background stops first.
+            background.stopAll();
             emitter({ type: 'run-suspended', pending: stillPending });
             return undefined;
         }
@@ -294,7 +322,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continue;
             }
 
-            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs);
+            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs, runBase);
             if (outcome.status === 'aborted') {
                 emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: syntheticId });
                 continueLoop = false;
@@ -365,6 +393,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             emitter({ type: 'turn-start' });
             emitter({ type: 'text-delta', delta: response });
             emitter({ type: 'text-flush' });
+            if (await reportBackground(response)) continue;
             break;
         }
 
@@ -452,6 +481,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         const callContext: CallContext = {
             turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append,
             deferral: deferral && { ...deferral, outcomes: undefined },
+            runBase,
         };
 
         const iterator = response[Symbol.asyncIterator]();
@@ -579,12 +609,15 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // Calls left pending: the run ends here, without `run-done` — the turn goes on
         // through the run that resumes them. (A Stop takes the abort exit instead.)
         if (pending.length > 0 && !signal.aborted) {
+            background.stopAll();
             emitter({ type: 'run-suspended', pending, usage: lastUsage });
             return lastUsage;
         }
 
-        // No tool calls this turn → the final answer.
-        if (!sawToolUse) continueLoop = false;
+        // No tool calls this turn → the final answer, unless sub-agents are still at work in
+        // the background: then it is what the model says while it waits, and it is asked again
+        // once they are back.
+        if (!sawToolUse && !(await reportBackground(precedingText))) continueLoop = false;
     }
 
     // Post-loop finalization runs on every exit path (normal / abort / maxTurns).
@@ -598,9 +631,37 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // id were never cleared and the turn was never persisted. A tool TIMEOUT aborts
     // only the child controller, so `signal.aborted` stays false and that turn still
     // ends as done, unchanged.
+    // A turn limit, or a Stop: what still works in the background ends before the run does.
+    background.stopAll();
     if (signal.aborted) emitter({ type: 'run-aborted' });
     emitter({ type: 'run-done', usage: lastUsage, ...(lastFinishReason ? { finishReason: lastFinishReason } : {}) });
     return lastUsage;
+    }
+
+    /**
+     * The model has said its last word for now. When sub-agents it started in the background
+     * are still at work, or are back and the model does not know it yet: wait for them, put
+     * what it just said and what they answered in its history, and say so (`true`): the loop
+     * asks it again. `false` when there is nothing to tell it, or the run was stopped.
+     */
+    async function reportBackground(said: string): Promise<boolean> {
+        if (signal.aborted || !background.pending()) return false;
+        // The model could not be asked again: they are stopped, and the run ends on the limit
+        // rather than leave a question in its history nobody answers.
+        if (turns >= maxTurns) {
+            background.stopAll();
+            emitter({ type: 'turn-limit-exceeded', scope: 'global', limit: maxTurns });
+            return false;
+        }
+        await background.settled();
+        if (signal.aborted) return false;
+        const report = background.report();
+        if (!report) return false;
+        const text = said.trim();
+        if (text) append({ role: 'assistant', content: text });
+        append({ role: 'user', content: report });
+        return true;
+    }
 }
 
 /**
@@ -655,6 +716,7 @@ interface CallContext {
     declareCall: (call: StreamToolCall) => void;
     append: (message: StreamAgentMessage) => void;
     deferral: StreamDeferral | undefined;
+    runBase: ToolRunBase;
 }
 
 /**
@@ -870,6 +932,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         { id: call.id, name: call.name, input: effectiveInput },
         signal,
         ctx.toolTimeoutMs,
+        ctx.runBase,
     );
     if (outcome.status === 'aborted') {
         // Same rule as the rejection / turn-limit / missing-handler
@@ -895,6 +958,7 @@ async function invokeToolHandler(
     call: StreamToolCall,
     signal: AbortSignal,
     toolTimeoutMs: number,
+    runBase: ToolRunBase,
 ): Promise<
     | { status: 'resolved'; content: string; structuredContent?: unknown }
     /** `cause` is absent for a handler that aborted itself, with no Stop and no timeout. */
@@ -951,9 +1015,15 @@ async function invokeToolHandler(
         }, toolTimeoutMs);
     });
 
+    // The call's own signal, not the run's: a sub-agent the handler opens ends with the
+    // call, on a Stop and on this timeout alike.
+    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal);
+    // What the handler threw, when it crashed: the sub-agents it left open end `failed` with it.
+    let crash: { error: unknown } | undefined;
+
     try {
         const result = await Promise.race([
-            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content, structuredContent: r.structuredContent })),
+            handler(call, controller.signal, run).then((r) => ({ status: 'resolved' as const, content: r.content, structuredContent: r.structuredContent })),
             timedOut,
             parentAborted,
         ]);
@@ -971,12 +1041,206 @@ async function invokeToolHandler(
         // loop's invariant is that an announced call gets exactly one terminal
         // event. Throwing from inside skipped it — the row spun "Running" for good
         // while the message showed an error card. The caller reports, then throws.
+        crash = { error: err };
         return { status: 'failed', error: err };
     } finally {
         clearTimeout(timeout);
         signal.removeEventListener('abort', onParentAbort);
         if (onParentAbortRace) signal.removeEventListener('abort', onParentAbortRace);
+        /*
+         * The call is over, so is every sub-agent it opened. A Stop or the timeout closed them
+         * already (the call's signal); a handler that threw, returned, or left a `runSubAgent`
+         * un-awaited did not, and its line started and never stopped — an un-awaited one went
+         * on emitting after its call, after the run itself. Here, before the caller emits the
+         * call's own `tool-failed` / `tool-resolved`, as `agent-end` precedes `tool-aborted`.
+         */
+        closeOpen(crash ? 'failed' : 'stopped', crash ? { error: errorText(crash.error) } : undefined);
     }
+}
+
+/** What a run hands each of its tool calls, before the call's own id and signal. */
+interface ToolRunBase extends Omit<StreamToolRun, 'startAgent'> {
+    emitter: StreamRunEmitter;
+    background: Background;
+}
+
+/** The four events that begin and end a run: never a sub-agent's to send. */
+type RunLevelEvent = Extract<StreamRunEvent, { type: 'run-start' | 'run-done' | 'run-aborted' | 'run-suspended' }>;
+const RUN_LEVEL = new Set<string>(['run-start', 'run-done', 'run-aborted', 'run-suspended']);
+const isRunLevel = (event: StreamRunEvent): event is RunLevelEvent => RUN_LEVEL.has(event.type);
+
+/**
+ * The `run` one tool call is handed: the run's parts, and a sub-agent tied to this call. And
+ * `closeOpen`, which ends the sub-agents the call opened that are still open, the latest first
+ * (ending one that is closed already does nothing).
+ */
+function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal): {
+    run: StreamToolRun;
+    closeOpen: StreamAgentHandle['end'];
+} {
+    const { emitter, background, ...parts } = base;
+    const opened: StreamAgentHandle[] = [];
+    return {
+        run: {
+            ...parts,
+            startAgent: (info) => {
+                // Not this call's: it outlives it, and the run ends it.
+                if (info.background) return background.open(info);
+                const handle = openAgent(emitter, base.idGen('agent'), info.detached ? undefined : toolCallId, info, callSignal);
+                opened.push(handle);
+                return handle;
+            },
+        },
+        closeOpen: (status, detail) => {
+            for (const handle of opened.reverse()) handle.end(status, detail);
+            opened.length = 0;
+        },
+    };
+}
+
+/**
+ * Announce a sub-agent and return its handle. It ends with `stopped` the moment its call's
+ * signal aborts — a listener, so synchronously, before the loop's race moves on to the
+ * call's `tool-aborted` — and once ended it drops every event: what a sub-agent's loop
+ * still emits while it unwinds is late, and belongs to nobody.
+ */
+function openAgent(
+    emitter: StreamRunEmitter,
+    agentId: string,
+    toolCallId: string | undefined,
+    info: { name?: string; description?: string },
+    callSignal: AbortSignal,
+    onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string }) => void,
+): StreamAgentHandle {
+    // A call already stopped opens nothing: its `tool-aborted` may be out already.
+    let open = !callSignal.aborted;
+    /*
+     * The sub-agents of this one still running, with the parent their start named. Ended
+     * with this one, first: once this one is closed their own ends would be dropped, and a
+     * host would be left with a line that started and never stopped.
+     */
+    const nested = new Map<string, string | undefined>();
+    const end: StreamAgentHandle['end'] = (status, detail) => {
+        if (!open) return;
+        open = false;
+        callSignal.removeEventListener('abort', onAbort);
+        for (const [id, parentAgentId] of [...nested].reverse()) {
+            emitter({ type: 'agent-end', agentId: id, status: 'stopped', ...(parentAgentId ? { parentAgentId } : {}) });
+        }
+        nested.clear();
+        emitter({
+            type: 'agent-end', agentId, status,
+            ...(detail?.result !== undefined ? { result: detail.result } : {}),
+            ...(detail?.error !== undefined ? { error: detail.error } : {}),
+        });
+        onEnd?.(status, detail);
+    };
+    const onAbort = (): void => end('stopped');
+    if (open) {
+        emitter({
+            type: 'agent-start', agentId,
+            ...(info.name !== undefined ? { name: info.name } : {}),
+            ...(info.description !== undefined ? { description: info.description } : {}),
+            ...(toolCallId !== undefined ? { toolCallId } : {}),
+        });
+        callSignal.addEventListener('abort', onAbort, { once: true });
+    }
+    return {
+        agentId,
+        signal: callSignal,
+        emit(event) {
+            if (!open || isRunLevel(event)) return;
+            if (event.type === 'agent-start' || event.type === 'agent-end') {
+                // A sub-agent of this one: already attributed, it gains its parent.
+                const stamped = event.parentAgentId ? event : { ...event, parentAgentId: agentId };
+                if (stamped.type === 'agent-start') nested.set(stamped.agentId, stamped.parentAgentId);
+                else nested.delete(stamped.agentId);
+                emitter(stamped);
+                return;
+            }
+            emitter(event.agentId ? event : { ...event, agentId });
+        },
+        end,
+    };
+}
+
+/** One sub-agent in the background, and how it ended once it has. */
+interface BackgroundAgent {
+    handle: StreamAgentHandle;
+    name?: string;
+    description?: string;
+    stop: AbortController;
+    ended?: { status: StreamAgentStatus; result?: string; error?: string };
+    told: boolean;
+}
+
+/** The run's sub-agents in the background: opened by its tools, waited for and stopped by it. */
+interface Background {
+    open(info: { name?: string; description?: string }): StreamAgentHandle;
+    /** Stop every one at work, and refuse any opened afterwards: the run is over. */
+    close(): void;
+    /** Whether one is still at work, or is back and the model has not been told. */
+    pending(): boolean;
+    /** Resolves once none is at work. */
+    settled(): Promise<void>;
+    /** What the model is told about the ones back since it was last told: `''` for none. */
+    report(): string;
+    /** Stop every one still at work, now (each ends `stopped`, synchronously). */
+    stopAll(): void;
+}
+
+function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => string, runSignal: AbortSignal, timeoutMs: number): Background {
+    const agents: BackgroundAgent[] = [];
+    let wake: (() => void) | null = null;
+    let closed = false;
+    const atWork = (): boolean => agents.some((a) => !a.ended);
+    return {
+        open(info) {
+            const stop = new AbortController();
+            // A run that is over, or stopped, starts nothing: a handle closed from the start,
+            // with nothing to wait for and nothing to tell (no event, no model call).
+            if (closed || runSignal.aborted) {
+                stop.abort();
+                return openAgent(emitter, idGen('agent'), undefined, info, stop.signal);
+            }
+            // Stopped by a Stop of the run, not of the call that started it; and by the tool
+            // time limit, which bounds a sub-agent held by its call the same way.
+            const onRunAbort = (): void => stop.abort();
+            runSignal.addEventListener('abort', onRunAbort, { once: true });
+            const timer = setTimeout(() => stop.abort(), timeoutMs);
+            const agent: BackgroundAgent = { handle: undefined as unknown as StreamAgentHandle, name: info.name, description: info.description, stop, told: false };
+            agent.handle = openAgent(emitter, idGen('agent'), undefined, info, stop.signal, (status, detail) => {
+                clearTimeout(timer);
+                runSignal.removeEventListener('abort', onRunAbort);
+                agent.ended = { status, ...detail };
+                if (!atWork()) wake?.();
+            });
+            agents.push(agent);
+            return agent.handle;
+        },
+        close() {
+            closed = true;
+            for (const a of agents) if (!a.ended) a.stop.abort();
+        },
+        pending: () => agents.some((a) => !a.ended || !a.told),
+        settled: () => (atWork() ? new Promise<void>((resolve) => { wake = () => { wake = null; resolve(); }; }) : Promise.resolve()),
+        report() {
+            const back = agents.filter((a) => a.ended && !a.told);
+            for (const a of back) a.told = true;
+            if (back.length === 0) return '';
+            const lines = back.map((a) => {
+                const who = `Sub-agent "${a.name ?? a.handle.agentId}"${a.description ? ` (${a.description})` : ''}`;
+                const ended = a.ended!;
+                if (ended.status === 'done') return `${who} is done:\n${ended.result?.trim() || '(it wrote nothing)'}`;
+                if (ended.status === 'failed') return `${who} failed: ${ended.error ?? 'no reason given'}`;
+                return `${who} was stopped before it answered.`;
+            });
+            return `${back.length === 1 ? 'A sub-agent you started is back.' : 'The sub-agents you started are back.'}\n\n${lines.join('\n\n')}`;
+        },
+        stopAll() {
+            for (const a of agents) if (!a.ended) a.stop.abort();
+        },
+    };
 }
 
 /** The one-line text of a handler's crash, for the `tool-failed` event and the row. */

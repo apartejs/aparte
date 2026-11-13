@@ -1,5 +1,117 @@
 # @aparte/core
 
+## 1.6.0
+
+### Minor Changes
+
+- 570cdcc: An approval asked for a sub-agent's call now names the sub-agent: "Allow read_file for Researcher?", from the new locale key `approvalAskBy`.
+
+  `approvalAskBy` is `Allow {tool} for {agent}?`, `{agent}` being the name the sub-agent was started with and `{tool}` what `approvalAsk` puts there. `@aparte/locales` carries it in its nine languages; a locale of your own that lacks it falls back to English, and `extendLocale({ approvalAskBy: '…' })` sets it. A sub-agent with no name is asked about with `approvalAsk`, as before. `aparte-tool-approval-request` carries the call's `agentId` when a sub-agent asks.
+
+- 570cdcc: A tool can now open a sub-agent: call `runSubAgent(context.run, { name, request }, signal)` from its handler, in the page or on the server.
+
+  ```ts
+  import { runSubAgent, type AparteToolHandler } from "@aparte/core";
+
+  const research: AparteToolHandler = async (call, signal, context) => {
+    const answer = await runSubAgent(
+      context!.run!,
+      {
+        name: "Researcher",
+        request: {
+          modelId: "gpt-4.1-mini",
+          messages: [{ role: "user", content: String(call.input["question"]) }],
+        },
+      },
+      signal,
+    );
+    return { toolCallId: call.id, content: answer.text };
+  };
+  ```
+
+  - **The run a tool is called in.** A handler now gets the run as a third argument (`StreamToolRun` in `@aparte/engine`, `context.run`, typed `AparteToolRun`, in `@aparte/core`). A handler written with two parameters is unchanged. A browser tool answering a paused server run has none.
+  - **`runSubAgent`.** Runs a loop of its own on the conversation you give it, with the run's model connection, tools and limits unless you pass others, and resolves `{ status, text, error? }`: `done`, `failed` or `stopped`, and what the sub-agent wrote last. It never rejects for a sub-agent that failed, so the tool decides what the model reads. `detached: true` gives one of several sub-agents opened by the same tool a line of its own. `run.startAgent()` announces a sub-agent by hand and returns a `StreamAgentHandle` (`emit`, `end`).
+  - **New run events.** `agent-start` (`agentId`, `name`, `description`, `toolCallId`, `parentAgentId`) and `agent-end` (`agentId`, `status`, `result`, `error`), and an optional `agentId` on every event that is not one of the four `run-*`: the event is that sub-agent's. A sub-agent ends with the call that opened it, before the call's own end: `stopped` on a Stop, the call's timeout, or a handler that returns with it still open (an un-awaited `runSubAgent`), and `failed`, with the handler's message, when the handler throws. Its handle emits nothing after that.
+  - **Approvals.** A sub-agent's call that needs a decision is asked through the run's resolver, with `call.agent` naming the sub-agent. In a run that pauses instead of waiting (`deferral`, the server loop), it cannot ask: the call is aborted with the cause `no-resolver`.
+  - **Hearing a run.** `config.observeRunEvents(observer)` (`AparteRunEventObserver`, `AparteRunEventContext`) hears every event of a reply's run, its sub-agents' included, before the reply handles it, and returns the function that removes it.
+  - **Server loop.** `createAparteAgentHandler` mints the ids of the sub-agents it runs so they never repeat from one request to the next: the resume of a paused reply no longer names its first sub-agent like the paused run's.
+
+- 9c3de09: A tool can now start a sub-agent in the background and let the chat go on: call `startSubAgent(context.run, { name, request })` from its handler and return at once.
+
+  ```ts
+  import { startSubAgent, type AparteToolHandler } from "@aparte/core";
+
+  const research: AparteToolHandler = async (call, _signal, context) => {
+    startSubAgent(context!.run!, {
+      name: "Researcher",
+      request: {
+        modelId: "gpt-4.1-mini",
+        messages: [{ role: "user", content: String(call.input["question"]) }],
+      },
+    });
+    return {
+      toolCallId: call.id,
+      content: "The researcher is on it; its answer comes back to you.",
+    };
+  };
+  ```
+
+  - **While it works**, the model goes on writing and calling its own tools, and the sub-agent has a line of its own. The reply does not end before it is back: once the model has nothing more to say, the loop waits for the sub-agents still at work, tells the model how each ended in one user message, and asks it again.
+  - **It stops with the run**: Stop, the turn limit, the tool time limit counted from its start, or a crash.
+  - **Not in a server loop**: a run that can pause would end at the pause without what it answered, so `startSubAgent` throws there (`run.canBackground` is false); use `runSubAgent`.
+  - **What the model was told stays in the run**: the next turn's history is drawn from the reply, so it holds the model's answer to the sub-agents, not the message that told it how they ended.
+  - **`runSubAgent` is unchanged**: it holds its call until the sub-agent is back.
+  - **In the engine**, `StreamToolRun.startAgent` takes `background`, `StreamToolRun` gains `canBackground`, and `StreamAgentHandle` gains `signal`, what its work answers to.
+  - **In `@aparte/provider-scenario`**, a `subagents` step takes `background: true`: the next scripted turn plays while they work.
+
+- 570cdcc: A sub-agent's text and tool rows no longer show inside the reply; add `@aparte/plugin-subagents` to show one line per sub-agent.
+
+  ```ts
+  import { setupSubagents } from "@aparte/plugin-subagents";
+
+  setupSubagents();
+  ```
+
+  - **What you see without the plugin.** The reply holds the agent's own text and tool rows only. The call that opened a sub-agent stays as an ordinary tool row, and the console says once that nothing draws sub-agents. Before, an AG-UI agent's sub-agents streamed into the reply as if the agent had written it, and their tool calls were rows of the reply.
+  - **What the model reads.** A sub-agent's work is no longer part of the reply's history, so it is not sent back to the model on the next turn.
+  - **AG-UI.** `@aparte/runner-ag-ui` translates `SUBAGENT_STARTED`, `SUBAGENT_FINISHED`, `SUBAGENT_ERROR` and the `subagentRunId` on a sub-agent's events: several sub-agents can stream at once, each keeps its own messages and calls, and an interrupt raised inside a sub-agent is asked about as that sub-agent's. Most agent frameworks announce sub-agents only when asked to (LangGraph's and Strands' `subagent_visibility="attributed"`, Mastra's `subagentVisibility: "attributed"`, ADK-JS's `subagents: "attributed"`); the [Sub-agents guide](https://apartejs.dev/guides/sub-agents/) lists them.
+  - **Your own events.** An event that carries an `agentId`, and `agent-start` / `agent-end`, never reach the reply, whatever drew them: a backend that writes the engine's events as NDJSON for `createAgentStreamRunner` opens a sub-agent with `agent-start`, tags its events with its `agentId`, and closes it with `agent-end`. A `run-start`, `run-done`, `run-aborted` or `run-suspended` line that carries an `agentId` is dropped with a warning: a sub-agent never ends the run.
+
+- 570cdcc: A tool row can now say what its call is doing, on a line under its name, and add a note after its state: give the config a `setToolLineProvider`. On a narrow line the row's parts now give way in a new order — the target first, then the note, the name last.
+
+  ```ts
+  import { aparteGlobalConfig } from "@aparte/core";
+
+  aparteGlobalConfig.setToolLineProvider((segment) =>
+    segment.toolCall.name === "delegate"
+      ? { activity: "Reading parser.ts", note: "3 tools · 12s" }
+      : undefined,
+  );
+  ```
+
+  - **The provider** returns an `AparteToolLine`: `label` and `target`, used when your `registerToolDisplay` gives none; `activity`, a second line under the name, in every state you give it (give it for the call's whole life, or never: a line that comes and goes moves every row under it); `note`, in every state; `details`, used when your display has no `details` key. Your display always wins, field by field. It is called at every draw, so its words follow a language switch. One per config; a chat with a config of its own reads the page's when it has none. A row with no provider is drawn as before.
+  - **If you styled the row.** What the call is doing is a new element, `.aparte-tool-activity`, placed last in the row's line and on a line of its own: the row's line now wraps for it, and for nothing else. Inside core's row, `.aparte-tool-label` is `display: contents`, so the name and the target are laid out as parts of the line: a background, a border or a padding set on `.aparte-tool-label` there no longer draws — set it on `.aparte-tool-name` or `.aparte-tool-target`. The name, the target and the note now size with `flex: <n> 1 0` and `max-width: max-content`; a `flex-shrink` of yours on them no longer decides who is cut first. A target the provider gives is words, `.aparte-tool-target--words`, in the chat's own font.
+  - **For a plugin.** `createSegmentList` holds a conversation that is not the reply — a stream adapter writes into it as into a chat, and each segment gets its index and timing (`AparteSegmentList`: `segments`, `onChange`). Feeding it events an observer handed you (a sub-agent's)? Make that adapter with `createStreamAdapter({ …, observe: false })`, so the observers do not hear them a second time, unattributed. `pluralize` and `formatDuration` are exported, the plural and the duration a turn's fold uses.
+  - **Fixed.** A row's details already in place are no longer rebuilt on every update of the call.
+
+### Patch Changes
+
+- d52cf1d: In a chat that centres its composer while empty, the first messages no longer go up and come back when a panel opens under the composer during the slide (an approval asked by the reply's first call).
+
+  The slide gives the transcript its room back over a few hundred milliseconds. A panel opening in that moment shrank the surface below the messages, the send's glide (aimed a frame earlier at a reply bubble still counted at its placeholder height) scrolled into the gap, and the returning room brought the messages back down: 35 px up and back in 50 ms on the agent template. A transcript that will fit once that room is back now does not scroll, and gets no bottom spacer.
+
+- e037fb5: On a touch screen the chat no longer keeps 28 px at its end edge for the scroll rail, which is hidden there: the column is centred again on a phone.
+
+  The rail hides under `(pointer: coarse)`, since a 2 px tick is no target for a finger, and its lane stayed reserved. It now goes with it. On a screen with a mouse nothing changes: the lane is kept from the first message, so the column does not move when the rail appears.
+
+- 570cdcc: Resuming a paused reply no longer tells the model that a call still running, or still waiting for a person, was stopped: the call is left open for the agent to answer.
+
+  When a reply paused while a call was not finished — the call that opened a sub-agent, whose sub-agent stopped for an approval — the request that resumed it answered that call with the stopped-tool text, so the model read that it never ran. It now sends that call unanswered, as it already did for the paused call itself. A server-loop resume is unchanged: every call there has settled, or carries its own ticket, by the time the run pauses. Nothing to change in your code.
+
+- Updated dependencies [570cdcc]
+- Updated dependencies [9c3de09]
+  - @aparte/engine@1.6.0
+
 ## 1.5.0
 
 ### Minor Changes

@@ -170,6 +170,19 @@ createAparteAgentHandler({
 
 A browser tool may not share a server tool's name: the request is refused.
 
+## Sub-agents
+
+A server tool can hand part of the work to a sub-agent: its handler gets the run as `context.run`
+and opens one with `runSubAgent(context.run, { name, request }, signal)`, which runs a loop of its
+own with the server's provider and key. Its events go down the same stream, and the page draws one
+line per sub-agent with `@aparte/plugin-subagents`
+([Sub-agents](/guides/sub-agents/#a-tool-of-your-own-loop)).
+
+A sub-agent's call cannot ask a person here: the run on the server pauses rather than waits, and a
+sub-agent lives inside one tool call, which has to answer. Its call that needs a decision is
+stopped, with the cause `no-resolver`. Put `needsApproval` on the tool that opens the sub-agent
+instead: that one pauses the run like any other server tool.
+
 ## Open a file in the page when a server tool runs
 
 To have the page do something when a call runs — open a file in the editor beside the chat —

@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-subagents` for a demo frame: the demo calls `setupSubagents()` itself. */
+---
+
+<script>
+    import * as subagents from '@aparte/plugin-subagents';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).subagents = subagents;
+</script>

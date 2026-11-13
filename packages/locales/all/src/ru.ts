@@ -29,6 +29,7 @@ export const ru: AparteLocale = {
     approvalOptionsLabel: "Ваше решение",
     approvalArgsLabel: "Аргументы",
     approvalAsk: "Разрешить {tool}?",
+    approvalAskBy: "Разрешить {tool} для {agent}?",
     approvalWaiting: "Ожидание",
     scrollToBottom: "Прокрутить вниз",
     suggestionsLabel: "Предлагаемые запросы",

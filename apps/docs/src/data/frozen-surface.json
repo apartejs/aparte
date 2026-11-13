@@ -251,6 +251,16 @@
         "single"
       ]
     },
+    "aparte-subagent-view": {
+      "package": "@aparte/plugin-subagents",
+      "attributes": [
+        "agent-id",
+        "data-empty",
+        "data-inline",
+        "for",
+        "message-id"
+      ]
+    },
     "aparte-suggestions": {
       "package": "@aparte/core",
       "attributes": [
@@ -425,6 +435,7 @@
       "createAgentStreamRunner",
       "createAparteAgentHandler",
       "createAparteChatHandler",
+      "createSegmentList",
       "createStreamAdapter",
       "cssEscape",
       "declineDefaultRenderers",
@@ -438,6 +449,7 @@
       "estimateTokens",
       "estimateWireTokens",
       "filesToAttachments",
+      "formatDuration",
       "getAllRenderers",
       "getSegmentRenderer",
       "historyFromCheckpoint",
@@ -452,6 +464,7 @@
       "parseAparteEventStream",
       "parseMarkdownToSegments",
       "placeFloating",
+      "pluralize",
       "populateBubbleFromMessage",
       "readableToAsyncIterable",
       "registerAllComponents",
@@ -463,10 +476,12 @@
       "requestUserInput",
       "resolveConfig",
       "revokeAttachmentUrls",
+      "runSubAgent",
       "runWithConfig",
       "segmentDuration",
       "segmentTiming",
       "setupSuggestionBlocks",
+      "startSubAgent",
       "subscribeConfigChange",
       "toToolCallView",
       "toolRefusal",
@@ -475,6 +490,8 @@
     ],
     "@aparte/engine": [
       "runStreamAgent",
+      "runSubAgent",
+      "startSubAgent",
       "toolRefusal",
       "unansweredTail"
     ],
@@ -694,6 +711,14 @@
     "@aparte/plugin-streaming-markdown": [
       "setupStreamingMarkdownProvider"
     ],
+    "@aparte/plugin-subagents": [
+      "AparteSubagentView",
+      "SUBAGENT_SEGMENT_TYPE",
+      "setupSubagents",
+      "subagentOf",
+      "subagentStatus",
+      "subagentTranscript"
+    ],
     "@aparte/plugin-titler": [
       "createTitleProvider",
       "setupTitler"
@@ -719,7 +744,8 @@
     "@aparte/provider-scenario": [
       "createScenarioProvider",
       "defaultMatch",
-      "playTurn"
+      "playTurn",
+      "scenarioSubagentTool"
     ],
     "@aparte/provider-transformers": [
       "TransformersProvider",
@@ -777,6 +803,7 @@
     "actionUpload",
     "approvalArgsLabel",
     "approvalAsk",
+    "approvalAskBy",
     "approvalInstructionPlaceholder",
     "approvalModeLabel",
     "approvalOptionsLabel",

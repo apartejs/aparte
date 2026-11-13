@@ -12,8 +12,8 @@ export const LLMS_SETS = [
   },
   {
     label: 'Tools, approval and asking the user',
-    description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
-    paths: ['guides/tools', 'guides/elicitation', 'components/tool', 'components/approval', 'components/approval-mode', 'components/question', 'components/artifact'],
+    description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), the ask-user plugin, and sub-agents (opened by a tool or announced by an AG-UI agent, one line each in the reply).',
+    paths: ['guides/tools', 'guides/elicitation', 'guides/sub-agents', 'components/tool', 'components/approval', 'components/approval-mode', 'components/question', 'components/artifact', 'components/subagent-view'],
   },
   {
     label: 'Run the agent loop on your server',

@@ -52,16 +52,25 @@ const UNOBSERVABLE_KEYS: Record<string, string> = {
  */
 const UNOBSERVABLE_MESSAGE_KEYS: Record<string, string> = {
     id: 'core mints its own message ids; the AG-UI messageId does not reach a run event, and aparté history carries none to send',
-    subagentRunId: 'subagent attribution is not drawn yet (rendering subagents is a MAY, and comes with the agentic lot)',
     metadata: 'run events carry no message or tool-call metadata: nothing in aparté reads it',
 };
 
+/**
+ * Message fields the REQUEST cannot carry, on top of the above. The messages the runner
+ * produced are attributed (a sub-agent's run events carry its `agentId`, asserted as
+ * `subagentRunId`); the history it sends back is not.
+ */
+const UNOBSERVABLE_REQUEST_MESSAGE_KEYS: Record<string, string> = {
+    ...UNOBSERVABLE_MESSAGE_KEYS,
+    subagentRunId: 'aparté’s history carries no attribution, by design: a sub-agent’s conversation stays out of message.segments, so the history sent back never holds one',
+};
+
 /** An expected message list without what a runner cannot observe: the message's own keys above, and a call's metadata. */
-function observable(messages: unknown): unknown {
+function observable(messages: unknown, unobservable: Record<string, string> = UNOBSERVABLE_MESSAGE_KEYS): unknown {
     if (!Array.isArray(messages)) return messages;
     return messages.map((message) => {
         if (!message || typeof message !== 'object') return message;
-        const out = Object.fromEntries(Object.entries(message).filter(([key]) => !(key in UNOBSERVABLE_MESSAGE_KEYS)));
+        const out = Object.fromEntries(Object.entries(message).filter(([key]) => !(key in unobservable)));
         if (Array.isArray(out['toolCalls'])) {
             out['toolCalls'] = (out['toolCalls'] as Record<string, unknown>[]).map(({ metadata: _metadata, ...call }) => call);
         }
@@ -165,31 +174,44 @@ function historyOf(fixture: Fixture): { role: string; content: unknown }[] {
     });
 }
 
-/** The messages a client would hold after the run, rebuilt from the runner's events. */
+/**
+ * The messages a client would hold after the run, rebuilt from the runner's events. Each
+ * owner — the run, or a sub-agent by its `agentId` — has its current messages of its own,
+ * and a sub-agent's are stamped `subagentRunId`, as AG-UI attributes a message to the
+ * invocation whose events made it. `agent-start` / `agent-end` make no message.
+ */
 function messagesOf(fixture: Fixture, events: { type: string; [key: string]: unknown }[]): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = (fixture.input?.messages ?? []).map((m) => ({ ...m }));
-    let reasoning: Record<string, unknown> | undefined;
-    let assistant: Record<string, unknown> | undefined;
-    const assistantNow = (): Record<string, unknown> => {
-        if (!assistant) { assistant = { role: 'assistant', content: '' }; out.push(assistant); }
-        return assistant;
+    const current = new Map<string, { reasoning?: Record<string, unknown>; assistant?: Record<string, unknown> }>();
+    const ownerOf = (e: { [key: string]: unknown }) => (typeof e['agentId'] === 'string' ? e['agentId'] : '');
+    const make = (owner: string, role: string): Record<string, unknown> => {
+        const message: Record<string, unknown> = { role, content: '', ...(owner ? { subagentRunId: owner } : {}) };
+        out.push(message);
+        return message;
     };
+    const of = (owner: string) => {
+        let at = current.get(owner);
+        if (!at) { at = {}; current.set(owner, at); }
+        return at;
+    };
+    const assistantNow = (owner: string): Record<string, unknown> => (of(owner).assistant ??= make(owner, 'assistant'));
     for (const e of events) {
+        const owner = ownerOf(e);
         switch (e.type) {
             case 'run-start':
+                current.clear();
+                break;
             case 'turn-start':
-                reasoning = undefined;
-                assistant = undefined;
+                current.delete(owner);
                 break;
             case 'thinking-delta':
-                if (!reasoning) { reasoning = { role: 'reasoning', content: '' }; out.push(reasoning); }
-                reasoning['content'] += String(e['delta']);
+                (of(owner).reasoning ??= make(owner, 'reasoning'))['content'] += String(e['delta']);
                 break;
             case 'text-delta':
-                assistantNow()['content'] += String(e['delta']);
+                assistantNow(owner)['content'] += String(e['delta']);
                 break;
             case 'tool-start': {
-                const message = assistantNow();
+                const message = assistantNow(owner);
                 const calls = (message['toolCalls'] ??= []) as unknown[];
                 calls.push({ id: e['toolCallId'], type: 'function', function: { name: e['name'], arguments: JSON.stringify(e['input']) } });
                 break;
@@ -197,8 +219,8 @@ function messagesOf(fixture: Fixture, events: { type: string; [key: string]: unk
             case 'tool-resolved':
             case 'tool-failed':
                 // A result in parts keeps them as the structured result; its text is what the model reads.
-                out.push({ role: 'tool', toolCallId: e['toolCallId'], content: e['structuredResult'] ?? e['result'] ?? e['error'] });
-                assistant = undefined;
+                out.push({ role: 'tool', toolCallId: e['toolCallId'], content: e['structuredResult'] ?? e['result'] ?? e['error'], ...(owner ? { subagentRunId: owner } : {}) });
+                of(owner).assistant = undefined;
                 break;
         }
     }
@@ -348,7 +370,7 @@ describe('AG-UI conformance corpus', () => {
             if ('request' in e) {
                 observed++;
                 const request = e['request'] as Record<string, unknown>;
-                subset(r.request, { ...request, ...(request['messages'] ? { messages: observable(request['messages']) } : {}) }, 'request', problems);
+                subset(r.request, { ...request, ...(request['messages'] ? { messages: observable(request['messages'], UNOBSERVABLE_REQUEST_MESSAGE_KEYS) } : {}) }, 'request', problems);
             }
             if ('requestAbsentPaths' in e) {
                 observed++;

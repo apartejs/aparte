@@ -185,12 +185,14 @@ export type {
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
+    AparteToolRun,
     AparteToolRenderer,
     AparteToolSummary,
     AparteToolInputFormatter,
     AparteToolMatcher,
     AparteToolDisplay,
     AparteToolDetails,
+    AparteToolLine,
     AparteToolCallView,
     AparteMountedView,
     AparteToolMount,
@@ -378,6 +380,12 @@ export { copyText } from './utils/copy-text.js';
 // The WRITERS stay internal: only the two owners of a message's segment array may
 // stamp those fields, which `pnpm check:segment-stamp` enforces.
 export { isSegmentSettled, segmentDuration, segmentTiming } from './utils/segments.js';
+// A segment list a stream adapter writes into, stamped like a message's — what a plugin keeps
+// a sub-agent's conversation in — and the plural and duration a turn's fold reads, so a line
+// of a plugin's own counts and times as core's does. All DOM-free.
+export { createSegmentList, type AparteSegmentList } from './utils/segment-list.js';
+export { pluralize } from './utils/plural.js';
+export { formatDuration } from './utils/format-duration.js';
 // The PARAMETER types of two documented setters. They existed and were the declared
 // argument types, but were not exported — so anyone typing a settings layer over
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
@@ -386,7 +394,8 @@ export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
-export { toolRefusal } from './client/stream-adapter.js';
+export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';
+export type { AparteRunEventContext, AparteRunEventObserver } from './config/aparte-config.js';
 export { createAgentStreamRunner, type AgentStreamRunnerOptions } from './client/agent-runner.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 

@@ -310,6 +310,13 @@ export default defineConfig({
             'Slash commands, @ mentions and any other trigger character are `@aparte/plugin-triggers` '
             + '(/guides/commands-and-mentions/); other plugins add their commands through an event. '
             + '`setTurnSummary()` folds reasoning and tool calls behind one line (/guides/tool-display/). ',
+            'Sub-agents are `@aparte/plugin-subagents` (/guides/sub-agents/): `setupSubagents()` draws one '
+            + 'line per sub-agent in the reply (its name, its task, what it is doing now, its tool count and '
+            + 'duration), its conversation kept out of the reply and out of what the model reads, shown under '
+            + 'the line with `details: \'transcript\'` or anywhere with `<aparte-subagent-view>`. They come '
+            + 'from an AG-UI agent\'s `SUBAGENT_*` events, from a tool handler calling '
+            + '`runSubAgent(context.run, …)` in the page or on the server, or from `agent-start` / '
+            + '`agent-end` lines and an `agentId` on the events of a backend of your own.',
             'A tool\'s result can be drawn as a rich card with `@aparte/plugin-cards` (/guides/cards/): '
             + 'weather, items, products, places, key figures, orders, market quotes, an agent\'s plan, '
             + 'matches, media and link previews, one entry per card, each reading the tool\'s own '

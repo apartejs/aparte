@@ -1,6 +1,6 @@
 {
-  "measuredOn": "2026-11-02",
-  "before": "2026-11-03T00:00:00Z",
+  "measuredOn": "2026-11-13",
+  "before": "2026-11-14T00:00:00Z",
   "esbuild": "0.27.7",
   "gzipLevel": 9,
   "react": {
@@ -12,18 +12,18 @@
     {
       "id": "aparte",
       "name": "aparté",
-      "version": "0.32.1",
+      "version": "1.5.0",
       "packages": {
-        "@aparte/core": "0.32.1",
-        "@aparte/provider-openai-compat": "0.32.1",
-        "@aparte/plugin-marked": "0.32.1",
-        "@aparte/plugin-streaming-markdown": "0.32.1"
+        "@aparte/core": "1.5.0",
+        "@aparte/provider-openai-compat": "1.5.0",
+        "@aparte/plugin-marked": "1.5.0",
+        "@aparte/plugin-streaming-markdown": "1.5.0"
       },
-      "startupGzip": 122334,
+      "startupGzip": 137922,
       "frameworkGzip": 0,
-      "ownGzip": 122334,
+      "ownGzip": 137922,
       "laterGzip": 0,
-      "cssGzip": 23036,
+      "cssGzip": 24059,
       "note": "The chat with Markdown while it streams, its own client for any OpenAI-compatible API, and the agent loop with tools and approvals.",
       "variants": []
     },
@@ -73,14 +73,14 @@
     {
       "id": "assistant-ui",
       "name": "assistant-ui",
-      "version": "0.15.32",
+      "version": "0.15.36",
       "packages": {
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "@assistant-ui/react": "0.15.32",
-        "@assistant-ui/ai-sdk": "0.0.16",
-        "@assistant-ui/react-markdown": "0.14.24",
-        "ai": "7.0.159",
+        "@assistant-ui/react": "0.15.36",
+        "@assistant-ui/ai-sdk": "0.0.18",
+        "@assistant-ui/react-markdown": "0.14.26",
+        "ai": "7.0.172",
         "@base-ui/react": "1.9.0",
         "lucide-react": "1.66.0",
         "cn": "0.4.0",
@@ -88,36 +88,36 @@
         "remark-gfm": "4.0.1",
         "zustand": "5.0.16"
       },
-      "startupGzip": 479395,
+      "startupGzip": 489673,
       "frameworkGzip": 68867,
-      "ownGzip": 410528,
+      "ownGzip": 420806,
       "laterGzip": 0,
       "cssGzip": null,
       "note": "The AI SDK runtime and the Thread its docs copy into your app: Markdown, tool calls, attachments; the model is called from your server, and its CSS is your Tailwind build’s output.",
       "variants": [
         {
           "label": "its LocalRuntime with an adapter you write, in place of the AI SDK",
-          "startupGzip": 395800,
-          "ownGzip": 326933
+          "startupGzip": 402574,
+          "ownGzip": 333707
         }
       ]
     },
     {
       "id": "copilotkit",
       "name": "CopilotKit",
-      "version": "1.83.0",
+      "version": "1.87.1",
       "packages": {
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "@copilotkit/react-core": "1.83.0",
-        "@copilotkit/react-ui": "1.83.0",
+        "@copilotkit/react-core": "1.87.1",
+        "@copilotkit/react-ui": "1.87.1",
         "zod": "4.6.7"
       },
-      "startupGzip": 826391,
+      "startupGzip": 960621,
       "frameworkGzip": 68867,
-      "ownGzip": 757524,
-      "laterGzip": 3023151,
-      "cssGzip": 19313,
+      "ownGzip": 891754,
+      "laterGzip": 3019454,
+      "cssGzip": 19326,
       "note": "Its documented React chat: Markdown, math, code highlighting, tool calls and generative UI; its runtime runs on a server and is not counted.",
       "variants": []
     }

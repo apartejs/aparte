@@ -1,0 +1,53 @@
+/*
+ * @aparte/plugin-subagents — a sub-agent's conversation.
+ *
+ * Only what is the plugin's own. The rows inside are core's (text, reasoning, tool rows,
+ * a nested sub-agent's line) and wear core's sheets; under a line, the transcript sits in
+ * core's tool detail, which already draws the rule and the indent a disclosure has. So
+ * this sheet draws the task line, the spacing of the rows, and — for the standalone view
+ * only — the same quiet rule down the leading edge, since nothing of core's is around it.
+ *
+ * Logical properties throughout, so a right-to-left locale puts the rule on its own
+ * leading edge. No colour of its own: core's tokens. Nothing moves, so there is no motion
+ * to reduce.
+ */
+aparte-subagent-view {
+    display: block;
+    min-inline-size: 0;
+}
+
+/* Standalone (a canvas, a pane, a dialog): outside any message, so the conversation's
+   type is set here, as core's segment container sets it in a reply. */
+aparte-subagent-view:not([data-inline]) {
+    font-size: var(--aparte-content-font-size);
+    line-height: var(--aparte-content-line-height);
+    color: var(--aparte-content-color);
+    font-family: var(--aparte-font-family);
+}
+
+/* Nothing to show (an unknown sub-agent, or one not started yet): nothing drawn. */
+aparte-subagent-view[data-empty] {
+    display: none;
+}
+
+.aparte-subagent-task {
+    margin: 0 0 var(--aparte-space-3);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-subagent-transcript {
+    display: flex;
+    flex-direction: column;
+    gap: var(--aparte-space-4);
+    min-inline-size: 0;
+}
+
+.aparte-subagent-transcript:empty {
+    display: none;
+}
+
+aparte-subagent-view:not([data-inline]) > .aparte-subagent-transcript {
+    padding-inline-start: var(--aparte-subagent-indent, var(--aparte-space-6));
+    border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
+}

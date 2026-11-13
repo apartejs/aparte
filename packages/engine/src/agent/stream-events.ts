@@ -23,6 +23,9 @@
  * were removed before it (audit 2026-08-28, D2).
  */
 
+// Type-only, erased at build: the run's option types, which a tool's run hands on.
+import type { StreamRunOptions } from './stream-run.js';
+
 // ─── Duck-typed mirrors of @aparte/core (structural — NO import) ───────────────
 
 /**
@@ -222,10 +225,17 @@ export interface StreamChatRequest {
     tools?: StreamTool[];
 }
 
-/** A tool handler (mirrors the resolved `AparteToolHandler`). */
+/**
+ * A tool handler (mirrors the resolved `AparteToolHandler`).
+ *
+ * `run` is the run the call belongs to, for a tool that opens a sub-agent
+ * ({@link StreamToolRun.startAgent}, or `runSubAgent`). The loop always passes it; a
+ * handler written with two parameters never sees it and works as before.
+ */
 export type StreamToolHandler = (
     call: StreamToolCall,
     signal: AbortSignal,
+    run?: StreamToolRun,
 ) => Promise<{
     /** What the model reads. */
     content: string;
@@ -272,6 +282,8 @@ export interface StreamDeferredCall {
     name: string;
     input: unknown;
     reason: StreamDeferredReason;
+    /** The sub-agent whose call this is; absent for the run's own. */
+    agentId?: string;
 }
 
 /**
@@ -311,9 +323,13 @@ export interface StreamDeferral {
 /**
  * Resolves a human-in-the-loop approval (mirrors core's
  * `AparteToolApprovalResolver`). Injected so the loop stays headless.
+ *
+ * `call.agent` is the sub-agent whose call this is — its `agentId` and the `name` it was
+ * started with — so the question can say who asks; absent for the run's own call. For a
+ * sub-agent's sub-agent, it is the innermost one: the agent whose tool is asking.
  */
 export type StreamApprovalResolver = (
-    call: { id: string; name: string; input: Record<string, unknown> },
+    call: { id: string; name: string; input: Record<string, unknown>; agent?: { id: string; name?: string } },
     signal: AbortSignal,
 ) => Promise<{
     approved: boolean;
@@ -359,33 +375,45 @@ export type StreamApprovalResolver = (
  * - `run-suspended`   → (with `deferral`) the run ends with calls left pending; the
  *                        adapter marks them and completes the message — the TURN goes on
  *                        through the run that resumes them
+ * - `agent-start` / `agent-end` → a sub-agent begins and ends; never part of the reply
+ *
+ * `agentId`, on every event that is not run-level, names the sub-agent the event belongs
+ * to: absent, it is the run's own. The four run-level events (`run-start`, `run-done`,
+ * `run-aborted`, `run-suspended`) never carry one — a sub-agent never ends the run.
  */
 export type StreamRunEvent =
     | { type: 'run-start' }
-    | { type: 'turn-start' }
-    | { type: 'text-delta'; delta: string }
-    | { type: 'text-flush' }
+    | { type: 'turn-start'; agentId?: string }
+    | { type: 'text-delta'; delta: string; agentId?: string }
+    | { type: 'text-flush'; agentId?: string }
     /** Offsets into the text this model call streamed: the text since its `turn-start`. */
-    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[] }
-    | { type: 'thinking-delta'; delta: string }
-    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-approved'; toolCallId: string }
+    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[]; agentId?: string }
+    | { type: 'thinking-delta'; delta: string; agentId?: string }
+    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; agentId?: string }
+    | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown; agentId?: string }
+    | { type: 'tool-approved'; toolCallId: string; agentId?: string }
     /**
      * `reason` is the sentence the model reads; `by` and `instruction` are for the row, which
      * speaks to a person in their own language (optional for a runner that emits its own).
      */
-    | { type: 'tool-rejected'; toolCallId: string; reason: string; by?: StreamRefusalOrigin; instruction?: string }
+    | { type: 'tool-rejected'; toolCallId: string; reason: string; by?: StreamRefusalOrigin; instruction?: string; agentId?: string }
     /** The handler threw (not an abort): the row hears of the crash before the run ends on it. */
-    | { type: 'tool-failed'; toolCallId: string; error: string }
-    | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }
+    | { type: 'tool-failed'; toolCallId: string; error: string; agentId?: string }
+    | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown; agentId?: string }
     /**
      * The call did not run to an answer. `cause` says why, for the row: `'no-handler'` and
      * `'no-resolver'` are the page's setup, not anything the person did. Absent on the calls
      * a run ended before reaching.
      */
-    | { type: 'tool-aborted'; toolCallId: string; cause?: StreamAbortCause }
-    | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
+    | { type: 'tool-aborted'; toolCallId: string; cause?: StreamAbortCause; agentId?: string }
+    | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string; agentId?: string }
+    /**
+     * A sub-agent begins. `toolCallId` is the call that opened it, when one did;
+     * `parentAgentId` the sub-agent that opened it, when it is not the run's own.
+     */
+    | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string }
+    /** A sub-agent ends, once: `result` is what it answered, `error` why it failed. */
+    | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; parentAgentId?: string }
     | { type: 'run-aborted' }
     /** `finishReason` is the last model call's: in a tool turn, the step that wrote the reply. */
     | { type: 'run-done'; usage?: StreamUsage; finishReason?: StreamFinishReason }
@@ -398,3 +426,78 @@ export type StreamRunEvent =
  * the adapter's streaming updates would interleave out of order.
  */
 export type StreamRunEmitter = (event: StreamRunEvent) => void;
+
+// ─── Sub-agents ──────────────────────────────────────────────────────────────
+
+/**
+ * How a sub-agent ended. `waiting` is one paused for a decision (a runner that relays an
+ * agent elsewhere reports it); `stopped` one cut short by a Stop or its call's timeout.
+ */
+export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped';
+
+/**
+ * The run a tool call belongs to, handed to its handler as the third argument. What a tool
+ * needs to open a sub-agent: the means to announce one, and the parts of the run a nested
+ * loop reuses.
+ */
+export interface StreamToolRun {
+    /**
+     * Whether a call can stop for a person's decision and wait for it. False when the run
+     * can pause instead (it was given a `deferral`: a server loop) or has no
+     * `approvalResolver`: a sub-agent's gated call then ends with the cause `no-resolver`.
+     */
+    readonly canAsk: boolean;
+    /**
+     * Whether a sub-agent can work in the background of this run (`startSubAgent`). False
+     * when the run can pause (it was given a `deferral`: a server loop): it would end at the
+     * pause without what the sub-agent answered, and the model would wait for nothing.
+     */
+    readonly canBackground: boolean;
+    /**
+     * Announce a sub-agent: emits `agent-start`, carrying this call's `toolCallId` unless
+     * `detached` (one tool opening several sub-agents gives each its own line).
+     *
+     * `background` gives it a life of its own: its call can answer before it is back, it is
+     * stopped by a Stop of the run rather than of the call, it names no call (a line of its own),
+     * and the run waits for it before it ends — then tells the model how it ended. What
+     * `startSubAgent` opens; only where `canBackground` says so.
+     */
+    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean }): StreamAgentHandle;
+    readonly transportCall: StreamRunOptions['transportCall'];
+    readonly toolLookup: StreamRunOptions['toolLookup'];
+    readonly toolConfigLookup?: StreamRunOptions['toolConfigLookup'];
+    readonly approvalResolver?: StreamApprovalResolver;
+    readonly maxTurns: number;
+    readonly toolTimeoutMs: number;
+    /** The run's own id generator, so the ids a nested loop mints never collide with it. */
+    readonly idGen: (prefix: string) => string;
+}
+
+/**
+ * A sub-agent opened by {@link StreamToolRun.startAgent}. Closed by `end`, and by a Stop
+ * or a timeout of the call that opened it — then with `stopped`, before the call's own
+ * `tool-aborted`. A handler that settles with it still open closes it too, before the call's
+ * own `tool-failed` / `tool-resolved`: `failed` with the handler's message when it threw,
+ * `stopped` otherwise. Once closed, it emits nothing more.
+ *
+ * One opened in the `background` outlives its call: it is closed by `end`, or with `stopped`
+ * by the run — a Stop, the turn limit, a crash, or the tool time limit counted from its
+ * start — and the run waits for it before it ends. One opened once the run is over is closed
+ * from the start and emits nothing.
+ */
+export interface StreamAgentHandle {
+    readonly agentId: string;
+    /**
+     * What its work answers to: its call's signal, or, for a sub-agent in the background, a
+     * signal of its own, aborted when the run stops it. Aborted when it must stop.
+     */
+    readonly signal: AbortSignal;
+    /**
+     * Pass an event on as this sub-agent's: `agentId` is set on it, unless it already
+     * carries one (a sub-agent of this one, whose `agent-start` / `agent-end` get this one
+     * as `parentAgentId`). A run-level event is dropped: a sub-agent never ends the run.
+     */
+    emit(event: StreamRunEvent): void;
+    /** Emit `agent-end`, once; later calls, and later events, are ignored. */
+    end(status: StreamAgentStatus, detail?: { result?: string; error?: string }): void;
+}

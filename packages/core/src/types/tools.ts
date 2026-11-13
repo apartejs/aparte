@@ -5,6 +5,7 @@
 
 import type { AparteToolCallSegment } from './segments.js';
 import type { AparteIconName } from '../config/icon-provider.js';
+import type { StreamToolRun } from '@aparte/engine';
 
 /** Definition of a tool the AI can call */
 export interface AparteTool {
@@ -54,6 +55,8 @@ export interface AparteToolApprovalRequestDetail {
     toolCallId: string;
     toolName: string;
     input: Record<string, unknown>;
+    /** The sub-agent whose call this is; absent for the reply's own. */
+    agentId?: string;
 }
 
 /** A tool call emitted by the AI during streaming */
@@ -151,7 +154,19 @@ export interface AparteToolContext {
      * through the DOM — a handler running in a worker, or one reading a provider.
      */
     config?: unknown;
+    /**
+     * The run this call belongs to, for a handler that opens a sub-agent: pass it to
+     * `runSubAgent`. The loop supplies it, in the page and on the server; a browser tool
+     * answering a paused server run has none.
+     */
+    run?: AparteToolRun;
 }
+
+/**
+ * The run a tool call belongs to — engine's `StreamToolRun`. Handed to a handler as
+ * `context.run`; what `runSubAgent` opens a sub-agent from.
+ */
+export type AparteToolRun = StreamToolRun;
 
 /**
  * What a call targets, in one line: the text the DEFAULT tool row shows after the
@@ -263,6 +278,33 @@ export interface AparteToolDisplay {
  * time: a different `details` redraws the messages on screen.
  */
 export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
+
+/**
+ * What a tool-line provider says about one call — `AparteConfig.setToolLineProvider`. A
+ * plugin that knows more about a call than its name (what ran it, what it is doing now)
+ * fills the default row with it; every field is plain text, never HTML, and every field is
+ * optional.
+ *
+ * The app's display always wins, field by field: `label` and `target` are read only when
+ * the display gives none, and `details` only when the display has no `details` key.
+ * `activity` and `note` have no display field of their own.
+ */
+export interface AparteToolLine {
+    /** What the call goes by, when the display declares no label. */
+    label?: string;
+    /** What the call targets, when the display declares no summary. */
+    target?: string;
+    /**
+     * A second line under the name: what the call is doing now, and once it is over what it
+     * did, in every state the provider gives it. Give it for the call's whole life, or never:
+     * a line that comes and goes changes the row's height, and every row under it moves.
+     */
+    activity?: string;
+    /** A short trailing text, after the state word, in every state: "3 tools · 12 s". */
+    note?: string;
+    /** What is behind the line, when the display has no `details` key. */
+    details?: false | AparteToolDetails;
+}
 
 /**
  * Per-tool segment renderer.

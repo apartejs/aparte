@@ -392,6 +392,114 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 </script>`,
     },
 
+    // ── Sub-agents ────────────────────────────────────────────────────────────
+    {
+        id: 'subagents',
+        title: 'An agent hands three tasks to sub-agents, one line each',
+        plugins: ['scenario', 'subagents'],
+        html: `<!-- The model here is scripted: it hands the question to three sub-agents, which run
+     through the real loop and call real tools. In your app:
+     import { setupSubagents } from '@aparte/plugin-subagents'. -->
+<aparte-chat placeholder="Ask the agent" style="height: 26rem"></aparte-chat>
+
+<script>
+  const { aparteGlobalConfig } = window.aparte;
+  const { createScenarioProvider, scenarioSubagentTool } = window.apartePlugins.scenario;
+  const { setupSubagents } = window.apartePlugins.subagents;
+
+  // Each sub-agent has its own task and its own scripted model; read_file, search_docs and
+  // run_command are tools the page registered, and they really run.
+  const model = createScenarioProvider({
+    id: 'delegating',
+    name: 'Delegating',
+    models: [{ id: 'delegating', name: 'Delegating' }],
+    turns: [
+      [{ text: 'Three questions, so three sub-agents.' }, { subagents: [
+        { name: 'Reader', task: 'Read the parser', turns: [
+          [{ wait: 600 }, { tool: 'read_file', input: { path: 'src/parser.ts' } }],
+          [{ wait: 1800 }, { text: 'It splits each line on commas and never looks for quotes.' }],
+        ] },
+        { name: 'Searcher', task: 'Find what calls it', turns: [
+          [{ wait: 1200 }, { tool: 'search_docs', input: { query: 'parse(' } }],
+          [{ wait: 2400 }, { text: 'Two callers: import.ts and cli.ts.' }],
+        ] },
+        { name: 'Tester', task: 'Run the tests', turns: [
+          [{ wait: 1800 }, { tool: 'run_command', input: { cmd: 'pnpm test' } }],
+          [{ wait: 3000 }, { text: '12 pass, 1 fails on a quoted field.' }],
+        ] },
+      ] }],
+      'All three are back: a comma inside quotes splits the field in two. The fix belongs in the parser.',
+    ],
+  });
+  aparteGlobalConfig.registerAIProvider(model);
+  aparteGlobalConfig.setModelConfig({ defaultProvider: 'delegating', defaultModel: 'delegating' });
+
+  // The tool the model delegates with, and the plugin that draws its sub-agents.
+  const { tool, handler } = scenarioSubagentTool(model);
+  aparteGlobalConfig.registerTool(tool, handler);
+  setupSubagents();
+
+  // The call that hands the work over reads as a sentence above its sub-agents, with nothing behind it.
+  aparteGlobalConfig.registerToolDisplay('delegate', {
+    label: (s) => (s.status === 'resolved' ? 'Handed to three sub-agents' : 'Handing off to three sub-agents…'),
+    details: false,
+  });
+
+  // What each call targets, so a line says what its sub-agent is doing: "read_file src/parser.ts".
+  aparteGlobalConfig.registerToolSummary('read_file', (s) => String(s.toolCall.input.path));
+  aparteGlobalConfig.registerToolSummary('search_docs', (s) => String(s.toolCall.input.query));
+  aparteGlobalConfig.registerToolSummary('run_command', (s) => String(s.toolCall.input.cmd));
+</script>`,
+    },
+
+    {
+        id: 'subagent-view',
+        title: "A sub-agent's conversation in a pane beside the chat",
+        plugins: ['scenario', 'subagents'],
+        html: `<!-- The chat alone until a sub-agent starts; then its conversation opens in the other pane.
+     The model here is scripted. In your app: import { setupSubagents } from '@aparte/plugin-subagents'. -->
+<aparte-split position="50" breakpoint="30rem" single style="height: 28rem">
+  <aparte-chat id="chat" placeholder="Ask the agent"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+
+<script>
+  const { aparteGlobalConfig } = window.aparte;
+  const { createScenarioProvider, scenarioSubagentTool } = window.apartePlugins.scenario;
+  const { setupSubagents } = window.apartePlugins.subagents;
+
+  const model = createScenarioProvider({
+    id: 'delegating',
+    name: 'Delegating',
+    models: [{ id: 'delegating', name: 'Delegating' }],
+    turns: [
+      [{ text: 'A researcher can read it for you.' }, { subagents: [
+        { name: 'Researcher', task: 'Find why quoted fields break', turns: [
+          [{ thinking: 'Start with the parser itself.' }, { wait: 800 }, { tool: 'read_file', input: { path: 'src/parser.ts' } }],
+          [{ text: 'The parser splits each line on commas. ' }, { wait: 900 }, { tool: 'search_docs', input: { query: 'quoted fields' } }],
+          [{ wait: 900 }, { text: 'It never looks for quotes, so a comma inside a quoted field splits it in two.' }],
+        ] },
+      ] }],
+      'The researcher found it: a comma inside quotes splits the field. The fix belongs in the parser.',
+    ],
+  });
+  aparteGlobalConfig.registerAIProvider(model);
+  aparteGlobalConfig.setModelConfig({ defaultProvider: 'delegating', defaultModel: 'delegating' });
+  const { tool, handler } = scenarioSubagentTool(model);
+  aparteGlobalConfig.registerTool(tool, handler);
+  setupSubagents();
+
+  // The view follows the sub-agent the chat announces, and the pane opens for it.
+  const split = document.querySelector('aparte-split');
+  const view = document.querySelector('aparte-subagent-view');
+  document.getElementById('chat').addEventListener('aparte-subagent-start', (e) => {
+    view.setAttribute('message-id', e.detail.messageId);
+    view.setAttribute('agent-id', e.detail.agentId);
+    split.removeAttribute('single');
+  });
+</script>`,
+    },
+
     // ── Context gauge ─────────────────────────────────────────────────────────
     {
         id: 'context',

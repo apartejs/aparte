@@ -1,5 +1,65 @@
 # @aparte/engine
 
+## 1.6.0
+
+### Minor Changes
+
+- 570cdcc: A tool can now open a sub-agent: call `runSubAgent(context.run, { name, request }, signal)` from its handler, in the page or on the server.
+
+  ```ts
+  import { runSubAgent, type AparteToolHandler } from "@aparte/core";
+
+  const research: AparteToolHandler = async (call, signal, context) => {
+    const answer = await runSubAgent(
+      context!.run!,
+      {
+        name: "Researcher",
+        request: {
+          modelId: "gpt-4.1-mini",
+          messages: [{ role: "user", content: String(call.input["question"]) }],
+        },
+      },
+      signal,
+    );
+    return { toolCallId: call.id, content: answer.text };
+  };
+  ```
+
+  - **The run a tool is called in.** A handler now gets the run as a third argument (`StreamToolRun` in `@aparte/engine`, `context.run`, typed `AparteToolRun`, in `@aparte/core`). A handler written with two parameters is unchanged. A browser tool answering a paused server run has none.
+  - **`runSubAgent`.** Runs a loop of its own on the conversation you give it, with the run's model connection, tools and limits unless you pass others, and resolves `{ status, text, error? }`: `done`, `failed` or `stopped`, and what the sub-agent wrote last. It never rejects for a sub-agent that failed, so the tool decides what the model reads. `detached: true` gives one of several sub-agents opened by the same tool a line of its own. `run.startAgent()` announces a sub-agent by hand and returns a `StreamAgentHandle` (`emit`, `end`).
+  - **New run events.** `agent-start` (`agentId`, `name`, `description`, `toolCallId`, `parentAgentId`) and `agent-end` (`agentId`, `status`, `result`, `error`), and an optional `agentId` on every event that is not one of the four `run-*`: the event is that sub-agent's. A sub-agent ends with the call that opened it, before the call's own end: `stopped` on a Stop, the call's timeout, or a handler that returns with it still open (an un-awaited `runSubAgent`), and `failed`, with the handler's message, when the handler throws. Its handle emits nothing after that.
+  - **Approvals.** A sub-agent's call that needs a decision is asked through the run's resolver, with `call.agent` naming the sub-agent. In a run that pauses instead of waiting (`deferral`, the server loop), it cannot ask: the call is aborted with the cause `no-resolver`.
+  - **Hearing a run.** `config.observeRunEvents(observer)` (`AparteRunEventObserver`, `AparteRunEventContext`) hears every event of a reply's run, its sub-agents' included, before the reply handles it, and returns the function that removes it.
+  - **Server loop.** `createAparteAgentHandler` mints the ids of the sub-agents it runs so they never repeat from one request to the next: the resume of a paused reply no longer names its first sub-agent like the paused run's.
+
+- 9c3de09: A tool can now start a sub-agent in the background and let the chat go on: call `startSubAgent(context.run, { name, request })` from its handler and return at once.
+
+  ```ts
+  import { startSubAgent, type AparteToolHandler } from "@aparte/core";
+
+  const research: AparteToolHandler = async (call, _signal, context) => {
+    startSubAgent(context!.run!, {
+      name: "Researcher",
+      request: {
+        modelId: "gpt-4.1-mini",
+        messages: [{ role: "user", content: String(call.input["question"]) }],
+      },
+    });
+    return {
+      toolCallId: call.id,
+      content: "The researcher is on it; its answer comes back to you.",
+    };
+  };
+  ```
+
+  - **While it works**, the model goes on writing and calling its own tools, and the sub-agent has a line of its own. The reply does not end before it is back: once the model has nothing more to say, the loop waits for the sub-agents still at work, tells the model how each ended in one user message, and asks it again.
+  - **It stops with the run**: Stop, the turn limit, the tool time limit counted from its start, or a crash.
+  - **Not in a server loop**: a run that can pause would end at the pause without what it answered, so `startSubAgent` throws there (`run.canBackground` is false); use `runSubAgent`.
+  - **What the model was told stays in the run**: the next turn's history is drawn from the reply, so it holds the model's answer to the sub-agents, not the message that told it how they ended.
+  - **`runSubAgent` is unchanged**: it holds its call until the sub-agent is back.
+  - **In the engine**, `StreamToolRun.startAgent` takes `background`, `StreamToolRun` gains `canBackground`, and `StreamAgentHandle` gains `signal`, what its work answers to.
+  - **In `@aparte/provider-scenario`**, a `subagents` step takes `background: true`: the next scripted turn plays while they work.
+
 ## 1.5.0
 
 ## 1.4.0

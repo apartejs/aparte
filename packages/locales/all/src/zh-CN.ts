@@ -29,6 +29,7 @@ export const zhCN: AparteLocale = {
     approvalOptionsLabel: "你的决定",
     approvalArgsLabel: "参数",
     approvalAsk: "允许 {tool}？",
+    approvalAskBy: "为 {agent} 允许 {tool}？",
     approvalWaiting: "等待中",
     scrollToBottom: "滚动到底部",
     suggestionsLabel: "建议的提示",

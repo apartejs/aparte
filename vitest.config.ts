@@ -234,18 +234,21 @@ const config = defineConfig({
         'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 85 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        // plugin-subagents (2026-11-12): measured 100 / 92.99 / 98.48 when the package landed;
+        // 99.9 / 92.98 / 99.08 with the transcript and the standalone view.
+        'packages/plugins/subagents/src/**': { lines: 99, statements: 99, functions: 98, branches: 91 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-triggers (2026-11-09): the menu's placement needs a real layout, proved in e2e.
         'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 92, branches: 88 },
         // Measured 2026-11-01 when the package landed: 100 lines, 92.2 branches, 94.1 functions.
         'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 92, branches: 91 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
-        'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 87 },
+        'packages/providers/agent/ag-ui/src/**': { lines: 97, statements: 97, functions: 99, branches: 90 },
         // runner-n8n (2026-10-25): measured 100 / 98.93 / 100 against answers recorded from n8n 2.35.7.
         'packages/providers/agent/n8n/src/**': { lines: 99, statements: 99, functions: 99, branches: 97 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 97, statements: 97, functions: 95, branches: 93 },
         'packages/providers/ai/openai-compat/src/**': { lines: 96, statements: 96, functions: 95, branches: 95 },
-        'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
+        'packages/providers/ai/scenario/src/**': { lines: 98, statements: 98, functions: 99, branches: 90 },
         // Measured 78.04 by the full run after the worker moved to a stable path (its new
         // construction path is exercised by the published-shape test, not by a run): a
         // point under that, as every floor here.
