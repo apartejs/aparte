@@ -45,7 +45,7 @@ an agent given none (`subagentsUnnamed`) ship with the
 plugin in the same ten languages as [`@aparte/locales`](/guides/localization/), and `extendLocale`
 replaces them.
 
-## Three ways sub-agents reach the page
+## Four ways sub-agents reach the page
 
 ### An AG-UI agent
 
@@ -80,6 +80,24 @@ default, because a client older than sub-agents fails on their events. What each
 
 An integration that does not announce its sub-agents streams their work as the agent's own, and
 the chat draws it as part of the reply.
+
+### An n8n workflow
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner } from '@aparte/runner-n8n';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+}).start();
+```
+
+An **AI Agent Tool** — an agent another AI Agent calls as a tool — gets a line named after its
+node, with its streamed text in it and out of the reply. Leave **Enable Streaming** on in the AI
+Agent Tool's options: n8n sends nothing of one that does not stream. What n8n tells and does not
+tell is on [the n8n runner's page](/providers/agent/n8n/#sub-agents).
 
 ### A tool of your own loop
 
