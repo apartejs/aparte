@@ -7,14 +7,17 @@
  * pieces on a config, and a saved conversation's sub-agents read the same as in a page.
  */
 import { describe, it, expect, vi } from 'vitest';
+// Imported at the top, not inside the test: loading core's whole source from TypeScript is the
+// collection's cost, and inside the test it counted against the 5 s timeout — which a coverage
+// run beside two hundred other files overran.
+import * as core from '@aparte/core';
+import { setupSubagents, subagentOf, subagentStatus, subagentTranscript } from '../index.node.js';
 
 vi.mock('@aparte/core', async () => await import('../../../../core/src/index.node.js'));
 
 describe('the node entry', () => {
-    it('imports without a DOM, sets up, and reads a saved sub-agent', async () => {
+    it('imports without a DOM, sets up, and reads a saved sub-agent', () => {
         expect(typeof document).toBe('undefined');
-        const core = await import('@aparte/core');
-        const { setupSubagents, subagentOf, subagentStatus, subagentTranscript } = await import('../index.node.js');
         const config = new core.AparteConfig();
         const stop = setupSubagents({}, config);
         expect(config.getRunEventObservers()).toHaveLength(1);
