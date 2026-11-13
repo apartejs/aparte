@@ -135,6 +135,13 @@ export interface StreamAdapterTarget {
      * stored — a target that shows nothing of it leaves it out.
      */
     setStep?(id: string, name: string | null): void;
+    /**
+     * The message as the target holds it, read for its segments: a reply that resumes after a
+     * pause is written by a NEW adapter, and what the paused run placed is found there — an
+     * activity sent again under the same id is that one going on, updated in place. A target
+     * without it is written as if the reply were new.
+     */
+    getMessage?(id: string): { readonly segments?: readonly AparteSegment[] } | undefined;
     dispatchEvent(event: Event): boolean;
 }
 
@@ -304,9 +311,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         placeSources();
     };
 
-    // The reply's activities, by segment id, for the whole run: a later event with the same id
-    // updates the segment the first one placed.
+    // The reply's activities, by segment id: a later event with the same id updates the segment
+    // the first one placed — this run's, or the run's before a pause, read off the reply.
     const activities = new Set<string>();
+    const placed = (id: string): boolean => {
+        if (activities.has(id)) return true;
+        if (!target.getMessage?.(messageId)?.segments?.some((s) => s.id === id)) return false;
+        activities.add(id);
+        return true;
+    };
 
     const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
@@ -407,8 +420,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'activity': {
                 const id = `activity-${e.id}`;
-                if (activities.has(id)) {
-                    // The same activity again, whole: its segment changes in place, never a second one.
+                if (placed(id)) {
+                    // The same activity again, whole: its segment changes in place, never a second
+                    // one — a resumed run's included, which is a new adapter on the same reply.
                     target.updateSegment?.(id, { activityType: e.activityType, content: e.content } as Partial<AparteSegment>);
                     break;
                 }
