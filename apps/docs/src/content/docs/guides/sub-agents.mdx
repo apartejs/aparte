@@ -167,10 +167,11 @@ export const POST = createAparteAgentHandler({
 });
 ```
 
-A sub-agent's tools are found among the run's: on the server, the tools the request offers. To run
-several sub-agents side by side, open them in the same tool with `Promise.all`, each with
-`detached: true`: one call's line can stand for only one sub-agent, so each of them gets a line of
-its own.
+A sub-agent's tools are found among the run's: on the server, the tools the request offers. Several
+sub-agents run side by side when the model delegates several times in one reply: the tool calls of
+one step run at the same time ([`parallelTools`](/guides/engine/#several-calls-in-one-reply)). One
+tool can also open several, with `Promise.all`, each with `detached: true`: one call's line can
+stand for only one sub-agent, so each of them gets a line of its own.
 
 #### While the chat goes on
 
@@ -447,10 +448,6 @@ the sub-agent.
 
 ## What it does not do yet
 
-- **Side by side, inside one tool.** The engine runs a reply's tool calls one at a time, so two
-  delegating calls in one step run one after the other with `runSubAgent`. Sub-agents run side by
-  side when one tool opens them together, when they are started in the background, or when an
-  agent framework runs them.
 - **What the model was told stays in the run.** The message saying the sub-agents started in the
   background are back is in that run's history only: the next turn's history is drawn from the
   reply, and reads the model's answer to it, not the message.
