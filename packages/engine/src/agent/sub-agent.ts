@@ -146,6 +146,7 @@ async function drive(
             signal,
             maxTurns: opts.maxTurns ?? run.maxTurns,
             toolTimeoutMs: run.toolTimeoutMs,
+            ...(run.parallelTools !== undefined ? { parallelTools: run.parallelTools } : {}),
             idGen: run.idGen,
         });
         if (signal.aborted) {

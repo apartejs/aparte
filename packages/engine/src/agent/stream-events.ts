@@ -469,6 +469,11 @@ export interface StreamToolRun {
     readonly approvalResolver?: StreamApprovalResolver;
     readonly maxTurns: number;
     readonly toolTimeoutMs: number;
+    /**
+     * Whether the run's tool calls of one step run at the same time (its `parallelTools`). A
+     * sub-agent's loop does as its run does. Absent means the default, `true`.
+     */
+    readonly parallelTools?: boolean;
     /** The run's own id generator, so the ids a nested loop mints never collide with it. */
     readonly idGen: (prefix: string) => string;
 }
