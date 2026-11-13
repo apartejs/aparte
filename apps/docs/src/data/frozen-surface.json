@@ -145,7 +145,8 @@
         "data-no-match",
         "flat",
         "loading",
-        "manage"
+        "manage",
+        "target"
       ]
     },
     "aparte-elicitation": {

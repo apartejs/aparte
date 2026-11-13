@@ -248,7 +248,8 @@ list?.setAttribute('manage', '');
 [`<aparte-conversation-list>`](/components/conversation-list/) draws the rows, grouped by date —
 `flat` lists them without the groups — each with a menu to rename, pin, archive or delete it.
 With `manage`, the menu acts on the manager you registered. A click on a row sends
-`aparte-conversation-select`, which opens it in the chats bound to the manager.
+`aparte-conversation-select`, which opens it in the chats bound to the manager. On a page with
+two chats, `target="<the chat's id>"` on the list keeps a click, and the menu, to that chat.
 
 Without `manage`, the list only announces each gesture, and you carry it out:
 

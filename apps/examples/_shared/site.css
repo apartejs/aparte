@@ -73,8 +73,9 @@ aparte-chat:not([framework-managed]):not([data-empty]) .welcome,
 
 /* The site is the `.aparte-app-shell` recipe, given the viewport's height: the grid
    fills it, the sidebar spans it, the main area takes what is left. Everything inside
-   is core's — the sidebar, the header, the list — and this file adds nothing to them. */
-#chat-view {
+   is core's — the sidebar, the header, the list — and this file adds nothing to them.
+   Not as a launcher's card (`?layout=launcher-shell`): the launcher sizes its card. */
+#chat-view:not(aparte-launcher > *) {
     height: 100dvh;
 }
 

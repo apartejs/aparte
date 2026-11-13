@@ -118,6 +118,52 @@ if (launcher && saved.open) launcher.show();
 On a phone the open chat already fills the window, so there is nothing to enlarge: the sheet hides
 every maximize control, the header's and yours.
 
+## With a list of conversations
+
+The card can be a whole [shell](/components/sidebar/): a sidebar with the list, a header, and
+the chat. As the direct child of that shell, the sidebar follows the chat, not the window: it is
+a drawer inside the card, opened by the header's toggle, and a column beside the chat once the
+chat is maximized to the whole window. With `maximizable="panel"` it stays a drawer, the panel
+being as narrow as the card, and `breakpoint="none"` on the sidebar keeps a column at any size.
+Escape closes the drawer first and the chat on the next press, and closing the chat closes the
+drawer.
+
+```html
+<aparte-launcher label="Help" maximizable>
+  <section class="aparte-app-shell">
+    <aparte-sidebar>
+      <div class="aparte-sidebar__body">
+        <aparte-conversation-list target="help-chat" manage></aparte-conversation-list>
+      </div>
+    </aparte-sidebar>
+    <header class="aparte-app-header">
+      <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Conversations" data-aparte-sidebar-toggle>
+        <aparte-icon name="menu"></aparte-icon>
+      </button>
+      <span class="aparte-app-header__title">Help</span>
+      <div class="aparte-app-header__actions">
+        <button class="aparte-btn aparte-btn--icon" type="button" aria-label="Maximize" data-aparte-launcher-maximize>
+          <aparte-icon name="maximize"></aparte-icon>
+        </button>
+        <button class="aparte-btn aparte-btn--icon" type="button" aria-label="Close" data-aparte-launcher-close>
+          <aparte-icon name="close"></aparte-icon>
+        </button>
+      </div>
+    </header>
+    <div class="aparte-app-shell__main">
+      <aparte-chat id="help-chat"></aparte-chat>
+    </div>
+  </section>
+</aparte-launcher>
+```
+
+A card with a header of its own gets none from the launcher, so the two controls the launcher
+would have drawn are yours to place: `data-aparte-launcher-maximize` and
+`data-aparte-launcher-close`. The card is a `<section>` so that its `<header>` is the card's:
+outside a section it would be a second banner for the page. The list is filled from your
+conversation manager ([Conversations](/guides/conversation-persistence/#show-the-list)), and
+`target` names the chat it drives.
+
 ## Variants
 
 ### As a sheet on a phone

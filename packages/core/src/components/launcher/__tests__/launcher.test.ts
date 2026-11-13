@@ -490,6 +490,21 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         expect(el.open).toBe(false);
     });
 
+    it('leaves Escape to a drawer open in its card, and closes on the next', () => {
+        // The drawer answers Escape from the document, after the launcher: it has to be left the
+        // key, wherever the focus is in the card, or the chat closes with its list.
+        const el = mount('', '<div class="aparte-app-shell"><aparte-sidebar data-drawer></aparte-sidebar><div id="composer" role="textbox" tabindex="0"></div></div>');
+        el.show();
+        const composer = document.getElementById('composer') as HTMLElement;
+        const pressed = key(composer, 'Escape');
+        expect(pressed.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+        // Closed, the drawer is nothing to answer for.
+        el.querySelector('aparte-sidebar')!.setAttribute('collapsed', '');
+        key(composer, 'Escape');
+        expect(el.open).toBe(false);
+    });
+
     it('leaves Escape to a dialog open inside the card, which closes itself on it', () => {
         // A modal dialog closes on Escape unless the keydown was cancelled: the launcher
         // cancelling it would refuse the dialog its close request and hide the card under it.
