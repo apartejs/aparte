@@ -112,7 +112,7 @@
         "css": 0
     },
     "@aparte/runner-n8n": {
-        "js": 10240,
+        "js": 11008,
         "css": 0
     },
     "@aparte/svelte": {
