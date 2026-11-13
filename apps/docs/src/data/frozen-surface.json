@@ -481,6 +481,7 @@
       "segmentDuration",
       "segmentTiming",
       "setupSuggestionBlocks",
+      "startSubAgent",
       "subscribeConfigChange",
       "toToolCallView",
       "toolRefusal",
@@ -490,6 +491,7 @@
     "@aparte/engine": [
       "runStreamAgent",
       "runSubAgent",
+      "startSubAgent",
       "toolRefusal",
       "unansweredTail"
     ],

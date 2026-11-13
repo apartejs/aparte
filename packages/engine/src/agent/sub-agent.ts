@@ -8,10 +8,16 @@
  * `agent-start` and closed with `agent-end`, once, whatever happens to it: an answer, a
  * failure (returned, never thrown, so the tool decides what the model reads), or a Stop or a
  * timeout of the call that opened it.
+ *
+ * Two ways to run one. `runSubAgent` holds the call until the sub-agent is back: the model
+ * waits, and reads its answer as the call's result. `startSubAgent` starts it in the
+ * background: the call answers at once, the model goes on, and the run tells it how the
+ * sub-agent ended once the model has nothing more to say.
  */
 
 import { runStreamAgent, type StreamRunOptions } from './stream-run.js';
 import type {
+    StreamAgentHandle,
     StreamAgentStatus,
     StreamChatRequest,
     StreamRunEvent,
@@ -54,6 +60,51 @@ export async function runSubAgent(
     // The handle already ends with its call; this covers a signal of the tool's own.
     const onAbort = (): void => agent.end('stopped');
     signal.addEventListener('abort', onAbort, { once: true });
+    try {
+        return await drive(agent, run, opts, signal);
+    } finally {
+        signal.removeEventListener('abort', onAbort);
+    }
+}
+
+/**
+ * Start a sub-agent in the background, from inside a tool handler: `run` is the handler's
+ * third argument. The handler answers at once (say what it started, so the model knows to
+ * wait for it), and the model goes on writing and calling tools while the sub-agent works.
+ * The run does not end before it is back: once the model has nothing more to say, the run
+ * waits for every sub-agent still at work, tells the model how each ended in one message,
+ * and asks it again.
+ *
+ * It gets a line of its own (it names no call), and it is stopped by a Stop of the run, by a
+ * pause of the run (a server loop waiting for a decision holds nothing), by the turn limit and
+ * by a crash. Its gated calls ask like `runSubAgent`'s. Returns its id and its `signal`, aborted
+ * when it must stop: what a `transportCall` of the caller's own listens to.
+ */
+export function startSubAgent(
+    run: StreamToolRun,
+    opts: { name?: string; description?: string; request: StreamChatRequest }
+        & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
+): { agentId: string; signal: AbortSignal } {
+    if (!run || typeof run.startAgent !== 'function') {
+        throw new TypeError(
+            "startSubAgent() needs the run its tool was called in (the handler's third argument, or `context.run`), "
+            + 'and this call has none: a handler run outside the agent loop cannot start a sub-agent.',
+        );
+    }
+    const agent = run.startAgent({ name: opts.name, description: opts.description, background: true });
+    // Its first model call after this returns: a caller reads `signal` before the work starts.
+    void Promise.resolve().then(() => drive(agent, run, opts, agent.signal));
+    return { agentId: agent.agentId, signal: agent.signal };
+}
+
+/** The sub-agent's nested loop, from its start to its `agent-end`. Never rejects. */
+async function drive(
+    agent: StreamAgentHandle,
+    run: StreamToolRun,
+    opts: { name?: string; request: StreamChatRequest }
+        & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
+    signal: AbortSignal,
+): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string }> {
 
     // The text of the sub-agent's latest model call: its own events only, never those of a
     // sub-agent of its own, which arrive here already carrying their `agentId`.
@@ -102,7 +153,5 @@ export async function runSubAgent(
         const message = error instanceof Error ? error.message || error.name : String(error);
         agent.end('failed', { error: message });
         return { status: 'failed', text, error: message };
-    } finally {
-        signal.removeEventListener('abort', onAbort);
     }
 }

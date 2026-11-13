@@ -450,8 +450,13 @@ export interface StreamToolRun {
     /**
      * Announce a sub-agent: emits `agent-start`, carrying this call's `toolCallId` unless
      * `detached` (one tool opening several sub-agents gives each its own line).
+     *
+     * `background` gives it a life of its own: its call can answer before it is back, it is
+     * stopped by a Stop of the run rather than of the call, it names no call (a line of its own),
+     * and the run waits for it before it ends — then tells the model how it ended. What
+     * `startSubAgent` opens.
      */
-    startAgent(info: { name?: string; description?: string; detached?: boolean }): StreamAgentHandle;
+    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean }): StreamAgentHandle;
     readonly transportCall: StreamRunOptions['transportCall'];
     readonly toolLookup: StreamRunOptions['toolLookup'];
     readonly toolConfigLookup?: StreamRunOptions['toolConfigLookup'];
@@ -471,6 +476,11 @@ export interface StreamToolRun {
  */
 export interface StreamAgentHandle {
     readonly agentId: string;
+    /**
+     * What its work answers to: its call's signal, or the run's for a sub-agent in the
+     * background. Aborted when it must stop.
+     */
+    readonly signal: AbortSignal;
     /**
      * Pass an event on as this sub-agent's: `agentId` is set on it, unless it already
      * carries one (a sub-agent of this one, whose `agent-start` / `agent-end` get this one

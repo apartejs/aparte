@@ -25,7 +25,7 @@ import type {
 } from '../types/segments.js';
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
-import { toolRefusal as engineToolRefusal, runSubAgent as engineRunSubAgent } from '@aparte/engine';
+import { toolRefusal as engineToolRefusal, runSubAgent as engineRunSubAgent, startSubAgent as engineStartSubAgent } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
 import { AparteErrorCode } from '../types/errors.js';
 import { resolveConfig } from '../config/config-context.js';
@@ -75,6 +75,25 @@ export const toolRefusal: typeof engineToolRefusal = engineToolRefusal;
  * });
  */
 export const runSubAgent: typeof engineRunSubAgent = engineRunSubAgent;
+
+/**
+ * Start a sub-agent in the background, from inside a tool handler — engine's `startSubAgent`.
+ * The handler answers at once and the model goes on, writing and calling tools, while the
+ * sub-agent works on its own line; the reply does not end before it is back. Once the model
+ * has nothing more to say, the loop waits for the sub-agents still at work, tells the model
+ * how each ended, and asks it again. A Stop, a pause of the run, the turn limit or a crash
+ * stop it.
+ *
+ * @example
+ * aparteGlobalConfig.registerTool(researchTool, async (call, _signal, context) => {
+ *   startSubAgent(context!.run!, {
+ *     name: 'researcher',
+ *     request: { modelId: 'your-model', messages: [{ role: 'user', content: String(call.input['task']) }] },
+ *   });
+ *   return { toolCallId: call.id, content: 'The researcher is on it; its answer comes back to you.' };
+ * });
+ */
+export const startSubAgent: typeof engineStartSubAgent = engineStartSubAgent;
 
 /** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
 export type AparteStreamRunEmitter = StreamRunEmitter;

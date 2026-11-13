@@ -27,7 +27,7 @@
  * model is that sub-agent's script.
  */
 
-import { readableToAsyncIterable, runSubAgent } from '@aparte/core';
+import { readableToAsyncIterable, runSubAgent, startSubAgent } from '@aparte/core';
 import type {
     AparteAIModel,
     AparteAIProvider,
@@ -60,8 +60,13 @@ export type ScenarioStep =
      * name: it runs each sub-agent as a nested loop whose model plays its `turns` — several
      * side by side — and answers the call with what they wrote. In `scenarios` mode, route
      * the answer with `after: 'delegate'`, as for any tool.
+     *
+     * `background: true` starts them and answers the call at once, the way a model hands off
+     * work and goes on: the model's next turn plays while they work, and once it has nothing
+     * more to say the loop waits for them and asks it again, with a user message saying how
+     * each ended ("… is back"). In `scenarios` mode that last answer is routed by that message.
      */
-    | { subagents: ScenarioSubagent[]; toolName?: string; id?: string }
+    | { subagents: ScenarioSubagent[]; toolName?: string; id?: string; background?: boolean }
     /** Fail the turn with this message — what a provider error looks like to the UI. */
     | { error: string }
     /** Pause, in milliseconds — a slow model, a long tool. */
@@ -310,7 +315,10 @@ function play(
                         // Kept before the call is read: the loop runs the handler only after.
                         keep?.(loopIdOf(id), step.subagents);
                         const agents = step.subagents.map(({ name, task }) => ({ name, task }));
-                        controller.enqueue({ type: 'tool_use', id, name: step.toolName ?? DELEGATE, input: { agents } });
+                        controller.enqueue({
+                            type: 'tool_use', id, name: step.toolName ?? DELEGATE,
+                            input: { agents, ...(step.background ? { background: true } : {}) },
+                        });
                     } else if ('tool' in step) {
                         const id = step.id ?? `scenario_${++sequence}`;
                         loopIdOf(id);
@@ -505,6 +513,9 @@ const reportOf = (agent: ScenarioSubagent, outcome: Outcome, alone: boolean): st
  * provider's pace: the real nested loop, so the sub-agent's tool calls run the page's
  * registered handlers and its events reach the page as its own. One sub-agent is the call's
  * own (its line is the call's row); several run side by side, each on a line of its own.
+ * With `background: true` in the call's input, it starts them with `startSubAgent` and
+ * answers at once: each gets a line of its own, and their answers reach the model when it
+ * has nothing more to say.
  *
  * What the parent model reads: the sub-agent's last text, or, for several, one `name: text`
  * block each. A sub-agent that fails or is stopped is said in a sentence; it does not fail
@@ -555,6 +566,11 @@ export function scenarioSubagentTool(
                         required: ['name', 'task'],
                     },
                 },
+                background: {
+                    type: 'boolean',
+                    description: 'Start them and go on: their answers come back to you once you have nothing more to say. '
+                        + 'Without it, this call waits for them and returns their answers.',
+                },
             },
             required: ['agents'],
         },
@@ -563,12 +579,14 @@ export function scenarioSubagentTool(
     // A sub-agent's model: its turns in order, the last one repeating, played at the
     // provider's pace on the call's signal. A step that delegates in turn keeps its scripts
     // with the provider, where this same handler — looked up by the nested loop — finds them.
-    const modelOf = (agent: ScenarioSubagent, signal: AbortSignal) => {
+    // `signal` is read at each call: a sub-agent in the background is given its own only once
+    // it has started.
+    const modelOf = (agent: ScenarioSubagent, signal: () => AbortSignal) => {
         let calls = 0;
         return async (request: AparteChatRequest): Promise<AsyncIterable<AparteStreamEvent>> => {
             const scripted = agent.turns.length > 0 ? agent.turns[Math.min(calls++, agent.turns.length - 1)]! : '';
             const turn = typeof scripted === 'function' ? scripted(request) : scripted;
-            return readableToAsyncIterable(play(turn, request, state.pacing, signal, state.keep), signal);
+            return readableToAsyncIterable(play(turn, request, state.pacing, signal(), state.keep), signal());
         };
     };
 
@@ -589,6 +607,26 @@ export function scenarioSubagentTool(
             };
         }
         state.scripts.delete(call.id);
+        if (call.input['background'] === true) {
+            for (const agent of agents) {
+                // Its own signal paces it: it outlives this call.
+                const own: { signal?: AbortSignal } = {};
+                const started = startSubAgent(run, {
+                    name: agent.name,
+                    description: agent.task,
+                    request: { modelId: state.modelId, messages: [{ role: 'user', content: agent.task }] },
+                    transportCall: modelOf(agent, () => own.signal ?? signal),
+                });
+                own.signal = started.signal;
+            }
+            const names = agents.map((agent) => agent.name).join(', ');
+            return {
+                toolCallId: call.id,
+                content: `Started ${agents.length === 1 ? 'one sub-agent' : `${agents.length} sub-agents`} in the background (${names}). `
+                    + 'Their answers come back to you once you have nothing more to say.',
+                structuredContent: { agents: agents.map((agent) => ({ name: agent.name, task: agent.task, status: 'running' })) },
+            };
+        }
         const alone = agents.length === 1;
         const outcomes = await Promise.all(agents.map((agent) => runSubAgent(run, {
             name: agent.name,
@@ -596,7 +634,7 @@ export function scenarioSubagentTool(
             // Several from one call: each its own line, since the call's row can be only one.
             detached: !alone,
             request: { modelId: state.modelId, messages: [{ role: 'user', content: agent.task }] },
-            transportCall: modelOf(agent, signal),
+            transportCall: modelOf(agent, () => signal),
         }, signal)));
         return {
             toolCallId: call.id,
