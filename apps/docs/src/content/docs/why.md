@@ -25,7 +25,9 @@ imposed — and you take as much of it as you need.
   next to your tools, and an approval still reaches the person and survives a reload. An agent
   that runs its own loop plugs in through a runner: [AG-UI](/providers/agent/ag-ui/) (Agno,
   LangGraph, Mastra, CrewAI, Pydantic AI, TanStack AI) or an
-  [n8n workflow](/providers/agent/n8n/). The chat draws the same thing either way.
+  [n8n workflow](/providers/agent/n8n/). The chat draws the same thing either way, and the
+  [sub-agents](/guides/sub-agents/) an agent hands work to too: one line each, from an AG-UI
+  agent or from your own loop, held until they are back or at work while the chat goes on.
 - **Rich output is opt-in.** [Maths](/guides/math/), [diagrams](/guides/diagrams/),
   [charts](/guides/charts/) and [cards for a tool's result](/guides/cards/) each come from a
   plugin you add, so a page loads only what it uses. The sources a model cites are drawn as

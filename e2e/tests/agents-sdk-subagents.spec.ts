@@ -33,8 +33,9 @@ test('two sub-agents of an AG-UI agent get a line each, and stay out of the repl
     await expect(chat.toolRows()).toHaveCount(2);
     await expect(tracker).toHaveAttribute('data-status', 'resolved');
     await expect(desk).toHaveAttribute('data-status', 'resolved');
-    await expect(chat.toolNote(tracker)).toHaveText(/^1 tool · \S/);
-    await expect(chat.toolNote(desk)).toHaveText(/^1 tool · \S/);
+    // What each did, on its line's second line once it is over.
+    await expect(chat.toolActivity(tracker)).toHaveText(/^1 tool · \S/);
+    await expect(chat.toolActivity(desk)).toHaveText(/^1 tool · \S/);
 
     const text = await chat.lastReply.innerText();
     expect(text).toContain('Two things to check, so two sub-agents');
