@@ -75,6 +75,14 @@ aparte-chat:defined:not([data-empty]) .agent-workshop__welcome {
     display: none;
 }
 
+/* Once the conversation has started, the status line keeps its place: it fades in at each of the
+   agent's calls and out after it, and its height stays. Taken from the transcript and given back
+   at every call, it moved the reply by that much each time. Not before the first message, where
+   it would stand under the welcome. */
+.agent-workshop aparte-chat:defined:not([data-empty]) > aparte-chat-status:not([visible]) {
+    display: block;
+}
+
 .agent-workshop__welcome-title {
     margin: 0 0 var(--aparte-space-2);
     font-size: var(--aparte-font-size-2xl);
