@@ -60,7 +60,7 @@ describe('a scripted activity', () => {
         };
         const p = page(provider, [readFile]);
         let sent: AparteChatRequest | undefined;
-        const chat = provider.chat.bind(provider);
+        const chat = provider.chat!.bind(provider);
         provider.chat = (...args: Parameters<typeof chat>) => { sent = args[0]; return chat(...args); };
         await p.send('Read them');
         const activities = (p.reply()?.segments ?? []).filter((s) => s.type === 'activity');
