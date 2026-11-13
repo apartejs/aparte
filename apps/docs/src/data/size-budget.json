@@ -1,22 +1,22 @@
 {
     "@aparte/angular": {
-        "js": 33024,
+        "js": 34304,
         "css": 0
     },
     "@aparte/core": {
-        "js": 271360,
-        "css": 24320
+        "js": 277504,
+        "css": 25600
     },
     "@aparte/docs-mcp": {
         "js": 4096,
         "css": 0
     },
     "@aparte/engine": {
-        "js": 5632,
+        "js": 6656,
         "css": 0
     },
     "@aparte/locales": {
-        "js": 27648,
+        "js": 28416,
         "css": 0
     },
     "@aparte/plugin-approval": {
@@ -40,7 +40,7 @@
         "css": 0
     },
     "@aparte/plugin-compaction": {
-        "js": 9984,
+        "js": 10240,
         "css": 0
     },
     "@aparte/plugin-echarts": {
@@ -60,7 +60,7 @@
         "css": 0
     },
     "@aparte/plugin-model-selector": {
-        "js": 8960,
+        "js": 9472,
         "css": 0
     },
     "@aparte/plugin-shiki": {
@@ -76,7 +76,7 @@
         "css": 0
     },
     "@aparte/plugin-subagents": {
-        "js": 12800,
+        "js": 13312,
         "css": 0
     },
     "@aparte/plugin-titler": {
@@ -84,7 +84,7 @@
         "css": 0
     },
     "@aparte/plugin-triggers": {
-        "js": 9216,
+        "js": 9728,
         "css": 0
     },
     "@aparte/provider-ai-sdk": {
@@ -96,7 +96,7 @@
         "css": 0
     },
     "@aparte/provider-scenario": {
-        "js": 8448,
+        "js": 8704,
         "css": 0
     },
     "@aparte/provider-transformers": {
@@ -120,7 +120,7 @@
         "css": 0
     },
     "@aparte/vue": {
-        "js": 5632,
+        "js": 5888,
         "css": 0
     }
 }

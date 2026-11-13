@@ -76,9 +76,11 @@ export interface StreamRunOptions {
     /**
      * Called for every turn the loop appends to the history — the assistant message
      * carrying the turn's calls, each `tool` message answering one (resolved or
-     * rejected), and a pipeline phase's reply — in order, and always before the
-     * transport call that would carry it. Never called for the messages you passed
-     * in `baseRequest`.
+     * rejected), a pipeline phase's reply, and, when sub-agents started in the background
+     * are back, what the model said while it waited (a plain assistant message, when it
+     * said something) then the user message telling it how they ended — in order, and
+     * always before the transport call that would carry it. Never called for the messages
+     * you passed in `baseRequest`.
      *
      * For hosts that own their own transcript. The loop re-sends its `messages`
      * array every turn, which suits stateless message APIs but not a **prefix
@@ -196,9 +198,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // What every tool call of this run is handed as its `run` (see `createToolRun`). A run
     // that can pause, or has nobody to ask, cannot hold a sub-agent's question.
     // The sub-agents its tools start in the background: the run waits for them before it ends.
-    const background = createBackground(emitter, idGen, signal);
+    const background = createBackground(emitter, idGen, signal, toolTimeoutMs);
     const runBase: ToolRunBase = {
-        emitter, canAsk: !deferral && approvalResolver !== undefined,
+        emitter, canAsk: !deferral && approvalResolver !== undefined, canBackground: !deferral,
         transportCall, toolLookup, toolConfigLookup, approvalResolver, maxTurns, toolTimeoutMs, idGen,
         background,
     };
@@ -226,8 +228,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     try {
         return await runTurns();
     } finally {
-        // A crash leaves by here too: nothing of a sub-agent may come after the run.
-        background.stopAll();
+        // A crash leaves by here too: nothing of a sub-agent may come after the run, and none
+        // starts once it is over.
+        background.close();
     }
 
     async function runTurns(): Promise<StreamUsage | undefined> {
@@ -642,7 +645,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
      * asks it again. `false` when there is nothing to tell it, or the run was stopped.
      */
     async function reportBackground(said: string): Promise<boolean> {
-        if (!background.pending()) return false;
+        if (signal.aborted || !background.pending()) return false;
+        // The model could not be asked again: they are stopped, and the run ends on the limit
+        // rather than leave a question in its history nobody answers.
+        if (turns >= maxTurns) {
+            background.stopAll();
+            emitter({ type: 'turn-limit-exceeded', scope: 'global', limit: maxTurns });
+            return false;
+        }
         await background.settled();
         if (signal.aborted) return false;
         const report = background.report();
@@ -1167,6 +1177,8 @@ interface BackgroundAgent {
 /** The run's sub-agents in the background: opened by its tools, waited for and stopped by it. */
 interface Background {
     open(info: { name?: string; description?: string }): StreamAgentHandle;
+    /** Stop every one at work, and refuse any opened afterwards: the run is over. */
+    close(): void;
     /** Whether one is still at work, or is back and the model has not been told. */
     pending(): boolean;
     /** Resolves once none is at work. */
@@ -1177,25 +1189,38 @@ interface Background {
     stopAll(): void;
 }
 
-function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => string, runSignal: AbortSignal): Background {
+function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => string, runSignal: AbortSignal, timeoutMs: number): Background {
     const agents: BackgroundAgent[] = [];
     let wake: (() => void) | null = null;
+    let closed = false;
     const atWork = (): boolean => agents.some((a) => !a.ended);
     return {
         open(info) {
             const stop = new AbortController();
-            // Stopped by a Stop of the run, not of the call that started it.
+            // A run that is over, or stopped, starts nothing: a handle closed from the start,
+            // with nothing to wait for and nothing to tell (no event, no model call).
+            if (closed || runSignal.aborted) {
+                stop.abort();
+                return openAgent(emitter, idGen('agent'), undefined, info, stop.signal);
+            }
+            // Stopped by a Stop of the run, not of the call that started it; and by the tool
+            // time limit, which bounds a sub-agent held by its call the same way.
             const onRunAbort = (): void => stop.abort();
-            if (runSignal.aborted) stop.abort();
-            else runSignal.addEventListener('abort', onRunAbort, { once: true });
+            runSignal.addEventListener('abort', onRunAbort, { once: true });
+            const timer = setTimeout(() => stop.abort(), timeoutMs);
             const agent: BackgroundAgent = { handle: undefined as unknown as StreamAgentHandle, name: info.name, description: info.description, stop, told: false };
             agent.handle = openAgent(emitter, idGen('agent'), undefined, info, stop.signal, (status, detail) => {
+                clearTimeout(timer);
                 runSignal.removeEventListener('abort', onRunAbort);
                 agent.ended = { status, ...detail };
                 if (!atWork()) wake?.();
             });
             agents.push(agent);
             return agent.handle;
+        },
+        close() {
+            closed = true;
+            for (const a of agents) if (!a.ended) a.stop.abort();
         },
         pending: () => agents.some((a) => !a.ended || !a.told),
         settled: () => (atWork() ? new Promise<void>((resolve) => { wake = () => { wake = null; resolve(); }; }) : Promise.resolve()),

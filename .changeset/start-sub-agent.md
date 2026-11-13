@@ -19,7 +19,9 @@ const research: AparteToolHandler = async (call, _signal, context) => {
 ```
 
 - **While it works**, the model goes on writing and calling its own tools, and the sub-agent has a line of its own. The reply does not end before it is back: once the model has nothing more to say, the loop waits for the sub-agents still at work, tells the model how each ended in one user message, and asks it again.
-- **It stops with the run**: Stop, the turn limit, a pause of the run waiting for a person's decision, or a crash.
+- **It stops with the run**: Stop, the turn limit, the tool time limit counted from its start, or a crash.
+- **Not in a server loop**: a run that can pause would end at the pause without what it answered, so `startSubAgent` throws there (`run.canBackground` is false); use `runSubAgent`.
+- **What the model was told stays in the run**: the next turn's history is drawn from the reply, so it holds the model's answer to the sub-agents, not the message that told it how they ended.
 - **`runSubAgent` is unchanged**: it holds its call until the sub-agent is back.
-- **In the engine**, `StreamToolRun.startAgent` takes `background`, and `StreamAgentHandle` gains `signal`, what its work answers to.
+- **In the engine**, `StreamToolRun.startAgent` takes `background`, `StreamToolRun` gains `canBackground`, and `StreamAgentHandle` gains `signal`, what its work answers to.
 - **In `@aparte/provider-scenario`**, a `subagents` step takes `background: true`: the next scripted turn plays while they work.

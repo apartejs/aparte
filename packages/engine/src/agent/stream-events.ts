@@ -448,13 +448,19 @@ export interface StreamToolRun {
      */
     readonly canAsk: boolean;
     /**
+     * Whether a sub-agent can work in the background of this run (`startSubAgent`). False
+     * when the run can pause (it was given a `deferral`: a server loop): it would end at the
+     * pause without what the sub-agent answered, and the model would wait for nothing.
+     */
+    readonly canBackground: boolean;
+    /**
      * Announce a sub-agent: emits `agent-start`, carrying this call's `toolCallId` unless
      * `detached` (one tool opening several sub-agents gives each its own line).
      *
      * `background` gives it a life of its own: its call can answer before it is back, it is
      * stopped by a Stop of the run rather than of the call, it names no call (a line of its own),
      * and the run waits for it before it ends — then tells the model how it ended. What
-     * `startSubAgent` opens.
+     * `startSubAgent` opens; only where `canBackground` says so.
      */
     startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean }): StreamAgentHandle;
     readonly transportCall: StreamRunOptions['transportCall'];
@@ -473,12 +479,17 @@ export interface StreamToolRun {
  * `tool-aborted`. A handler that settles with it still open closes it too, before the call's
  * own `tool-failed` / `tool-resolved`: `failed` with the handler's message when it threw,
  * `stopped` otherwise. Once closed, it emits nothing more.
+ *
+ * One opened in the `background` outlives its call: it is closed by `end`, or with `stopped`
+ * by the run — a Stop, the turn limit, a crash, or the tool time limit counted from its
+ * start — and the run waits for it before it ends. One opened once the run is over is closed
+ * from the start and emits nothing.
  */
 export interface StreamAgentHandle {
     readonly agentId: string;
     /**
-     * What its work answers to: its call's signal, or the run's for a sub-agent in the
-     * background. Aborted when it must stop.
+     * What its work answers to: its call's signal, or, for a sub-agent in the background, a
+     * signal of its own, aborted when the run stops it. Aborted when it must stop.
      */
     readonly signal: AbortSignal;
     /**

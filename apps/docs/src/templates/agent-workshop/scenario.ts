@@ -280,9 +280,10 @@ export function route(request: AparteChatRequest): string | undefined {
     if (last?.role !== 'tool') return undefined;
     const result = contentToText(last.content);
 
-    // The current request: everything since the person's last message.
+    // The current request: everything since the person's last message (the loop's report on
+    // the sub-agents is a user message too, and not the person's).
     let start = messages.length - 1;
-    while (start > 0 && messages[start]!.role !== 'user') start--;
+    while (start > 0 && (messages[start]!.role !== 'user' || BACK.test(contentToText(messages[start]!.content)))) start--;
     const asked = contentToText(messages[start]!.content);
     const turn = messages.slice(start);
 

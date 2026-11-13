@@ -75,10 +75,13 @@ export async function runSubAgent(
  * waits for every sub-agent still at work, tells the model how each ended in one message,
  * and asks it again.
  *
- * It gets a line of its own (it names no call), and it is stopped by a Stop of the run, by a
- * pause of the run (a server loop waiting for a decision holds nothing), by the turn limit and
- * by a crash. Its gated calls ask like `runSubAgent`'s. Returns its id and its `signal`, aborted
- * when it must stop: what a `transportCall` of the caller's own listens to.
+ * It gets a line of its own (it names no call), and it is stopped by a Stop of the run, by the
+ * turn limit (the model cannot be asked again), by the tool time limit counted from its start,
+ * and by a crash. Its gated calls ask like `runSubAgent`'s. Returns its id and its `signal`,
+ * aborted when it must stop: what a `transportCall` of the caller's own listens to.
+ *
+ * Not in a run that can pause (`run.canBackground` is false: a server loop): it throws there,
+ * since the run would end at the pause without what the sub-agent answered. Use `runSubAgent`.
  */
 export function startSubAgent(
     run: StreamToolRun,
@@ -89,6 +92,12 @@ export function startSubAgent(
         throw new TypeError(
             "startSubAgent() needs the run its tool was called in (the handler's third argument, or `context.run`), "
             + 'and this call has none: a handler run outside the agent loop cannot start a sub-agent.',
+        );
+    }
+    if (run.canBackground === false) {
+        throw new TypeError(
+            'startSubAgent() cannot run a sub-agent in the background of a run that can pause (a server loop): '
+            + 'the run would end at the pause without what it answered. Use runSubAgent() there, which holds the call until it is back.',
         );
     }
     const agent = run.startAgent({ name: opts.name, description: opts.description, background: true });

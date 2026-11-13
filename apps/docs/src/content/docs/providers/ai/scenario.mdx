@@ -143,6 +143,12 @@ the real loop as a nested run: its `{ tool }` steps run the handlers registered 
 (`read_file` above is yours to register), and a `subagents` step in its turn delegates again.
 Several sub-agents in one step run side by side, each on a line of its own.
 
+With `background: true` on the step, the call answers at once and the sub-agents work in the
+background ([`startSubAgent`](/guides/sub-agents/#while-the-chat-goes-on)): the next turn you wrote
+plays while they work, and the one after it answers once they are back. That last call reads a user
+message saying they are back ("The sub-agents you started are back." with what each answered):
+with `scenarios`, route it by that message, with `when` or your `match`.
+
 A sub-agent's turn can also be a function of the request its loop sends, `(request) => turn`,
 called when that turn comes up in the order. The request holds the sub-agent's conversation so far,
 so the function can read what its last tool call returned and answer from it: a sub-agent whose

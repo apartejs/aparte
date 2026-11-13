@@ -609,13 +609,14 @@ export function scenarioSubagentTool(
         state.scripts.delete(call.id);
         if (call.input['background'] === true) {
             for (const agent of agents) {
-                // Its own signal paces it: it outlives this call.
+                // Its own signal paces it: it outlives this call. Set before its first model
+                // call, which `startSubAgent` makes once it has returned.
                 const own: { signal?: AbortSignal } = {};
                 const started = startSubAgent(run, {
                     name: agent.name,
                     description: agent.task,
                     request: { modelId: state.modelId, messages: [{ role: 'user', content: agent.task }] },
-                    transportCall: modelOf(agent, () => own.signal ?? signal),
+                    transportCall: modelOf(agent, () => own.signal!),
                 });
                 own.signal = started.signal;
             }
@@ -624,7 +625,7 @@ export function scenarioSubagentTool(
                 toolCallId: call.id,
                 content: `Started ${agents.length === 1 ? 'one sub-agent' : `${agents.length} sub-agents`} in the background (${names}). `
                     + 'Their answers come back to you once you have nothing more to say.',
-                structuredContent: { agents: agents.map((agent) => ({ name: agent.name, task: agent.task, status: 'running' })) },
+                structuredContent: { agents: agents.map((agent) => ({ name: agent.name, task: agent.task, status: 'started' })) },
             };
         }
         const alone = agents.length === 1;

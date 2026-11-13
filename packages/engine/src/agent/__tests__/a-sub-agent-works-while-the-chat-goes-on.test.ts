@@ -164,27 +164,6 @@ describe('a sub-agent in the background', () => {
         expect(events.some((e) => e.type === 'text-delta' && e.delta === 'Too late.')).toBe(false);
     });
 
-    it('is stopped when the run pauses for a decision, before the run says so', async () => {
-        const gated: StreamToolHandler = async () => ({ content: 'ran' });
-        const { transportCall } = scripted({
-            parent: [[toolUse('c1', 'delegate'), done], [toolUse('c2', 'deploy'), done]],
-            child: [[{ wait: 200 }, text('Too late.'), done]],
-        });
-        const { events, emitter } = recorder();
-        await runStreamAgent({
-            messageId: 'm1', baseRequest: ask('parent'), transportCall,
-            toolLookup: (name) => name === 'deploy' ? gated : delegate,
-            toolConfigLookup: (name) => name === 'deploy' ? { needsApproval: true } : undefined,
-            deferral: { outcomes: {} },
-            emitter, signal: new AbortController().signal,
-        });
-        const end = indexOf(events, (e) => e.type === 'agent-end');
-        const suspended = indexOf(events, (e) => e.type === 'run-suspended');
-        expect(suspended).toBeGreaterThan(-1);
-        expect(events[end]).toMatchObject({ status: 'stopped' });
-        expect(end).toBeLessThan(suspended);
-    });
-
     it('is stopped at the turn limit, before the run ends', async () => {
         const { transportCall } = scripted({
             parent: [[toolUse('c1', 'delegate'), done], [toolUse('c2', 'delegate'), done]],
@@ -239,6 +218,92 @@ describe('a sub-agent in the background', () => {
             toolLookup: () => keep, emitter: () => {}, signal: controller.signal,
         });
         expect(seen?.aborted).toBe(true);
+    });
+
+    it('is stopped, and the model not asked again, when the turn that waits for it is the last allowed', async () => {
+        const { transportCall, requests } = scripted({
+            parent: [[toolUse('c1', 'delegate'), done], [text('Waiting.'), done], [text('Never asked.'), done]],
+            child: [[{ wait: 200 }, text('Too late.'), done]],
+        });
+        const appended: unknown[] = [];
+        const { events, emitter } = recorder();
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall, maxTurns: 2,
+            onHistoryAppend: (m) => appended.push(m),
+            toolLookup: () => delegate, emitter, signal: new AbortController().signal,
+        });
+        expect(requests.filter((r) => r.modelId === 'parent')).toHaveLength(2);
+        expect(events.find((e) => e.type === 'agent-end')).toMatchObject({ status: 'stopped' });
+        expect(events.some((e) => e.type === 'turn-limit-exceeded')).toBe(true);
+        // Nothing the model will never read is left in a history its host keeps.
+        expect(appended.some((m) => (m as { role: string }).role === 'user')).toBe(false);
+    });
+
+    it('waits for it after a whole answer from a provider that does not stream', async () => {
+        const { transportCall } = scripted({ parent: [[toolUse('c1', 'delegate'), done]], child: [[{ wait: 20 }, text('Found it.'), done]] });
+        let parentCalls = 0;
+        const mixed = async (request: Parameters<typeof transportCall>[0]) => {
+            if (request.modelId !== 'parent') return transportCall(request);
+            parentCalls += 1;
+            if (parentCalls === 1) return transportCall(request);
+            return parentCalls === 2 ? 'Waiting.' : 'It found it.';
+        };
+        const { events, emitter } = recorder();
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall: mixed as never,
+            toolLookup: () => delegate, emitter, signal: new AbortController().signal,
+        });
+        expect(parentCalls).toBe(3);
+        expect(indexOf(events, (e) => e.type === 'agent-end')).toBeLessThan(indexOf(events, (e) => e.type === 'text-delta' && e.delta === 'It found it.'));
+    });
+
+    it('is stopped when it outlives the tool time limit, and the run goes on', async () => {
+        const { transportCall, requests } = scripted({
+            parent: [[toolUse('c1', 'delegate'), done], [text('Waiting.'), done], [text('It ran out of time.'), done]],
+            child: [[{ wait: 400 }, text('Too late.'), done]],
+        });
+        const { events, emitter } = recorder();
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall, toolTimeoutMs: 50,
+            toolLookup: () => delegate, emitter, signal: new AbortController().signal,
+        });
+        expect(events.find((e) => e.type === 'agent-end')).toMatchObject({ status: 'stopped' });
+        expect(String(requests.filter((r) => r.modelId === 'parent')[2]!.messages.at(-1)!.content)).toContain('was stopped');
+        expect(events.some((e) => e.type === 'text-delta' && e.delta === 'It ran out of time.')).toBe(true);
+    });
+
+    it('does not start once the run is over: nothing of it comes after the run', async () => {
+        let later: (() => void) | undefined;
+        const leaking: StreamToolHandler = async (_call, _signal, run) => {
+            later = () => { startSubAgent(run!, { name: 'late', request: ask('child') }); };
+            return { content: 'ok' };
+        };
+        const { transportCall, requests } = scripted({ parent: [[toolUse('c1', 'leak'), done], [text('Done.'), done]], child: [[text('billed'), done]] });
+        const { events, emitter } = recorder();
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: () => leaking, emitter, signal: new AbortController().signal,
+        });
+        const settled = events.length;
+        later!();
+        await new Promise((r) => setTimeout(r, 30));
+        expect(events.length).toBe(settled);
+        expect(requests.some((r) => r.modelId === 'child')).toBe(false);
+    });
+
+    it('cannot be started in a run that can pause: the run would end without it', async () => {
+        let thrown: unknown;
+        const tries: StreamToolHandler = async (_call, _signal, run) => {
+            try { startSubAgent(run!, { name: 'scout', request: ask('child') }); } catch (error) { thrown = error; }
+            return { content: 'ok' };
+        };
+        const { transportCall } = scripted({ parent: [[toolUse('c1', 'try'), done], [text('Done.'), done]] });
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall, deferral: { outcomes: {} },
+            toolLookup: () => tries, emitter: () => {}, signal: new AbortController().signal,
+        });
+        expect(thrown).toBeInstanceOf(TypeError);
+        expect(String((thrown as Error).message)).toMatch(/runSubAgent/);
     });
 
     it('refuses to start without the run its tool was called in', () => {

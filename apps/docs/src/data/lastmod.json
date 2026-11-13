@@ -135,7 +135,7 @@
   "/providers/agent/tanstack-ai/": "2026-11-02",
   "/providers/ai/ai-sdk/": "2026-11-08",
   "/providers/ai/openai-compat/": "2026-11-02",
-  "/providers/ai/scenario/": "2026-11-12",
+  "/providers/ai/scenario/": "2026-11-13",
   "/providers/ai/transformers/": "2026-10-25",
   "/reference/": "2026-10-16",
   "/reference/performance/": "2026-11-02",

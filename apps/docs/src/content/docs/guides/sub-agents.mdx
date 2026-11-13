@@ -203,7 +203,9 @@ aparteGlobalConfig.registerTool(research, handleResearch);
 ```
 
 Each one started this way gets a line of its own, and is stopped with the run: by Stop, by the turn
-limit, and by a pause of the run (a server loop waiting for a person's decision holds nothing). The
+limit, and by the tool time limit counted from its start. It cannot be started in a run that can
+pause (the [server loop](/guides/server-loop/), which would end at the pause without its answer):
+`startSubAgent` throws there, and `runSubAgent` is the one to use. The
 message the model reads when they are back is the loop's ("The sub-agents you started are back."),
 a user message in the run's history, and it is not shown: the model's answer to it is.
 
