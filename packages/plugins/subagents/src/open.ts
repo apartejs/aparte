@@ -30,9 +30,12 @@ export function setShown(owner: object, at: { messageId: string; agentId: string
     else shown.delete(owner);
 }
 
-/** The row's Open button: core's, at the end of its own line (never a nested row's). */
+/**
+ * The row's Open button: core's, in its own line, or — a row with a detail — in the slot
+ * beside its disclosure (never in a summary, never a nested row's).
+ */
 export const openButtonOf = (row: Element): HTMLElement | null =>
-    row.querySelector<HTMLElement>(':scope > :is(.aparte-tool-line, .aparte-tool-summary) > .aparte-tool-open');
+    row.querySelector<HTMLElement>(':scope > :is(.aparte-tool-line, .aparte-tool-open-slot) > .aparte-tool-open');
 
 /**
  * Mark a row as the one shown, or not: the two marks core writes from `open.current` when it

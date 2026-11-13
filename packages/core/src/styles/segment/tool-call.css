@@ -239,10 +239,33 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     margin-inline-start: auto;
     margin-block: calc(var(--aparte-space-2) * -1);
 }
+/* A row with a detail keeps the button out of its summary (a control inside a summary is no
+   control of its own) and out of its disclosure (not drawn while closed): the row wraps the
+   `<details>` and the button stands beside it, in a slot laid over the end of the summary's
+   first line. The slot is that line again — the row's block padding, the summary's, and one
+   line of the label's type (1lh) — so the button is centred where it was, and out of the flow
+   the row keeps its height. The summary keeps the room the button took, so its surface still
+   runs under it. */
+.aparte-segment-tool-call:has(> .aparte-tool-open-slot) { position: relative; }
+.aparte-segment-tool-call > .aparte-tool-disclosure > .aparte-tool-summary {
+    padding-inline-end: calc(var(--aparte-space-3) + var(--aparte-space-4) + var(--aparte-btn-size-sm));
+}
+.aparte-tool-open-slot {
+    position: absolute;
+    inset-block-start: var(--aparte-space-1);
+    inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    box-sizing: content-box;
+    padding-block: var(--aparte-space-2);
+    font-size: var(--aparte-font-size-md);
+    min-block-size: 1lh;
+}
 .aparte-segment-tool-call[data-opens] > .aparte-tool-line { cursor: pointer; }
 .aparte-segment-tool-call[data-opens] > .aparte-tool-line:hover,
-.aparte-segment-tool-call[data-current] > :is(.aparte-tool-line, .aparte-tool-summary) { background: var(--aparte-surface-2); }
+.aparte-segment-tool-call[data-current] > :is(.aparte-tool-line, .aparte-tool-summary, .aparte-tool-disclosure > .aparte-tool-summary) { background: var(--aparte-surface-2); }
 .aparte-tool-open[aria-current='true'] { color: var(--aparte-primary); }
+.aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-disclosure > .aparte-tool-summary > .aparte-tool-activity,
 .aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-summary > .aparte-tool-activity {
     padding-inline-start: calc(var(--aparte-space-8) + var(--aparte-space-4) + var(--aparte-font-size-md) + var(--aparte-space-3));
 }

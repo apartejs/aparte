@@ -39,7 +39,7 @@ async function working(options: SubagentsOptions) {
 }
 
 const openButton = (row: Element | null): HTMLButtonElement | null =>
-    row?.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-summary) > .aparte-tool-open') ?? null;
+    row?.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-open-slot) > .aparte-tool-open') ?? null;
 
 /** Every `aparte-subagent-open` that reaches the page. */
 function heard(): AparteSubagentOpenEventDetail[] {
@@ -117,20 +117,22 @@ describe("a sub-agent's line, with `open: 'event'`", () => {
 describe('with `details` too', () => {
     it('keeps the line for the disclosure, and only the button opens elsewhere', async () => {
         const c = await working({ open: 'event', details: 'transcript' });
-        const row = c.row('tool-c1') as HTMLDetailsElement;
-        expect(row.tagName).toBe('DETAILS');
+        const row = c.row('tool-c1')!;
+        // The row wraps its disclosure, the button beside it: never inside the summary.
+        const disclosure = row.querySelector<HTMLDetailsElement>(':scope > details')!;
+        expect(disclosure).not.toBeNull();
         const events = heard();
 
         // The line toggles its detail and opens nothing elsewhere.
-        row.querySelector<HTMLElement>(':scope > summary .aparte-tool-name')!.click();
-        expect(row.open).toBe(true);
+        disclosure.querySelector<HTMLElement>(':scope > summary .aparte-tool-name')!.click();
+        expect(disclosure.open).toBe(true);
         expect(events).toEqual([]);
 
         // The button opens elsewhere and leaves the detail as it was.
         const button = openButton(row)!;
-        expect(button.parentElement!.tagName).toBe('SUMMARY');
+        expect(button.closest('summary')).toBeNull();
         button.click();
         expect(events.map((d) => d.agentId)).toEqual(['a1']);
-        expect(row.open).toBe(true);
+        expect(disclosure.open).toBe(true);
     });
 });

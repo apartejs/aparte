@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 const openButton = (row: Element | null): HTMLButtonElement | null =>
-    row?.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-summary) > .aparte-tool-open') ?? null;
+    row?.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-open-slot) > .aparte-tool-open') ?? null;
 
 /** A reply with two sub-agents, the second still working; a view and a split beside the chat. */
 async function setUp(options: { split?: boolean } = {}) {

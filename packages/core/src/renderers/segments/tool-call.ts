@@ -138,9 +138,18 @@ function behindOf(segment: AparteToolCallSegment, line: AparteToolLine | undefin
     }
 }
 
+/**
+ * The row's disclosure: the row itself, or — a row with an Open button, which stands beside
+ * the disclosure rather than in its summary (see `drawDefault`) — the `<details>` it wraps.
+ */
+function disclosureOf(row: Element): HTMLDetailsElement | null {
+    if (row.tagName === 'DETAILS') return row as HTMLDetailsElement;
+    return row.querySelector<HTMLDetailsElement>(':scope > details.aparte-tool-disclosure');
+}
+
 /** The container of an app's detail, when the row holds one (stamped when it is drawn). */
 const appDetailOf = (element: Element): Element | null =>
-    element.querySelector(':scope > .aparte-tool-detail[data-details="app"]');
+    element.querySelector(':scope > .aparte-tool-detail[data-details="app"], :scope > .aparte-tool-disclosure > .aparte-tool-detail[data-details="app"]');
 
 /**
  * Put what the app drew behind the line. Its own markup, so the whole detail is replaced;
@@ -503,8 +512,10 @@ function openMarkup(line: AparteToolLine | undefined): string {
  */
 function setOpen(row: Element, line: AparteToolLine | undefined, structural: boolean): void {
     const open = openOf(line);
-    const lineEl = row.querySelector(':scope > .aparte-tool-line, :scope > .aparte-tool-summary');
-    let button = lineEl?.querySelector<HTMLElement>(':scope > .aparte-tool-open') ?? null;
+    // In the line of a row with nothing behind it; beside the disclosure of one with a detail,
+    // whose shape `update` settles (it rebuilds the row when the button comes or goes).
+    const lineEl = row.querySelector(':scope > .aparte-tool-line');
+    let button = row.querySelector<HTMLElement>(':scope > :is(.aparte-tool-line, .aparte-tool-open-slot) > .aparte-tool-open');
     if (open) opens.set(row, open);
     else opens.delete(row);
     if (structural && lineEl && !!open !== !!button) {
@@ -535,8 +546,9 @@ const wiredOpen = new WeakSet<Element>();
 /**
  * One listener per row. The button opens; on a row with nothing behind it, so does a click
  * anywhere on its line (not one that ends a text selection). On a row with a disclosure the
- * line toggles the disclosure and the button's click is cancelled, so it never does both. A
- * row nested in this one's detail (a sub-agent's own) answers its own clicks.
+ * summary toggles the disclosure and only the button opens: it stands outside the summary, so
+ * one click never means both. A row nested in this one's detail (a sub-agent's own) answers
+ * its own clicks.
  */
 function wireOpen(row: HTMLElement): void {
     if (wiredOpen.has(row)) return;
@@ -545,10 +557,8 @@ function wireOpen(row: HTMLElement): void {
         const open = opens.get(row);
         const target = event.target as Element | null;
         if (!open || !target?.closest || target.closest('.aparte-segment-tool-call') !== row) return;
-        if (target.closest('.aparte-tool-open')) {
-            event.preventDefault();
-        } else {
-            if (row.tagName === 'DETAILS' || target.closest('.aparte-tool-line')?.parentElement !== row) return;
+        if (!target.closest('.aparte-tool-open')) {
+            if (disclosureOf(row) || target.closest('.aparte-tool-line')?.parentElement !== row) return;
             if (row.ownerDocument.getSelection?.()?.isCollapsed === false) return;
         }
         try {
@@ -567,7 +577,7 @@ function wireOpen(row: HTMLElement): void {
  * literal and rendered as visible text in the bubble — the exact trap this file's
  * `getStyles` block warns about, walked into one edit later.
  */
-function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
+function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undefined, withOpen = true): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment, line);
@@ -575,7 +585,8 @@ function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undef
     const note = noteOf(segment, line);
     const name = nameOf(segment, line);
     const quiet = quietOf(segment);
-    const open = openMarkup(line);  // safe-text: markup built by openMarkup, whose own interpolations are each escaped or marked there
+    // In the line only: a summary is a button, and a button inside it is no button of its own.
+    const open = withOpen ? openMarkup(line) : '';  // safe-text: markup built by openMarkup, whose own interpolations are each escaped or marked there
     return `
                 <span class="aparte-tool-label">
                     <span class="aparte-tool-icon">${icon}</span>
@@ -698,22 +709,39 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind, line: Apart
     // Closed unless asked: the segment's own `collapsed` (a segment default reaches it
     // at insertion), else the tool's display. Read here only — `update` never forces it.
     const open = segment.collapsed !== undefined ? !segment.collapsed : cfg.getToolDisplay(name)?.open === true;
+    /*
+     * A line that opens elsewhere keeps its Open button OUT of the summary. A summary is the
+     * disclosure's button: a control inside it is not one of its own (its label merges into
+     * the summary's name, and a screen reader cannot reach it), and its click was the
+     * summary's too. Nor can it sit beside the summary inside the `<details>`: that is the
+     * disclosure's content, not drawn while it is closed. So the row wraps its disclosure and
+     * the button stands beside it, placed at the end of the summary's line by the stylesheet.
+     * Without `open` the row is the `<details>` itself, as it always was.
+     */
+    const openButton = openMarkup(line);  // safe-text: markup built by openMarkup, whose own interpolations are each escaped or marked there
+    const disclosure = openButton ? `<details class="aparte-tool-disclosure"${open ? ' open' : ''}>` : '';  // safe-text: a fixed tag, its one attribute a literal
+    const rowStart = openButton
+        ? `<div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${opensAt}>${disclosure}`
+        : `<details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${opensAt}${open ? ' open' : ''}>`;
+    // The slot is the summary's first line again, beside it: the button is centred on it there.
+    const rowEnd = openButton ? `</details><span class="aparte-tool-open-slot">${openButton}</span></div>` : '</details>';
+    const summaryPill = pillMarkup(segment, line, false);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
     if (behind.kind === 'body') {
         // The app's own detail, which may be an element: the row is built as one so
         // nothing of it goes through a string.
         const tpl = document.createElement('template');
         tpl.innerHTML = `
-        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${opensAt}${open ? ' open' : ''}>
-            <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
+        ${rowStart}
+            <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${summaryPill}</summary>
             <div class="aparte-tool-detail" data-details="app"></div>
-        </details>`.trim();
+        ${rowEnd}`.trim();
         const row = tpl.content.firstElementChild as HTMLElement;
         setBody(row, behind.body);
         return row;
     }
     return `
-        <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}" data-tool-name="${escapeAttr(name)}"${quiet}${opensAt}${open ? ' open' : ''}>
-            <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
+        ${rowStart}
+            <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${summaryPill}</summary>
             <div class="aparte-tool-detail">
                 ${input ? `
                 <div class="aparte-tool-part" data-part="input">
@@ -726,7 +754,7 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind, line: Apart
                     <div class="aparte-tool-part-body" role="region" tabindex="0" aria-label="${escapeAttr(cfg.t(outcome.key))}"><pre><code>${escapeHtml(outcome.text)}</code></pre></div>
                 </div>` : ''}
             </div>
-        </details>
+        ${rowEnd}
     `;
 }
 
@@ -888,7 +916,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             drawn.update(element, segment);
             return;
         }
-        const rebuild = (out: HTMLElement | string): void => {
+        const rebuild = (out: HTMLElement | string): HTMLElement | null => {
             // A `<template>`, not the bubble's own converter: this file is a renderer
             // and must not import from the component that consumes it.
             const tpl = document.createElement('template');
@@ -904,6 +932,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
                 element.replaceWith(rebuilt);
                 toolCallRenderer.setup?.(rebuilt, segment);
             }
+            return rebuilt;
         };
         if (custom || drawn || hidden || isPlaceholder(element)) {
             rebuild(toolCallRenderer.render(segment));
@@ -917,8 +946,16 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
         const wantsDetail = behind.kind === 'body' || !!input || !!outcome;
         const holdsAppDetail = !!appDetailOf(element);
-        if (wantsDetail !== (element.tagName === 'DETAILS') || (wantsDetail && (behind.kind === 'body') !== holdsAppDetail)) {
-            rebuild(drawDefault(segment, behind, line));
+        const disclosure = disclosureOf(element);
+        // A row with a detail and an Open button wraps its disclosure (see `drawDefault`): the
+        // button coming or going is a change of shape too. What the reader opened is kept.
+        const wrapped = !!disclosure && disclosure !== element;
+        if (wantsDetail !== !!disclosure || (wantsDetail && (behind.kind === 'body') !== holdsAppDetail)
+            || (wantsDetail && wrapped !== !!openOf(line))) {
+            const wasOpen = disclosure?.open;
+            const now = rebuild(drawDefault(segment, behind, line));
+            const next = now && wasOpen !== undefined ? disclosureOf(now) : null;
+            if (next && wasOpen !== undefined) next.open = wasOpen;
             return;
         }
 

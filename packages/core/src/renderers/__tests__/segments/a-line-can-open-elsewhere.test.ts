@@ -32,7 +32,7 @@ function draw(segment: AparteToolCallSegment): HTMLElement {
 }
 
 const button = (row: Element): HTMLButtonElement | null =>
-    row.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-summary) > .aparte-tool-open');
+    row.querySelector<HTMLButtonElement>(':scope > :is(.aparte-tool-line, .aparte-tool-open-slot) > .aparte-tool-open');
 
 afterEach(() => {
     aparteGlobalConfig.reset();
@@ -80,18 +80,20 @@ describe('a line that opens elsewhere', () => {
     it('keeps the line of a row with a disclosure for the disclosure: only the button opens, and it does not toggle', () => {
         const onOpen = vi.fn();
         aparteGlobalConfig.setToolLineProvider((): AparteToolLine => ({ label: 'Explorer', details: () => 'Its work', open: { label: 'Open', onOpen } }));
-        const row = draw(call()) as HTMLDetailsElement;
-        expect(row.tagName).toBe('DETAILS');
-        expect(button(row)!.parentElement!.tagName).toBe('SUMMARY');
+        const row = draw(call());
+        // The button stands beside the disclosure, never in its summary (see
+        // the-open-button-is-never-inside-a-summary.test.ts).
+        const disclosure = row.querySelector<HTMLDetailsElement>(':scope > details')!;
+        expect(button(row)!.closest('summary, details')).toBeNull();
 
         row.querySelector<HTMLElement>('.aparte-tool-name')!.click();
         expect(onOpen).not.toHaveBeenCalled();
+        expect(disclosure.open).toBe(true);
+        disclosure.open = false;
 
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        button(row)!.dispatchEvent(click);
+        button(row)!.click();
         expect(onOpen).toHaveBeenCalledTimes(1);
-        // The summary's toggle is the click's default action: cancelled, so the detail stays as it was.
-        expect(click.defaultPrevented).toBe(true);
+        expect(disclosure.open).toBe(false);
     });
 
     it('marks the row whose subject is open, and follows the provider on update and relabel', () => {
