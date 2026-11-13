@@ -134,7 +134,7 @@ const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.inc
 /**
  * The Agent Builder article's demo: an OpenAI Agents SDK agent served over AG-UI by
  * `apps/examples/agents-sdk`, page and agent in one Vite process, on the SDK's scripted
- * model — no key. Not one of the framework apps, so it runs only its two specs, in
+ * model — no key. Not one of the framework apps, so it runs only its three specs, in
  * Chromium; `E2E_ONLY=agents-sdk` picks it alone. The words come 120 ms apart so Stop
  * lands mid-reply.
  */
@@ -466,8 +466,9 @@ export default defineConfig({
         ...(runAgentsSdk ? [{
             name: 'agents-sdk',
             use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${AGENTS_SDK_PORT}` },
-            // The agent, and the scripted run with two sub-agents beside it (`?subagents`).
-            testMatch: /agents-sdk(-subagents)?\.spec\.ts/,
+            // The agent, the scripted run with two sub-agents beside it (`?subagents`), and a
+            // TanStack AI router with two (`?tanstack`).
+            testMatch: /agents-sdk(-subagents|-tanstack)?\.spec\.ts/,
         }] : []),
     ],
 });

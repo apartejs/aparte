@@ -46,17 +46,26 @@ export type AgUiInputContent =
     | { type: 'text'; text: string }
     | { type: 'image'; source: { type: 'data' | 'url'; value: string; mimeType?: string } };
 
+/**
+ * What AG-UI 1.0 lets an assistant or tool message say of where it came from: the sub-agent
+ * invocation that wrote it (absent, the run's own agent), and the producer's own metadata.
+ */
+interface AgUiProvenance {
+    subagentRunId?: string;
+    metadata?: Record<string, unknown>;
+}
+
 /** One message of `RunAgentInput.messages`. */
 export type AgUiMessage =
     | { id: string; role: 'system'; content: string }
     | { id: string; role: 'user'; content: string | AgUiInputContent[] }
-    | {
+    | ({
         id: string;
         role: 'assistant';
         content?: string;
         toolCalls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[];
-    }
-    | { id: string; role: 'tool'; content: string; toolCallId: string };
+    } & AgUiProvenance)
+    | ({ id: string; role: 'tool'; content: string; toolCallId: string } & AgUiProvenance);
 
 /** One entry of `RunAgentInput.resume`: the answer to one interrupt. */
 export interface AgUiResumeItem {

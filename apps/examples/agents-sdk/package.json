@@ -14,9 +14,11 @@
     "dependencies": {
         "@ag-ui/core": "^1.0.3",
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-cards": "workspace:*",
         "@aparte/plugin-subagents": "workspace:*",
         "@aparte/runner-ag-ui": "workspace:*",
-        "@openai/agents": "^0.21.0"
+        "@openai/agents": "^0.21.0",
+        "@tanstack/ai": "^1.0.0"
     },
     "devDependencies": {
         "typescript": "^5.4.0",

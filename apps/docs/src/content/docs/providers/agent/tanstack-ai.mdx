@@ -91,6 +91,61 @@ React and Vue, `createAparteClient({ streamRunner })` in Svelte,
   [AG-UI agent](/providers/agent/ag-ui/#tools-the-page-runs), the page asks nobody before running
   it.
 
+## Sub-agents and the router's plan
+
+{/* doc-check: skip excerpt — TanStack AI and its adapter are your packages */}
+```ts
+import { chat, defineAgent } from '@tanstack/ai';
+
+const tracker = defineAgent({
+  name: 'Order tracker',
+  description: 'Find where the order is',
+  run: (ctx) => chat({ adapter, messages: ctx.messages, tools: [getOrderStatus], ...ctx.forward }),
+});
+
+chat({
+  // ...the run's fields, as above
+  subagents: {
+    agents: [tracker, returnsDesk],
+    router: () => ({ steps: [{ names: ['Order tracker'] }, { names: ['Returns desk'] }] }),
+    strategy: 'handoff',   // the main model answers once they are done
+  },
+});
+```
+
+A TanStack AI agent with `subagents` streams each one's work tagged with its `subagentRunId`,
+between a `SUBAGENT_STARTED` and a `SUBAGENT_FINISHED`. Set up
+[`@aparte/plugin-subagents`](/guides/sub-agents/) and each sub-agent gets one line in the reply: its
+name, its task, what it is doing, then `1 tool · 2s`. What it says and the calls it makes stay on
+that line, out of the reply. A sub-agent the model opens through its agent tool is that call's
+row; one a `router` starts is a line of its own.
+
+A `router` also sends its plan, the agents of each step in order. The runner hands it to the page as
+a `plan` [activity](/guides/activity/) of the reply, one step per agent, ticked as each starts and
+finishes, and the [plan card](/components/plan-card/) draws it:
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+import { setupSubagents } from '@aparte/plugin-subagents';
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+setupSubagents({ open: 'event' });          // a line per sub-agent, with an Open button
+setupPlanCard({ activity: 'plan' });        // the router's plan, ticked as they finish
+
+new AparteClient({
+  streamRunner: createAgUiRunner({ endpoint: '/api/chat', relaxedRunFraming: true }),
+}).start();
+```
+
+`open: 'event'` puts an Open button on each line; wire it to an
+[`<aparte-subagent-view>`](/components/subagent-view/) with `connectSubagentView` to show that
+sub-agent's conversation beside the chat. A sub-agent that pauses for an approval is asked under its
+line, and the resume hands TanStack back what that sub-agent had written, which it needs to continue:
+the page's history never holds a sub-agent's messages. The plan card stays one card across the pause.
+TanStack's router sends no `STEP_*` or `ACTIVITY_*` events of its own: the plan is the one piece of
+progress it reports, and the lines come from the sub-agents' own events.
+
 ## Pin the pauses to your server
 
 A server tool that deletes, pays or sends does not rely on `needsApproval`: it checks the

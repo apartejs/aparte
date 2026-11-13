@@ -30,7 +30,8 @@ To run it on a real model, set the environment before `dev`:
 | `server/model.ts` | which model, from the environment |
 | `server/demo-model.ts` | the keyless model, on the SDK's `ScriptedModel` |
 | `server/subagents.ts` | a scripted AG-UI run with two sub-agents, replayed as written |
-| `server/endpoint.ts` | the agent, mounted at `/agent` by `vite.config.ts`, and the scripted run at `/subagents` |
+| `server/tanstack.ts` | a TanStack AI 1.0 agent whose router delegates to two sub-agents, on TanStack's scripted model |
+| `server/endpoint.ts` | the agent, mounted at `/agent` by `vite.config.ts`, the scripted run at `/subagents`, the TanStack AI agent at `/tanstack` |
 | `src/main.ts` | the page: `AparteClient` with `createAgUiRunner({ endpoint: '/agent' })`, and `setupSubagents()` |
 
 `server/__tests__/ag-ui.test.ts` runs the agent with no key and no network, checks every event
@@ -46,6 +47,17 @@ both are back. `@aparte/plugin-subagents` gives each one a line, and their words
 reply. The Agents SDK streams no sub-agents itself, so this route replays the events rather than
 running it. `server/__tests__/subagents.test.ts` reads the run with aparté's AG-UI runner, and
 `e2e/tests/agents-sdk-subagents.spec.ts` drives the page.
+
+## A TanStack AI agent's sub-agents
+
+Open the page with `?tanstack` to talk to a real TanStack AI 1.0 agent instead: `chat()` with a
+`subagents` router that runs an order tracker, then a returns desk, each a `chat()` of its own that
+calls one real tool and answers, then the main model's reply (`strategy: 'handoff'`). Only the
+models' words are scripted, on TanStack's `fakeText`; the AG-UI events are TanStack's own. The page
+draws a line per sub-agent with an Open button (`setupSubagents({ open: 'event' })`) that shows its
+conversation beside the chat, and the router's plan as a plan card
+(`setupPlanCard({ activity: 'plan' })`). `server/__tests__/tanstack.test.ts` reads the route with
+aparté's AG-UI runner, and `e2e/tests/agents-sdk-tanstack.spec.ts` drives the page.
 
 ## What the bridge leaves out
 
