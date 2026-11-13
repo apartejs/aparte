@@ -28,6 +28,11 @@ export interface AparteConversationListItem {
 
 export interface AparteConversationSelectDetail {
     id: string;
+    /**
+     * The id of the chat the list drives, its `target`, when it has one: the conversation
+     * opens in that chat alone. Without it, in every chat of the page.
+     */
+    targetId?: string;
 }
 
 export interface AparteConversationDeleteDetail {
@@ -149,6 +154,12 @@ const VIEWPORT_MARGIN = 8;
  *                    `setConversationManager()`, instead of leaving you six listeners to write. The
  *                    event still fires first, and `preventDefault()` on it takes the gesture back.
  *                    Off by default, and selecting stays yours either way.
+ * @attr {string} target - The id of the chat this list drives, for a page with more than one chat
+ *                    or a list placed beside its chat: a row's click then opens the conversation
+ *                    in that chat alone (`targetId` in `aparte-conversation-select`), and `manage`
+ *                    acts on that chat's conversation manager. Read at every gesture rather than
+ *                    observed. Without it, a click is for every chat of the page, and `manage`
+ *                    finds the manager where the list sits.
  *
  * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-conversation-select - A row's title was activated; the host loads that conversation.
  * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-conversation-rename - A rename was committed with a new, non-empty title. Cancelable: `preventDefault()` takes the gesture back from `manage`.
@@ -804,7 +815,11 @@ export class AparteConversationList extends HTMLElement {
      */
     private _manage(event: Event, run: (manager: AparteConversationManager) => Promise<unknown>): void {
         if (!this.hasAttribute('manage') || event.defaultPrevented) return;
-        const manager = resolveConfig(this).getConversationManager();
+        // The manager of the chat this list drives: beside a chat that has a configuration of
+        // its own, where the list sits resolves to the page's, which holds no manager.
+        const target = this.getAttribute('target');
+        const chat = target ? this.ownerDocument.getElementById(target) : null;
+        const manager = resolveConfig(chat ?? this).getConversationManager();
         if (!manager) {
             if (this._warnedNoManager) return;
             this._warnedNoManager = true;
@@ -1036,9 +1051,10 @@ export class AparteConversationList extends HTMLElement {
         const select = target.closest<HTMLElement>('[data-select-id]');
         if (select) {
             this._closeMenu();
+            const targetId = this.getAttribute('target');
             this.dispatchEvent(new CustomEvent<AparteConversationSelectDetail>(
                 'aparte-conversation-select',
-                { detail: { id: select.dataset['selectId']! }, bubbles: true, composed: true }
+                { detail: { id: select.dataset['selectId']!, ...(targetId ? { targetId } : {}) }, bubbles: true, composed: true }
             ));
         }
     };
