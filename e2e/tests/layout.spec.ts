@@ -575,6 +575,46 @@ test.describe('center-empty and a restore', () => {
         expect(Math.abs(after.left), 'after a click, the composer is still on its way on the first frame').toBeGreaterThan(0.5);
         expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
     });
+
+    /*
+     * A panel that opens over the composer during the slide (an approval asked by the reply's first
+     * call). The send's glide was re-aimed one frame after the reply's bubble arrived, while that
+     * bubble still counted its 320px placeholder (`contain-intrinsic-size`); the panel then took its
+     * height from a transcript that was still small, gave the glide somewhere to go, and the slide
+     * gave the room back: the messages went up 35px and came back, in 50ms. What will fit once the
+     * centring's room is back does not scroll.
+     */
+    test('a panel opening during the slide does not make the messages go up and come back', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        await installLlmMock(page);
+        await page.goto('/');
+        const chat = page.locator('aparte-chat[center-empty]');
+        await expect(chat).toHaveAttribute('data-empty', '');
+        await page.mouse.click(5, 5);
+        await expect(chat).toHaveAttribute('data-glide');
+        const sampled = await page.evaluate(async () => {
+            const host = document.querySelector('aparte-chat[center-empty]')!;
+            const composer = host.querySelector('aparte-composer')!;
+            const vp = host.querySelector('aparte-chat-viewport') as unknown as { appendMessage(m: object): void };
+            vp.appendMessage({ id: 'u-1', role: 'user', content: 'Run the whole test suite.', timestamp: Date.now() });
+            vp.appendMessage({ id: 'a-1', role: 'assistant', content: Array.from({ length: 3 }, (_, i) => `Line ${i + 1} of the answer.`).join('\n\n'), timestamp: Date.now() });
+            const user = host.querySelector('aparte-chat-bubble[data-role="user"]')!;
+            await new Promise((r) => requestAnimationFrame(r));
+            const panel = document.createElement('div');
+            panel.style.height = '90px';
+            composer.prepend(panel);
+            const tops: number[] = [];
+            for (let i = 0; i < 30; i++) {
+                await new Promise((r) => requestAnimationFrame(r));
+                tops.push(Math.round(user.getBoundingClientRect().top));
+            }
+            const surface = host.querySelector('.aparte-viewport-container')!;
+            return { tops, fits: surface.scrollHeight <= surface.clientHeight + 1, sizes: `${surface.scrollHeight} in ${surface.clientHeight}` };
+        });
+        expect(sampled.fits, `precondition: the messages fit once the slide is over (${sampled.sizes})`).toBe(true);
+        expect(Math.max(...sampled.tops) - Math.min(...sampled.tops), `the user's message, frame by frame: ${sampled.tops.join(' ')}`).toBeLessThanOrEqual(1);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
 });
 
 /**

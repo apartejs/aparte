@@ -2239,6 +2239,23 @@ export class AparteChatViewport extends HTMLElement {
 
     private _scrollToBottom(): void {
         if (!this._container) return;
+        // What will fit once the centring's room is back has nothing to scroll. During the
+        // first message's slide that room is still on its way to the transcript, and a
+        // panel opening under the composer then (an approval asked by the reply's first
+        // call) shrank the surface below the messages for a few frames: they went up 35px
+        // and came back. The glide that did it was aimed one frame earlier, at a reply
+        // bubble still counted at its 320px placeholder (`contain-intrinsic-size`), and it
+        // ran on once the panel gave it somewhere to go. So it stops here, where the slide
+        // will leave the view anyway, and a smooth request is spent on nothing to glide.
+        if (this._fitsOnceCentred()) {
+            this._smoothScrollOnce = false;
+            if (this._gliding()) {
+                this._glideUntil = 0;
+                this._ownScrollAt = performance.now();
+                this._container.scrollTop = 0;
+            }
+            return;
+        }
         // A smooth scroll was asked for (a user send, by whichever path — appendMessage,
         // a wrapper's requestSmoothScroll(), or a user bubble the mutation observer saw
         // arrive): the FIRST pin after it is the glide, not a jump. In framework-managed
@@ -2254,6 +2271,21 @@ export class AparteChatViewport extends HTMLElement {
         this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
         this._settleAtBottom();
+    }
+
+    /** The transcript will fit once the room the centring spacer under the composer still
+     *  holds (`center-empty`, or a wrapper's auto-centre) is back. That room is 0 once the
+     *  slide is over, and outside those layouts. */
+    private _fitsOnceCentred(): boolean {
+        if (!this._container) return false;
+        const room = this._centringRoom();
+        return room > 0
+            && this._container.scrollHeight - this._getSpacerHeight() <= this._container.clientHeight + room;
+    }
+
+    private _centringRoom(): number {
+        const host = this.closest('aparte-chat[center-empty], .aparte-chat-container--auto-center');
+        return host ? parseFloat(getComputedStyle(host, '::after').height) || 0 : 0;
     }
 
     private _gliding(): boolean {
@@ -2474,8 +2506,10 @@ export class AparteChatViewport extends HTMLElement {
         // Height of content from user bubble top to end, excluding the spacer
         const scrollHeightWithoutSpacer = this._container.scrollHeight - currentSpacerH;
 
-        // If all content already fits in the viewport, no spacer is needed.
-        if (scrollHeightWithoutSpacer <= this._container.clientHeight) {
+        // If all content already fits in the viewport, no spacer is needed — counting the
+        // room the centring is still giving back during the first message's slide: a spacer
+        // sized against the surface of that moment is height the glide would scroll into.
+        if (scrollHeightWithoutSpacer <= this._container.clientHeight + this._centringRoom()) {
             this._setSpacerHeight(0);
             return;
         }
