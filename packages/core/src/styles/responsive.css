@@ -204,5 +204,11 @@
   aparte-scroll-rail {
     display: none;
   }
+
+  /* And the lane it sits in goes with it: the chat kept 28px at its end edge for a rail that
+     never shows, and on a phone the column stood off-centre. */
+  :is(aparte-chat, [data-aparte-chat], .aparte-chat-container):has(> aparte-scroll-rail) {
+    --aparte-scroll-rail-room: 0px;
+  }
 }
 

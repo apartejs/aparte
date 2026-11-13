@@ -280,6 +280,39 @@ test('no line runs under the rail, and the composer keeps the messages\' end edg
 });
 
 /*
+ * On a touch screen the rail is hidden (a 2px tick is no target for a finger), and its lane went
+ * with it: the chat kept 28px at its end edge for a rail that never shows, and on a phone the
+ * column stood off-centre, the text stopping well short of the right edge.
+ */
+test.describe('on a touch screen', () => {
+    test.use({ hasTouch: true, isMobile: true, viewport: { width: 420, height: 860 } });
+
+    test('the rail is hidden, and the chat keeps no lane for it', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        const chat = new ChatPage(page);
+        await page.goto('/');
+        await chat.sendAndSettle('Question 1');
+        const measured = await page.evaluate(() => {
+            const chatEl = document.querySelector('aparte-chat') as HTMLElement;
+            const surface = document.querySelector('.aparte-viewport-container')!.getBoundingClientRect();
+            const row = document.querySelector('aparte-chat-bubble[data-role="assistant"] .aparte-message')!.getBoundingClientRect();
+            return {
+                coarse: matchMedia('(pointer: coarse)').matches,
+                rail: getComputedStyle(document.querySelector('aparte-scroll-rail')!).display,
+                lane: getComputedStyle(chatEl).paddingInlineEnd,
+                start: row.left - surface.left,
+                end: surface.right - row.right,
+            };
+        });
+        expect(measured.coarse, 'the page sees a touch screen').toBe(true);
+        expect(measured.rail).toBe('none');
+        expect(measured.lane).toBe('0px');
+        expect(Math.abs(measured.end - measured.start), `as much room at the end (${measured.end}) as at the start (${measured.start})`).toBeLessThanOrEqual(1.5);
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    });
+});
+
+/*
  * A jump under a header that floats over the transcript (`--aparte-top-inset`). `scrollIntoView`
  * lands the message below the surface's scroll padding, and the rail's landing check measured from
  * the surface's top: it read the inset as a miss and scrolled again, pass after pass.
