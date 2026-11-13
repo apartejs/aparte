@@ -33,3 +33,26 @@ test('an activity is drawn by the renderer of its type and updated in place', as
     expect(order).toEqual(['activity', 'text']);
     expect(errors).toEqual([]);
 });
+
+test('a plan reported as an activity is drawn by the plan card and ticked in place', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/?scenario');
+    await chat.send('Plan the release and tick it off as you go.');
+
+    const card = chat.lastReply.locator('.aparte-plan-card');
+    const steps = card.locator('.aparte-plan__step');
+    await expect(steps).toHaveCount(3);
+    await expect(steps.first()).toHaveAttribute('data-status', 'in-progress');
+    // Mark the card's element (a property: the card keeps its attributes in step with its data):
+    // an update that rebuilt it would lose the mark.
+    await card.evaluate((el) => { (el as HTMLElement & { e2eFirst?: boolean }).e2eFirst = true; });
+
+    await expect(steps.nth(1)).toHaveAttribute('data-status', 'in-progress');
+    await expect(chat.lastReply).toContainText('Released: version bumped');
+    await expect(steps.nth(2)).toHaveAttribute('data-status', 'done');
+    await expect(card.locator('.aparte-plan__count')).toHaveText('3 of 3 done');
+    await expect(card).toHaveCount(1);
+    expect(await card.evaluate((el) => (el as HTMLElement & { e2eFirst?: boolean }).e2eFirst)).toBe(true);
+    expect(errors).toEqual([]);
+});

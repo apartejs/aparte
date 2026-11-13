@@ -81,17 +81,36 @@ function refusalOf(result: string): 'plan' | 'person' | undefined {
     return undefined;
 }
 
+/**
+ * The Parser reader's own plan, reported as an activity rather than a tool call: it lands in its
+ * conversation (under its line), drawn by the plan card (`setupPlanCard({ activity: 'plan' })`)
+ * and ticked in place as it reads. The first `done` steps are done, the next one runs.
+ */
+const READER_STEPS = ['Read src/parse.ts', 'Follow the amount to where it becomes a number', 'Report the line'];
+function readerPlan(done: number): ScenarioStep {
+    return {
+        activity: {
+            type: 'plan',
+            id: 'parser-reader-plan',
+            content: { steps: READER_STEPS.map((title, i) => ({ title, status: i < done ? 'done' : i === done ? 'in-progress' : 'pending' })) },
+        },
+    };
+}
+
 export const INVESTIGATORS: ScenarioSubagent[] = [
     {
         name: 'Parser reader',
         task: 'Read src/parse.ts and find where the amount becomes a number',
         turns: [
             // A step its line says while no call of it runs: before the read, and after it.
-            [{ step: 'Reading the parser' }, { thinking: 'The amount is captured by the pattern, then turned into a number in the replace callback.' }, { tool: 'read_file', input: { path: 'src/parse.ts' } }],
+            [readerPlan(0), { step: 'Reading the parser' }, { thinking: 'The amount is captured by the pattern, then turned into a number in the replace callback.' }, { tool: 'read_file', input: { path: 'src/parse.ts' } }],
             [
+                readerPlan(1),
                 { wait: 500 },
                 { endStep: 'Reading the parser' },
+                readerPlan(2),
                 { text: 'Line 15 reads the amount with `parseInt(amount, 10)`, which stops at the decimal point: `1.5` becomes `1`. The pattern on line 7 already accepts decimals, so that call is the only place the fraction is lost.' },
+                readerPlan(3),
             ],
         ],
     },

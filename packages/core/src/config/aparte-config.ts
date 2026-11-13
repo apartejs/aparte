@@ -234,11 +234,24 @@ function bumpRenderingVersion(cfg: AparteConfig): void {
  * every icon). And it is delivered in a microtask, coalesced per config: N components that
  * each declare a card in one framework commit cost one pass, not N, and a renderer's
  * `cleanup` never runs inside the registration call — inside a framework's effect cleanup.
- * Internal to core: not exported from the package.
  */
 const rendererListeners = new Set<(cfg: AparteConfig) => void>();
 const pendingRendererChanges = new Set<AparteConfig>();
 
+/**
+ * Hear when a segment, tool or activity renderer is registered, overridden or taken off, with
+ * the config it changed on — once per config per microtask, however many changed. Returns the
+ * function that stops listening.
+ *
+ * For a row loop written outside `<aparte-chat-bubble>` (a sub-agent's conversation, a panel
+ * that draws segments): the bubble redraws the rows whose renderer changed, and a loop of
+ * your own does the same from here. Not called for any other change of the config.
+ *
+ * @example
+ * const off = onRenderersChange((config) => {
+ *   if (config === myConfig) redrawMyRows();
+ * });
+ */
 export function onRenderersChange(listener: (cfg: AparteConfig) => void): () => void {
     rendererListeners.add(listener);
     return () => { rendererListeners.delete(listener); };

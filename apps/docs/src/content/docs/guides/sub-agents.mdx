@@ -353,7 +353,15 @@ An app that wants to keep a mark of a step in the reply draws it from
 
 A sub-agent can also report its progress as an [activity](/guides/activity/) — "3 of 5 sources
 read" — which the renderer you register for its type draws in that sub-agent's conversation, under
-its line and in `<aparte-subagent-view>`, updated in place as it changes.
+its line and in `<aparte-subagent-view>`, updated in place as it changes. A sub-agent that reports
+its plan that way gets the [plan card](/components/plan-card/#from-an-activity) there with
+`setupPlanCard({ activity: 'plan' })`.
+
+When a [TanStack AI](/providers/agent/tanstack-ai/) `subagents.router` picks the agents, it sends
+its plan with them: which agents run, in which order. That is the reply's plan rather than one
+sub-agent's, so the runner hands it on as a `plan` activity of the reply, one step per agent, in
+progress when the agent starts and done or failed when it ends. `setupPlanCard({ activity: 'plan' })`
+draws it.
 
 ## Show the conversation elsewhere
 

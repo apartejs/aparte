@@ -9,6 +9,10 @@
  *   // `TodoWrite`, say — reads its input instead:
  *   setupPlanCard({ tool: 'TodoWrite', map: (_result, input) => input });
  *
+ *   // An agent that reports its plan as an activity (AG-UI's ACTIVITY_SNAPSHOT/DELTA, a
+ *   // TanStack AI router's plan of its sub-agents) — ticked in place as it works:
+ *   setupPlanCard({ activity: 'plan' });
+ *
  * Three variants of one card: `checklist` (a header with "3 of 7 done" and a thin bar,
  * then one row per step with its status glyph, its detail and, once it finished, its
  * duration), `timeline` (a rail with a node per step coloured by its status, the start

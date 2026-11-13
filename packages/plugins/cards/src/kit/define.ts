@@ -10,7 +10,9 @@
  *    `{ type: 'card', card: 'weather', data }` and the same card draws it. One segment
  *    type for every card, not `custom`: an app has ONE renderer for `custom`, and taking
  *    it would take the app's;
- *  - a block in the text, for a source that only sends text — a later step.
+ *  - **an agent's activity**: `registerActivityRenderer` draws the card from the activity's
+ *    content, patched in place each time the agent sends it again (`activity` in the setup);
+ *  - a ```card-<name> block in the text, for a source that only sends text (`fence.ts`).
  *
  * While the tool runs the card shows its skeleton, with what the call's input already
  * says (the city before the forecast). Waiting for a decision, refused, stopped or failed,
@@ -24,6 +26,8 @@ import {
     aparteGlobalConfig,
     cssEscape,
     overrideSegmentRenderer,
+    type AparteActivityRenderer,
+    type AparteActivitySegment,
     type AparteConfig,
     type AparteSegmentBase,
     type AparteSegmentRenderer,
@@ -207,6 +211,14 @@ export interface CardSetupOptions<D, V extends string = string> {
     map?: (result: any, input: Record<string, unknown>, segment: AparteToolCallSegment) => unknown;
     /** What the call's input already says, shown while it runs. Defaults to the card's own reading. */
     mapInput?: (input: Record<string, unknown>) => Partial<D> | null;
+    /**
+     * The activity type (or types) whose content this card draws — the progress an agent
+     * reports while it works (`config.registerActivityRenderer`). The content must be in the
+     * card's fields, or a shape the card reads. Each time the agent sends it again the same
+     * card is patched in place; content the card cannot read draws nothing, or leaves the card
+     * it already drew. Works beside `tool`.
+     */
+    activity?: string | string[];
     /** A variant, or a function choosing one from the data. A name the card lacks reads as its default. */
     variant?: V | ((data: D) => V);
     /**
@@ -419,6 +431,18 @@ function busy(element: Element, on: boolean): void {
     element.toggleAttribute('data-busy', on);
     if (on) element.setAttribute('aria-busy', 'true');
     else element.removeAttribute('aria-busy');
+}
+
+/**
+ * Core sends the card's data again (a tool's result, a segment, an activity): `next` is drawn
+ * into the card already on the page. A new result is newer than any change still waiting on
+ * the app's answer; the same result sent again (a turn ending, a save) leaves that change running.
+ */
+function redraw(element: HTMLElement, next: HTMLElement): void {
+    if (drawnFrom.get(next) !== drawnFrom.get(element)) bumpTurn(element);
+    const wasBusy = element.hasAttribute('data-busy') && queues.has(element);
+    patch(element, next);
+    if (wasBusy) busy(element, true);
 }
 
 /** An action as its link alone: with no link either, it cannot run. */
@@ -768,15 +792,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         const toolRenderer: AparteToolRenderer = {
             render: (segment) => drawTool(options, config, segment),
             // Same element, new inside: the card the reader is looking at stays put.
-            update: (element, segment) => {
-                const next = drawTool(options, config, segment);
-                // A new result is newer than any change still waiting on the app's answer; the
-                // same result sent again (a turn ending, a save) leaves that change running.
-                if (drawnFrom.get(next) !== drawnFrom.get(element)) bumpTurn(element);
-                const wasBusy = element.hasAttribute('data-busy') && queues.has(element);
-                patch(element, next);
-                if (wasBusy) busy(element, true);
-            },
+            update: (element, segment) => redraw(element, drawTool(options, config, segment)),
             relabel: (element) => relabel(element),
             getStyles: () => styles,
         };
@@ -784,6 +800,32 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         // that each declare it, a page that sets a card up twice — the newer draws, and taking
         // the older off leaves the newer in place; the last one off gives back what was there.
         const restores = matchers.map((match) => config.overrideToolRenderer(match, toolRenderer));
+
+        // An agent's activity: its content is the card's data, sent whole each time. Content the
+        // card cannot read yet (an empty list before the first step) draws nothing, and an
+        // update it cannot read leaves the card it drew — a plan does not blink out mid-run.
+        const drawActivity = (segment: AparteActivitySegment): HTMLElement | null => {
+            const from = fingerprint(segment.content);
+            const live = recall(options, `segment:${segment.id}`, from);
+            if (live) return drawData(options, config, live.data, live.variant, segment.id, 'segment', from);
+            let data: D | null = null;
+            try {
+                data = definition.normalize(segment.content);
+            } catch {
+                data = null;
+            }
+            return data ? drawData(options, config, data, chooseVariant(options, data), segment.id, 'segment', from) : null;
+        };
+        const activityRenderer: AparteActivityRenderer = {
+            render: (segment) => drawActivity(segment) ?? '',
+            update: (element, segment) => {
+                const next = drawActivity(segment);
+                if (next) redraw(element, next);
+            },
+            relabel: (element) => relabel(element),
+        };
+        const activities = options.activity === undefined ? [] : Array.isArray(options.activity) ? options.activity : [options.activity];
+        restores.push(...activities.map((type) => config.registerActivityRenderer(type, activityRenderer)));
 
         const registry = registries.get(config) ?? new Map<string, Entry[]>();
         registries.set(config, registry);
@@ -878,11 +920,7 @@ function cardSegmentRenderer(config: AparteConfig): AparteSegmentRenderer<Aparte
                 element.replaceWith(entry.draw(segment, 'segment'));
                 return;
             }
-            const next = entry.draw(segment, 'segment');
-            if (drawnFrom.get(next) !== drawnFrom.get(element)) bumpTurn(element);
-            const wasBusy = element.hasAttribute('data-busy') && queues.has(element);
-            patch(element, next);
-            if (wasBusy) busy(element, true);
+            redraw(element, entry.draw(segment, 'segment'));
         },
         relabel: (element) => relabel(element),
         getStyles: () => [...sheets].join('\n'),

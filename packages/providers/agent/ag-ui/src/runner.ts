@@ -125,6 +125,21 @@ function by(owner: string): { agentId?: string } {
     return owner ? { agentId: owner } : {};
 }
 
+/**
+ * TanStack AI's router plan, as its `withPlan` puts it on each DIRECT child's
+ * `SUBAGENT_STARTED`: `metadata.tanstack.subagentPlan`, `{ steps: [{ names, order? }] }` — the
+ * agents of each step, in order. `undefined` for anything else.
+ */
+function routerPlanOf(event: { [key: string]: unknown }): string[][] | undefined {
+    const tanstack = (event['metadata'] as { tanstack?: { subagentPlan?: { steps?: unknown } } } | undefined)?.tanstack;
+    const steps = tanstack?.subagentPlan?.steps;
+    if (!Array.isArray(steps)) return undefined;
+    const names = steps
+        .map((step) => (Array.isArray((step as { names?: unknown })?.names) ? (step as { names: unknown[] }).names.filter((n): n is string => typeof n === 'string' && n !== '') : []))
+        .filter((step) => step.length > 0);
+    return names.length ? names : undefined;
+}
+
 /** An interrupt's reason, as what the page must do about its call. */
 function interruptKind(interrupt: AgUiInterrupt): 'approval' | 'external' | undefined {
     if (interrupt.reason === 'tool_call' || interrupt.reason === 'confirmation' || interrupt.reason === 'approval_required') return 'approval';
@@ -350,7 +365,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         /** A sub-agent's calls the paused run handed the page: their outcomes settle under it. */
         const ticketAgents = new Map(Object.entries(ticket?.agents ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
         /** This run's sub-agents: announced by SUBAGENT_STARTED or met first in an attributed event, and whether still open. */
-        const agents = new Map<string, { open: boolean; parent?: string }>();
+        const agents = new Map<string, { open: boolean; parent?: string; name?: string }>();
 
         const tagOf = (event: { [key: string]: unknown }): string | undefined =>
             (typeof event['subagentRunId'] === 'string' ? event['subagentRunId'] : undefined);
@@ -407,12 +422,31 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             activities.set(id, at);
             emit({ type: 'activity', id, activityType: at.activityType, content: at.content, ...by(at.owner) });
         };
+        /**
+         * A TanStack AI router's plan of its sub-agents (`routerPlanOf`): the reply's own `plan`
+         * activity — it is the parent's plan, not a sub-agent's, and the same on every child — a
+         * step per agent in the router's order, ticked from each agent's start and end. It is sent
+         * once, so the statuses are the runner's: a router starts a step only once the steps
+         * before it finished, so those are done (a resumed run does not start them again).
+         */
+        let routerPlan: { steps: string[][]; status: Map<string, string> } | undefined;
+        const tickRouterPlan = (name: string | undefined, status: 'in-progress' | 'done' | 'failed' | 'blocked') => {
+            const at = name === undefined ? -1 : routerPlan?.steps.findIndex((step) => step.includes(name)) ?? -1;
+            if (!routerPlan || at < 0) return;
+            if (status === 'in-progress') {
+                for (const before of routerPlan.steps.slice(0, at).flat()) if (routerPlan.status.get(before) !== 'failed') routerPlan.status.set(before, 'done');
+            }
+            routerPlan.status.set(name!, status);
+            const steps = routerPlan.steps.flat().map((title) => ({ title, status: routerPlan!.status.get(title) ?? 'pending' }));
+            showActivity(`router-plan:${runId}`, { activityType: 'plan', content: { steps }, owner: PARENT });
+        };
         const endAgent = (agentId: string, status: 'done' | 'failed' | 'waiting', detail: { result?: string; error?: string } = {}) => {
             // Its steps end with it: its line would otherwise say one it is no longer on.
             closeSteps(agentId);
             const agent = agents.get(agentId);
             if (agent) agent.open = false;
             emit({ type: 'agent-end', agentId, status, ...detail, ...(agent?.parent ? { parentAgentId: agent.parent } : {}) });
+            if (agent && !agent.parent) tickRouterPlan(agent.name, status === 'waiting' ? 'blocked' : status);
         };
         /** Fail the sub-agents still open, the latest first (a nested one before the one that opened it). */
         const failOpenAgents = (error: string) => {
@@ -632,15 +666,24 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // An id met before, or announced again by a resumed run (LangGraph continues a
                     // suspended invocation under its id), is the same agent going on: announced
                     // again with what this event says, never an error.
-                    agents.set(agentId, { open: true, ...(parent ? { parent } : {}) });
+                    const name = String(event['name']);
+                    agents.set(agentId, { open: true, name, ...(parent ? { parent } : {}) });
                     emit({
                         type: 'agent-start',
                         agentId,
-                        name: String(event['name']),
+                        name,
                         ...(typeof event['description'] === 'string' ? { description: event['description'] } : {}),
                         ...(toolCallId ? { toolCallId } : {}),
                         ...(parent ? { parentAgentId: parent } : {}),
                     });
+                    // A router's plan comes with its direct children; a nested router's never does.
+                    if (!parent) {
+                        if (!routerPlan) {
+                            const steps = routerPlanOf(event);
+                            if (steps) routerPlan = { steps, status: new Map() };
+                        }
+                        tickRouterPlan(name, 'in-progress');
+                    }
                     break;
                 }
                 case 'SUBAGENT_FINISHED':

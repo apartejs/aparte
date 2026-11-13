@@ -15,21 +15,37 @@
  *
  * A row is found by its segment's id and patched when its segment is a new object (a
  * segment list replaces the object it changes, and only that one), so a token costs the
- * one row it lands in. A row whose renderer is no longer the one in effect is drawn again.
+ * one row it lands in. A row whose renderer is no longer the one in effect is drawn again —
+ * for a tool call or an activity, the tool or activity renderer too, as the bubble does.
  */
 import {
     getSegmentRenderer,
     installDefaultRenderersOnce,
     runWithConfig,
+    type AparteActivitySegment,
     type AparteConfig,
     type AparteSegment,
     type AparteSegmentRenderer,
+    type AparteToolCallSegment,
 } from '@aparte/core';
 
 interface Row {
     el: HTMLElement;
     renderer: AparteSegmentRenderer | undefined;
+    /** For a tool call or an activity, the tool or activity renderer in effect when it was drawn. */
+    inner: object | null;
     segment: AparteSegment;
+}
+
+/**
+ * The renderer core's row asks for a tool call (its tool renderer) or an activity (the one for
+ * its type): when it changes, the row is drawn again, as the bubble draws its own again.
+ */
+function innerRendererFor(segment: AparteSegment, config: AparteConfig): object | null {
+    if (segment.type === 'activity') return config.getActivityRenderer((segment as AparteActivitySegment).activityType) ?? null;
+    if (segment.type !== 'tool_call') return null;
+    const name = (segment as AparteToolCallSegment).toolCall?.name;
+    return name && !config.isToolHidden(name) ? config.getToolRenderer(name) ?? null : null;
 }
 
 /** The renderer for a type, core's built-ins installed the first time they are missing — as the bubble does. */
@@ -99,7 +115,7 @@ export class LaneDrawing {
             seen.add(segment.id);
             const renderer = rendererFor(segment.type, config);
             let row = this.rows.get(segment.id);
-            if (row && row.renderer !== renderer) {
+            if (row && (row.renderer !== renderer || row.inner !== innerRendererFor(segment, config))) {
                 this.release(segment.id, config);
                 row.el.remove();
                 row = undefined;
@@ -140,7 +156,7 @@ export class LaneDrawing {
             ? toElement(runWithConfig(config, () => renderer.render(segment)), segment)
             : fallbackOf(segment);
         if (!el) return undefined;
-        const row: Row = { el, renderer, segment };
+        const row: Row = { el, renderer, inner: innerRendererFor(segment, config), segment };
         // Recorded before `setup`: a setup that throws still leaves a row that is cleaned up.
         this.rows.set(segment.id, row);
         if (renderer?.setup) {

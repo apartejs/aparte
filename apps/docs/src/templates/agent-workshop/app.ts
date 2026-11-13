@@ -81,9 +81,10 @@ async function main(): Promise<void> {
     }
 
     // The agent's task list: update_plan returns where the plan stands, and the plan card draws
-    // the list from the call's input, a new card at each update.
+    // the list from the call's input, a new card at each update. A sub-agent reports its plan as
+    // an activity instead (scenario.ts, the Parser reader): the same card, ticked in place.
     aparteGlobalConfig.registerTool(PLAN_TOOL, async (call) => ({ toolCallId: call.id, content: planReceipt(call.input) }));
-    setupPlanCard({ tool: PLAN_TOOL.name, map: (_result, input) => input });
+    setupPlanCard({ tool: PLAN_TOOL.name, map: (_result, input) => input, activity: 'plan' });
 
     // Which of these tools read, write or execute: the mode decides which of them ask first,
     // and Plan refuses the last two with a reason the model reads. The plan changes no file, so

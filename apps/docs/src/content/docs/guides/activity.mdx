@@ -81,3 +81,16 @@ content to update it. The [engine's events](/guides/engine/#events) list it.
 
 **A scripted model:** the [scenario provider](/providers/ai/scenario/#activities) has a step for it,
 `{ activity: { type: 'search-progress', content: { read: 3, of: 5 }, id: 'p1' } }`.
+
+## A plan, ready-made
+
+An agent's plan or todo list is the activity most agents report. The
+[plan card](/components/plan-card/#from-an-activity) is a renderer for it, ticked in place as the agent
+works, and it reads the shapes agents already send (Claude Code's `todos`, Codex's `plan`, a Markdown
+checklist):
+
+```ts
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+
+setupPlanCard({ activity: 'plan' });
+```

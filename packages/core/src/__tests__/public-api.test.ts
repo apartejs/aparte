@@ -103,6 +103,7 @@ describe('@aparte/core public API', () => {
             "isSafeUrl",
             "isSegmentSettled",
             "measureContext",
+            "onRenderersChange",
             "overrideSegmentRenderer",
             "parseAparteEventStream",
             "parseMarkdownToSegments",

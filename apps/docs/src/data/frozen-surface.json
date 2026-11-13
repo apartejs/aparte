@@ -460,6 +460,7 @@
       "isSafeUrl",
       "isSegmentSettled",
       "measureContext",
+      "onRenderersChange",
       "overrideSegmentRenderer",
       "parseAparteEventStream",
       "parseMarkdownToSegments",

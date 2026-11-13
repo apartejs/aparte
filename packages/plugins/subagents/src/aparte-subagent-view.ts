@@ -17,6 +17,7 @@
 import {
     createSegmentList,
     deferHydrationOf,
+    onRenderersChange,
     resolveConfig,
     runWithConfig,
     subscribeConfigChange,
@@ -140,11 +141,16 @@ export class AparteSubagentView extends ElementBase {
     private _listening: EventTarget | null = null;
     private _stopConfig: (() => void) | null = null;
     private _stopWatching: (() => void) | null = null;
+    private _stopRenderers: (() => void) | null = null;
     private _queued = false;
     private _releaseQueued = false;
     private _warned = '';
 
     private readonly _onConversation = (): void => this._schedule();
+    /** A renderer registered or taken off on the config the rows were drawn with: the rows it changes are drawn again. */
+    private readonly _onRenderers = (config: AparteConfig): void => {
+        if (config === this._config) this.refresh();
+    };
     private readonly _onWrite = (write: LaneWrite): void => {
         if (fed.has(this) || !this.isConnected) return;
         if (write.messageId !== this.getAttribute('message-id') || write.agentId !== this.getAttribute('agent-id')) return;
@@ -177,6 +183,7 @@ export class AparteSubagentView extends ElementBase {
     connectedCallback(): void {
         ensureStyles();
         this._build();
+        this._stopRenderers ??= onRenderersChange(this._onRenderers);
         if (!fed.has(this)) {
             this._listen();
             this._stopWatching ??= watchLaneWrites(this._onWrite);
@@ -193,6 +200,8 @@ export class AparteSubagentView extends ElementBase {
         this._stopWatching = null;
         this._stopConfig?.();
         this._stopConfig = null;
+        this._stopRenderers?.();
+        this._stopRenderers = null;
         // Gone for good, or only moved (a row rebuilt around it, a fold taking its row)?
         // Decided once the move is over.
         if (this._releaseQueued) return;
