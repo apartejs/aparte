@@ -275,6 +275,14 @@ aparte-chat:defined:not([data-empty]) .agent-workshop__welcome {
     }
 }
 
+/* A sub-agent, opened from its line: its conversation, scrolling on its own. */
+.agent-workshop__agent {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--aparte-space-4) var(--aparte-space-5);
+}
+
 /* Terminal: every run, newest last. */
 .agent-workshop__terminal {
     flex: 1;

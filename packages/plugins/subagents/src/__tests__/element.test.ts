@@ -34,7 +34,7 @@ describe('<aparte-subagent-view> as an element', () => {
         expect(customElements.get('aparte-subagent-view')).toBe(AparteSubagentView);
         const view: AparteSubagentView = document.createElement('aparte-subagent-view');
         expect(view).toBeInstanceOf(AparteSubagentView);
-        expect(AparteSubagentView.observedAttributes).toEqual(['for', 'message-id', 'agent-id']);
+        expect(AparteSubagentView.observedAttributes).toEqual(['for', 'message-id', 'agent-id', 'closable']);
     });
 
     it('re-reads when its chat changes', async () => {

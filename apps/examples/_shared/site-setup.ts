@@ -57,7 +57,7 @@ import type { AparteTrigger } from '@aparte/plugin-triggers';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
-import { DELEGATE, delegateLabel, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { DELEGATE, delegateLabel, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
 
 /**
@@ -286,8 +286,14 @@ async function run(): Promise<SiteSetup> {
 
     // 2a''. Sub-agents: one line each — its name, its task, what it is doing, "1 tool · 3 s" —
     //       with its own text and calls kept out of the reply. Whichever model answers: an AG-UI
-    //       agent's sub-agents get the same lines as the scripted model's.
-    setupSubagents();
+    //       agent's sub-agents get the same lines as the scripted model's. `?subagent-view`:
+    //       each line's Open button shows that sub-agent's conversation in a pane beside the chat.
+    if (new URLSearchParams(location.search).has('subagent-view')) {
+        setupSubagents({ open: 'event' });
+        mountSubagentPane();
+    } else {
+        setupSubagents();
+    }
     //       An agent's activity ("Read 2 of 3 sources") is drawn by the renderer of its type.
     setupActivity();
 

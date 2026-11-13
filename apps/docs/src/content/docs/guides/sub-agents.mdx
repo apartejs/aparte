@@ -269,10 +269,12 @@ setupSubagents({
   activity: true,          // a second line: what it is on, then what it did
   counts: true,            // "3 tools · 12s", once it is over
   details: 'transcript',   // its conversation under the line; false (the default) for nothing
+  open: 'event',           // an Open button that shows it beside the chat; see below
 });
 ```
 
-The three are `SubagentsOptions`. `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
+These are `SubagentsOptions`; `open` is explained in
+[Open a sub-agent beside the chat](#open-a-sub-agent-beside-the-chat). `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
 conversation under it — the task it was given, its text, its reasoning, its own tool rows and its
 own sub-agents as lines, drawn by the reply's renderers and kept up to date while it works — closed
 until the reader opens it. A function puts what it returns there, as a tool display's `details`
@@ -396,6 +398,51 @@ document.getElementById('chat')!.addEventListener('aparte-subagent-start', (even
 It follows the sub-agent live, shows the saved conversation after a reload, and draws nothing until
 there is something to show. `aparte-subagent-end` says how each one ended. The
 [component page](/components/subagent-view/) has the rest.
+
+### Open a sub-agent beside the chat
+
+To let the reader pick the sub-agent, give each line an Open button with
+`setupSubagents({ open: 'event' })`, and wire the view with `connectSubagentView`:
+
+```html
+<aparte-split position="55">
+  <aparte-chat id="chat"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+```
+
+```ts
+import { connectSubagentView, setupSubagents } from '@aparte/plugin-subagents';
+import type { SubagentViewSplit } from '@aparte/plugin-subagents';
+
+setupSubagents({ open: 'event' });
+
+const disconnect = connectSubagentView({
+  chat: document.getElementById('chat')!,
+  view: document.querySelector('aparte-subagent-view')!,
+  split: document.querySelector<SubagentViewSplit>('aparte-split')!,
+});
+```
+
+The button sits at the end of each sub-agent's line, named "Open Researcher" in the chat's
+language. Pressing it (click, Enter or Space) dispatches `aparte-subagent-open`
+(`AparteSubagentOpenEventDetail`: `messageId`, `agentId`, `name`, and `toolCallId` when the line is
+that call's row). `connectSubagentView` then:
+
+- points the view at that sub-agent and opens the split's second pane (on a phone, where the split
+  shows one pane, it shows the view);
+- marks the line: the row gets `data-current` and its button `aria-current="true"`, until another
+  one is opened or the view closes;
+- makes the view `closable`: the sub-agent's name and a Close button above its conversation. Close,
+  or Escape inside the view, folds the pane and puts the focus back on the button that opened it.
+
+A line with nothing behind it also opens on a click anywhere on it. With `details: 'transcript'`
+too, the line keeps opening the conversation under itself and only the button opens it beside
+the chat, so one click never means two things. A sub-agent's own sub-agents are lines inside the
+view, and they open in the same view. Without `open`, the line has no button and opens nothing.
+
+Without a split, pass `onOpen` and `onClose` and show the view your own way (a tab, a drawer).
+`disconnect()` undoes all of it.
 
 The plugin ships no framework binding: the element is a plain tag in every framework. A Vue or
 Svelte template accepts it as it is, and Angular with `CUSTOM_ELEMENTS_SCHEMA` on the component

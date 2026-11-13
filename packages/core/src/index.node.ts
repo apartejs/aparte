@@ -135,6 +135,7 @@ export type {
     AparteToolDisplay,
     AparteToolDetails,
     AparteToolLine,
+    AparteToolLineOpen,
     AparteToolCallView,
     AparteMountedView,
     AparteToolMount,

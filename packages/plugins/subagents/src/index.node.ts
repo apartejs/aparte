@@ -10,6 +10,8 @@
 export { setupSubagents } from './setup.js';
 export { subagentOf, subagentStatus } from './status.js';
 export { subagentTranscript } from './transcript.js';
+export { connectSubagentView } from './connect.js';
+export type { ConnectSubagentViewOptions, SubagentViewSplit } from './connect.js';
 // The element's TYPE only — `export type` is erased, so this entry stays DOM-free while an
 // SSR consumer can still name `AparteSubagentView` in a signature.
 export type { AparteSubagentView, SubagentViewSource } from './aparte-subagent-view.js';
@@ -21,4 +23,5 @@ export type {
     SubagentsOptions,
     AparteSubagentStartEventDetail,
     AparteSubagentEndEventDetail,
+    AparteSubagentOpenEventDetail,
 } from './types.js';

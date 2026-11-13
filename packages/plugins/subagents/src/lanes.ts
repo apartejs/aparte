@@ -64,6 +64,20 @@ export interface LaneWrite {
     readonly anchor: AparteSegment;
 }
 
+/**
+ * The last anchor written for each sub-agent of a run still going, by reply and agent: what a
+ * view opened in the middle of a run reads before the next write reaches it — the chat a
+ * framework mirrors may not hold the lane yet. Dropped when the run ends: the conversation
+ * holds it then.
+ */
+const lastWrites = new Map<string, LaneWrite>();
+const writeKey = (messageId: string, agentId: string): string => `${messageId}\u0000${agentId}`;
+
+/** The last anchor written for this sub-agent while its run goes on, if any. */
+export function lastLaneWrite(messageId: string, agentId: string): LaneWrite | undefined {
+    return lastWrites.get(writeKey(messageId, agentId));
+}
+
 /** Who hears every anchor written, from every setup: the standalone views. */
 const laneWatchers = new Set<(write: LaneWrite) => void>();
 
@@ -254,7 +268,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             }
         }
         write(run, lane.host, lane.anchorId, updates);
-        if (laneWatchers.size === 0 || run.closed) return;
+        if (run.closed) return;
         // The anchor as the conversation holds it now; a host that cannot be read gets the
         // plugin's own shape, which reads the same state.
         const anchor = anchorOf(run, lane) ?? {
@@ -267,6 +281,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             agentId: lane.id,
             anchor,
         };
+        lastWrites.set(writeKey(run.messageId, lane.id), note);
         for (const fn of [...laneWatchers]) {
             try {
                 fn(note);
@@ -341,7 +356,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
     /** Drop a run without writing anything. */
     const forget = (run: Run): void => {
-        for (const lane of run.lanes.values()) stepsEnded(run.messageId, lane.id);
+        for (const lane of run.lanes.values()) {
+            stepsEnded(run.messageId, lane.id);
+            lastWrites.delete(writeKey(run.messageId, lane.id));
+        }
         run.closed = true;
         stopFrame(run);
         run.unlisten();

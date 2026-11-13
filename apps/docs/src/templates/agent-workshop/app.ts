@@ -10,7 +10,7 @@ import { setupPlanCard } from '@aparte/plugin-cards/plan';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
-import { setupSubagents } from '@aparte/plugin-subagents';
+import { connectSubagentView, setupSubagents } from '@aparte/plugin-subagents';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import diff from '@shikijs/langs/diff';
 import json from '@shikijs/langs/json';
@@ -110,10 +110,11 @@ async function main(): Promise<void> {
 
     // Sub-agents: the model hands parts of a job to `delegate`, which runs each one as a loop of
     // its own on this page's tools. Each gets one line under the call (its name, its task, what it
-    // is running, "1 tool · 2 s"), and the line opens on its own rows and terminal output.
+    // is running, "1 tool · 2 s"), and the line opens on its own rows and terminal output. Its
+    // Open button shows the same conversation in the workspace, in a tab of its own, live.
     const delegate = scenarioSubagentTool(model);
     aparteGlobalConfig.registerTool(delegate.tool, delegate.handler);
-    setupSubagents({ details: 'transcript' });
+    setupSubagents({ details: 'transcript', open: 'event' });
     // Read like the other rows: `delegate to 3 sub-agents`, saying Running and Done, and each
     // sub-agent's line (named by the agent) too.
     aparteGlobalConfig.registerToolDisplay(delegate.tool.name, {
@@ -136,6 +137,22 @@ async function main(): Promise<void> {
     suggestions.suggestions = SUGGESTIONS;
 
     workspace.open('src/parse.ts', 'opened');
+
+    // The sub-agent tab: no split to open here (the workspace is always beside the chat), so the
+    // wiring hands the layout to the workspace, and on a phone the split shows the workspace pane.
+    const split = root.querySelector<HTMLElement & { pane: 'start' | 'end' }>('aparte-split')!;
+    connectSubagentView({
+        chat: root.querySelector('aparte-chat')!,
+        view: root.querySelector('aparte-subagent-view')!,
+        onOpen: ({ name }) => {
+            workspace.showAgent(name ?? 'Sub-agent');
+            split.pane = 'end';
+        },
+        onClose: () => {
+            workspace.hideAgent();
+            split.pane = 'start';
+        },
+    });
 
     const viewport = root.querySelector<Viewport>('aparte-chat-viewport')!;
     const composer = root.querySelector<Composer>('aparte-composer')!;

@@ -304,6 +304,27 @@ export interface AparteToolLine {
     note?: string;
     /** What is behind the line, when the display has no `details` key. */
     details?: false | AparteToolDetails;
+    /**
+     * Somewhere else the call can be opened: a pane beside the chat that shows what it stands
+     * for. Core draws an Open button at the end of the line and calls `onOpen` when it is
+     * pressed (click, Enter, Space). A row with nothing behind it also opens on a click
+     * anywhere on its line; a row with a disclosure keeps its line for the disclosure, so one
+     * click never means two things. Left out, nothing: no button, no pointer.
+     */
+    open?: AparteToolLineOpen;
+}
+
+/** What a tool line opens elsewhere — {@link AparteToolLine.open}. */
+export interface AparteToolLineOpen {
+    /** The Open button's accessible name and tooltip, in the reader's language ("Open Researcher"). Plain text. */
+    label: string;
+    /** Called with the row when the reader opens it. */
+    onOpen: (row: HTMLElement) => void;
+    /**
+     * What the call stands for is the one open elsewhere now: the button carries
+     * `aria-current="true"` and the row `data-current`, so a reader sees which one is shown.
+     */
+    current?: boolean;
 }
 
 /**

@@ -228,6 +228,21 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     font-weight: var(--aparte-font-weight-normal);
     color: var(--aparte-text-muted);
 }
+/* A line that opens elsewhere (`AparteToolLine.open`): the Open button at the far end of the
+   first line, after a quiet row's chevron, eating the line's block padding so the row keeps
+   the height of its neighbours. A row with nothing behind it opens on its whole line, so that
+   line takes the pointer and the summary's hover; the row shown elsewhere now keeps that
+   surface, and its button the primary ink. */
+.aparte-tool-open {
+    order: 1;
+    flex: none;
+    margin-inline-start: auto;
+    margin-block: calc(var(--aparte-space-2) * -1);
+}
+.aparte-segment-tool-call[data-opens] > .aparte-tool-line { cursor: pointer; }
+.aparte-segment-tool-call[data-opens] > .aparte-tool-line:hover,
+.aparte-segment-tool-call[data-current] > :is(.aparte-tool-line, .aparte-tool-summary) { background: var(--aparte-surface-2); }
+.aparte-tool-open[aria-current='true'] { color: var(--aparte-primary); }
 .aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-summary > .aparte-tool-activity {
     padding-inline-start: calc(var(--aparte-space-8) + var(--aparte-space-4) + var(--aparte-font-size-md) + var(--aparte-space-3));
 }

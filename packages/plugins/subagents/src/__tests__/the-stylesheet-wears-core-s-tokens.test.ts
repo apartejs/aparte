@@ -33,6 +33,8 @@ const ALLOWED = [
     /^--aparte-space-\d+$/, /^--aparte-font-size-[a-z]+$/, /^--aparte-border$/, /^--aparte-border-width$/,
     /^--aparte-text-muted$/, /^--aparte-content-(font-size|line-height|color)$/, /^--aparte-font-family$/,
     /^--aparte-subagent-indent$/,
+    // A closable view's head: the name's weight, and the ring the keyboard sees on it.
+    /^--aparte-font-weight-[a-z]+$/, /^--aparte-focus-outline-width$/, /^--aparte-border-focus$/,
 ];
 
 describe('the stylesheet', () => {

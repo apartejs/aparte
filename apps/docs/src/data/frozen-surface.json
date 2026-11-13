@@ -255,6 +255,7 @@
       "package": "@aparte/plugin-subagents",
       "attributes": [
         "agent-id",
+        "closable",
         "data-empty",
         "data-inline",
         "for",
@@ -715,6 +716,7 @@
     "@aparte/plugin-subagents": [
       "AparteSubagentView",
       "SUBAGENT_SEGMENT_TYPE",
+      "connectSubagentView",
       "setupSubagents",
       "subagentOf",
       "subagentStatus",

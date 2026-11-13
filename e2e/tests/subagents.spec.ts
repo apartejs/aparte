@@ -121,6 +121,59 @@ test('one sub-agent is the delegate call’s own row', async ({ page }) => {
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
+test('a sub-agent’s line opens its conversation in the pane beside the chat, live, and Close gives the focus back', async ({ page }) => {
+    // `?subagent-view`: `setupSubagents({ open: 'event' })` and a view wired by `connectSubagentView`.
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/?scenario&subagent-view');
+    const pane = page.locator('.site-subagent-pane');
+    const view = pane.locator('aparte-subagent-view');
+    await expect(pane).toBeHidden();
+    await chat.send(ONE);
+
+    const line = chat.toolRow('Changelog reader');
+    const open = line.locator('.aparte-tool-open');
+    await expect(open).toHaveAttribute('aria-label', 'Open Changelog reader');
+    // Opened while it works: the pane follows it to its answer.
+    await expect(chat.toolActivity(line)).toHaveText(STEPS.subagent);
+    await open.click();
+    await expect(pane).toBeVisible();
+    await expect(line).toHaveAttribute('data-current', '');
+    await expect(open).toHaveAttribute('aria-current', 'true');
+    await expect(view.locator('.aparte-subagent-name')).toHaveText('Changelog reader');
+    await expect(view.locator('.aparte-subagent-name')).toBeFocused();
+    await expect(view.locator('.aparte-subagent-task')).toHaveText('Find the last release in the changelog');
+    await expect(view).toContainText('The last entry is 0.16.11.', { timeout: 20_000 });
+    // Its words are in the pane, never in the reply.
+    await expect(chat.lastReply).toContainText('The last release was 0.16.11', { timeout: 20_000 });
+    expect(await chat.lastReply.innerText()).not.toContain('The last entry is 0.16.11.');
+
+    // Close folds the pane, clears the mark and puts the focus back on the line's button.
+    await view.locator('.aparte-subagent-close').click();
+    await expect(pane).toBeHidden();
+    await expect(line).not.toHaveAttribute('data-current');
+    await expect(open).toBeFocused();
+
+    // The keyboard: Enter on the button opens it again, Escape in the pane closes it.
+    await page.keyboard.press('Enter');
+    await expect(pane).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pane).toBeHidden();
+    await expect(open).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(pane).toBeVisible();
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('without the option, a sub-agent’s line opens nothing: no button', async ({ page }) => {
+    const chat = await openSite(page);
+    await chat.send(ONE);
+    const line = chat.toolRow('Changelog reader');
+    await expect(line).toHaveCount(1);
+    await expect(line.locator('.aparte-tool-open')).toHaveCount(0);
+    await expect(line).not.toHaveAttribute('data-opens');
+});
+
 test('the approval panel names the sub-agent that asks, and approving lets the turn finish', async ({ page }) => {
     const errors = collectPageErrors(page);
     const chat = await openSite(page);

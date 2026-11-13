@@ -16,6 +16,7 @@
  * is `@aparte/plugin-subagents`.
  */
 import { contentToText, type AparteChatRequest, type AparteToolCallSegment } from '@aparte/core';
+import { connectSubagentView } from '@aparte/plugin-subagents';
 import type { Scenario } from '@aparte/provider-scenario';
 
 /** The tool the delegating steps call: the scenario provider's default name. */
@@ -217,4 +218,33 @@ export function delegateLabel(segment: AparteToolCallSegment): string {
     if (segment.status === 'pending') return `Delegating to ${n} sub-agents…`;
     if (segment.status === 'resolved') return `Delegated to ${n} sub-agents`;
     return `Delegate to ${n} sub-agents`;
+}
+
+/**
+ * `?subagent-view`: a sub-agent's line opens its conversation in a pane at the end of the page.
+ *
+ * The same on every example, so it cannot wrap the framework's own chat in a split: the pane
+ * is an `<aside>` of its own, outside what the framework renders, shown and hidden by
+ * `connectSubagentView`'s `onOpen` and `onClose` (an app with an `<aparte-split>` passes it as
+ * `split` instead). The line's Open button is `setupSubagents({ open: 'event' })`, in
+ * site-setup.ts, under the same flag.
+ */
+export function mountSubagentPane(): void {
+    const pane = document.createElement('aside');
+    pane.className = 'site-subagent-pane';
+    pane.setAttribute('aria-label', 'Sub-agent');
+    pane.hidden = true;
+    const view = document.createElement('aparte-subagent-view');
+    pane.append(view);
+    document.body.append(pane);
+    // The page's body as the chat: the one element every framework leaves in place. A framework
+    // may draw its `<aparte-chat>` again (React's development mounts twice), and a listener on
+    // the first one would hear nothing; the line's event bubbles to the body all the same, and
+    // the view finds the chat's viewport under it.
+    connectSubagentView({
+        chat: document.body,
+        view,
+        onOpen: () => { pane.hidden = false; },
+        onClose: () => { pane.hidden = true; },
+    });
 }

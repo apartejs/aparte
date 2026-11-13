@@ -23,6 +23,7 @@ import {
     type AparteToolLine,
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
+import { dispatchOpen, isShown } from './open.js';
 import { currentStep } from './steps.js';
 import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
@@ -173,6 +174,16 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
         line.details = typeof details === 'function' ? details
             : details === 'transcript' ? subagentTranscript
             : false;
+
+        // Somewhere else to read it: core draws the button, the plugin says what it opens.
+        if (options.open === 'event') {
+            const shownName = name || word(config, 'subagentsUnnamed');
+            line.open = {
+                label: word(config, 'subagentsOpen').replace('{name}', () => shownName),
+                current: isShown(segment.messageId, sub.id),
+                onOpen: (row) => dispatchOpen(row, segment, sub, standIn),
+            };
+        }
         return line;
     };
 }

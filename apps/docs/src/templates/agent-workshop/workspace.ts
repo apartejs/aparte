@@ -4,6 +4,9 @@
  * - Files: the file tree, and the file the agent last read or wrote (or the one you picked).
  * - Terminal: every command the agent ran, with its output.
  * - Changes: the diff of every file the agent edited.
+ * - A sub-agent, once its line is opened: its conversation, live (`<aparte-subagent-view>`, wired
+ *   in app.ts). While it is the tab on screen, the tools no longer switch tabs as they run: the
+ *   reader chose to watch that sub-agent, and its own reads and runs would take them away.
  *
  * The panel draws; it decides nothing. The tool handlers (tools.ts) call it as they run, so it
  * follows what the agent did without listening to the chat at all. Code is highlighted through
@@ -13,7 +16,7 @@
 import { aparteGlobalConfig } from '@aparte/core';
 import { languageOf, type Files } from './repo';
 
-export type WorkspaceTab = 'files' | 'terminal' | 'changes';
+export type WorkspaceTab = 'files' | 'terminal' | 'changes' | 'agent';
 
 /** Why a file is on screen: the agent read it, the agent wrote it, or you opened it. */
 export type FileNote = 'read' | 'edited' | 'opened';
@@ -24,7 +27,7 @@ const NOTES: Record<FileNote, { label: string; badge: string } | null> = {
     opened: null,
 };
 
-const TABS: WorkspaceTab[] = ['files', 'terminal', 'changes'];
+const TABS: WorkspaceTab[] = ['files', 'terminal', 'changes', 'agent'];
 
 export interface Workspace {
     readonly files: Files;
@@ -35,6 +38,10 @@ export interface Workspace {
     /** Add a command and its output to the Terminal, and select the tab. */
     log(command: string, output: string): void;
     select(tab: WorkspaceTab): void;
+    /** Show the sub-agent tab, named after it, and select it. */
+    showAgent(name: string): void;
+    /** Take the sub-agent tab away, and go back to Files. */
+    hideAgent(): void;
 }
 
 export function createWorkspace(root: HTMLElement, files: Files): Workspace {
@@ -60,6 +67,12 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
             root.querySelector<HTMLElement>(`#${button.getAttribute('aria-controls')}`)!.hidden = !selected;
         }
         if (focus) tabs.get(tab)!.focus();
+    }
+
+    /** A tool's turn to show what it did, unless the reader is watching a sub-agent. */
+    function follow(tab: WorkspaceTab): void {
+        if (tabs.get('agent')!.getAttribute('aria-selected') === 'true') return;
+        select(tab);
     }
 
     // The tree is drawn once (the agent edits files, it does not add any); `markTree` keeps
@@ -206,11 +219,13 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
         if (tab) select(tab);
     });
     list.addEventListener('keydown', (event) => {
-        const at = TABS.findIndex((name) => tabs.get(name)!.getAttribute('aria-selected') === 'true');
-        const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: TABS.length - 1 }[event.key];
+        // The tabs on screen: the sub-agent's only once one was opened.
+        const shown = TABS.filter((name) => !tabs.get(name)!.hidden);
+        const at = shown.findIndex((name) => tabs.get(name)!.getAttribute('aria-selected') === 'true');
+        const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: shown.length - 1 }[event.key];
         if (next === undefined) return;
         event.preventDefault();
-        select(TABS[(next + TABS.length) % TABS.length]!, true);
+        select(shown[(next + shown.length) % shown.length]!, true);
     });
     tree.addEventListener('click', (event) => {
         const file = (event.target as Element).closest<HTMLElement>('[data-path]')?.dataset['path'];
@@ -221,13 +236,13 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
         files,
         open(file, why) {
             void show(file, why);
-            select('files');
+            follow('files');
         },
         write(file, content) {
             files.set(file, content);
             void show(file, 'edited');
             void drawChanges();
-            select('changes');
+            follow('changes');
         },
         log(command, output) {
             terminal.querySelector('[data-workspace="terminal-empty"]')?.remove();
@@ -248,10 +263,20 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
             run.append(prompt, out);
             terminal.append(run);
             // Selected first: a hidden panel has no height to scroll.
-            select('terminal');
+            follow('terminal');
             terminal.scrollTop = terminal.scrollHeight;
         },
         select: (tab) => select(tab),
+        showAgent(name) {
+            const tab = tabs.get('agent')!;
+            root.querySelector<HTMLElement>('[data-workspace="agent-name"]')!.textContent = name;
+            tab.hidden = false;
+            select('agent');
+        },
+        hideAgent() {
+            tabs.get('agent')!.hidden = true;
+            select('files');
+        },
     };
 }
 

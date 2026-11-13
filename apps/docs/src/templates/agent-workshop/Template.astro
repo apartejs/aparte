@@ -1,7 +1,7 @@
 ---
 /**
  * The Agent workshop template: a coding agent in a split, the chat on one side and the workspace
- * it works in on the other (Files, Terminal, Changes). The markup is the library's elements and
+ * it works in on the other (Files, Terminal, Changes, and the sub-agent opened from its line). The markup is the library's elements and
  * recipes; the behaviour is app.ts, the agent's tools are tools.ts, the panel is workspace.ts.
  */
 import './agent-workshop.css';
@@ -72,6 +72,10 @@ import './agent-workshop.css';
                             <aparte-icon name="edit"></aparte-icon> Changes
                             <span class="aparte-badge aparte-badge--warning aparte-badge--sm" data-workspace="change-count" hidden></span>
                         </button>
+                        <!-- Shown once a sub-agent's line is opened (app.ts), named after that sub-agent. -->
+                        <button class="aparte-tabs__tab" role="tab" type="button" id="aw-tab-agent" aria-controls="aw-panel-agent" aria-selected="false" tabindex="-1" data-tab="agent" hidden>
+                            <aparte-icon name="messageSquare"></aparte-icon> <span data-workspace="agent-name">Sub-agent</span>
+                        </button>
                     </div>
 
                     <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-files" aria-labelledby="aw-tab-files">
@@ -97,6 +101,11 @@ import './agent-workshop.css';
                         <div class="agent-workshop__changes" data-workspace="changes">
                             <p class="agent-workshop__empty">No changes yet. What the agent edits shows here as a diff.</p>
                         </div>
+                    </div>
+
+                    <!-- A sub-agent's conversation, live: connectSubagentView points it at the line that was opened. -->
+                    <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-agent" aria-labelledby="aw-tab-agent" hidden>
+                        <aparte-subagent-view class="agent-workshop__agent"></aparte-subagent-view>
                     </div>
                 </div>
             </section>

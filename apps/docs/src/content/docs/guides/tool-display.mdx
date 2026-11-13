@@ -330,7 +330,12 @@ text:
 - `label` and `target`, used only when your display gives no label or summary;
 - `activity`, what the call is doing now, shown after the target while the call runs or waits;
 - `note`, a short text after the state word, such as `3 tools · 12 s`, in every state;
-- `details`, used only when your display has no `details` key.
+- `details`, used only when your display has no `details` key;
+- `open` (`AparteToolLineOpen`), somewhere else the call can be shown: core draws an Open button at
+  the end of the line, named by `label`, and calls `onOpen(row)` when it is pressed. A row with
+  nothing behind it opens on a click anywhere on its line too; a row with a disclosure keeps its
+  line for the disclosure. `current: true` marks the row whose subject is open now (`data-current`
+  on the row, `aria-current="true"` on the button).
 
 Your `registerToolDisplay` always wins, field by field. A config holds one provider (`null`
 removes it), and a chat with a config of its own uses the page's when it has none. It is called
