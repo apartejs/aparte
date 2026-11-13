@@ -716,6 +716,11 @@ export class AparteLauncher extends HTMLElement {
         }
     }
 
+    /** A sidebar open as a drawer inside the card: Escape closes it before it closes the chat. */
+    private _drawerOpen(): boolean {
+        return this.querySelector('aparte-sidebar[data-drawer]:not([collapsed])') !== null;
+    }
+
     private _onKeydown = (e: KeyboardEvent): void => {
         if (!this.open) return;
         if (e.key === 'Escape') {
@@ -724,7 +729,10 @@ export class AparteLauncher extends HTMLElement {
             // gauge's panel, anything that took it has set `defaultPrevented` — or is about
             // to: an IME cancelling its composition (`keyCode` 229 for the engines that do not
             // say `isComposing`, the composer's own test), a modal dialog closing itself.
-            if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || this._inModalDialog(e)) return;
+            // A drawer open in the card is the one layer that answers from the DOCUMENT, after
+            // this handler, since the focus may be anywhere in the card: it is left the key, or
+            // the chat closed with its list of conversations.
+            if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || this._inModalDialog(e) || this._drawerOpen()) return;
             e.preventDefault();
             // Maximized, Escape brings the card back first, the way it leaves a full screen: a
             // way out that needs no control on the page — a restore button may be gone with the

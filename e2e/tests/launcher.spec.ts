@@ -412,6 +412,7 @@ test.describe('the launcher, on a phone', () => {
 // card a few hundred pixels wide it stayed a column, and as a drawer it opened over the page
 // the chat floats on. Geometry is compared between boxes, never with a pixel constant.
 test.describe('the launcher, with a list of conversations in its card', () => {
+    const launcher = (page: Page) => page.locator('aparte-launcher');
     const shell = (page: Page) => page.locator('aparte-launcher > .aparte-app-shell');
     const sidebar = (page: Page) => page.locator('aparte-launcher aparte-sidebar');
     const scrim = (page: Page) => page.locator('aparte-launcher .aparte-sidebar__scrim');
@@ -505,6 +506,67 @@ test.describe('the launcher, with a list of conversations in its card', () => {
         await page.locator('aparte-launcher [data-aparte-launcher-maximize]').click();
         await expect(sidebar(page)).toHaveAttribute('data-drawer', '');
         await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('Escape closes the drawer first, and the chat on the next press', async ({ page }) => {
+        const errors = await openCard(page);
+        await openDrawer(page);
+        await page.keyboard.press('Escape');
+        await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+        await expect(launcher(page), 'the chat is still open').toHaveAttribute('open', '');
+
+        await page.keyboard.press('Escape');
+        await expect(launcher(page)).not.toHaveAttribute('open', /.*/);
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('Escape on a row\'s menu closes the menu, and leaves the drawer and the chat open', async ({ page }) => {
+        const errors = await openCard(page);
+        await openDrawer(page);
+        await rows(page).first().hover();
+        await rows(page).first().locator('.aparte-conv-item__more').click();
+        const menu = page.locator('[role="menu"]');
+        await expect(menu).toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await expect(sidebar(page), 'the drawer is still open').not.toHaveAttribute('collapsed', /.*/);
+        await expect(launcher(page), 'and so is the chat').toHaveAttribute('open', '');
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('closing the chat closes its drawer', async ({ page }) => {
+        const errors = await openCard(page);
+        await openDrawer(page);
+        // The round button, outside the card: the scrim does not cover it.
+        await button(page).click();
+        await expect(launcher(page)).not.toHaveAttribute('open', /.*/);
+        await expect(sidebar(page)).toHaveAttribute('collapsed', '');
+
+        // Reopened, the chat is in reach: no drawer and no scrim left over it.
+        await button(page).click();
+        await expect(shell(page)).toBeVisible();
+        await expect(scrim(page)).toHaveCount(0);
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+
+    test('the card is as tall as a floating chat without a list', async ({ page }) => {
+        // The plain floating chat first: the header the launcher draws and the card under it.
+        await installLlmMock(page);
+        await page.goto('/?layout=launcher&scenario&fast');
+        await button(page).click();
+        const plain = await launcher(page).evaluate(async (el) => {
+            await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished));
+            const boxes = [...el.children]
+                .filter((child) => !child.classList.contains('aparte-launcher__button'))
+                .map((child) => child.getBoundingClientRect());
+            return Math.max(...boxes.map((b) => b.bottom)) - Math.min(...boxes.map((b) => b.top));
+        });
+
+        const errors = await openCard(page);
+        const card = (await shell(page).boundingBox())!;
+        expect(Math.abs(card.height - plain), `the card is ${card.height}px, a plain one ${plain}px`).toBeLessThanOrEqual(2);
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 });

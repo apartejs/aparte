@@ -9,10 +9,11 @@
 
 /*
  * aparte-sidebar — the column beside the chat.
- * A sized column that becomes a drawer under 48rem of window. The recipe draws the
- * column and its four regions; `<aparte-sidebar>` adds the behaviour (collapse, the
- * drawer, the search filter) and sets `data-drawer` on itself from the media query,
- * which is the one attribute the rules below read.
+ * A sized column that becomes a drawer under 48rem of window, and in the card of a
+ * floating chat. The recipe draws the column and its four regions; `<aparte-sidebar>`
+ * adds the behaviour (collapse, the drawer, the search filter) and sets `data-drawer` on
+ * itself, from the media query or from the launcher it is in: the one attribute the rules
+ * below read.
  *
  *     <aside class="aparte-sidebar">
  *       <div class="aparte-sidebar__header">
