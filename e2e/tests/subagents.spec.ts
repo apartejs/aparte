@@ -26,7 +26,7 @@ const TEAM_AGENTS = [
     { name: 'Version checker', task: 'Say which version number comes next', says: 'so it is a minor bump' },
 ];
 
-/** "1 tool · 2s": a count and a duration, in whatever unit the duration takes. */
+/** "1 tool · 2s", on the line's second line once it is over: a count and a duration, in whatever unit the duration takes. */
 const DONE_NOTE = /^1 tool · \S/;
 
 const PANEL = '.aparte-elic-panel.aparte-approval-panel';
@@ -59,6 +59,11 @@ test('three sub-agents work side by side, each on its line, and the reply keeps 
     await expect(chat.toolRow('Delegating to 3 sub-agents…')).toHaveCount(1);
     const working = await chat.lastReply.innerText();
     for (const agent of TEAM_AGENTS) expect(working, `${agent.name}'s words stay out of the reply`).not.toContain(agent.says);
+    // Heights while they work, to hold against the heights once they are done: a line that grew
+    // a second line when its sub-agent began acting and lost it at its end moved every line
+    // under it twice.
+    const heightsOf = () => Promise.all(TEAM_AGENTS.map(async (agent) => Math.round((await chat.toolRow(agent.name).boundingBox())!.height)));
+    const whileWorking = await heightsOf();
 
     // Once they are back: each line done, with its count and its duration, and the answer.
     await expect(chat.lastReply).toContainText('Ready to cut 0.17.0', { timeout: 20_000 });
@@ -66,8 +71,9 @@ test('three sub-agents work side by side, each on its line, and the reply keeps 
     for (const agent of TEAM_AGENTS) {
         const line = chat.toolRow(agent.name);
         await expect(line).toHaveAttribute('data-status', 'resolved');
-        await expect(chat.toolNote(line)).toHaveText(DONE_NOTE);
+        await expect(chat.toolActivity(line)).toHaveText(DONE_NOTE);
     }
+    expect(await heightsOf(), 'each line keeps its height from its start to its end').toEqual(whileWorking);
     await expect(chat.toolRow('Delegated to 3 sub-agents')).toHaveAttribute('data-status', 'resolved');
     // Four rows: the call and its three sub-agents. Their own calls are theirs, not the reply's.
     await expect(chat.toolRows()).toHaveCount(4);
@@ -91,7 +97,7 @@ test('one sub-agent is the delegate call’s own row', async ({ page }) => {
     await expect(chat.streaming()).toHaveCount(0);
     await expect(chat.toolRows()).toHaveCount(1);
     await expect(line).toHaveAttribute('data-status', 'resolved');
-    await expect(chat.toolNote(line)).toHaveText(DONE_NOTE);
+    await expect(chat.toolActivity(line)).toHaveText(DONE_NOTE);
     expect(await chat.lastReply.innerText()).not.toContain('The last entry is 0.16.11.');
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
@@ -115,7 +121,7 @@ test('the approval panel names the sub-agent that asks, and approving lets the t
     await expect(chat.lastReply).toContainText('The build is green', { timeout: 20_000 });
     await expect(chat.streaming()).toHaveCount(0);
     await expect(line).toHaveAttribute('data-status', 'resolved');
-    await expect(chat.toolNote(line)).toHaveText(DONE_NOTE);
+    await expect(chat.toolActivity(line)).toHaveText(DONE_NOTE);
     expect(await chat.lastReply.innerText()).not.toContain('The build finished in 12.4 s with no errors.');
     expect(errors, 'no uncaught page errors').toEqual([]);
 });

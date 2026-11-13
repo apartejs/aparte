@@ -3,12 +3,14 @@
  *
  * The plugin gives core a tool-line provider (`setToolLineProvider`): for a call that carries
  * a sub-agent — the call that opened it, or the call the plugin's own segment stands in for —
- * it says the sub-agent's name, its task, what it is doing now and how far it got. Core reads
- * it AFTER the app's `registerToolDisplay`, field by field, so the app's label, summary and
- * details always win. It is asked at every draw, update and relabel and stores nothing: the
- * counts and the words follow the reader's language, and the duration moves with every update
- * the sub-agent's work brings (there is no timer per row: a sub-agent that is silent — waiting
- * on a long tool — shows the duration of its last update until the next one).
+ * it says the sub-agent's name and its task, and on a second line, from the sub-agent's start to
+ * its end, what it is on ("Starting…", then its latest call) and once it is over what it did
+ * ("3 tools · 12s"). The second line is there the whole time, so the row keeps its height: one
+ * that grew a line when the sub-agent began acting and lost it at its end moved every row under
+ * it twice, and a count that grew beside the task moved the task. Core reads it AFTER the app's
+ * `registerToolDisplay`, field by field, so the app's label, summary and details always win. It
+ * is asked at every draw, update and relabel and stores nothing: the counts and the words follow
+ * the reader's language.
  */
 import {
     contextConfig,
@@ -82,13 +84,12 @@ function activityOf(sub: AparteSubagent, config: AparteConfig): string {
 }
 
 /**
- * How long it worked: from when its line started to now while it works, else to the last
- * moment its conversation moved — data saved with it, so a reload reads the same number.
+ * How long it worked: from when its line started to the last moment its conversation moved —
+ * data saved with it, so a reload reads the same number.
  */
-function durationOf(anchor: AparteSegment, sub: AparteSubagent, live: boolean): number | undefined {
+function durationOf(anchor: AparteSegment, sub: AparteSubagent): number | undefined {
     const start = segmentTiming(anchor)?.startedAt;
     if (start === undefined) return undefined;
-    if (live) return Math.max(0, Date.now() - start);
     let end: number | undefined;
     for (const segment of sub.segments) {
         const timing = segmentTiming(segment);
@@ -130,24 +131,37 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
         const task = sub.description?.trim();
         if (task) line.target = task;
 
-        if (options.activity !== false && live) {
-            const activity = activityOf(sub, config);
-            if (activity) line.activity = activity;
-        }
+        // What it did: "N tools · duration", once it is over — while it works the line says what
+        // it is on, and a count that grew with each call moved the task beside it.
+        const summary = (): string => {
+            if (options.counts === false) return '';
+            const parts: string[] = [];
+            const tools = sub.segments.filter((s) => s.type === 'tool_call').length;
+            if (tools > 0) parts.push(toolCount(config, tools));
+            const ms = durationOf(segment, sub);
+            if (ms !== undefined) {
+                const tag = config.getLocale().tag;
+                parts.push(formatDuration(ms, typeof tag === 'string' && tag ? tag : undefined));
+            }
+            return parts.join(' · ');
+        };
 
         // The state, only where the row's own badge would say another: the row is the CALL's,
         // and a call can be over while the sub-agent it opened failed or was stopped — or
         // still running after one of its sub-agents is done. A stand-in's row always agrees.
         const note: string[] = [];
         if (!standIn && statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
-        if (options.counts !== false) {
-            const tools = sub.segments.filter((s) => s.type === 'tool_call').length;
-            if (tools > 0) note.push(toolCount(config, tools));
-            const ms = durationOf(segment, sub, live);
-            if (ms !== undefined) {
-                const tag = config.getLocale().tag;
-                note.push(formatDuration(ms, typeof tag === 'string' && tag ? tag : undefined));
-            }
+
+        if (options.activity !== false) {
+            // The second line, from its start to its end: what it is on, then what it did (in
+            // the state's word when there is no count to give, so the line is never empty).
+            line.activity = live
+                ? activityOf(sub, config) || word(config, 'subagentsStarting')
+                : summary() || stateWord(config, status);
+        } else if (!live) {
+            // One line: what it did comes after the state, once, at its end.
+            const done = summary();
+            if (done) note.push(done);
         }
         if (note.length > 0) line.note = note.join(' · ');
 

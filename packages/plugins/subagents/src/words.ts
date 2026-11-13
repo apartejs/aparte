@@ -31,6 +31,11 @@ export const WORDS = {
         ru: 'one:{n} инструмент|few:{n} инструмента|many:{n} инструментов|other:{n} инструмента',
         zh: 'other:{n} 个工具',
     },
+    /** What a sub-agent's second line says before its first call. */
+    subagentsStarting: {
+        en: 'Starting…', fr: 'Démarrage…', de: 'Wird gestartet…', es: 'Iniciando…', it: 'Avvio…',
+        ja: '開始しています…', ko: '시작하는 중…', pt: 'Iniciando…', ru: 'Запуск…', zh: '正在启动…',
+    },
     /** The name of a sub-agent that was given none, when no call names its line either. */
     subagentsUnnamed: {
         en: 'Sub-agent', fr: 'Sous-agent', de: 'Subagent', es: 'Subagente', it: 'Sottoagente',

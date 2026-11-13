@@ -294,7 +294,11 @@ export interface AparteToolLine {
     label?: string;
     /** What the call targets, when the display declares no summary. */
     target?: string;
-    /** What the call is doing now, shown after the target while it runs or waits. */
+    /**
+     * A second line under the name: what the call is doing now, and once it is over what it
+     * did, in every state the provider gives it. Give it for the call's whole life, or never:
+     * a line that comes and goes changes the row's height, and every row under it moves.
+     */
     activity?: string;
     /** A short trailing text, after the state word, in every state: "3 tools · 12 s". */
     note?: string;

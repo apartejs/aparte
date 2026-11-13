@@ -49,9 +49,9 @@ describe('a stopped turn stops its sub-agents', () => {
         const row = c.row('tool-c1')!;
         expect(row.getAttribute('data-status')).toBe('aborted');
         expect(shown(row, 'state')).toBe('Stopped');
-        // Nothing moves: no shimmer, no live action.
+        // Nothing moves: no shimmer, and the second line says what it did, not what it does.
         expect(row.querySelector('.aparte-shimmer')).toBeNull();
-        expect(shown(row, 'activity')).toBeNull();
+        expect(shown(row, 'activity')).toMatch(/^1 tool · /);
         // The lane as it was, its open call stopped with the run, its text kept.
         const lane = subagentOf(call)!.segments;
         expect(textOfAll(lane)).toContain('Halfway through');

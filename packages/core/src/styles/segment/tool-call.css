@@ -214,6 +214,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    nothing to hold still. */
 .aparte-tool-activity {
     order: 2;
+    /* Figures of one width: "9s" becoming "10s", or a count going up, moves nothing after it. */
+    font-variant-numeric: tabular-nums;
     flex: 1 0 100%;
     box-sizing: border-box;
     min-width: 0;
@@ -251,6 +253,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    quieter continuation, as the target is the name's: one line, cut with an ellipsis before
    it can push the row wider. */
 .aparte-tool-note {
+    font-variant-numeric: tabular-nums;
     /* Gives way after the target and before the name (see the name's rule); its full text is
        its title. */
     flex: 1000 1 0;

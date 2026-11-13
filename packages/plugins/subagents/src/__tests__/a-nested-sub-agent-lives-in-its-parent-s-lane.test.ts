@@ -56,8 +56,9 @@ describe('a nested sub-agent', () => {
         expect(subagentOf(own)).toMatchObject({ id: 'a3', status: 'failed', error: 'no file', parentId: 'a1' });
         expect(subagentStatus(own)).toBe('failed');
 
-        // The lead's line counts its own calls, the nested one included.
-        expect(shown(c.row('tool-c1'), 'note')).toMatch(/^1 tool · /);
+        // The lead's line counts its own calls, the nested one included: once it is over, on its
+        // second line.
+        expect(shown(c.row('tool-c1'), 'activity')).toMatch(/^1 tool/);
     });
 
     it("its line in the lead's activity is named like its row", () => {

@@ -18,8 +18,10 @@ sub-agent becomes one line in the reply.
 
 <Variant id="subagents" play="Why does the CSV import break on quoted fields?" caption="Three sub-agents side by side, each on its own line. The model here is scripted; the loop and the tools are real." />
 
-The line says who works and on what — its name, then its task — then what it is doing now, its
-latest tool call, and how far it got: `3 tools · 12s`. It reads one of five states: **Running**,
+The line says who works and on what: its name, then its task. Under it, a second line says what it
+is on — *Starting…*, then its latest tool call — and once it is over what it did: `3 tools · 12s`.
+That second line is there from its start to its end, so the line keeps its height and nothing
+under it moves while it works. It reads one of five states: **Running**,
 **Waiting** (a call of its own waits for a person), **Done**, **Failed**, or **Stopped** (a Stop,
 or a reload while it worked). By default the line has nothing behind it; what it can open on is
 [yours to choose](#what-the-line-shows).
@@ -38,7 +40,8 @@ setupSubagents();
 
 `setupSubagents()` works on the page's config, or on the one you pass last, like every setup
 function, and returns the function that takes it off again. The words follow the chat's language:
-the counts (`subagentsTools`) and the name of an agent given none (`subagentsUnnamed`) ship with the
+the counts (`subagentsTools`), the word before its first call (`subagentsStarting`) and the name of
+an agent given none (`subagentsUnnamed`) ship with the
 plugin in the same ten languages as [`@aparte/locales`](/guides/localization/), and `extendLocale`
 replaces them.
 
@@ -225,8 +228,8 @@ the agent's name, `registerToolDisplay('Researcher', …)`.
 import { setupSubagents } from '@aparte/plugin-subagents';
 
 setupSubagents({
-  activity: true,          // what it is doing now, while it works
-  counts: true,            // "3 tools · 12s"
+  activity: true,          // a second line: what it is on, then what it did
+  counts: true,            // "3 tools · 12s", once it is over
   details: 'transcript',   // its conversation under the line; false (the default) for nothing
 });
 ```

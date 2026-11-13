@@ -1,8 +1,8 @@
 # @aparte/plugin-subagents
 
-Sub-agents for [aparté](https://github.com/apartejs/aparte): one line per sub-agent — its name, its task,
-what it is doing now, and how far it got ("3 tools · 12 s") — with its conversation kept out of the reply
-and out of what the model reads.
+Sub-agents for [aparté](https://github.com/apartejs/aparte): one line per sub-agent — its name and its task,
+and under them what it is doing now, then what it did ("3 tools · 12 s") — with its conversation kept out of
+the reply and out of what the model reads.
 
 ```bash
 npm install @aparte/plugin-subagents @aparte/core
@@ -25,8 +25,9 @@ applies, and wins over what the plugin says. A sub-agent no call opened — or a
 same call — gets a `subagent` segment (`SUBAGENT_SEGMENT_TYPE`, typed `AparteSubagentSegment`) drawn as the
 same row, named by the agent: `registerToolDisplay('<agent name>', …)` reaches it.
 
-**Options** (`SubagentsOptions`): `activity` shows its latest running tool call while it works (default
-`true`); `counts` shows its tool calls and how long it worked (default `true`); `details` is what is behind
+**Options** (`SubagentsOptions`): `activity` gives the line a second line from the sub-agent's start to its
+end — *Starting…*, its latest tool call, then what it did — so the row keeps its height (default `true`);
+`counts` says what it did, its tool calls and how long it worked, once it is over (default `true`); `details` is what is behind
 the line — `false` by default (no disclosure), `'transcript'` for the sub-agent's conversation, or a
 function that returns what to show under it.
 

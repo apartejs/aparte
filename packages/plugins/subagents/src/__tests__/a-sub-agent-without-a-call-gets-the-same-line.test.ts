@@ -64,7 +64,8 @@ describe('a sub-agent without a call', () => {
         expect(row.getAttribute('data-status')).toBe('failed');
         expect(shown(row, 'state')).toBe('Failed');
         // No word of the plugin's own: the row's badge already says it.
-        expect(shown(row, 'note')).not.toMatch(/Failed/);
+        expect(shown(row, 'note') ?? '').not.toMatch(/Failed/);
+        expect(shown(row, 'activity')).toMatch(/^1 tool · /);
 
         const done = planner();
         done.c.run({ type: 'agent-end', agentId: 'a1', status: 'done' });

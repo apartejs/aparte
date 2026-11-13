@@ -74,13 +74,18 @@ describe('the provider fills the line', () => {
         expect(shown(el, 'note')).toBe('<b>1</b> tool');
     });
 
-    it('shows what the call is doing only while it runs or waits; the note stays', () => {
-        aparteGlobalConfig.setToolLineProvider(explorer);
+    // The second line is the provider's in every state, so that a row keeps its height from its
+    // start to its end: one that grew a line when its call began and lost it when the call ended
+    // moved every row under it twice. What it says once the call is over is the provider's call.
+    it('shows the second line in every state the provider gives it, and none when it gives nothing', () => {
+        let second: string | undefined = 'Reading parser.ts';
+        aparteGlobalConfig.setToolLineProvider(() => ({ activity: second, note: '3 tools · 12 s' }));
         let el = draw(call({ status: 'awaiting-approval' }));
         expect(shown(el, 'activity')).toBe('Reading parser.ts');
+        second = '3 tools · 12 s';
         el = updated(el, call({ status: 'resolved', result: 'found 3' }));
-        expect(shown(el, 'activity')).toBeNull();
-        expect(shown(el, 'note')).toBe('3 tools · 12 s');
+        expect(shown(el, 'activity')).toBe('3 tools · 12 s');
+        second = undefined;
         expect(draw(call({ id: 's2', status: 'failed' })).querySelector('.aparte-tool-activity')!.hasAttribute('hidden')).toBe(true);
     });
 

@@ -50,7 +50,8 @@ describe('a reloaded sub-agent', () => {
         const row = c.row('tool-c1')!;
         expect(shown(row, 'name')).toBe('Researcher');
         expect(shown(row, 'state')).toBe('Stopped');
-        expect(shown(row, 'activity')).toBeNull();
+        // What it did before it stopped, not what it was doing: it does nothing any more.
+        expect(shown(row, 'activity')).toMatch(/^1 tool · /);
         expect(row.querySelector('.aparte-shimmer')).toBeNull();
         // Its conversation came back with it.
         expect(textOfAll(subagentOf(call)!.segments)).toContain('Reading.');

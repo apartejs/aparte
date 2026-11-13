@@ -98,9 +98,9 @@ export function toolTargetPartsOf(
  * What the call is doing now, from the tool-line provider — only while it runs or waits for
  * a person: a finished call is not doing anything.
  */
-export function toolActivityOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
-    const status = segment.status ?? 'pending';
-    if (status !== 'pending' && status !== 'awaiting-approval') return '';
+export function toolActivityOf(_segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
+    // In every state the provider gives one: a row keeps its height from its start to its end
+    // only if its second line does not come and go with the call's state.
     return textOf(line?.activity);
 }
 
