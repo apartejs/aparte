@@ -176,11 +176,14 @@ export class LaneDrawing {
         }
         if (renderer.update) {
             const before = row.el;
+            const next = before.nextSibling;
             runWithConfig(config, () => renderer.update!(before, segment));
             // A renderer may replace its own element (the tool row does when its shape
-            // changes), cleaning up the one it replaced: follow the one it left.
+            // changes), cleaning up the one it replaced: follow the one it left — by its id, or
+            // where the old one stood when the id was not carried over. Kept on the old one, the
+            // loop put it back beside its replacement: the row was shown twice, stale first.
             if (before.parentNode !== this.container) {
-                const now = this.childOf(segment.id);
+                const now = this.childOf(segment.id) ?? this.inPlaceOf(next, segment.id);
                 if (now) row.el = now;
             }
             return;
@@ -200,6 +203,19 @@ export class LaneDrawing {
             if (child.getAttribute('data-segment-id') === id) return child as HTMLElement;
         }
         return null;
+    }
+
+    /**
+     * The element standing where a row stood (before `next`) when it is no row's: what a
+     * renderer put in place of its own without the id (`outerHTML`, `replaceWith`), stamped so
+     * the loop finds it. A renderer that took its element away left another row there, or
+     * nothing: the row keeps its element, and the loop puts it back.
+     */
+    private inPlaceOf(next: ChildNode | null, id: string): HTMLElement | null {
+        const there = next ? next.previousSibling : this.container.lastChild;
+        if (there?.nodeType !== Node.ELEMENT_NODE || (there as Element).hasAttribute('data-segment-id')) return null;
+        (there as HTMLElement).setAttribute('data-segment-id', id);
+        return there as HTMLElement;
     }
 
     private release(id: string, config: AparteConfig): void {

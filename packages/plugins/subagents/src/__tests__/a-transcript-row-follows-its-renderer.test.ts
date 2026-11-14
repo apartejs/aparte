@@ -75,6 +75,39 @@ describe('a row of the transcript', () => {
         expect(texts(d)).toEqual(['relabelled']);
     });
 
+    it('follows the element a renderer put in place of its own without the id, shown once', () => {
+        const markup = (s: AparteSegment) => `<p>${(s as unknown as { content: string }).content}</p>`;
+        registerSegmentRenderer({
+            type: 'note',
+            render: markup,
+            // Drawn again in place: what a renderer returning markup is tempted to write.
+            update: (el: HTMLElement, s: AparteSegment) => { el.outerHTML = markup(s); },
+        } as unknown as AparteSegmentRenderer);
+        const d = drawing();
+        d.sync([note('a', 'A'), note('n1', 'one'), note('b', 'B')], aparteGlobalConfig, false);
+        d.sync([note('a', 'A'), note('n1', 'two'), note('b', 'B')], aparteGlobalConfig, false);
+        expect(texts(d)).toEqual(['A', 'two', 'B']);
+        // It is that row now: found by its id, patched again in place.
+        expect([...d.container.children].map((c) => c.getAttribute('data-segment-id'))).toEqual(['a', 'n1', 'b']);
+        d.sync([note('a', 'A'), note('n1', 'three'), note('b', 'B')], aparteGlobalConfig, false);
+        expect(texts(d)).toEqual(['A', 'three', 'B']);
+    });
+
+    it('is put back where it belongs when its renderer took its element away', () => {
+        registerSegmentRenderer({
+            type: 'note',
+            render: (s: AparteSegment) => `<p>${(s as unknown as { content: string }).content}</p>`,
+            update: (el: HTMLElement, s: AparteSegment) => { el.textContent = (s as unknown as { content: string }).content; el.remove(); },
+        } as unknown as AparteSegmentRenderer);
+        const d = drawing();
+        d.sync([note('a', 'A'), note('n1', 'one'), note('b', 'B')], aparteGlobalConfig, false);
+        d.sync([note('a', 'A'), note('n1', 'two'), note('b', 'B')], aparteGlobalConfig, false);
+        expect(texts(d)).toEqual(['A', 'two', 'B']);
+        // The last row too, with nothing after it.
+        d.sync([note('a', 'A'), note('n1', 'two'), note('b', 'Bee')], aparteGlobalConfig, false);
+        expect(texts(d)).toEqual(['A', 'two', 'Bee']);
+    });
+
     it('keeps the order of the list, and skips a duplicate or a segment with no id', () => {
         registerSegmentRenderer({ type: 'note', render: (s: AparteSegment) => `<p>${(s as unknown as { content: string }).content}</p>` } as unknown as AparteSegmentRenderer);
         const d = drawing();

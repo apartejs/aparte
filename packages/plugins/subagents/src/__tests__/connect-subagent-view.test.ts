@@ -131,6 +131,30 @@ describe('connectSubagentView', () => {
         expect(document.activeElement).toBe(openButton(again));
     });
 
+    it('gives the focus to the composer when the line that opened the view is gone', async () => {
+        const { c, view } = await setUp();
+        const input = document.createElement('aparte-composer-input');
+        c.host.append(input);
+        openButton(c.row('tool-c1'))!.click();
+        // The reply was drawn again without that sub-agent's line: nothing to go back to.
+        c.row('tool-c1')!.remove();
+        view.querySelector<HTMLButtonElement>('.aparte-subagent-close')!.click();
+        expect(document.activeElement).not.toBe(document.body);
+        expect(input.contains(document.activeElement)).toBe(true);
+    });
+
+    it('leaves the focus where the reader moved it when the line that opened the view is gone', async () => {
+        const { c, view } = await setUp();
+        c.host.append(document.createElement('aparte-composer-input'));
+        const elsewhere = document.createElement('button');
+        document.body.append(elsewhere);
+        openButton(c.row('tool-c1'))!.click();
+        elsewhere.focus();
+        c.row('tool-c1')!.remove();
+        view.querySelector<HTMLButtonElement>('.aparte-subagent-close')!.click();
+        expect(document.activeElement).toBe(elsewhere);
+    });
+
     it("reads a working sub-agent from its lane's last write when the chat does not hold it yet", async () => {
         const { view } = await setUp({ split: false });
         // A chat a framework mirrors, a step behind: the reply is there, its sub-agents not yet.

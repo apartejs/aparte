@@ -143,7 +143,7 @@ const config = defineConfig({
         // (pause, Stop in the wait, the cap, the resume history) measured 96.93%.
         // Lines and statements 93 -> 95 with #100 (2026-10-11): the page-without-provider suites
         // measured 96.93%.
-        'packages/core/src/client/**': { lines: 95, statements: 95, functions: 97, branches: 97 },
+        'packages/core/src/client/**': { lines: 97, statements: 97, functions: 97, branches: 97 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value

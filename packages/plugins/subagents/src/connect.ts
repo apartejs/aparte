@@ -161,10 +161,11 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
     };
 }
 
-/** Put the focus in the chat's composer: core's input when the chat has one, else nothing. */
+/**
+ * Put the focus in the chat's composer: core's input when the chat has one, else nothing. Only
+ * an element core never upgraded lacks `focusEnd`, and that one has no editor to take the
+ * focus either: nothing to fall back on.
+ */
 function focusComposer(chat: HTMLElement): void {
-    const input = chat.querySelector<HTMLElement & { focusEnd?: () => void }>('aparte-composer-input');
-    if (!input) return;
-    if (typeof input.focusEnd === 'function') input.focusEnd();
-    else input.focus();
+    chat.querySelector<HTMLElement & { focusEnd?: () => void }>('aparte-composer-input')?.focusEnd?.();
 }
