@@ -176,10 +176,11 @@ export class AparteSubagentView extends ElementBase {
      * A link the sub-agent wrote is a link of the conversation, and beside the chat no message
      * hears a click on it: the view announces it on its chat, as a message announces its own,
      * so the app's one listener there routes it — a same-site link followed in place replaces
-     * the page. Under a line the view is in the reply, and the message announces it.
+     * the page. Under a line, or anywhere else inside a message, the view is in the reply and the
+     * message announces it.
      */
     private readonly _onClick = (event: MouseEvent): void => {
-        if (fed.has(this)) return;
+        if (fed.has(this) || this.closest('aparte-chat-bubble')) return;
         const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
         if (!anchor || !this.contains(anchor)) return;
         const detail: AparteLinkClickEventDetail = { href: anchor.getAttribute('href') ?? '', anchor, messageId: this.getAttribute('message-id') };

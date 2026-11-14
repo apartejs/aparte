@@ -131,6 +131,8 @@ export class AparteArtifactPanel extends ElementBase {
      * Only the body's: what the app put in the header is the app's.
      */
     private readonly _onClick = (event: MouseEvent): void => {
+        // Inside a message the bubble announces the click: a second one would reach a handler twice.
+        if (this.closest('aparte-chat-bubble')) return;
         const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
         if (!anchor || !this._body?.contains(anchor)) return;
         const detail: AparteLinkClickEventDetail = {
