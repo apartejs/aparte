@@ -244,6 +244,14 @@ const SEGMENT_META = /segment-metadata\.spec\.ts/;
 // custom-property behaviour. jsdom cannot host it at all: it does not substitute
 // `var()`, so every assertion in that spec passes there on a broken stylesheet.
 const THEMING = /theming\.spec\.ts/;
+// `hidden` on a kit element, whatever whitespace separates its classes. `vanilla-dist`
+// only: it has core's stylesheet as published and minified, which is where an escape in a
+// selector string could be rewritten into another character, and a page with no skin. The
+// `vanilla` example's shared stylesheet carries a bare `[hidden] { display: none }` of its
+// own, under which everything this spec hides is hidden whatever core's rule says, so there
+// the spec would pass on any stylesheet. Source-shape tests were green while a tab and a
+// newline did not work; only an engine can say.
+const HIDDEN_ATTRIBUTE = /hidden-attribute\.spec\.ts/;
 // The shell layouts: <aparte-split> dragged, arrowed and stacked, and the application
 // shell's drawer. `vanilla` only, because it is the app that HAS the layouts
 // (`?layout=split`, `?layout=shell`) — and it is the whole point of them: a pointer
@@ -335,7 +343,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // `<aparte-chat>`, core's own default composition), which is exactly where the
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
-    k === 'vanilla-dist' ? [DEMO, THEMING] :
+    k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, PLUGIN_DIFF, LINKS, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, PLUGIN_DIFF, LINKS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
