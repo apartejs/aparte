@@ -35,7 +35,19 @@ optional and only for side-effects (scroll, analytics).
 
 `@aparte/core`, `react` and `react-dom` are **peer dependencies**.
 
-Every `<aparte-*>` tag is a **typed JSX intrinsic** — real attributes, checked by the compiler, no
-registration. `<AparteUi name="my-widget" />` remains for an element aparté does not define.
+Every element of core is also **a component** — `<AparteConversationList>`, `<AparteSelect>`,
+`<AparteSplit>`… — with its properties as props and its events as `onXxx` callbacks, called with the
+detail and then the event, the same under React 18 and 19:
+
+```tsx
+<AparteConversationList
+  conversations={manager.activeConversations}
+  active-id={manager.activeId}
+  onConversationSelect={(detail) => openChat(detail.id)}
+/>
+```
+
+Every `<aparte-*>` tag is a **typed JSX intrinsic** too — real attributes, checked by the compiler,
+no registration. `<AparteUi name="my-widget" />` remains for an element aparté does not define.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.
