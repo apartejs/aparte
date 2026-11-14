@@ -1,0 +1,126 @@
+---
+title: Testing your chat
+description: The hooks an end-to-end test can rely on — the chat, the field, Send and Stop, a message by role, a reply still being written, a failed turn — the same in every framework, with a Playwright example.
+sidebar:
+  order: 2.5
+guide:
+  group: help
+---
+
+import Code from '../../../components/content/Code.astro';
+import spec from '../../../../../../e2e/tests/testing-guide.spec.ts?raw';
+
+An end-to-end test drives the chat as a person does: it types a message, sends it, waits for the
+reply, stops one, and reads what the transcript shows. Six things need finding, and they are found
+the same way in React, Vue, Svelte, Angular and plain HTML.
+
+## The hooks
+
+| A test looks for | The hook |
+| --- | --- |
+| The chat | `[data-aparte-chat]` |
+| The field | `getByRole('textbox', { name })`, where `name` is the placeholder |
+| Send, Stop and Submit | `aparte-composer-send[data-act]`: `send`, `stop` or `submit` |
+| A message, by who wrote it | `aparte-chat-bubble[data-role]`: `user` or `assistant` |
+| A reply still being written | `[aria-busy="true"]`, inside the message |
+| A turn that failed | `[data-error-code]`, in the reply |
+
+These are a promise like the rest of [what will not change](/reference/stability/): a hook moves only
+in a major version, after a notice. `data-aparte-chat`, `data-act` and `data-role` are attributes of
+elements, so that list names them. The field's role and name, `aria-busy` and `data-error-code` sit on
+parts inside an element, so no element lists them; the example below holds them, and this repository
+runs it against its six example apps with every change.
+
+A class name is not a hook. Classes are styling, and they can change in a minor release.
+
+## Why a role and a name first
+
+Look for what a person looks for. The field is a textbox named by its placeholder, and
+`getByRole('textbox', { name })` finds exactly that. A screen reader says the same words, so a test
+written this way fails when the field stops being findable for a reader too, and it survives a
+redesign, which a class name does not. `getByPlaceholder` is not the way to the field: it matches the
+`placeholder` attribute of an `<input>` or a `<textarea>`, and the field is neither. While the menu of
+[Triggers](/components/triggers/) is open, the field is a `combobox`, as the ARIA pattern for a field
+with a popup asks, and it is a textbox again once the menu closes.
+
+The other hooks cover what no role names, and what a label cannot carry because it is translated.
+What the button does now is `data-act`, the same in every language, where its name follows the locale.
+Who wrote a message is `data-role`. Whether a reply is still being written is `aria-busy`, the state a
+screen reader waits on to read the reply once it is complete
+([Accessibility](/guides/accessibility/)). Why a turn failed is `data-error-code`.
+
+## The chat, whatever the framework
+
+React, Vue and Svelte render a `<div data-aparte-chat>` in place of the element. Angular's component
+and the plain `<aparte-chat>` carry the same attribute on themselves, so one selector finds the chat in
+all five:
+
+```ts
+const chat = page.locator('[data-aparte-chat]');
+```
+
+A page with several chats has several matches: scope each one from something you own, such as the
+`<section>` you put it in.
+
+A rule of your own that meant "the `<div>` a framework renders" and was written `[data-aparte-chat]`
+now matches `<aparte-chat>` as well. Write `div[data-aparte-chat]` to keep it to the `<div>`.
+
+## Send, Stop and Submit
+
+`aparte-composer-send` is one button with three meanings, and its `data-act` says which one it has
+now: `send` at rest, `stop` while a reply is being written, `submit` while a question in the composer
+waits for an answer that the button sends. The element has no box of its own, so press the `button`
+inside it:
+
+```ts
+await chat.locator('aparte-composer-send[data-act="send"] button').click();
+await expect(chat.locator('aparte-composer-send[data-act="stop"]')).toBeVisible();
+```
+
+After a press of Stop, the button says `send` again a moment before the reply stops being `aria-busy`:
+wait for the second, not only the first, before you ask what the reply holds.
+
+## A message, and a reply still being written
+
+`aparte-chat-bubble[data-role]` is one message. Read its text with `toContainText` rather than an
+exact match: a message holds more than its words, such as who wrote it and when.
+
+While a reply is being written, its message is `aria-busy="true"`, from the moment it appears to its
+last word. The mark goes when the turn ends, however it ended: finished, failed or stopped. Ask for it
+inside the message. The transcript is `aria-busy` while a conversation loads, and a card or a chart in
+the reply is `aria-busy` while it loads, which is what you want to wait for before you read the reply.
+
+```ts
+const reply = chat.locator('aparte-chat-bubble[data-role="assistant"]').last();
+await expect(reply).toBeVisible();
+await expect(reply.locator('[aria-busy="true"]')).toHaveCount(0);
+```
+
+Wait for the reply to appear first. Before it exists nothing is busy, and the second wait passes at
+once.
+
+## A failed turn
+
+A turn that fails leaves an error in the reply, and `data-error-code` on it holds the code of the
+failure: `PROVIDER_ERROR` for a 5xx from the model, `NET_ERROR` when it cannot be reached, and the
+others [Error](/components/error/) lists. The person reads a sentence chosen by that code. A test can
+ask for the code itself:
+
+```ts
+await expect(chat.locator('[data-error-code]')).toHaveAttribute('data-error-code', 'PROVIDER_ERROR');
+```
+
+An app that draws its own error with `setErrorRenderer` draws the markup too: put `data-error-code`
+on it, from the `code` the renderer receives, and the same line works.
+
+## An example
+
+This is the file the repository runs against its six example apps: type, send, wait for the reply to
+finish and read it, stop a reply, and see a failed turn. It reaches the chat through the hooks above
+and nothing else.
+
+<Code lang="ts" code={spec} />
+
+`installLlmMock` is this repository's stand-in for the model API that the example apps call. Replace it
+with however your app fakes its backend: a `page.route`, a test server, a recorded stream. The name in
+`getByRole('textbox', { name: 'Ask ChatClone' })` is the placeholder of the example apps; use yours.
