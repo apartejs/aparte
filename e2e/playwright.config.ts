@@ -154,6 +154,10 @@ const AGENTS_SDK_SERVER = {
 };
 
 const SMOKE = /framework-smoke\.spec\.ts/;
+// The testing contract (`guides/testing.mdx` shows this file): type, send, wait, read, stop and a
+// failed turn, reached through the contract's hooks and nothing else. On every example, because the
+// whole claim is that the same lines drive all of them.
+const TESTING_GUIDE = /testing-guide\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /vanilla-dist\.spec\.ts/;
 const AXE = /a11y\.spec\.ts/;
@@ -344,24 +348,24 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, PLUGIN_DIFF, LINKS, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, PLUGIN_DIFF, LINKS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, PLUGIN_DIFF, LINKS, ...DEEP] :
+    k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, PLUGIN_DIFF, LINKS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS] :
+    k === 'svelte5' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, LINKS] :
+    k === 'svelte4' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, LINKS] :
     // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
     // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
     // set it before the element is inserted, so only Angular proves the viewport follows it.
-    [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS, ...(k === 'angular' ? [OVERLAY] : [])];
+    [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

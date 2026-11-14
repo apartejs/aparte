@@ -27,6 +27,7 @@
       "attributes": [
         "attachments",
         "center-empty",
+        "data-aparte-chat",
         "data-empty",
         "data-glide",
         "disabled",
@@ -116,7 +117,9 @@
     },
     "aparte-composer-send": {
       "package": "@aparte/core",
-      "attributes": []
+      "attributes": [
+        "data-act"
+      ]
     },
     "aparte-composer-toolbar": {
       "package": "@aparte/core",

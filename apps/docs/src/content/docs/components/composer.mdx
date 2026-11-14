@@ -175,7 +175,10 @@ Undo knows about them.
 
 ## Accessibility
 
-- The field is a multi-line `textbox`, named by its placeholder.
+- The field is a multi-line `textbox` whose accessible name is its placeholder, so a test finds it
+  with `getByRole('textbox', { name })` — not `getByPlaceholder`, which needs a `placeholder`
+  attribute the field does not have — and a screen reader reads the same words.
+  [Testing your chat](/guides/testing/) lists the other hooks a test can use.
 - The send button's name follows what it does: Send, Stop while a reply streams, Submit when a
   question panel is open. All three are locale keys (`sendButton`, `stopButton`, `submitButton`).
 - Enter never sends in the middle of an IME composition, so confirming a Chinese or Japanese

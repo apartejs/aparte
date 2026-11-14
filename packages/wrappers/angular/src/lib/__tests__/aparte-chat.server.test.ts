@@ -77,6 +77,14 @@ describe('AparteChatComponent on the server', () => {
         expect(html).toContain('Ask me anything');
     });
 
+    // The testing contract's root (`[data-aparte-chat]`, in every framework). Core writes it when
+    // the element connects, which a server render never does — so the HTML the server sends has
+    // it only if the component declares it.
+    it('carries [data-aparte-chat] in the HTML the server sends, as the other wrappers\' roots do', async () => {
+        const html = await render(ChatPage);
+        expect(html).toMatch(/<aparte-chat[^>]*\sdata-aparte-chat(?=[\s=>])/);
+    });
+
     it('renders nothing for aparteToolUI on the server, and declares nothing there', async () => {
         const before = aparteGlobalConfig.getToolRenderer('get_weather');
         const html = await render(ChatWithToolUIPage);

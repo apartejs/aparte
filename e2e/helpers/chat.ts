@@ -42,13 +42,27 @@ export class ChatPage {
         return this.scope.locator('aparte-composer').first();
     }
 
-    /** The contenteditable the user types into. */
+    /**
+     * The contenteditable the user types into. Found by what it is, not by its role, which
+     * the testing contract's `getByRole('textbox', { name })` would be: while the menu of
+     * `@aparte/plugin-triggers` is open the field is a `combobox` (the ARIA pattern for a
+     * field with a popup), so a spec that types a `@` and goes on typing would lose it.
+     */
     get editor(): Locator {
         return this.scope.locator('aparte-composer-input [contenteditable="true"]').first();
     }
 
+    /**
+     * The button of `aparte-composer-send`, whatever it does now (`send`, `stop`, `submit`:
+     * the element's `data-act` says which — see {@link sendAct}).
+     */
     get sendButton(): Locator {
-        return this.scope.locator('aparte-composer-send button').first();
+        return this.scope.locator('aparte-composer-send[data-act] button').first();
+    }
+
+    /** `aparte-composer-send` itself, for a spec that asks what the button does: `toHaveAttribute('data-act', 'stop')`. */
+    get sendAct(): Locator {
+        return this.scope.locator('aparte-composer-send[data-act]').first();
     }
 
     /** The attachment picker button. */
@@ -93,13 +107,20 @@ export class ChatPage {
     }
 
     /**
-     * Messages currently streaming. Note the `="true"`: core sets
-     * `data-streaming="false"` when a turn ends rather than removing the
-     * attribute, so a bare `[data-streaming]` matches settled bubbles too — a
-     * trap worth encapsulating once here instead of in every spec.
+     * What is still being written in a message: the `aria-busy="true"` of the testing
+     * contract. Note the `="true"`: a turn that ends leaves `aria-busy` off the message, but
+     * the transcript says `aria-busy="false"` when it is not loading, so a bare `[aria-busy]`
+     * matches everything — a trap worth encapsulating once here instead of in every spec.
+     * Asked of the whole chat, it looks inside the messages, since the transcript is
+     * `aria-busy` too while a conversation loads; asked of one message (`chat.lastReply`),
+     * it looks inside that one, where a selector naming the bubble would match nothing, the
+     * bubble being the scope itself. A card or a chart in a reply is busy while it loads,
+     * and counts.
      */
-    streaming(scope: Locator = this.scope): Locator {
-        return scope.locator('.aparte-message[data-streaming="true"]');
+    streaming(message?: Locator): Locator {
+        return message
+            ? message.locator('[aria-busy="true"]')
+            : this.scope.locator('aparte-chat-bubble [aria-busy="true"]');
     }
 
     /** The ‹n/m› sibling picker of a branched message. */

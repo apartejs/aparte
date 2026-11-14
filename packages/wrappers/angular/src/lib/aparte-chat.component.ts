@@ -63,7 +63,10 @@ import { AparteChatEvents } from '../generated/chat-events';
     // underneath ours (its own check can't see our children — they render later).
     // `defer-hydration` until the host is built, in the server render and while the browser
     // hydrates it: core's elements — this host among them — leave the server's DOM alone.
-    host: { 'framework-managed': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
+    // `data-aparte-chat` is the marker React, Vue and Svelte put on the root they render, so
+    // `[data-aparte-chat]` finds the chat in all five. Core writes it on connect too, but a
+    // server render never connects the element: declared here, the HTML the server sends has it.
+    host: { 'framework-managed': '', 'data-aparte-chat': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
     template: `
     <div
       class="aparte-chat-container"
