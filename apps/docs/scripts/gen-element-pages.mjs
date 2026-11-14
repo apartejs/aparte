@@ -35,6 +35,8 @@ import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readCatalogue } from './lib/catalogue.mjs';
+import { bindingName } from '../../../scripts/gen-element-bindings.mjs';
+import bindingConfig from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CEM = resolve(here, '../../../packages/core/dist/custom-elements.json');
@@ -258,9 +260,11 @@ function cssTable(decl, h) {
  *
  * The docs used to be vanilla-only with a link out, which made a reader in React translate every
  * snippet in their head. Nothing here is invented: the syntax comes from the four hand-written
- * framework pages, and the Angular Output name from the rule `scripts/gen-element-bindings.mjs`
- * already applies — `camel(event.replace(/^aparte-/, ''))`, `aparte-select-change` →
- * `selectChange`. If that rule changes, this follows it.
+ * framework pages, and the Angular Output name from `bindingName`, the function
+ * `scripts/gen-element-bindings.mjs` names the generated outputs with — `aparte-select-change` →
+ * `selectChange`, and a rename the bindings config declares (the composer's `aparte-cancel` →
+ * `stop`) included. It is IMPORTED, not copied: a copy of the rule had no renames, and printed
+ * `(cancel)`, the binding the generator refuses.
  *
  * `syncKey="framework"` is Starlight's own: the reader picks once and the choice follows them
  * across every page of the site, which is the "choose your framework at the top" behaviour
@@ -270,7 +274,6 @@ function cssTable(decl, h) {
  * what makes the claim checkable rather than asserted.
  */
 const camel = (s) => s.replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
-const outputName = (event) => camel(event.replace(/^aparte-/, ''));
 
 /**
  * `tag -> the class `@aparte/angular` actually exports for it`.
@@ -383,7 +386,7 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
     ? ''
     : ngKind === 'component'
       ? `(${ev.name})="${detail ? 'use($event.detail)' : 'onIt()'}"`
-      : `(${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"`;
+      : `(${bindingName(tag, ev.name, bindingConfig)})="${detail ? 'use($event)' : 'onIt()'}"`;
   md += `<TabItem label="Angular">\n\n${
     ngSymbol
       ? `\`\`\`ts\nimport { ${ngSymbol} } from '${plugin ? `${plugin.pkg}/angular` : '@aparte/angular'}';\n\`\`\`\n\n`

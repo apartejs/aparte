@@ -19,7 +19,7 @@ import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { IMPLEMENTATIONS, readWrapperSlots, readWrapperCallbacks, readChatCallbacks } from '../../../scripts/wrapper-surface.mjs';
+import { IMPLEMENTATIONS, callbackRow, readWrapperSlots, readWrapperCallbacks, readChatCallbacks } from '../../../scripts/wrapper-surface.mjs';
 import { CHAT_TAG, readChatEvents } from '../../../scripts/chat-surface.mjs';
 import { bindingName } from '../../../scripts/gen-element-bindings.mjs';
 import bindings from '../../../packages/core/element-bindings.config.mjs';
@@ -152,7 +152,78 @@ for (const cb of callbacks) {
     md += `\n### \`${cb.name}\`\n\n${cb.summary || '_(undocumented — add a JSDoc comment to the React prop.)_'}\n`;
 }
 
+/*
+ * The events of the chat, from the same manifest and the same naming function the wrappers are
+ * generated from — so a row here is the spelling the component really has, a rename included.
+ * Written as HTML for the reason the callbacks' table is.
+ */
+const cancelables = chatEvents.filter((ev) => ev.cancelable).map((ev) => ev.name);
 md += `
+## Events
+
+Every event \`<aparte-chat>\` declares reaches each component, so none of them needs a
+\`querySelector\`. The first column is the DOM event, which is what you see in the browser's
+tools and in the [events reference](/reference/events/); the rest is how each framework spells it.
+Every handler receives the payload, then the DOM event. In Angular the output carries the payload
+alone: to cancel an event there, bind the DOM event itself, \`(aparte-link-click)="…"\`, on
+\`<aparte-chat>\`.
+
+<table tabindex="0" aria-label="The events of the chat in the five components">
+<thead><tr><th>Event</th><th>Payload</th><th>Cancelable</th><th>React</th><th>Vue</th><th>Svelte 4 syntax</th><th>Svelte 5 syntax</th><th>Angular</th></tr></thead>
+<tbody>
+`;
+for (const ev of chatEvents) {
+    const row = callbackRow({ name: ev.binding, payload: '', summary: '' });
+    const cells = [ev.name, ev.detail ?? 'none', ev.cancelable ? 'yes' : 'no', row.react, row.vue, row.svelte, row.svelteRunes, row.angular];
+    md += `<tr>${cells.map((c) => `<td><code>${html(c)}</code></td>`).join('')}</tr>\n`;
+}
+md += `</tbody>\n</table>\n`;
+
+md += `
+A cancelable event can be stopped: \`event.preventDefault()\` keeps the browser from doing what
+it was about to do, so your code can do it instead. ${cancelables.length ? `Cancelable today: ${cancelables.map((n) => `\`${n}\``).join(', ')}` : 'None is cancelable today'}.
+\`aparte-link-click\` is how an app routes a link a reply contains.
+
+### Events the chat does not name
+
+An event a plugin sends (\`aparte-subagent-open\`, \`aparte-artifact-open\`…), or one of your own,
+has no row above and still arrives: the parts of the chat send their events up to its root, so
+one listener there hears all of them. Each framework has a short way to put one.
+
+React, with the chat's ref (the handler is typed from the plugin's event, with no cast):
+
+\`\`\`tsx
+const chat = useAparteChat();
+useAparteEvent(chat.ref, 'aparte-subagent-open', (event) => openPanel(event.detail.runId));
+\`\`\`
+
+Vue, the event's DOM name on \`<AparteChat>\`:
+
+\`\`\`vue
+<AparteChat @aparte-subagent-open="(event) => openPanel(event.detail.runId)" />
+\`\`\`
+
+Svelte 5 syntax, the same name as a prop:
+
+\`\`\`svelte
+<AparteChat onaparte-subagent-open={(event) => openPanel(event.detail.runId)} />
+\`\`\`
+
+Svelte 4 syntax, the chat's root element, once it is mounted:
+
+\`\`\`svelte
+<AparteChat bind:this={chat} />
+<script>
+  onMount(() => chat.getElement()?.addEventListener('aparte-subagent-open', (event) => openPanel(event.detail.runId)));
+</script>
+\`\`\`
+
+Angular, the DOM binding on \`<aparte-chat>\`:
+
+\`\`\`html
+<aparte-chat (aparte-subagent-open)="openPanel($any($event).detail.runId)"></aparte-chat>
+\`\`\`
+
 ## Two things this table does not cover
 
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
