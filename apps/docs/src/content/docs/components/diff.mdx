@@ -11,6 +11,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import DiffApi from '../../../generated/api/elements/aparte-diff.api.mdx';
 
 <Variant id="diff" />
@@ -79,6 +80,9 @@ comment is — `path`, `side` (`AparteDiffSide`: `'old'` on a removed line, `'ne
 nothing: you keep the comments, and hand them back through `comments` (`AparteDiffComment`) to
 show them under their lines, each with its state, `pending` or `sent`.
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import type { AparteDiffComment } from '@aparte/plugin-diff';
 
@@ -101,6 +105,148 @@ function sendReview(send: (text: string) => void): void {
   view.comments = review;
 }
 ```
+
+</TabItem>
+<TabItem label="React">
+
+`<AparteUi>` mounts the tag with no declaration, and `useAparteEvent` listens on its element:
+
+```tsx
+import { useRef, useState } from 'react';
+import { AparteUi, useAparteEvent, type AparteUiHandle } from '@aparte/react';
+import type { AparteDiffComment } from '@aparte/plugin-diff';
+
+export function Review({ send }: { send: (text: string) => void }) {
+  const view = useRef<AparteUiHandle>(null);
+  const [review, setReview] = useState<AparteDiffComment[]>([]);
+
+  useAparteEvent(view, 'aparte-diff-comment', (event) => {
+    setReview((all) => [...all, { ...event.detail, id: crypto.randomUUID(), state: 'pending' }]);
+  });
+
+  // A "Send review" button of yours: every comment, as one message to the agent.
+  function sendReview() {
+    const lines = review
+      .filter((comment) => comment.state === 'pending')
+      .map((comment) => `- ${comment.path}, line ${comment.startLine}: ${comment.text}`);
+    if (!lines.length) return;
+    send(`Review of your changes:\n${lines.join('\n')}`);
+    setReview(review.map((comment) => ({ ...comment, state: 'sent' })));
+  }
+
+  return (
+    <>
+      <AparteUi ref={view} name="aparte-diff" props={{ commentable: '', comments: review }} />
+      <button onClick={sendReview}>Send review</button>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import '@aparte/plugin-diff';
+import type { AparteDiffComment } from '@aparte/plugin-diff';
+
+const props = defineProps<{ send: (text: string) => void }>();
+const review = ref<AparteDiffComment[]>([]);
+
+// A "Send review" button of yours: every comment, as one message to the agent.
+function sendReview() {
+  const lines = review.value
+    .filter((comment) => comment.state === 'pending')
+    .map((comment) => `- ${comment.path}, line ${comment.startLine}: ${comment.text}`);
+  if (!lines.length) return;
+  props.send(`Review of your changes:\n${lines.join('\n')}`);
+  for (const comment of review.value) comment.state = 'sent';
+}
+</script>
+
+<template>
+  <aparte-diff
+    commentable
+    :comments.prop="review"
+    @aparte-diff-comment="(event) => review.push({ ...event.detail, id: crypto.randomUUID(), state: 'pending' })"
+  />
+  <button @click="sendReview">Send review</button>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import '@aparte/plugin-diff';
+  import type { AparteDiffComment } from '@aparte/plugin-diff';
+
+  let { send }: { send: (text: string) => void } = $props();
+  let review = $state<AparteDiffComment[]>([]);
+
+  // A "Send review" button of yours: every comment, as one message to the agent.
+  function sendReview() {
+    const lines = review
+      .filter((comment) => comment.state === 'pending')
+      .map((comment) => `- ${comment.path}, line ${comment.startLine}: ${comment.text}`);
+    if (!lines.length) return;
+    send(`Review of your changes:\n${lines.join('\n')}`);
+    for (const comment of review) comment.state = 'sent';
+  }
+</script>
+
+<aparte-diff
+  commentable
+  comments={review}
+  onaparte-diff-comment={(event) => review.push({ ...event.detail, id: crypto.randomUUID(), state: 'pending' })}
+></aparte-diff>
+<button onclick={sendReview}>Send review</button>
+```
+
+On Svelte 4, write the event as `on:aparte-diff-comment={(event) => …}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input } from '@angular/core';
+import '@aparte/plugin-diff';
+import type { AparteDiffComment, AparteDiffCommentEventDetail } from '@aparte/plugin-diff';
+
+@Component({
+  selector: 'app-review',
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <aparte-diff commentable [comments]="review" (aparte-diff-comment)="add($any($event).detail)"></aparte-diff>
+    <button (click)="sendReview()">Send review</button>
+  `,
+})
+export class ReviewComponent {
+  readonly send = input.required<(text: string) => void>();
+  review: AparteDiffComment[] = [];
+
+  add(detail: AparteDiffCommentEventDetail) {
+    this.review = [...this.review, { ...detail, id: crypto.randomUUID(), state: 'pending' }];
+  }
+
+  // A "Send review" button of yours: every comment, as one message to the agent.
+  sendReview() {
+    const lines = this.review
+      .filter((comment) => comment.state === 'pending')
+      .map((comment) => `- ${comment.path}, line ${comment.startLine}: ${comment.text}`);
+    if (!lines.length) return;
+    this.send()(`Review of your changes:\n${lines.join('\n')}`);
+    this.review = this.review.map((comment) => ({ ...comment, state: 'sent' }));
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 Cancel the event (`event.preventDefault()`) to keep the field open with its text, when the comment
 could not be kept.
