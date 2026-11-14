@@ -49,7 +49,7 @@ import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import bindings from '../packages/core/element-bindings.config.mjs';
-import { CHAT_TAG, readChatEvents, readChatTree } from './chat-surface.mjs';
+import { CHAT_EVENT_FLOOR, CHAT_TAG, readChatEvents, readChatTree } from './chat-surface.mjs';
 import { elementsOf } from './dispatch-sites.mjs';
 import { bindingName } from './gen-element-bindings.mjs';
 import { callbackRow } from './wrapper-surface.mjs';
@@ -61,10 +61,13 @@ const CONTENT = join(ROOT, 'apps/docs/src/content/docs');
 export const GROUP_LABELS = ['Vanilla', 'React', 'Vue', 'Svelte', 'Angular'];
 
 /**
- * The bounds the totals must stay inside. The floors sit under what was measured when the
- * pages were converted, so a few pages can go; a corpus the reader read nothing of cannot.
+ * The bounds the totals must stay inside. Measured when the pages were converted: 140 pages
+ * read, 35 blocks found, 5 of them marked vanilla-only. The floors sit under those, so a few
+ * pages can go; a corpus the reader read almost nothing of cannot. The ceiling sits over them
+ * by three: a way out is for the page that is about the vanilla element, not for the example
+ * that was long to write — so a sixth marker is a question for whoever adds it.
  */
-export const LIMITS = { minPages: 100, minBlocks: 50, maxMarkers: 12 };
+export const LIMITS = { minPages: 120, minBlocks: 30, maxMarkers: 8 };
 
 /** The one module the site's tabs are imported from: its choice is stored and followed. */
 const TABS_MODULE = 'components/content/tabs';
@@ -135,6 +138,11 @@ function whatItDoes(code) {
  */
 export function readSpellings({ tree = readChatTree(), config = bindings } = {}) {
     const chat = new Map(readChatEvents(tree).map((ev) => [ev.name, bindingName(CHAT_TAG, ev.name, config)]));
+    // A table that read no chat event asks no framework tab for a binding's name, and every page
+    // passes: a collapsed reading is a broken reader, not a small surface.
+    if (chat.size < CHAT_EVENT_FLOOR) {
+        throw new Error(`read only ${chat.size} chat events from the manifest, the floor is ${CHAT_EVENT_FLOOR}: the names a tab must spell are unknown.`);
+    }
     const skipped = new Set(config.angularSkip ?? []);
     const elements = new Map();
     for (const [tag, { decl }] of elementsOf(tree.cem)) {

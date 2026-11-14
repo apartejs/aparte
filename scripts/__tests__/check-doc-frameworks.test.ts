@@ -21,7 +21,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GROUP_LABELS, LIMITS, checkPage, isGenerated, judgeTotals } from '../check-doc-frameworks.mjs';
+import { GROUP_LABELS, LIMITS, checkPage, isGenerated, judgeTotals, readSpellings } from '../check-doc-frameworks.mjs';
+import { CHAT_EVENT_FLOOR, CHAT_TAG, readChatTree } from '../chat-surface.mjs';
+import { elementsOf } from '../dispatch-sites.mjs';
 
 const SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'check-doc-frameworks.mjs');
 
@@ -357,6 +359,26 @@ describe('the names in the framework tabs', () => {
         ]));
         expect(check(text).problems).toEqual([]);
         expect(check(text.replace('(launcherToggle)', '(launcherToggled)')).problems.join()).toMatch(/\(launcherToggle\)/);
+    });
+});
+
+describe('the spellings it reads from the manifest', () => {
+    it("are the generators': the chat's renames, and a standalone element's own output", () => {
+        const real = readSpellings();
+        expect(real.chat.size).toBeGreaterThanOrEqual(CHAT_EVENT_FLOOR);
+        expect(real.chat.get('aparte-link-click')).toBe('linkClick');
+        expect(real.chat.get('aparte-send')).toBe('messageSent');
+        expect(real.chat.get('aparte-cancel')).toBe('stop');
+        expect(real.elements.get('aparte-launcher-toggle')).toEqual(['launcherToggle']);
+        // The chat's own events are the chat component's, and no directive is generated for it.
+        expect(real.elements.has('aparte-message-start')).toBe(false);
+    });
+
+    it('refuse a reading that collapsed: a table with no chat event would let every name through', () => {
+        const tree = readChatTree();
+        tree.cem = structuredClone(tree.cem);
+        elementsOf(tree.cem).get(CHAT_TAG).decl.events = [];
+        expect(() => readSpellings({ tree })).toThrow(/chat events/);
     });
 });
 
