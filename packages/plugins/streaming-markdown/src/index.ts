@@ -5,29 +5,6 @@ import { parser, parser_write, parser_end, default_renderer, Attr, HREF, SRC, LA
 const OPEN = 'data-aparte-open';
 
 /*
- * The external-link rule, copied — deliberately and minimally — from its OWNER,
- * core's `config/sanitize.ts`. Core exports `isSafeUrl` (used above) but not this
- * pair, and the streaming path needs the same answer live: the one-shot
- * re-sanitisation at settle sends a model's external link to its own tab, so
- * without this every streamed link is a bare, clickable, frame-navigating anchor
- * for the whole length of the reply. If core ever exports the predicate, this
- * goes and the import comes back.
- *
- * `//host` and a value written with leading whitespace resolve off-site just the
- * same, which is why the value is normalised before the test — the same
- * normalisation the accept path (`isSafeUrl`) applies. So do two spellings a
- * reader does not expect: a BACKSLASH is a slash to a URL parser on a special
- * scheme, and a SINGLE slash after an explicit scheme differing from the page's
- * enters authority state. Measured with Node's WHATWG URL against base
- * `https://site.example/chat/`: `/\evil.example` → `https://evil.example/`,
- * `http:/evil.example` and `http:/\evil.example` → `http://evil.example/`, and with no slash
- * at all `http:evil.example` does too: any explicit http(s) scheme counts as external.
- */
-const EXTERNAL_URL = /^(?:https?:)?[/\\]{2}|^https?:/i;
-// eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
-const CONTROL_WS = /[\u0000-\u0020]+/g;
-
-/*
  * The leading run of a fence's info string that may become a language name.
  *
  * `smd` maps its LANG attribute to `class` and hands the info string over
@@ -71,10 +48,12 @@ function asReference(text: string, display: boolean): string | null {
  * live (an attacker-controlled `[x](javascript:…)` streamed token would produce
  * a clickable `javascript:` link before the final re-render sanitises it), the
  * renderer's `set_attr` is wrapped to drop any `href` whose scheme fails
- * {@link isSafeUrl}, and to send an external `href` to its own tab
- * (`target="_blank" rel="noopener noreferrer"`) as the one-shot path does — a
- * link is clickable from the moment it streams in, and a bare anchor navigates
- * the frame the chat lives in. A picture's `src` is never set on the parser's
+ * {@link isSafeUrl}, and to give every other one the `target` and `rel` the config's
+ * link target decides (`config.decideLink`) as the one-shot path does — by default a
+ * new tab (`target="_blank" rel="noopener noreferrer"`) for every link but `#…`,
+ * `mailto:`, `tel:` and `sms:`, same-site ones included. A link is clickable from
+ * the moment it streams in, and one followed in place replaces the page the chat
+ * lives in. A picture's `src` is never set on the parser's
  * node: setting it is the request, so the node is replaced by what
  * `config.sanitizeHtml` makes of the picture, image policy included
  * (`setImagePolicy`) — while the reply streams, not only once it settles. The
@@ -124,11 +103,14 @@ export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlob
                 return;
             }
             originalSetAttr(data, type, value);
-            if (type === HREF && EXTERNAL_URL.test(value.replace(CONTROL_WS, ''))) {
+            if (type === HREF) {
+                // Where it opens is the config's to say, the one the settled reply asks too,
+                // so nothing moves when the reply ends.
                 const node = data.nodes[data.index];
                 if (node && node.tagName === 'A') {
-                    node.setAttribute('target', '_blank');
-                    node.setAttribute('rel', 'noopener noreferrer');
+                    const opens = config.decideLink(value);
+                    if (opens.target) node.setAttribute('target', opens.target);
+                    if (opens.rel) node.setAttribute('rel', opens.rel);
                 }
             }
         };

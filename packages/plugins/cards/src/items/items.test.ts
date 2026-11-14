@@ -119,6 +119,19 @@ describe('the items card on a tool', () => {
         expect(card.querySelectorAll('.aparte-items__tile')[2]!.hasAttribute('data-link')).toBe(false);
     });
 
+    it('opens a mail or a phone link where the chat opens one: in the app it hands over to, not an empty tab', () => {
+        const card = draw(call('resolved', { items: [
+            { title: 'Write to us', url: 'mailto:hello@example.com' },
+            { title: 'Call us', url: 'tel:+15550100' },
+        ] }));
+        for (const link of card.querySelectorAll<HTMLAnchorElement>('a.aparte-items__link')) {
+            expect(link.hasAttribute('target'), link.href).toBe(false);
+            expect(link.hasAttribute('rel'), link.href).toBe(false);
+            expect(link.textContent, 'no "opens in a new tab" for a link that opens none').not.toContain('new tab');
+        }
+        expect(card.querySelectorAll('a.aparte-items__link')).toHaveLength(2);
+    });
+
     it('shows three tile skeletons under what the input already says while the call runs', () => {
         const card = draw(call('pending', undefined, { query: 'hikes near Annecy' }));
         expect(card.dataset.state).toBe('loading');

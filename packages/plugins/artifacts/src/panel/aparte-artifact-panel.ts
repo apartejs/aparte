@@ -15,7 +15,7 @@
  */
 import {
     resolveConfig, runWithConfig, subscribeConfigChange,
-    type AparteConfig, type AparteMessage,
+    type AparteConfig, type AparteLinkClickEventDetail, type AparteMessage,
 } from '@aparte/core';
 import { artifactCard } from '../card.js';
 import { artifactDocuments, type ArtifactDocument, type ArtifactDocumentsOptions, type ArtifactVersion } from '../documents.js';
@@ -68,6 +68,7 @@ let panelIdSeq = 0;
  *
  * @fires {CustomEvent} aparte-artifact-panel-close - The Close button, or Escape inside the panel. The panel does not hide itself: the app owns the layout. Bubbles.
  * @fires {CustomEvent<ArtifactVersionChangeEventDetail>} aparte-artifact-version-change - What the panel shows changed, the first document it shows included: `{ documentId, version, total }`. Bubbles.
+ * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the document is about to be followed. Sent on the chat (`for` or `chat`; the panel itself when it names none), as a message sends its own, so the listener that routes a reply's links routes these. Cancelable: `preventDefault()` keeps the browser from navigating. A link of yours in the header is yours, and not announced.
  *
  * @slot actions - Your own buttons (Export, Share), in the header before Close: one child with `slot="actions"`. It is left where you wrote it.
  *
@@ -122,6 +123,31 @@ export class AparteArtifactPanel extends ElementBase {
         if (event.key !== 'Escape' || event.defaultPrevented) return;
         event.preventDefault();
         this._emitClose();
+    };
+    /**
+     * A link in the document is a link the model wrote, and beside the chat no message hears a
+     * click on it: the panel announces it on its chat, as a message announces its own, so the
+     * app's one listener there routes it — a same-site link followed in place replaces the page.
+     * Only the body's: what the app put in the header is the app's.
+     */
+    private readonly _onClick = (event: MouseEvent): void => {
+        const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+        if (!anchor || !this._body?.contains(anchor)) return;
+        const detail: AparteLinkClickEventDetail = {
+            href: anchor.getAttribute('href') ?? '',
+            anchor,
+            messageId: this._current()?.version.messageId ?? null,
+        };
+        const source = this._source();
+        const named = (source as { getElement?: () => Element | null } | null)?.getElement?.();
+        const chat: EventTarget = typeof Element !== 'undefined' && source instanceof Element ? source : named ?? this;
+        const announced = chat.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            detail,
+        }));
+        if (!announced) event.preventDefault();
     };
 
     // ── What the app sets ──────────────────────────────────────────────────
@@ -200,6 +226,7 @@ export class AparteArtifactPanel extends ElementBase {
         this._build();
         this._listen();
         this.addEventListener('keydown', this._onKeydown);
+        this.addEventListener('click', this._onClick);
         this._stopConfig = subscribeConfigChange(this, () => this._schedule());
         this.refresh();
     }
@@ -207,6 +234,7 @@ export class AparteArtifactPanel extends ElementBase {
     disconnectedCallback(): void {
         this._unlisten();
         this.removeEventListener('keydown', this._onKeydown);
+        this.removeEventListener('click', this._onClick);
         this._stopConfig?.();
         this._stopConfig = null;
         this._clearBody();

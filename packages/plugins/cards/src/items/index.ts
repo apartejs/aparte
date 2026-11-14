@@ -234,11 +234,15 @@ function badgeOf(text: string, fill: string): HTMLElement {
  */
 function titleOf(ctx: CardContext, item: Item): HTMLElement {
     if (!item.url) return el('span', { class: 'aparte-items__title', text: item.title });
-    const hint = el('span', { class: 'aparte-sr-only' });
-    ctx.bind(hint, () => ` (${word(ctx.config, 'cardsItemsNewTab', W.cardsItemsNewTab)})`);
+    // Where it opens is the chat's to say (`decideLink`), as for a link in the reply: a new tab
+    // for a web page, and none for `mailto:` and `tel:`, which hand over to another app and
+    // would leave the new tab empty.
+    const opens = ctx.config.decideLink(item.url);
+    const hint = opens.target ? el('span', { class: 'aparte-sr-only' }) : null;
+    if (hint) ctx.bind(hint, () => ` (${word(ctx.config, 'cardsItemsNewTab', W.cardsItemsNewTab)})`);
     return el('a', {
         class: 'aparte-items__title aparte-items__link',
-        attrs: { href: item.url, target: '_blank', rel: 'noopener noreferrer' },
+        attrs: { href: item.url, ...opens },
     }, item.title, hint);
 }
 
