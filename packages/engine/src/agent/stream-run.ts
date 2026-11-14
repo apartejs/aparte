@@ -512,9 +512,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // matters: the loop spends nearly all of its time parked on `next()`, so an
         // abort arriving while parked — the user pressing Stop while watching text
         // stream — is invisible to a check that only runs before the await. It also
-        // covers both shapes a provider takes on abort: an `error` event or a quiet
-        // close. Without it the `error` branch below throws and the caller reports a
-        // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
+        // covers the three shapes a provider takes on abort: an `error` event, a quiet
+        // close, or a read that rejects. Without it the `error` branch below throws and
+        // the caller reports a deliberate stop as a failure. Mirrors `_streamLoop`'s
+        // `bailOnAbort`.
         // The calls this turn leaves for someone else to answer (see `deferral`).
         const pending: StreamDeferredCall[] = [];
         // Without the resume's answers: they were given for the calls a previous run left
@@ -550,20 +551,30 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // of the reply is read, as when the calls run one after another.
                 if (step?.halted()) break;
 
-                const read = iterator.next();
                 let next: IteratorResult<StreamChatEvent>;
-                if (step?.busy()) {
-                    // Raced: a call still running can stop the step while the reading waits
-                    // on the provider.
-                    const first = await Promise.race([read, step.onHalt.then((): typeof HALTED => HALTED)]);
-                    if (first === HALTED) {
-                        outstandingRead = true;
-                        Promise.resolve(read).catch(() => { /* nobody reads it any more */ });
-                        break;
+                try {
+                    const read = iterator.next();
+                    if (step?.busy()) {
+                        // Raced: a call still running can stop the step while the reading waits
+                        // on the provider.
+                        const first = await Promise.race([read, step.onHalt.then((): typeof HALTED => HALTED)]);
+                        if (first === HALTED) {
+                            outstandingRead = true;
+                            Promise.resolve(read).catch(() => { /* nobody reads it any more */ });
+                            break;
+                        }
+                        next = first;
+                    } else {
+                        next = await read;
                     }
-                    next = first;
-                } else {
-                    next = await read;
+                } catch (error) {
+                    // A provider reading a fetch on the run's signal does not always close
+                    // quietly on a Stop: its read REJECTS, with an AbortError or with whatever
+                    // the cut socket says. Decided by the signal, as the run's end is: once it
+                    // aborted, that is the Stop, and the run ends as for a quiet close. A
+                    // failure while nobody stopped anything is the provider's, and fails the run.
+                    if (await bailOnAbort()) break;
+                    throw error;
                 }
                 if (await bailOnAbort()) break;
                 if (step?.halted()) break;
