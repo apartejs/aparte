@@ -58,9 +58,11 @@ export function linkDecision(mode: AparteLinkTarget, href: string): AparteLinkDe
 const MAY_LINK = /<a[\s/>]/i;
 
 /**
- * Apply the link target to sanitized HTML. Every `<a href>` gets the `target` and `rel`
- * `linkTargetAttributes` decides from its address and the target it carries, and only those,
- * written after its other attributes so both paths build the same tree. HTML with nothing to
+ * Apply the link target to sanitized HTML. Every `<a href>` gets the `target`
+ * `linkTargetAttributes` decides from its address and the target it carries; one that opens a
+ * new tab also gets `rel` holding what it had plus `noopener noreferrer` (never `opener`), and
+ * one that stays in the page keeps its `rel` as written. Both are written after its other
+ * attributes so both paths build the same tree. HTML with nothing to
  * change comes back as it came: serialized again, it would be rewritten where the pass changed
  * nothing, and `'external-only'` over the built-in sanitizer changes nothing at all.
  *
@@ -72,10 +74,32 @@ export function applyLinkTarget(html: string, mode: AparteLinkTarget): string {
     return typeof document === 'undefined' ? applyLinkTargetWithoutDom(html, mode) : applyInTemplate(html, mode);
 }
 
-/** Whether a link carries exactly the `target` and `rel` decided for it. */
-function carries(decided: ReadonlyArray<[string, string]>, target: string | null | undefined, rel: string | null | undefined): boolean {
-    const wanted = (name: string): string | undefined => decided.find(([key]) => key === name)?.[1];
-    return (target ?? undefined) === wanted('target') && (rel ?? undefined) === wanted('rel');
+/**
+ * The `rel` a link that opens a new tab ends with: the tokens it had (a sanitizer's `nofollow
+ * ugc` is the app's), `noopener` and `noreferrer` added, `opener` dropped as it would
+ * contradict `noopener`.
+ */
+function relForNewTab(rel: string | null | undefined): string {
+    const tokens = (rel ?? '').split(/[ \t\n\f\r]+/).filter((token) => token && token.toLowerCase() !== 'opener');
+    for (const needed of ['noopener', 'noreferrer']) {
+        if (!tokens.some((token) => token.toLowerCase() === needed)) tokens.push(needed);
+    }
+    return tokens.join(' ');
+}
+
+/** What a link is rewritten to: its `target`, and its `rel` only when it opens a new tab. */
+interface Settled { readonly target: string | undefined; readonly rel: string | undefined }
+
+/**
+ * What to write on a link carrying `target` and `rel` once `decided` is its answer, or `null`
+ * when it is as it should be. A link that stays in the page has its `target` settled and its
+ * `rel` left alone.
+ */
+function settle(decided: ReadonlyArray<[string, string]>, target: string | null | undefined, rel: string | null | undefined): Settled | null {
+    const wantedTarget = decided.find(([key]) => key === 'target')?.[1];
+    if (wantedTarget !== '_blank') return (target ?? undefined) === wantedTarget ? null : { target: wantedTarget, rel: undefined };
+    const wantedRel = relForNewTab(rel);
+    return (target ?? undefined) === wantedTarget && (rel ?? undefined) === wantedRel ? null : { target: wantedTarget, rel: wantedRel };
 }
 
 function applyInTemplate(html: string, mode: AparteLinkTarget): string {
@@ -84,10 +108,14 @@ function applyInTemplate(html: string, mode: AparteLinkTarget): string {
     let changed = false;
     for (const anchor of Array.from(template.content.querySelectorAll('a[href]'))) {
         const decided = linkTargetAttributes(mode, anchor.getAttribute('href') ?? '', anchor.getAttribute('target') ?? '');
-        if (carries(decided, anchor.getAttribute('target'), anchor.getAttribute('rel'))) continue;
+        const settled = settle(decided, anchor.getAttribute('target'), anchor.getAttribute('rel'));
+        if (!settled) continue;
         anchor.removeAttribute('target');
-        anchor.removeAttribute('rel');
-        for (const [name, value] of decided) anchor.setAttribute(name, value);
+        if (settled.target !== undefined) anchor.setAttribute('target', settled.target);
+        if (settled.rel !== undefined) {
+            anchor.removeAttribute('rel');
+            anchor.setAttribute('rel', settled.rel);
+        }
         changed = true;
     }
     return changed ? template.innerHTML : html;
@@ -115,9 +143,13 @@ function linkTag(written: string, attrs: Array<[string, string]>, mode: AparteLi
     const href = attr('href');
     if (href === undefined) return written;
     const decided = linkTargetAttributes(mode, href, attr('target') ?? '');
-    if (carries(decided, attr('target'), attr('rel'))) return written;
-    const kept = attrs.filter(([name]) => name !== 'target' && name !== 'rel' && SAFE_NAME.test(name));
-    return `<a${[...kept, ...decided].map(([name, value]) => ` ${name}="${escapeAttr(value)}"`).join('')}>`;
+    const settled = settle(decided, attr('target'), attr('rel'));
+    if (!settled) return written;
+    const kept = attrs.filter(([name]) => name !== 'target' && (settled.rel === undefined || name !== 'rel') && SAFE_NAME.test(name));
+    const added: Array<[string, string]> = [];
+    if (settled.target !== undefined) added.push(['target', settled.target]);
+    if (settled.rel !== undefined) added.push(['rel', settled.rel]);
+    return `<a${[...kept, ...added].map(([name, value]) => ` ${name}="${escapeAttr(value)}"`).join('')}>`;
 }
 
 /**

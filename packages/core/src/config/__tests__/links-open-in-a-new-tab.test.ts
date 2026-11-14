@@ -149,7 +149,8 @@ describe('the rule holds whichever sanitizer is set', () => {
         expect(config.sanitizeHtml('<a href="https://x.com">x</a>')).toBe(`<a href="https://x.com" ${NEW_TAB}>x</a>`);
         expect(config.sanitizeHtml('<a href="/docs" target="_top">x</a>')).toBe(`<a href="/docs" ${NEW_TAB}>x</a>`);
         expect(config.sanitizeHtml('<a href="/docs" target="_self">x</a>')).toBe('<a href="/docs" target="_self">x</a>');
-        expect(config.sanitizeHtml('<a href="/docs" rel="opener">x</a>')).toBe('<a href="/docs">x</a>');
+        // A link that stays in the page keeps the `rel` a sanitizer wrote: only a new tab rewrites it.
+        expect(config.sanitizeHtml('<a href="/docs" rel="opener">x</a>')).toBe('<a href="/docs" rel="opener">x</a>');
         expect(config.sanitizeHtml('<a href="/docs">x</a>')).toBe('<a href="/docs">x</a>');
     });
 
@@ -159,6 +160,56 @@ describe('the rule holds whichever sanitizer is set', () => {
         config.setHtmlSanitizer(null);
         expect(config.sanitizeHtml('<a href="package.json">x</a>')).toBe(`<a href="package.json" ${NEW_TAB}>x</a>`);
         warn.mockRestore();
+    });
+});
+
+describe('the rel a custom sanitizer wrote', () => {
+    const raw = (html: string) => html;
+    const rels = (out: string): string[] => (/rel="([^"]*)"/.exec(out)?.[1] ?? '').split(' ').filter(Boolean).sort();
+
+    function custom(mode: 'new-tab' | 'external-only'): AparteConfig {
+        const config = new AparteConfig();
+        config.setLinkTarget(mode);
+        config.setHtmlSanitizer(raw);
+        return config;
+    }
+
+    it('is kept when the link opens in a new tab, with noopener and noreferrer added', () => {
+        const out = custom('new-tab').sanitizeHtml('<a href="https://x.com" rel="nofollow ugc">x</a>');
+        expect(rels(out)).toEqual(['nofollow', 'noopener', 'noreferrer', 'ugc']);
+        expect(out).toContain('target="_blank"');
+    });
+
+    it('is kept in external-only too, for another site', () => {
+        const out = custom('external-only').sanitizeHtml('<a href="https://x.com" rel="nofollow">x</a>');
+        expect(rels(out)).toEqual(['nofollow', 'noopener', 'noreferrer']);
+    });
+
+    it('loses an opener token, which would contradict noopener', () => {
+        expect(rels(custom('new-tab').sanitizeHtml('<a href="/docs" rel="opener">x</a>'))).toEqual(['noopener', 'noreferrer']);
+        expect(rels(custom('new-tab').sanitizeHtml('<a href="/docs" rel="Opener nofollow">x</a>'))).toEqual(['nofollow', 'noopener', 'noreferrer']);
+    });
+
+    it('is not touched on a link that stays in the page', () => {
+        const external = custom('external-only');
+        expect(external.sanitizeHtml('<a href="/docs" rel="nofollow">x</a>')).toBe('<a href="/docs" rel="nofollow">x</a>');
+        for (const href of ['#top', 'mailto:a@b.c', 'tel:+15550100', 'sms:+15550100']) {
+            expect(custom('new-tab').sanitizeHtml(`<a href="${href}" rel="nofollow">x</a>`), href).toBe(`<a href="${href}" rel="nofollow">x</a>`);
+        }
+    });
+
+    it.each([
+        ['new-tab', '<a href="https://x.com" rel="nofollow ugc">x</a>'],
+        ['new-tab', '<a href="/docs" rel="opener">x</a>'],
+        ['new-tab', '<a href="/docs" target="_top" rel="nofollow">x</a>'],
+        ['new-tab', '<a href="https://x.com" rel="noreferrer noopener">x</a>'],
+        ['new-tab', '<a href="#top" rel="nofollow">x</a>'],
+        ['external-only', '<a href="/docs" rel="nofollow">x</a>'],
+        ['external-only', '<a href="/docs" target="_self" rel="nofollow">x</a>'],
+        ['external-only', '<a href="https://x.com" rel="nofollow" title="t">x</a>'],
+    ] as const)('comes out the same with no DOM: %s %s', (mode, html) => {
+        const config = custom(mode);
+        expect(built(withoutDom(config, html))).toBe(built(config.sanitizeHtml(html)));
     });
 });
 
