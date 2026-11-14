@@ -9,7 +9,7 @@ An AG-UI turn now runs in the thread of its conversation: with no `threadId` giv
 createAgUiRunner({ endpoint: '/agui' });
 ```
 
-Do you have to touch your code? Only if you gave no `threadId` and your agent keeps state or history per thread. Each conversation is then one session on the agent, not one per turn: Agno's session is now the conversation, and a history the agent stores for the thread arrives beside the whole history the runner still sends. A `threadId` you gave still decides, a chat with no conversation open still gets a new thread per turn, and a function that returns a new id each time keeps the old behaviour:
+Do you have to touch your code? Only if you gave no `threadId` and your agent keeps state or history per thread. Each conversation is then one session on the agent, not one per turn: Agno's session is now the conversation, and a history the agent stores for the thread arrives beside the whole history the runner still sends. A `threadId` you gave still decides, a chat with no conversation open still gets a new thread per turn, and a function that returns a new id each time gives the agent a new thread per turn, as before (it never sees a state or a cancelled interrupt again, since no thread comes back; the runner remembers the 64 most recently used threads, so such an app does not grow its memory):
 
 ```ts
 createAgUiRunner({ endpoint: '/agui', threadId: () => `aparte-${crypto.randomUUID()}` });

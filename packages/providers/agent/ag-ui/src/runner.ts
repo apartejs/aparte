@@ -134,6 +134,20 @@ interface Track {
 }
 
 /** The run's own events. */
+/**
+ * How many threads the runner remembers a state, or interrupts left unanswered, for. An app
+ * that names a new thread for every turn would otherwise add an entry per turn for as long as
+ * the page lived; the most recently used are kept, so a conversation in use keeps its own.
+ */
+const THREADS_KEPT = 64;
+
+/** Set `key` as the most recently used of `map`, letting the oldest go past `THREADS_KEPT`. */
+function remember<V>(map: Map<string, V>, key: string, value: V): void {
+    map.delete(key);
+    map.set(key, value);
+    while (map.size > THREADS_KEPT) map.delete(map.keys().next().value as string);
+}
+
 const PARENT = '';
 
 /** What an event says of its owner: nothing for the run's own, its `agentId` for a sub-agent's. */
@@ -281,7 +295,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     // The agent's state, per thread: what its last snapshot and deltas left, sent back as
     // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
     // — only a resume reuses it. One the app named, or a conversation's, is kept: it is the
-    // thread of the next turn too.
+    // thread of the next turn too. Both maps hold the `THREADS_KEPT` most recently used.
     const states = new Map<string, unknown>();
     /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
     const unanswered = new Map<string, string[]>();
@@ -335,6 +349,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // sub-agents TanStack announced: any other agent keeps its sub-agents' work itself, and
         // gets the history and the answers alone.
         messages.push(...subagentMessages(pausedAgents, answers));
+        // A thread in use is the newest, even when the agent reports no state this turn.
+        if (states.has(threadId)) remember(states, threadId, states.get(threadId));
         const left = ticket ? [] : (unanswered.get(threadId) ?? []);
         unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
@@ -814,10 +830,10 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 // exactly as the parent's does — its `subagentRunId` is provenance, and the
                 // protocol forbids withholding the update because a sub-agent sent it.
                 case 'STATE_SNAPSHOT':
-                    states.set(threadId, event['snapshot']);
+                    remember(states, threadId, event['snapshot']);
                     break;
                 case 'STATE_DELTA':
-                    states.set(threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
+                    remember(states, threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
                     break;
                 case 'RUN_FINISHED': {
                     // Not the end of the stream: TanStack AI closes each model step with a
@@ -965,7 +981,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             track.suspended = true;
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
-            if (unanswerable.length && track.stable) unanswered.set(threadId, unanswerable);
+            if (unanswerable.length && track.stable) remember(unanswered, threadId, unanswerable);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }
         return usage;
