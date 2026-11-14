@@ -218,6 +218,12 @@ are on screen. With a framework, let your `conversationId` follow those selectio
 `window.addEventListener('aparte-conversation-select', (e) => setConversationId(e.detail.id))` —
 so that a later `null` is a change the chat sees.
 
+A loop that runs elsewhere learns which conversation a turn is in: each turn carries the id of the
+one open when the person sent the message, read from the chat itself, so nothing here has to be
+mirrored into a variable for it. [Run the agent loop on your
+server](/guides/server-loop/#one-route-and-one-journal-per-conversation) routes by it, and an
+[AG-UI agent's](/providers/agent/ag-ui/#options) thread is it.
+
 ## Keep what was being typed
 
 With `keepDrafts`, leaving a conversation and coming back gives back what was in the composer:

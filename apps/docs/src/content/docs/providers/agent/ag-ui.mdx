@@ -111,15 +111,11 @@ question back after a reload.
 ## Options
 
 ```ts
-import { uuid } from '@aparte/core';
 import { createAgUiRunner } from '@aparte/runner-ag-ui';
-
-let conversationId = uuid();   // set it when your app opens a conversation
 
 const runner = createAgUiRunner({
   endpoint: '/agui',
   headers: async () => ({ authorization: `Bearer ${sessionStorage.getItem('token') ?? ''}` }),
-  threadId: () => conversationId,   // read on every turn
 });
 ```
 
@@ -129,22 +125,41 @@ const runner = createAgUiRunner({
 | `headers` | sent with every request; a function is called for each, for a fresh token |
 | `fetch` | the `fetch` the runner calls; the global one by default |
 | `credentials` | for a cross-origin endpoint that authenticates by cookie |
-| `threadId` | the AG-UI thread a turn runs in: a string, or a function of the run's options |
+| `threadId` | the AG-UI thread a turn runs in: a string, or a function of the run's options. The turn's conversation by default |
 | `forwardedProps` | `RunAgentInput.forwardedProps`: settings your agent reads from the request |
 | `context` | `RunAgentInput.context`: `{ description, value }` entries for the agent |
 | `onWarning` | told what the runner dropped or translated; `console.warn` by default |
 | `relaxedRunFraming` | reads runs framed otherwise than 1.0 frames them — a `RUN_FINISHED` per model step, a resume answered before `RUN_STARTED` — as [TanStack AI](/providers/agent/tanstack-ai/) does; every other rule holds |
 | `peerProtocolVersion` | the version of an agent older than 1.0, such as `'0.0.47'`: its stream is read by that version's rules, and the request leaves out `protocolVersion` |
 
-These are the `AgUiRunnerOptions`. By default every turn runs in a new thread with the whole
-history, which suits a stateless agent; give `threadId` when the agent keeps state per thread, as
-Agno does with its session — the conversation's id is the usual choice. The state the agent streams
-is kept for that thread and sent back as the next run's `state`; on a thread minted for one turn,
-it lasts as long as the turn, pauses included. A paused run resumes in
-its own thread, whatever `threadId` answers. An agent on another origin than the page has to allow
-it: answer the preflight (`OPTIONS`) with `Access-Control-Allow-Origin` (the page's origin) and
-`Access-Control-Allow-Headers: content-type` plus the headers you send, and with
-`Access-Control-Allow-Credentials: true` when `credentials` is `'include'`.
+These are the `AgUiRunnerOptions`. A turn runs in the thread of its conversation: the id of the
+conversation open in the chat when the person sent the message, which is what AG-UI calls a thread.
+An agent that keeps state per thread, as Agno does with its session, keeps it per conversation, with
+nothing to configure. The state the agent streams is kept for the thread and sent back as the next
+run's `state`. The runner still sends the whole history with each turn, as AG-UI clients do. A chat
+with no conversation open — no conversation manager — has no id to use, and each of its turns runs
+in a new thread, which suits a stateless agent; on a thread minted for one turn, the state lasts as
+long as the turn, pauses included. A paused run resumes in its own thread, whatever `threadId`
+answers.
+
+Give `threadId` to name the thread yourself, as a string or as a function of the run's options, when
+your agent knows the conversation by another name:
+
+```ts
+import { createAgUiRunner } from '@aparte/runner-ag-ui';
+
+declare const userId: string;   // yours
+
+const runner = createAgUiRunner({
+  endpoint: '/agui',
+  threadId: ({ conversationId }) => `${userId}:${conversationId ?? 'new'}`,
+});
+```
+
+An agent on another origin than the page has to allow it: answer the preflight (`OPTIONS`) with
+`Access-Control-Allow-Origin` (the page's origin) and `Access-Control-Allow-Headers: content-type`
+plus the headers you send, and with `Access-Control-Allow-Credentials: true` when `credentials` is
+`'include'`.
 
 ## Agno
 
