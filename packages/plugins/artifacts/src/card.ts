@@ -17,7 +17,7 @@
  * applied to a tier-(c) affordance. The document it mounts comes from
  * `./preview-document.ts`, or from the consumer's own builder.
  */
-import { escapeHtml, escapeAttr, copyText, contextConfig, renderCodeLanguages } from '@aparte/core';
+import { escapeHtml, escapeAttr, copyText, contextConfig, enhanceTabs, renderCodeLanguages } from '@aparte/core';
 import type { AparteSegmentRenderer } from '@aparte/core';
 import { ARTIFACT_SEGMENT_TYPE, type ArtifactSegment } from './segment.js';
 import { deriveArtifactKind } from './kinds.js';
@@ -287,58 +287,36 @@ const card = {
          * A `tablist` is a SINGLE tab stop with arrow keys inside it, not N tab stops.
          * This shipped as two ordinary buttons under a tablist role: Tab landed on each
          * in turn and the arrows did nothing, so the role promised a keyboard model the
-         * card did not have. The roving `tabindex` and the arrow handling below are that
-         * model; `aria-controls` / `role="tabpanel"` in the markup are the other half.
+         * card did not have. That model is core's `enhanceTabs` now, the kit's own: the
+         * roving `tabindex`, the arrows (the other way in a right-to-left card), Home and
+         * End, Preview skipped while it streams and is disabled, and the panes' `hidden`.
+         * `aria-controls` / `role="tabpanel"` in the markup are the other half. What is the
+         * card's is what a tab MEANS, read off the change before the pane shows.
          */
         // Read now, while the chat's config is the one setting the card up: a click runs later.
         const cfg = contextConfig();
-        const tabs = [...element.querySelectorAll<HTMLButtonElement>('[data-tab-target]')];
-        const select = (btn: HTMLButtonElement, focus: boolean): void => {
-            const target = btn.getAttribute('data-tab-target');
-            if (!target || btn.disabled) return;
-            if (target === 'preview') mountPreviewFrame(element, segment);
-            element.setAttribute('data-tab', target);
-            // What the person chose, kept for this card drawn again (see `openedPreviews`).
-            const opened = openedPreviews.get(cfg) ?? new Set<string>();
-            openedPreviews.set(cfg, opened);
-            const key = previewKey(latestSegment.get(element) ?? segment);
-            if (target === 'preview') opened.add(key);
-            else opened.delete(key);
-            for (const b of tabs) {
-                const on = b === btn;
-                b.setAttribute('aria-selected', on ? 'true' : 'false');
-                b.tabIndex = on ? 0 : -1;
-            }
-            if (focus) btn.focus();
-        };
-        for (const [i, btn] of tabs.entries()) {
-            btn.addEventListener('click', () => select(btn, false));
-            btn.addEventListener('keydown', (e) => {
-                // Home/End as well as the arrows: both are in the pattern, and on a
-                // two-tab list they are the fastest way to the one you are not on. The
-                // next tab is to the left in a right-to-left list.
-                const forward = getComputedStyle(btn.parentElement ?? btn).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
-                const back = forward === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
-                const step = e.key === forward ? 1 : e.key === back ? -1 : 0;
-                let next = -1;
-                if (step) next = (i + step + tabs.length) % tabs.length;
-                else if (e.key === 'Home') next = 0;
-                else if (e.key === 'End') next = tabs.length - 1;
-                if (next < 0) return;
-                e.preventDefault();
-                // Skip a disabled tab rather than trapping focus on it: Preview is
-                // disabled while the artifact still streams.
-                for (let n = 0; n < tabs.length; n++) {
-                    const candidate = tabs[(next + n * (step || 1) + tabs.length) % tabs.length];
-                    if (candidate && !candidate.disabled) { select(candidate, true); return; }
-                }
+        const tablist = element.querySelector<HTMLElement>('.aparte-art-card__tabs');
+        if (tablist) {
+            tablist.addEventListener('aparte-tab-change', (e) => {
+                const target = e.detail.tab.getAttribute('data-tab-target');
+                if (!target) return;
+                if (target === 'preview') mountPreviewFrame(element, segment);
+                element.setAttribute('data-tab', target);
+                // What the person chose, kept for this card drawn again (see `openedPreviews`).
+                const opened = openedPreviews.get(cfg) ?? new Set<string>();
+                openedPreviews.set(cfg, opened);
+                const key = previewKey(latestSegment.get(element) ?? segment);
+                if (target === 'preview') opened.add(key);
+                else opened.delete(key);
             });
+            // Its listeners are on the card's own tablist and leave with it: nothing to release.
+            enhanceTabs(tablist);
         }
 
         // Drawn again after the person opened its preview: open again, the same document.
         // Never while it streams (the tab is disabled), never a document nobody previewed.
-        const previewTab = tabs.find((b) => b.getAttribute('data-tab-target') === 'preview');
-        if (previewTab && !previewTab.disabled && openedPreviews.get(cfg)?.has(previewKey(segment))) select(previewTab, false);
+        const previewTab = element.querySelector<HTMLButtonElement>('[data-tab-target="preview"]');
+        if (previewTab && !previewTab.disabled && openedPreviews.get(cfg)?.has(previewKey(segment))) previewTab.click();
 
         // Open — handed to the app, which shows it where it wants. The LATEST segment.
         const openBtn = element.querySelector<HTMLButtonElement>('[data-action="open"]');

@@ -123,3 +123,32 @@ test('the tablist is one tab stop and the arrow keys move between Code and Previ
     await expect(code).toBeFocused();
     await expect(code).toHaveAttribute('aria-selected', 'true');
 });
+
+test('the card\'s tabs are the kit\'s: End and ArrowLeft wrap round, and the pane not shown is hidden', async ({ page }) => {
+    await installLlmMock(page, { scenario: 'artifact' });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('write me a page', { expect: 'Tell me what to change' });
+
+    const card = chat.segment('artifact-card').first();
+    const code = card.locator('[data-tab-target="code"]');
+    const preview = card.locator('[data-tab-target="preview"]');
+    const codePane = card.locator('[data-pane="code"]');
+    const previewPane = card.locator('[data-pane="preview"]');
+    await expect(previewPane, 'Code opens; the preview pane waits, hidden').toHaveAttribute('hidden', '');
+
+    await code.focus();
+    await page.keyboard.press('End');
+    await expect(preview).toBeFocused();
+    await expect(card).toHaveAttribute('data-tab', 'preview');
+    await expect(codePane).toHaveAttribute('hidden', '');
+    await expect(previewPane).not.toHaveAttribute('hidden', /.*/);
+    await expect(previewPane.locator('iframe'), 'the frame is built on the press, as before').toHaveCount(1);
+
+    await page.keyboard.press('ArrowRight');
+    await expect(code, 'past the last tab, the first').toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(preview, 'before the first, the last').toBeFocused();
+    await expect(code).toHaveAttribute('tabindex', '-1');
+    await expect(preview).toHaveAttribute('tabindex', '0');
+});
