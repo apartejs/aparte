@@ -52,14 +52,51 @@ export type {
 // added there is typed here the moment it is added, and one removed stops resolving.
 // Listing tags by hand is what left React with nine of eighteen, all typed `any`.
 //
-// Events are not declared here: `@aparte/core` augments `HTMLElementEventMap`, so
-// `@aparte-select-change="e => e.detail.value"` is already typed through the DOM.
+// Three things the registry alone left out, each measured with vue-tsc before it was fixed:
+//
+//   • Vue looks a kebab-case attribute up by its CAMELCASE name, and the registry's keys are
+//     kebab-case, so `:active-id` was never found and never checked: only a single-word
+//     attribute (`:value`) was. The keys are camelized here, as a Vue prop is.
+//   • A property-only member — `conversations` on the list — was not a prop. Vue sets a
+//     property the element has, so `:conversations="rows"` works; it was just untyped.
+//   • The events were not on the tag, so `$event` was `any`. The comment that stood here said
+//     `HTMLElementEventMap` types them "through the DOM", which holds for a native element and
+//     not for a component: vue-tsc reads a component's events from its `emits`. They are
+//     declared as emits now, per tag, from what each element sends.
+//
+// The last two come from `generated/element-members.ts`, written from the manifest like the
+// registry: an event added to an element reaches the template with no edit here.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { DefineComponent } from 'vue';
-import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs } from '@aparte/core';
+import type { ComponentOptionsMixin, DefineComponent } from 'vue';
+import type { AparteAttrValue, AparteElementAttributes, AparteElementTagName } from '@aparte/core';
+import type { AparteElementEvents, AparteElementProperties } from './generated/element-members.js';
+
+/** `active-id` → `activeId`: the name Vue's template checker looks a kebab-case attribute up under. */
+type CamelCase<S extends string> = S extends `${infer Head}-${infer Tail}` ? `${Head}${Capitalize<CamelCase<Tail>>}` : S;
+
+/**
+ * One attribute as a Vue template writes it: the template spelling every wrapper shares, and `true`
+ * on a presence attribute. A bare attribute — `<aparte-select searchable>` — is the way a Vue
+ * template writes any, and the checker types it `true` where an HTML tag gets `""`; both end up as
+ * the attribute being there, which is all the element reads. `false` stays out: Vue would write
+ * `searchable="false"`, which is on.
+ */
+type VueAttr<T> = T extends boolean ? true | '' | null | undefined : AparteAttrValue<T>;
+
+/** An element's attributes under the names Vue looks them up by, in the spelling a template writes. */
+type VueAttrs<A> = { [K in keyof A as K extends string ? CamelCase<K> : K]?: VueAttr<NonNullable<A[K]>> };
+
+/** An event as a component declares it, so a listener receives the DOM event of that name. */
+type Emits<E> = { [K in keyof E]: (event: E[K]) => void };
 
 type AparteVueElements = {
-    [K in AparteElementTagName]: DefineComponent<AparteTemplateAttrs<AparteElementAttributes[K]>>;
+    [K in AparteElementTagName]: DefineComponent<
+        VueAttrs<AparteElementAttributes[K]> & AparteElementProperties[K],
+        // Bindings, data, computed, methods and mixins: an element has none a template could use.
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- DefineComponent's own defaults
+        {}, {}, {}, {}, ComponentOptionsMixin, ComponentOptionsMixin,
+        Emits<AparteElementEvents[K]>
+    >;
 };
 
 declare module 'vue' {

@@ -64,7 +64,7 @@
         "test": "vitest",
         "test:run": "vitest run",
         "test:coverage": "vitest run --coverage",
-        "gen": "node ../../../scripts/gen-element-bindings.mjs packages/core --chat-svelte packages/wrappers/svelte/src/lib/generated"
+        "gen": "node ../../../scripts/gen-element-bindings.mjs packages/core --chat-svelte packages/wrappers/svelte/src/lib/generated --element-members packages/wrappers/svelte/src/lib/generated"
     },
     "peerDependencies": {
         "@aparte/core": ">=1.8.0 <2.0.0",
