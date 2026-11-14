@@ -66,6 +66,22 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coreStylesheets } from './core-stylesheets.mjs';
+import { CORE_CEM, stripComments } from './dispatch-sites.mjs';
+import { CHAT_TAG, readChatEvents, readChatTree } from './chat-surface.mjs';
+import { bindingName } from './gen-element-bindings.mjs';
+import bindingConfig from '../packages/core/element-bindings.config.mjs';
+import {
+    CALLBACK_PROOFS,
+    DATA_PROP_PROOFS,
+    IMPLEMENTATIONS,
+    SOURCES,
+    callbackRow,
+    readChatCallbacks,
+    readWrapperCallbacks,
+    readWrapperDataProps,
+    readWrapperSlots,
+    resolveName,
+} from './wrapper-surface.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WRITE = process.argv.includes('--write');
@@ -193,9 +209,10 @@ const NOT_FROZEN = new Map([
  * says — but `@aparte/plugin-cards` puts every card behind its own entry (`/weather`,
  * `/stock`…) and its main entry holds only the kit: freezing that alone would lock the small
  * helpers and leave `setupWeatherCard` free to be renamed without a notice. The stability
- * page names this exception.
+ * page names this exception. `@aparte/svelte` is the second: its Svelte 5 components live at
+ * `/runes`, a door of their own, and the main entry says nothing about them.
  */
-const SUBPATH_API = new Set(['@aparte/plugin-cards']);
+const SUBPATH_API = new Set(['@aparte/plugin-cards', '@aparte/svelte']);
 
 /** Every package npm publishes, minus the ones the page declares unfrozen. Mirrored from `check-published-readmes.mjs`. */
 function publishable(dir = at('packages'), depth = 0, out = []) {
@@ -398,6 +415,100 @@ function readTokens() {
     return sorted(tokens);
 }
 
+// ── wrappers ────────────────────────────────────────────────────────────────
+//
+// What a consumer of a framework wrapper writes: the slots, data props, host callbacks and
+// chat events of the five chat components, the imperative methods every one of them hands
+// out, and the inputs and outputs of the generated Angular element directives. (The Svelte 5
+// entry's exports are frozen with the rest of the exports: `@aparte/svelte` is in
+// `SUBPATH_API`.)
+//
+// Each component's lists are read the way the parity guard reads it (`wrapper-surface.mjs`),
+// so a wrapper that LOSES a name loses it from its own list alone: a slot is frozen for Vue
+// only if Vue's template declares it. The chat events are not read off the components: they
+// are core's `@fires` under the generator's naming, the very names the generated files carry,
+// and `check-wrapper-slots` holds each component to forwarding all of them.
+//
+// Spelled as a consumer writes them, so a changeset that deprecates one names what the reader
+// of the release notes would search for: `onLinkClick`, `@link-click`, `on:linkClick`,
+// `onlinkClick`, `(linkClick)`.
+const IMPERATIVE_API = 'packages/core/src/types/imperative-api.ts';
+const ANGULAR_DIRECTIVES = 'packages/wrappers/angular/src/generated/element.directives.ts';
+const CHAT_EVENT_FLOOR = 20;
+const IMPERATIVE_FLOOR = 20;
+const DIRECTIVE_FLOOR = 20;
+
+/** The members of `AparteChatImperativeApi`: one per line at one indent level, once comments are out. */
+function readImperativeApi() {
+    const src = stripComments(read(IMPERATIVE_API));
+    const body = src.match(/export interface AparteChatImperativeApi\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
+    const names = sorted(new Set([...body.matchAll(/^ {4}(\w+)\??\s*[:(]/gm)].map((m) => m[1])));
+    if (names.length < IMPERATIVE_FLOOR) {
+        broken.push(`only ${names.length} member(s) read from AparteChatImperativeApi in ${IMPERATIVE_API}, floor is ${IMPERATIVE_FLOOR}.`);
+    }
+    return names;
+}
+
+/** `{ tag: { inputs, outputs } }` off the generated directives; they are written by one generator, one line each. */
+function readAngularDirectives() {
+    if (!existsSync(at(ANGULAR_DIRECTIVES))) {
+        broken.push(`${ANGULAR_DIRECTIVES} is not generated, so the Angular directives cannot be read — \`nx run @aparte/angular:gen\` (a build does it).`);
+        return {};
+    }
+    const out = {};
+    for (const chunk of read(ANGULAR_DIRECTIVES).split(/(?=@Directive\(\{)/)) {
+        const tag = chunk.match(/^@Directive\(\{\s*selector:\s*'([^']+)'/)?.[1];
+        if (!tag) continue;
+        out[tag] = {
+            inputs: sorted(new Set([...chunk.matchAll(/@Input\([^)]*\)\s*set\s+(\w+)\s*\(/g)].map((m) => m[1]))),
+            outputs: sorted(new Set([...chunk.matchAll(/@Output\(\)\s*readonly\s+(\w+)\s*=/g)].map((m) => m[1]))),
+        };
+    }
+    if (Object.keys(out).length < DIRECTIVE_FLOOR) {
+        broken.push(`only ${Object.keys(out).length} Angular directive(s) read from ${ANGULAR_DIRECTIVES}, floor is ${DIRECTIVE_FLOOR}.`);
+    }
+    return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function readWrappers() {
+    const sources = Object.fromEntries(Object.entries(SOURCES).map(([key, path]) => [key, readFileSync(path, 'utf8')]));
+    const slots = readWrapperSlots();
+    const dataProps = readWrapperDataProps().filter((p) => p.react !== 'id');
+    const hostCallbacks = readWrapperCallbacks();
+
+    // The chat's events, as the generator names them. Needs core built: the manifest.
+    let chatRows = [];
+    // Svelte 4 also takes some of them as callback props (`export let onmessageSent`), beside `on:`.
+    let svelteCallbackProps = [];
+    if (existsSync(at(CORE_CEM))) {
+        const events = readChatEvents(readChatTree()).map((ev) => ({ ...ev, binding: bindingName(CHAT_TAG, ev.name, bindingConfig) }));
+        chatRows = events.map((ev) => callbackRow({ name: ev.binding, payload: '', summary: '' }));
+        svelteCallbackProps = readChatCallbacks(events).map((r) => r.svelteRunes);
+    } else {
+        broken.push(`no manifest at ${CORE_CEM}, so the chat's events cannot be read — \`pnpm build\` generates it.`);
+    }
+    if (chatRows.length < CHAT_EVENT_FLOOR) {
+        broken.push(`only ${chatRows.length} chat event(s) read from <${CHAT_TAG}>, floor is ${CHAT_EVENT_FLOOR}.`);
+    }
+
+    const components = {};
+    for (const key of Object.keys(SOURCES)) {
+        const src = sources[key];
+        components[key] = {
+            slots: sorted(new Set(slots.filter((s) => IMPLEMENTATIONS[key].proves(src, s)).map((s) => (key === 'react' || key === 'svelteRunes' ? s.react : s.slot)))),
+            dataProps: sorted(new Set(dataProps.filter((p) => DATA_PROP_PROOFS[key].proves(src, p)).map((p) => (
+                key === 'vue' && p.react === 'className' ? 'class' : resolveName(p, key)
+            )))),
+            hostCallbacks: sorted(new Set(hostCallbacks.filter((c) => CALLBACK_PROOFS[key].proves(src, c)).map((c) => CALLBACK_PROOFS[key].usage(c)))),
+            chatEvents: sorted(new Set([
+                ...chatRows.map((row) => CALLBACK_PROOFS[key].usage(row)),
+                ...(key === 'svelte' ? svelteCallbackProps : []),
+            ])),
+        };
+    }
+    return { components, imperativeApi: readImperativeApi(), angularDirectives: readAngularDirectives() };
+}
+
 // ── the surface, as the tree has it now ─────────────────────────────────────
 const version = JSON.parse(read('packages/core/package.json')).version;
 const surface = {
@@ -406,6 +517,7 @@ const surface = {
     exports: readExports(),
     locale: readLocaleKeys(),
     tokens: readTokens(),
+    wrappers: readWrappers(),
 };
 
 if (broken.length) {
@@ -417,10 +529,14 @@ if (broken.length) {
 
 const attributeCount = Object.values(surface.elements).reduce((s, e) => s + e.attributes.length, 0);
 const exportCount = Object.values(surface.exports).reduce((s, v) => s + v.length, 0);
+const wrapperCount = Object.values(surface.wrappers.components).reduce((s, c) => s + Object.values(c).reduce((n, v) => n + v.length, 0), 0)
+    + surface.wrappers.imperativeApi.length
+    + Object.values(surface.wrappers.angularDirectives).reduce((s, d) => s + d.inputs.length + d.outputs.length, 0);
 const eventCount = surface.events.typed.length + surface.events.names.length;
 const summary = `${Object.keys(surface.elements).length} elements, ${attributeCount} attributes, `
     + `${eventCount} events, ${exportCount} exports across ${Object.keys(surface.exports).length} packages, `
-    + `${surface.locale.length} locale keys, ${surface.tokens.length} tokens`;
+    + `${surface.locale.length} locale keys, ${surface.tokens.length} tokens, `
+    + `${wrapperCount} wrapper names (${Object.keys(surface.wrappers.angularDirectives).length} Angular directives)`;
 
 // ── --write: re-take the snapshot ───────────────────────────────────────────
 if (WRITE) {
@@ -504,6 +620,24 @@ for (const pkg of snapPkgs.filter((p) => surface.exports[p])) {
 
 diff('locale key', snapshot.locale, surface.locale);
 diff('token', snapshot.tokens, surface.tokens);
+
+// wrappers: the five chat components list by list, the imperative methods, and each Angular
+// directive's inputs and outputs. A component or a directive that is gone is its own removal.
+const LISTS = [['slots', 'slot'], ['dataProps', 'data prop'], ['hostCallbacks', 'host callback'], ['chatEvents', 'chat event']];
+const snapComponents = snapshot.wrappers?.components ?? {};
+diff('wrapper chat component', Object.keys(snapComponents), Object.keys(surface.wrappers.components));
+for (const key of Object.keys(snapComponents).filter((k) => surface.wrappers.components[k])) {
+    for (const [list, label] of LISTS) {
+        diff(`${label} of the ${key} chat`, snapComponents[key][list], surface.wrappers.components[key][list]);
+    }
+}
+diff('imperative API member', snapshot.wrappers?.imperativeApi, surface.wrappers.imperativeApi);
+const snapDirectives = snapshot.wrappers?.angularDirectives ?? {};
+diff('Angular directive', Object.keys(snapDirectives), Object.keys(surface.wrappers.angularDirectives));
+for (const tag of Object.keys(snapDirectives).filter((t) => surface.wrappers.angularDirectives[t])) {
+    diff(`input of the <${tag}> directive`, snapDirectives[tag].inputs, surface.wrappers.angularDirectives[tag].inputs);
+    diff(`output of the <${tag}> directive`, snapDirectives[tag].outputs, surface.wrappers.angularDirectives[tag].outputs);
+}
 
 const withNotice = [];
 const withoutNotice = [];
