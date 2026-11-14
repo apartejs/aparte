@@ -770,6 +770,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // The chat's own config may draw a call or a segment with another renderer than the
       // global config these rows were drawn under (a card it declares): those rows follow.
       this._redrawSegmentsWhoseRendererChanged();
+      // It may also label a step another way than the page's: one already open is shown again
+      // with the labels of the config this bubble resolves to now.
+      if (this.isConnected) this._updateWaiting();
     });
   }
 
@@ -1835,8 +1838,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (!el) return;
     el.hidden = !waiting;
     // The step the agent is on, beside the dots: the visible words are hidden from a screen
-    // reader, which hears them from the label instead — once, as they change.
-    const step = waiting ? this._step : null;
+    // reader, which hears them from the label instead — once, as they change. The words are
+    // the label the chat's config holds for the step's name (`registerStepLabel`), else the
+    // name itself: `_step` keeps the name the run announced, and is read here at every draw,
+    // so a label or a language switch changes what an open step says.
+    const step = waiting && this._step ? this._cfg.getStepLabel(this._step) ?? this._step : null;
     let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
     if (!words && step) {
       // A shell of the app's own may not have it: added where the default shell has it.

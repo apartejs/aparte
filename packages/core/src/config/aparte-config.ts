@@ -47,6 +47,7 @@ import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 import { chatBoundaryOf } from '../utils/chat-boundary.js';
 import { ToolTable } from './tool-table.js';
+import type { AparteStepLabel } from './step-label.js';
 import type { AparteStreamRunEvent, StreamAdapterTarget } from '../client/stream-adapter.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
@@ -469,6 +470,8 @@ export class AparteConfig {
     private _activityRenderers = new Map<string, AparteActivityRenderer>();
     /** What a plugin says about a call, read after the app's display — see {@link setToolLineProvider}. */
     private _toolLineProvider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null = null;
+    /** What a step is called on screen, by the name the run announces — see {@link registerStepLabel}. One entry per registration, so each remover takes back its own. */
+    private _stepLabels = new Map<string, { label: AparteStepLabel }>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -2115,6 +2118,63 @@ export class AparteConfig {
     }
 
     /**
+     * Say how a step is called on screen, in place of the name a run announced. A server that
+     * streams `step-start { name }` sends a stable key — `slot-wait`, `restore`, `reread` —
+     * and the page knows the person's language: this maps one to the other, wherever a step is
+     * shown (the waiting indicator, which a screen reader reads in place of "Typing", and a
+     * sub-agent's line). A name nobody labelled shows as it always did: itself, because core
+     * never makes a label up.
+     *
+     * The label is text, never HTML, or a function of the locale, asked at every draw and on
+     * every config change — so a language switch changes the words of a step that is open.
+     * One that throws, or says nothing, leaves the name. One label per name, per config:
+     * registering a name again replaces its label, and a chat with a config of its own reads
+     * that config's labels, as it reads its tool displays.
+     *
+     * Only what is shown is labelled. The step keeps the name the run announced — for
+     * {@link observeRunEvents}, for the target, for everything an app stores — and is never
+     * saved with the reply. Registering tells the chats on the page, so a label reaches a step
+     * that is open. Returns the function that takes the label off again (it changes nothing
+     * once another registration has replaced it).
+     *
+     * @example
+     * aparteGlobalConfig.registerStepLabel('slot-wait', 'Waiting for a free slot…');
+     *
+     * @example
+     * // In the person's language, and live: a switch of the locale relabels a step that is open.
+     * aparteGlobalConfig.registerStepLabel('reread', ({ locale }) =>
+     *     locale.tag?.startsWith('fr') ? 'Relecture de la conversation…' : 'Re-reading the conversation…');
+     */
+    registerStepLabel(name: string, label: AparteStepLabel): () => void {
+        const entry = { label };
+        this._stepLabels.set(name, entry);
+        this._notify();
+        return () => {
+            // Only its own: a registration that was replaced, or forgotten by `reset()`, cannot
+            // take back the one that came after it.
+            if (this._stepLabels.get(name) !== entry) return;
+            this._stepLabels.delete(name);
+            this._notify();
+        };
+    }
+
+    /**
+     * The words shown for a step named `name`, or `undefined` when none are registered, they
+     * say nothing, or the function that gives them throws — then the name itself is shown. A
+     * function label is asked here, with the locale as it is now.
+     */
+    getStepLabel(name: string): string | undefined {
+        const entry = this._stepLabels.get(name);
+        if (!entry) return undefined;
+        try {
+            const text = typeof entry.label === 'function' ? entry.label({ name, locale: this._locale }) : entry.label;
+            return typeof text === 'string' && text.trim() ? text.trim() : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
      * prose becomes the segment `toSegment` builds, streamed delta by delta.
      *
@@ -2372,7 +2432,7 @@ export class AparteConfig {
 
     /**
      * Put the configuration back to its defaults: the providers and the selected model,
-     * the tools with their renderers and summaries, the tool-line provider, the renderers and render hooks, the
+     * the tools with their renderers and summaries, the tool-line provider, the step labels, the renderers and render hooks, the
      * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
      * and their queue, the run-event observers. Three things stay: the transport, the key sources added with
@@ -2424,6 +2484,7 @@ export class AparteConfig {
         notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._toolLineProvider = null;
+        this._stepLabels.clear();
         this._streamBlocks.clear();
         this._runEventObservers = [];
         this._modelConfig = {};

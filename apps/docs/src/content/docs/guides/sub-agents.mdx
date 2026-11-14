@@ -348,6 +348,29 @@ back when it ends.
 A step shows while it lasts and nothing more. It is not kept in the reply, not saved with the
 conversation and not sent to the model. Once the reply has text, or ends, it is gone.
 
+**A key in the person's language:** a server often names a step with a stable key — `slot-wait`,
+`restore`, `reread` — while the page knows the language. `registerStepLabel` maps the key to the
+words, and the waiting indicator, what a screen reader hears in place of "Typing" and a sub-agent's
+line all show them. A name without a label shows as it is. The label is text, or a function of the
+locale, asked again at every change of it, so a step that is open follows a language switch:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerStepLabel('slot-wait', 'Waiting for a free slot…');
+
+// A function is told the locale, and asked again when it changes.
+const off = aparteGlobalConfig.registerStepLabel('reread', ({ locale }) =>
+  locale.tag?.startsWith('fr') ? 'Relecture de la conversation…' : 'Re-reading the conversation…');
+
+off(); // takes the label off: the name shows again
+```
+
+It is configuration, not a component, so it reads the same under every framework: register it on
+`aparteGlobalConfig`, or on the config you give one chat (a framework's `config` prop), which then
+reads its own labels only. Only what is shown is labelled: `config.observeRunEvents` still hears
+`step-start` with `reread`, so a mark of the step that you keep holds the key, not the label.
+
 **An AG-UI agent:** nothing to do. `STEP_STARTED` and `STEP_FINISHED` are shown as they arrive, a
 sub-agent's by its `subagentRunId`, and a step the agent leaves open closes when its run ends.
 
