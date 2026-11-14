@@ -75,9 +75,26 @@
    (a prefix match, not a bare `[hidden]`, so a host's markup is not touched), and
    `!important` because the whole point is to outrank the recipe's `display`. The
    handful of per-element `[hidden]` rules that predate this stay; they are now
-   redundant, not wrong. */
-[class^="aparte-"][hidden],
-[class*=" aparte-"][hidden] {
+   redundant, not wrong.
+
+   Two things the prefix match has to know about HTML:
+   - Class names are separated by ANY ASCII whitespace, not only a space: tab, line feed,
+     form feed, carriage return. A multi-line `className` template in JSX writes a newline,
+     and `class="my-footer\naparte-card__footer"` stayed painted under the space-only rule.
+     Each separator has its own test, written as a CSS escape: `\9 `, `\a `, `\c `, `\d `.
+     The space after an escape ends it and is consumed; without it `\9a` would read as
+     U+009A, because `a` is a hex digit.
+   - `hidden="until-found"` is not `display: none`. The browser hides that state with
+     `content-visibility: hidden` so that find-in-page can match its text and reveal it, and
+     this rule forced `display: none` over it. It is left to the browser. */
+:is(
+  [class^="aparte-"],
+  [class*="\9 aparte-"],
+  [class*="\a aparte-"],
+  [class*="\c aparte-"],
+  [class*="\d aparte-"],
+  [class*=" aparte-"]
+)[hidden]:not([hidden="until-found" i]) {
   display: none !important;
 }
 
