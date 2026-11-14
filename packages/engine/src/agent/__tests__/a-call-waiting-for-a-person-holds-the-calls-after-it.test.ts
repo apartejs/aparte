@@ -75,17 +75,44 @@ describe('a call waiting for a person (#202)', () => {
         await settle();
         expect(of(r.events, 'tool-awaiting-approval', 'e')).toHaveLength(1);
         expect(held.started).toEqual([]);
-        expect(of(r.events, 'tool-start', 'c')).toHaveLength(0);
+        // Both rows are there, where the model wrote them; the command's says it waits.
+        expect(of(r.events, 'tool-start').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { queued?: true }).queued])).toEqual([['e', undefined], ['c', true]]);
+        expect(of(r.events, 'tool-running')).toHaveLength(0);
 
         decision.resolve({ approved: true });
         await settle();
         // The edit runs; the command still waits for it, its tool saying nothing.
         expect(held.started).toEqual(['e']);
+        expect(of(r.events, 'tool-running')).toHaveLength(0);
         await held.release('e');
         expect(held.started).toEqual(['e', 'c']);
+        expect(r.events.indexOf(of(r.events, 'tool-running', 'c')[0]!)).toBeGreaterThan(r.events.indexOf(of(r.events, 'tool-resolved', 'e')[0]!));
         await held.release('c');
         await r.done;
         expect(ids(r.history)).toEqual(['assistant:e,c', 'tool:e', 'tool:c']);
+    });
+
+    it('shows what the model wrote after both calls after both rows, while the command waits', async () => {
+        const held = heldCalls();
+        const decision = deferred<{ approved: boolean }>();
+        const { transportCall } = scripted({ parent: [[...editThenCommand.slice(0, 2), text('Running the tests next.'), done], [text('Tests pass.'), done]] });
+        const r = run({
+            transportCall, toolLookup: () => held.handler,
+            toolConfigLookup: (n) => (n === 'edit_file' ? { needsApproval: true } : undefined),
+            approvalResolver: () => decision.promise,
+        });
+
+        await settle();
+        // The reply is read on while the command waits: its text is there, after both rows.
+        const said = r.events.findIndex((e) => e.type === 'text-delta' && e.delta === 'Running the tests next.');
+        expect(said).toBeGreaterThan(r.events.indexOf(of(r.events, 'tool-start', 'c')[0]!));
+        expect(of(r.events, 'tool-running')).toHaveLength(0);
+        decision.resolve({ approved: true });
+        await settle();
+        await held.release('e');
+        await held.release('c');
+        await r.done;
+        expect(r.history[0]).toMatchObject({ content: 'Running the tests next.' });
     });
 
     it('skips the command when the edit is refused, as not run after an earlier refusal', async () => {
@@ -127,7 +154,8 @@ describe('a call waiting for a person (#202)', () => {
         // Answered: nothing holds the command any more, and it runs beside the edit.
         expect([...held.running].sort()).toEqual(['c', 'e']);
         const approved = r.events.indexOf(of(r.events, 'tool-approved', 'e')[0]!);
-        expect(r.events.indexOf(of(r.events, 'tool-start', 'c')[0]!)).toBeGreaterThan(approved);
+        expect(of(r.events, 'tool-start', 'c')[0]).toMatchObject({ queued: true });
+        expect(r.events.indexOf(of(r.events, 'tool-running', 'c')[0]!)).toBeGreaterThan(approved);
         await held.release('c');
         await held.release('e');
         await r.done;
@@ -174,7 +202,7 @@ describe('the calls around a call waiting for a person', () => {
         expect(of(r.events, 'tool-rejected', 'f')[0]).toMatchObject({ by: 'earlier-refusal' });
     });
 
-    it('opens no row for the calls a Stop finds held, and asks nobody about them', async () => {
+    it('ends the calls a Stop finds held as stopped, and asks nobody about them', async () => {
         const asked: string[] = [];
         const ran: string[] = [];
         const { transportCall } = scripted({ parent: [[toolUse('g1', 'gated'), toolUse('g2', 'gated'), toolUse('f', 'read'), done]] });
@@ -196,8 +224,11 @@ describe('the calls around a call waiting for a person', () => {
 
         expect(asked).toEqual(['g1']);
         expect(ran).toEqual([]);
-        expect(of(r.events, 'tool-start').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['g1']);
-        expect(of(r.events, 'tool-aborted').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { cause?: string }).cause])).toEqual([['g1', 'stopped']]);
+        expect(of(r.events, 'tool-start').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { queued?: true }).queued])).toEqual([['g1', undefined], ['g2', true], ['f', true]]);
+        expect(of(r.events, 'tool-running')).toHaveLength(0);
+        // Each row has its end, in call order.
+        expect(of(r.events, 'tool-aborted').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { cause?: string }).cause]))
+            .toEqual([['g1', 'stopped'], ['g2', 'stopped'], ['f', 'stopped']]);
         expect(r.events.slice(-2).map((e) => e.type)).toEqual(['run-aborted', 'run-done']);
         expect(r.history).toEqual([]);
     });

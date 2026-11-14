@@ -183,9 +183,9 @@ describe('the calls of one step run at the same time', () => {
 
         await slow.started;
         await settle();
-        // Read, and held behind `g1`'s question: it has not started.
+        // Read, and held behind `g1`'s question: its row says it waits.
         expect(of(r.events, 'tool-start', 'g1')).toHaveLength(1);
-        expect(of(r.events, 'tool-start', 'g2')).toHaveLength(0);
+        expect(of(r.events, 'tool-start', 'g2')[0]).toMatchObject({ queued: true });
         refusal.resolve({ approved: false });
         await settle();
         // `g1` was refused; `g2` was waiting its turn to be asked, so nobody is asked about it.

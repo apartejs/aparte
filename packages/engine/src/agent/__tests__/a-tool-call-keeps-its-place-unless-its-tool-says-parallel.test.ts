@@ -60,7 +60,7 @@ const ids = (history: StreamAgentMessage[]) => history.map((m) =>
     m.role === 'tool' ? `tool:${m.toolCallId}` : `${m.role}:${m.toolCalls?.map((c) => c.id).join(',') ?? ''}`);
 
 describe('a tool that says nothing keeps its place in its step', () => {
-    it('runs the calls of a step one after another, with the events in that order, when no tool says parallel', async () => {
+    it('runs the calls of a step one after another when no tool says parallel, the second row queued until the first is done', async () => {
         const held = heldCalls();
         const { transportCall } = scripted({ parent: [[toolUse('a', 'edit_file'), toolUse('b', 'run_command'), done], [text('Both.'), done]] });
         const r = run({ transportCall, toolLookup: () => held.handler });
@@ -72,16 +72,33 @@ describe('a tool that says nothing keeps its place in its step', () => {
         await held.release('b');
         await r.done;
 
-        // The events of 1.6, call after call: nothing of `b` before `a` is over.
+        // Both rows as they are read, `b`'s queued; `b` goes on once `a` is over.
         expect(labels(r.events)).toEqual([
             'run-start', 'turn-start',
-            'tool-start:a', 'tool-resolved:a',
-            'tool-start:b', 'tool-resolved:b',
+            'tool-start:a', 'tool-start:b', 'tool-resolved:a',
+            'tool-running:b', 'tool-resolved:b',
             'text-flush',
             'turn-start', 'text-delta', 'text-flush',
             'run-done',
         ]);
+        expect(r.events.find((e) => e.type === 'tool-start' && e.toolCallId === 'a')).not.toHaveProperty('queued');
+        expect(r.events.find((e) => e.type === 'tool-start' && e.toolCallId === 'b')).toMatchObject({ queued: true });
         expect(ids(r.history)).toEqual(['assistant:a,b', 'tool:a', 'tool:b']);
+    });
+
+    it('shows what the model wrote after a queued call after its row, before the call goes on', async () => {
+        const held = heldCalls();
+        const { transportCall } = scripted({ parent: [[toolUse('w1', 'edit_file'), toolUse('w2', 'run_command'), text('then the tests'), done], [text('Done.'), done]] });
+        const r = run({ transportCall, toolLookup: () => held.handler });
+
+        await settle();
+        // Read on while `w2` waits: row, text, and only then does it go on.
+        expect(labels(r.events).filter((l) => l !== 'run-start' && l !== 'turn-start')).toEqual(['tool-start:w1', 'tool-start:w2', 'text-delta']);
+        await held.release('w1');
+        expect(labels(r.events).slice(-2)).toEqual(['tool-resolved:w1', 'tool-running:w2']);
+        await held.release('w2');
+        await r.done;
+        expect(r.history[0]).toMatchObject({ content: 'then the tests' });
     });
 
     it('starts only once every earlier call has settled, and holds the calls after it until it has', async () => {
@@ -100,9 +117,9 @@ describe('a tool that says nothing keeps its place in its step', () => {
         await r.done;
 
         expect(labels(r.events).filter((l) => l.startsWith('tool-'))).toEqual([
-            'tool-start:r1', 'tool-resolved:r1',
-            'tool-start:w', 'tool-resolved:w',
-            'tool-start:r2', 'tool-resolved:r2',
+            'tool-start:r1', 'tool-start:w', 'tool-start:r2', 'tool-resolved:r1',
+            'tool-running:w', 'tool-resolved:w',
+            'tool-running:r2', 'tool-resolved:r2',
         ]);
         expect(ids(r.history)).toEqual(['assistant:r1,w,r2', 'tool:r1', 'tool:w', 'tool:r2']);
     });
@@ -203,7 +220,7 @@ describe('a sub-agent\'s run', () => {
 });
 
 describe('a step left halfway', () => {
-    it('opens no row for the calls a Stop finds waiting their place, and keeps them out of the history', async () => {
+    it('ends the calls a Stop finds waiting their place as stopped, and keeps them out of the history', async () => {
         const held = heldCalls();
         const { transportCall } = scripted({ parent: [[toolUse('w1', 'edit_file'), toolUse('w2', 'run_command'), done]] });
         const hangs: StreamToolHandler = (call, signal) => new Promise((_, reject) => {
@@ -217,10 +234,10 @@ describe('a step left halfway', () => {
         r.abort.abort();
         await r.done;
 
-        // `w2` never started: as one call after another, it is not there at all.
+        // `w2` never went on: its row ends stopped, after the call the Stop cut short.
         expect(held.started).toEqual(['w1']);
-        expect(labels(r.events).filter((l) => l.includes('w2'))).toEqual([]);
-        expect(labels(r.events).filter((l) => l.startsWith('tool-'))).toEqual(['tool-start:w1', 'tool-aborted:w1']);
+        expect(labels(r.events).filter((l) => l.startsWith('tool-'))).toEqual(['tool-start:w1', 'tool-start:w2', 'tool-aborted:w1', 'tool-aborted:w2']);
+        expect(r.events.find((e) => e.type === 'tool-aborted' && e.toolCallId === 'w2')).toMatchObject({ cause: 'stopped' });
         expect(r.events.slice(-2).map((e) => e.type)).toEqual(['run-aborted', 'run-done']);
         expect(r.history).toEqual([]);
     });
@@ -233,15 +250,15 @@ describe('a step left halfway', () => {
 
         await expect(r.done).rejects.toThrow('disk on fire');
         expect(held.started).toEqual(['w1']);
-        expect(labels(r.events).filter((l) => l.startsWith('tool-'))).toEqual(['tool-start:w1', 'tool-failed:w1']);
+        expect(labels(r.events).filter((l) => l.startsWith('tool-'))).toEqual(['tool-start:w1', 'tool-start:w2', 'tool-failed:w1', 'tool-aborted:w2']);
     });
 
-    it('fails on an emitter that throws on the start of a call it held, and runs that call never', async () => {
+    it('fails on an emitter that throws when a held call goes on, and runs that call never', async () => {
         const held = heldCalls();
         const { transportCall } = scripted({ parent: [[toolUse('w1', 'edit_file'), toolUse('w2', 'run_command'), done]] });
         const r = run({
             transportCall, toolLookup: () => held.handler,
-            emitter: (e) => { if (e.type === 'tool-start' && e.toolCallId === 'w2') throw new Error('the observer broke'); },
+            emitter: (e) => { if (e.type === 'tool-running' && e.toolCallId === 'w2') throw new Error('the observer broke'); },
         });
 
         const failed = expect(r.done).rejects.toThrow('the observer broke');

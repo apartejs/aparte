@@ -390,6 +390,8 @@ export type StreamApprovalResolver = (
  * - `thinking-delta`  → addSegment('thinking') then updateSegment(content); first `text-delta` after
  *                       thinking collapses it (updateSegment collapsed:true)
  * - `tool-start`      → renderer lookup + per-tool-name CSS inject into document.head + addSegment
+ *                       (with `queued` when the call waits its place in the step)
+ * - `tool-running`    → updateSegment(queued: undefined) — a queued call goes on
  * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request`
  * - `tool-approved`   → updateSegment('pending')
  * - `tool-rejected`   → updateSegment('rejected', result)
@@ -422,7 +424,19 @@ export type StreamRunEvent =
     /** Offsets into the text this model call streamed: the text since its `turn-start`. */
     | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[]; agentId?: string }
     | { type: 'thinking-delta'; delta: string; agentId?: string }
-    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; agentId?: string }
+    /**
+     * The model called a tool: its row, where the model wrote it. `queued` when the call cannot
+     * run yet — it waits its place in the step (see `StreamRunOptions.parallelTools`): a call
+     * before it still runs and keeps its place, or waits for a decision. `tool-running` follows
+     * once it goes on, unless the step ends first (a refusal, a stop, a pause).
+     */
+    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; queued?: true; agentId?: string }
+    /**
+     * A call whose `tool-start` said `queued` goes on now: to its approval if it needs one (a
+     * `tool-awaiting-approval` follows), else to its handler. Never sent for a call that went
+     * on at once.
+     */
+    | { type: 'tool-running'; toolCallId: string; agentId?: string }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown; agentId?: string }
     | { type: 'tool-approved'; toolCallId: string; agentId?: string }
     /**
