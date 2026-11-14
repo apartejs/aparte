@@ -153,11 +153,15 @@ For an event the chat has no prop for — a plugin's, such as `aparte-subagent-o
 `HTMLElementEventMap`, which each plugin augments, and always calls your latest handler:
 
 ```tsx
+import { useState } from 'react';
 import { AparteChat, useAparteChat, useAparteEvent } from '@aparte/react';
+import '@aparte/plugin-subagents';   // its events join HTMLElementEventMap
 
 function Chat() {
   const chat = useAparteChat();
-  useAparteEvent(chat.ref, 'aparte-subagent-open', (event) => openPanel(event.detail));
+  const [, setOpenAgent] = useState<string | null>(null);
+  // A sub-agent's line asks to be opened beside the chat (`setupSubagents({ open: 'event' })`).
+  useAparteEvent(chat.ref, 'aparte-subagent-open', (event) => setOpenAgent(event.detail.agentId));
   return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />;
 }
 ```
