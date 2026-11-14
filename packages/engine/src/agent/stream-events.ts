@@ -280,6 +280,21 @@ export interface StreamToolConfig {
      * handler.
      */
     external?: boolean;
+    /**
+     * Whether a call of this tool may run beside the other calls of its step (see
+     * `StreamRunOptions.parallelTools`). Left out, the call keeps its place: it starts once
+     * every call made before it in the same step has settled, and the calls made after it
+     * start once it has. `true` lets it run together with the calls around it that say
+     * `true` too: a read, a search, a lookup — anything whose result does not depend on
+     * the order. A write or a command keeps its place, so `edit_file` then `run_command`
+     * runs the command on the edited file.
+     *
+     * A tool described by MCP says so with its annotations:
+     * `parallel: tool.annotations?.readOnlyHint === true`.
+     *
+     * @default false
+     */
+    parallel?: boolean;
 }
 
 /**
@@ -505,8 +520,9 @@ export interface StreamToolRun {
     readonly maxTurns: number;
     readonly toolTimeoutMs: number;
     /**
-     * Whether the run's tool calls of one step run at the same time (its `parallelTools`). A
-     * sub-agent's loop does as its run does. Absent means the default, `true`.
+     * Whether the calls of tools that say `parallel: true` run together in this run (its
+     * `parallelTools`). A sub-agent's loop does as its run does. Absent means the default,
+     * `true`.
      */
     readonly parallelTools?: boolean;
     /** The run's own id generator, so the ids a nested loop mints never collide with it. */

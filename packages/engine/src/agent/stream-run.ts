@@ -75,28 +75,37 @@ export interface StreamRunOptions {
     /** Per-tool-call handler timeout in ms. @default 300000 */
     toolTimeoutMs?: number;
     /**
-     * Run the tool calls of one model step at the same time. Each call starts the moment
-     * the model asks for it, and the rest of the model's reply goes on being read while it
-     * runs; the next step waits until every call of this one is settled. `false` runs them
-     * one after another, each finished before the next is read.
+     * Run together the calls of one model step whose tools say `parallel: true`
+     * (`StreamToolConfig.parallel`). Such a call starts the moment the model asks for it,
+     * and the rest of the reply goes on being read while it runs. A call of a tool that
+     * says nothing keeps its place: it starts once every call made before it in the step
+     * has settled, and the calls made after it wait for it — reads together, writes and
+     * commands one at a time, in the order the model made them. The next step waits until
+     * every call of this one is settled. `false` runs every call one after another, each
+     * finished before the next is read, whatever its tool says.
+     *
+     * A call starts, with its `tool-start`, only when it may run: a call waiting its place
+     * shows nothing yet.
      *
      * What stays the same either way:
      * - **The history is in call order.** The assistant message lists the calls in the
      *   order the model made them, and their `tool` results follow in that order, whichever
      *   finished first.
-     * - **A person is asked about one call at a time**, in call order. The calls that need
-     *   nobody's approval run in the meantime.
-     * - **A refusal runs nothing more of the step.** The calls already running finish; a
-     *   call still waiting to be asked is not run, and its result says so
+     * - **A call waiting for a decision holds the calls after it.** A person is asked about
+     *   one call at a time, in call order; while a call waits for its answer (or for the
+     *   policy's), the calls made after it in the step do not start, and those made before
+     *   it go on running. An approval lets them start.
+     * - **A refusal runs nothing more of the step.** The calls already running finish; the
+     *   calls made after the refused one are not run, and their results say so
      *   (`by: 'earlier-refusal'`); the rest of the reply is not read. The model then reads
      *   the refusal.
      * - **A Stop, the turn limit, or a call that cannot run** (no handler, no resolver)
      *   stops every call of the step, as `tool-aborted` with the cause `'stopped'` for
-     *   those still running, and the run ends.
+     *   those still running, and the run ends. A call still waiting its place never starts.
      * - **With `deferral`**, a call that pauses does not stop the calls already running:
      *   the run is suspended once every call is settled or paused, and `run-suspended`
-     *   lists every paused one. A call the model makes after the pause waits too. A call
-     *   that stops the run meanwhile (a timeout, no handler) ends it, as one call after
+     *   lists every paused one. The calls made after the pause wait too, queued with it. A
+     *   call that stops the run meanwhile (a timeout, no handler) ends it, as one call after
      *   another would: the paused ones end as `tool-aborted` (`'stopped'`), nothing suspends.
      *
      * @default true
@@ -526,9 +535,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             deferral: deferral && { ...deferral, outcomes: undefined },
             runBase,
         };
-        // The step's calls, when they run together (see `parallelTools`): each starts as it is
-        // read, and the reading goes on.
-        const step = parallelTools ? createParallelStep(callContext) : undefined;
+        // The step's calls, when the ones that may run together do (see `parallelTools`): each
+        // starts once its place lets it, and the reading goes on.
+        const step = parallelTools ? createStep(callContext) : undefined;
         // A read the step's halt left waiting: the iterator is closed without waiting for it.
         let outstandingRead = false;
 
@@ -653,13 +662,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // result. A tool is a tool — the app registers it (`@aparte/plugin-artifacts`
                 // does), and it goes through tool-start, the gate, the handler and the
                 // envelope like every other.
-                emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
-
                 const call: StreamToolCall = { id: callId, name: event.name, input: event.input };
                 if (step) {
+                    // The step says `tool-start` itself, once the call's place lets it start.
                     step.start(call);
                     continue;
                 }
+                emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
                 if (pending.length > 0) {
                     // Past the pause point nothing runs. The call is declared, and says what
                     // it waits for, so the client answers every call of the reply in ONE
@@ -832,13 +841,17 @@ interface CallContext {
     runBase: ToolRunBase;
     /**
      * Told the call's verdict the moment it is reached, before `processCall`'s promise
-     * settles: a parallel step must know at once that a call paused or stopped the step, so
-     * that the next `tool_use` it reads is treated as it would be one call after another.
-     * Not told `'continue'`.
+     * settles: a step must know at once that a call paused or stopped it, so that the next
+     * `tool_use` it reads is treated as it would be one call after another. Not told
+     * `'continue'`.
      */
     decided?: (verdict: Exclude<CallVerdict, 'continue'>) => void;
-    /** Whether a call of the same step was refused while this one waited to be asked. */
-    stepRefused?: () => boolean;
+    /**
+     * Told `true` the moment the call goes to the gate for a decision — before it waits its
+     * turn to be asked — and `false` once it is approved: a step holds the calls made after
+     * it meanwhile. A refusal or a stop is told through {@link decided}.
+     */
+    asking?: (waiting: boolean) => void;
 }
 
 /** Hands a verdict back, telling the step first (see {@link CallContext.decided}). */
@@ -962,28 +975,31 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         const provided = answer?.kind === 'decision' && gated !== 'deny' ? answer : undefined;
         /*
          * One question at a time, in call order. The turn is taken BEFORE the call is
-         * announced, so a second call of the step shows no question while the first is still
-         * open; the calls that need nobody run meanwhile. Free, it is handed over at once, so
+         * announced, so no other question shows while one is still open; the calls made before
+         * this one that need nobody run meanwhile. Free, it is handed over at once, so
          * a call that waits for nobody announces in the same tick as before. A sub-agent's
          * turn is its own run's AND every run above it (see `chainTurns`): its row shows no
          * question while a sibling sub-agent's, or the parent's, is still open.
          */
         let release: (() => void) | undefined;
         if (!provided && ctx.approvalResolver && !(ctx.deferral && gated !== 'deny')) {
+            // From here the call waits for a decision, and in a step the calls made after it
+            // wait too: nothing the model asked for after it may overtake it. Said before the
+            // turn is taken, in the same tick the call was started, so the step knows before
+            // it looks at the next call. (So no call of the step can be refused while this one
+            // waits its turn: the one that could would come after it, and is held.)
+            ctx.asking?.(true);
             const turn = ctx.approvalTurn();
             if (typeof turn === 'function') {
                 release = turn;
             } else {
                 release = await turn;
-                // It waited behind an earlier call's question: what happened meanwhile decides.
+                // It waited behind another question (a sub-agent's, a tool's own): a Stop that
+                // landed meanwhile decides.
                 if (signal.aborted) {
                     release();
                     ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
                     return told(ctx, 'stop-run');
-                }
-                if (ctx.stepRefused?.()) {
-                    release();
-                    return refuse(ctx, call, { by: 'earlier-refusal' });
                 }
             }
         }
@@ -1087,6 +1103,8 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
             effectiveInput = { ...input, ...(decision.payload as Record<string, unknown>) };
         }
         ctx.emitter({ type: 'tool-approved', toolCallId: call.id });
+        // Answered: the calls the step held behind it may start.
+        ctx.asking?.(false);
     }
 
     // ── handler invocation with per-call timeout ──────────────────
@@ -1119,9 +1137,13 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
 /** What a raced read resolves to when the step stopped first. */
 const HALTED: unique symbol = Symbol('halted');
 
-/** One call of a parallel step, and what it leaves for the history until its turn to enter it. */
+/** One call of a step, and what it leaves for the history until its turn to enter it. */
 interface StepCall {
     call: StreamToolCall;
+    /** Its tool says `parallel: true`: it may run beside the calls around it that say so too. */
+    parallel: boolean;
+    /** Waiting for a decision: the calls made after it wait too. */
+    asking: boolean;
     declared: boolean;
     messages: StreamAgentMessage[];
     pending?: StreamDeferredCall;
@@ -1129,17 +1151,22 @@ interface StepCall {
 }
 
 /**
- * The calls of one model step, run at the same time (see `StreamRunOptions.parallelTools`).
+ * The calls of one model step (see `StreamRunOptions.parallelTools`).
  *
- * Each call goes through the same `processCall` as one call after another, with three
- * differences. Its history is held back, and enters the turn's in CALL order: a call's
- * declaration and `tool` message once it and every call before it are settled, so the
- * history equals the sequential one whatever finished first. Its signal is the step's, so a
- * call that stops the run (a Stop, the turn limit, no handler, a crash) stops the others
- * still running. And its verdict is known the moment it is reached (`decided`), so a call
- * read after a pause or a stop is treated as it would be one after another.
+ * Each call goes through the same `processCall` as one call after another, and starts — with
+ * its `tool-start` — only once its place lets it, always in call order: a call of a tool that
+ * says nothing once every call before it has settled; a call of a `parallel` tool once no call
+ * before it that keeps its place is still unsettled, and none waits for a decision.
+ *
+ * Three things differ from one call after another. Its history is held back, and enters the
+ * turn's in CALL order: a call's declaration and `tool` message once it and every call before
+ * it are settled, so the history equals the sequential one whatever finished first. Its signal
+ * is the step's, so a call that stops the run (a Stop, the turn limit, no handler, a crash)
+ * stops the others still running. And its verdict is known the moment it is reached
+ * (`decided`), so a call still waiting its place is treated as it would be one after another:
+ * queued with a pause, not run after a refusal. One a stop finds waiting never starts.
  */
-function createParallelStep(turn: CallContext) {
+function createStep(turn: CallContext) {
     const controller = new AbortController();
     const forwardStop = (): void => controller.abort();
     if (turn.signal.aborted) controller.abort();
@@ -1148,6 +1175,9 @@ function createParallelStep(turn: CallContext) {
     const calls: StepCall[] = [];
     const running: Promise<void>[] = [];
     let flushed = 0;
+    // The first call not started yet: every call after it waits with it.
+    let next = 0;
+    let advancing = false;
     let paused = false;
     let refused = false;
     let stopRun = false;
@@ -1171,8 +1201,117 @@ function createParallelStep(turn: CallContext) {
         wake();
     };
     const settledAll = async (): Promise<void> => {
-        await Promise.all(running);
+        // A call held behind another starts once that one settles, and joins `running`.
+        for (let waited = -1; waited < running.length;) {
+            waited = running.length;
+            await Promise.all(running);
+        }
         turn.signal.removeEventListener('abort', forwardStop);
+        // What is left never started — a stop found it waiting its place: no row was opened
+        // for it and nothing enters the history, as one call after another, where it was
+        // never read.
+        for (const entry of calls) entry.settled = true;
+        flush();
+    };
+
+    /** Whether the calls made before this one let it start. */
+    const mayStart = (index: number): boolean => {
+        const { parallel } = calls[index]!;
+        return calls.slice(0, index).every((before) => !before.asking && (before.settled || (parallel && before.parallel)));
+    };
+
+    const contextOf = (entry: StepCall): CallContext => ({
+        ...turn,
+        signal: controller.signal,
+        declareCall: () => { entry.declared = true; },
+        append: (message) => { entry.messages.push(message); },
+        decided: (verdict) => {
+            entry.asking = false;
+            if (typeof verdict === 'object') paused = true;
+            else if (verdict === 'stop-run') stopAll();
+            else { refused = true; wake(); }
+            advance();
+        },
+        asking: (waiting) => {
+            entry.asking = waiting;
+            if (!waiting) advance();
+        },
+    });
+
+    const announce = ({ call }: StepCall): void => {
+        turn.emitter({ type: 'tool-start', toolCallId: call.id, name: call.name, input: call.input });
+    };
+
+    /** The call runs: `processCall`, its history held back until its turn to enter. */
+    const launch = (entry: StepCall): void => {
+        const { call } = entry;
+        announce(entry);
+        running.push(processCall(call, contextOf(entry)).then(
+            (verdict) => {
+                if (typeof verdict !== 'object') return;
+                entry.declared = true;
+                entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason: verdict.defer };
+            },
+            // A crash: the first one fails the run, once the others are stopped.
+            (error: unknown) => {
+                failure ??= { error };
+                stopAll();
+            },
+        ).finally(() => {
+            entry.asking = false;
+            entry.settled = true;
+            flush();
+            // The calls held behind it may start. One that cannot even be announced (an
+            // emitter that throws) fails the run like a crash, once the others are stopped.
+            try {
+                advance();
+            } catch (error) {
+                failure ??= { error };
+                stopAll();
+            }
+        }));
+    };
+
+    /** Past the pause point nothing runs, as one call after another: declared, and says what it waits for. */
+    const queue = (entry: StepCall): void => {
+        const { call } = entry;
+        announce(entry);
+        const reason = queuedReason(call, turn.toolConfigLookup);
+        if (reason === 'approval') {
+            turn.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+        }
+        entry.declared = true;
+        entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason };
+        entry.settled = true;
+    };
+
+    /** After a refusal nothing more of the step runs: the call is answered as not run. */
+    const skip = (entry: StepCall): void => {
+        announce(entry);
+        refuse(contextOf(entry), entry.call, { by: 'earlier-refusal' });
+        entry.settled = true;
+    };
+
+    /**
+     * Start, in call order, every call its place now lets start — or, after a pause or a
+     * refusal, queue or skip every call still waiting. Never twice at once: a call started here
+     * can decide the step in the same tick (it paused, it is asking), and the loop reads that
+     * before it looks at the next call.
+     */
+    const advance = (): void => {
+        if (advancing) return;
+        advancing = true;
+        try {
+            while (next < calls.length && !stopRun && !controller.signal.aborted) {
+                if (!refused && !paused && !mayStart(next)) break;
+                const entry = calls[next++]!;
+                if (refused) skip(entry);
+                else if (paused) queue(entry);
+                else launch(entry);
+            }
+        } finally {
+            advancing = false;
+        }
         flush();
     };
 
@@ -1180,51 +1319,12 @@ function createParallelStep(turn: CallContext) {
         /** Resolves once a call stopped the step: the reply is read no further. */
         onHalt,
         halted: (): boolean => refused || stopRun,
-        /** Whether a call is still running: only then can the step stop while the reply is read. */
+        /** Whether a call is unsettled: only then can the step stop while the reply is read. */
         busy: (): boolean => flushed < calls.length,
         start(call: StreamToolCall): void {
-            const entry: StepCall = { call, declared: false, messages: [], settled: false };
-            calls.push(entry);
-            if (paused) {
-                // Past the pause point nothing runs, as one call after another: the call is
-                // declared, and says what it waits for.
-                const reason = queuedReason(call, turn.toolConfigLookup);
-                if (reason === 'approval') {
-                    turn.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
-                }
-                entry.declared = true;
-                entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason };
-                entry.settled = true;
-                flush();
-                return;
-            }
-            const ctx: CallContext = {
-                ...turn,
-                signal: controller.signal,
-                declareCall: () => { entry.declared = true; },
-                append: (message) => { entry.messages.push(message); },
-                decided: (verdict) => {
-                    if (typeof verdict === 'object') paused = true;
-                    else if (verdict === 'stop-run') stopAll();
-                    else { refused = true; wake(); }
-                },
-                stepRefused: () => refused,
-            };
-            running.push(processCall(call, ctx).then(
-                (verdict) => {
-                    if (typeof verdict !== 'object') return;
-                    entry.declared = true;
-                    entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason: verdict.defer };
-                },
-                // A crash: the first one fails the run, once the others are stopped.
-                (error: unknown) => {
-                    failure ??= { error };
-                    stopAll();
-                },
-            ).finally(() => {
-                entry.settled = true;
-                flush();
-            }));
+            const parallel = turn.toolConfigLookup?.(call.name)?.parallel === true;
+            calls.push({ call, parallel, asking: false, declared: false, messages: [], settled: false });
+            advance();
         },
         /** Waits for every call, and says what the step decided. */
         async finish(): Promise<{ failure?: { error: unknown }; stopRun: boolean; pending: StreamDeferredCall[] }> {

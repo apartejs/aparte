@@ -31,7 +31,8 @@ describe("a sub-agent's question shows only when it is asked", () => {
         const run = runStreamAgent({
             messageId: 'm1', baseRequest: ask('parent'), transportCall,
             toolLookup: (n) => (n === 'delegate' ? delegate : async () => ({ content: 'ran' })),
-            toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : undefined),
+            // The two delegations run side by side: their tool says so.
+            toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : n === 'delegate' ? { parallel: true } : undefined),
             approvalResolver: (call) => new Promise((resolve) => { open.push({ id: call.id, answer: resolve }); }),
             emitter: (e) => { events.push(e); },
             signal: new AbortController().signal,
