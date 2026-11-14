@@ -27,7 +27,9 @@ package defines it.
 
 - a unified diff's text, as `git diff` prints it — several files, new, deleted, renamed and binary ones included;
 - a file's two texts, `{ path, before, after }` (`AparteDiffSource`, with `oldPath` for a rename): every
-  unchanged line can then be shown, with a "Show 24 unchanged lines" button over each folded run;
+  unchanged line can then be shown, with a "Show 24 unchanged lines" button over each folded run. A side that
+  does not exist is `null` — `before: null` for a file created, `after: null` for one deleted — while `''` is a
+  file that exists and is empty;
 - a list of files, each either of the above as data (`AparteDiffFile`) or two texts.
 
 The lines are coloured by the chat's highlighter when one is installed (`@aparte/plugin-shiki`), in the
@@ -97,9 +99,18 @@ const files = parseUnifiedDiff(text);   // AparteDiffFile[]
 
 `diffTexts` (`DiffTextsOptions`: `context`, `path`, `oldPath`) is a line diff written here — Myers' algorithm, the
 fewest added and removed lines — with no dependency. Lines are compared without their endings, so a file saved
-with Windows line endings reads the same; a last line that gains or loses its newline shows as changed. Two texts
-with thousands of changes between them are shown as the changed block removed then added, which stays a true
-account of the change without being the shortest one.
+with Windows line endings reads the same; a last line that gains or loses its newline shows as changed. A side
+given as `null` is a file created (`diffTexts(null, text)`, `added`) or deleted (`diffTexts(text, null)`,
+`deleted`); `''` is an empty file. A large file is first cut at the lines it holds once on each side, in the
+same order (patience anchoring, as `git diff --patience`), and each gap between them is diffed on its own: a
+200,000-line file changed in a thousand places still gives a thousand small hunks, in well under a second. A
+gap with thousands of changes and little in common is shown as removed then added, which stays a true account of
+the change without being the shortest one.
+
+`formatUnifiedDiff` writes what `git apply` takes: git's `new file mode` and `deleted file mode` headers for a
+file created or deleted, `rename from` / `rename to` for a rename. `parseUnifiedDiff` reads a rename only where
+git says one (`rename from` / `rename to`, or a `similarity index`): a plain `diff -u x.c.orig x.c` is a change
+to `x.c`, and `diff -ru old new` keeps its trees' names.
 
 An `AparteDiffFile` is `{ path, oldPath?, status?, added, removed, hunks, binary? }` (`AparteDiffFileStatus`:
 `modified`, `added`, `deleted`, `renamed`); each `AparteDiffHunk` has `oldStart`, `oldCount`, `newStart`,

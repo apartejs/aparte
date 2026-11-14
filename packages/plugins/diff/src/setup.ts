@@ -32,9 +32,6 @@ export interface DiffSetupOptions {
     open?: boolean;
 }
 
-/** The diffs drawn per setup, kept so a call drawn again from the same result is the same element. */
-const KEPT_MAX = 200;
-
 function parseResult(segment: AparteToolCallSegment): unknown {
     if (segment.structuredResult !== undefined) return segment.structuredResult;
     const text = segment.result;
@@ -54,11 +51,17 @@ function fingerprint(value: unknown): string {
     }
 }
 
+/** A side of a file's two texts: a text, or `null` for a file that is not there. */
+const isSide = (side: unknown): boolean => typeof side === 'string' || side === null;
+
 /** Whether `<aparte-diff>` can draw it: diff text that holds a file, a file's two texts, or a list of those. */
 function drawable(value: unknown): value is AparteDiffInput {
+    const texts = (item: object): boolean => {
+        const { before, after } = item as { before?: unknown; after?: unknown };
+        return isSide(before) && isSide(after) && (before !== null || after !== null);
+    };
     const one = (item: unknown): boolean => typeof item === 'object' && item !== null
-        && ((typeof (item as { before?: unknown }).before === 'string' && typeof (item as { after?: unknown }).after === 'string')
-            || Array.isArray((item as { hunks?: unknown }).hunks));
+        && (texts(item) || Array.isArray((item as { hunks?: unknown }).hunks));
     if (typeof value === 'string') return parseUnifiedDiff(value).length > 0;
     if (Array.isArray(value)) return value.length > 0 && value.every(one);
     return one(value);
@@ -80,17 +83,18 @@ function drawable(value: unknown): value is AparteDiffInput {
  */
 export function setupDiff(options: DiffSetupOptions, config: AparteConfig = aparteGlobalConfig): () => void {
     const matchers = Array.isArray(options.tool) ? options.tool : [options.tool];
-    const kept = new Map<string, { from: string; element: HTMLElement }>();
+    // The result each diff was drawn from. Weak: a diff lives in its row, and goes with it.
+    const drawnFrom = new WeakMap<HTMLElement, string>();
     let warned = false;
 
-    const details = (segment: AparteToolCallSegment): HTMLElement | string => {
+    const details = (segment: AparteToolCallSegment, held?: HTMLElement): HTMLElement | string => {
         if (segment.status !== 'resolved' || typeof document === 'undefined') return '';
         const raw = parseResult(segment);
         const from = fingerprint(raw);
-        const known = kept.get(segment.id);
-        // The same result drawn again (an update, a language switch): the element already there,
-        // with what the reader opened and wrote in it.
-        if (known && from && known.from === from) return known.element;
+        // The same result drawn again in its row (an update, a language switch): the diff the
+        // row already holds, with what the reader opened and wrote in it. Another row of the
+        // same call — a pane beside the reply — draws its own.
+        if (held && from && drawnFrom.get(held) === from) return held;
         let input: unknown;
         try {
             input = options.map ? options.map(raw, (segment.toolCall?.input ?? {}) as Record<string, unknown>, segment) : raw;
@@ -109,9 +113,7 @@ export function setupDiff(options: DiffSetupOptions, config: AparteConfig = apar
         const element = document.createElement('aparte-diff') as HTMLElement & { diff: AparteDiffInput | null };
         element.diff = input;
         if (options.commentable) element.setAttribute('commentable', '');
-        kept.delete(segment.id);
-        kept.set(segment.id, { from, element });
-        if (kept.size > KEPT_MAX) kept.delete(kept.keys().next().value!);
+        drawnFrom.set(element, from);
         return element;
     };
 
@@ -133,6 +135,5 @@ export function setupDiff(options: DiffSetupOptions, config: AparteConfig = apar
         if (stopped) return;
         stopped = true;
         for (const restore of restores) restore();
-        kept.clear();
     };
 }

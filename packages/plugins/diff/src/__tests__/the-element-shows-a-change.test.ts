@@ -6,7 +6,7 @@
  * runs between hunks folded, and shown on a click when the whole text is known; several
  * files one after the other. The code stays left to right in a right-to-left page.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { aparteGlobalConfig } from '@aparte/core';
 import { parseUnifiedDiff } from '../parse.js';
 import { click, flush, FORTY, mount, rows } from './harness.js';
@@ -15,6 +15,7 @@ afterEach(() => {
     document.body.replaceChildren();
     document.documentElement.removeAttribute('dir');
     aparteGlobalConfig.reset();
+    vi.restoreAllMocks();
 });
 
 const EDIT = { path: 'src/parse.ts', before: 'const a = 1;\nconst b = 2;\nconst c = 3;\n', after: 'const a = 1;\nconst b = 20;\nconst c = 3;\n' };
@@ -98,6 +99,10 @@ describe('<aparte-diff>', () => {
         // A list of files and texts reads the same.
         const list = mount([parseUnifiedDiff(text)[0]!, EDIT]);
         expect([...list.querySelectorAll('.aparte-diff-file')].map((f) => f.getAttribute('data-path'))).toEqual(['new.md', 'src/parse.ts']);
+        // Two texts, a side of which is not there: created, deleted.
+        const texts = mount([{ path: 'made.md', before: null, after: 'hi\n' }, { path: 'gone.md', before: 'bye\n', after: null }]);
+        expect([...texts.querySelectorAll('.aparte-diff-file__status')].map((s) => s.textContent)).toEqual(['Added', 'Deleted']);
+        expect(rows(texts)).toEqual(['add · 1 hi', 'del 1 · bye']);
     });
 
     it('says when there is no change, and when a file ends without a newline', () => {
@@ -145,6 +150,33 @@ describe('<aparte-diff>', () => {
         await flush();
         await flush();
         expect([...text.querySelectorAll('.aparte-diff-line__code b')].map((b) => b.textContent)).toEqual(['a = 1', 'b = 2', 'b = 3']);
+    });
+
+    it('colours the lines once a highlighter that failed is replaced by one that works', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        aparteGlobalConfig.setHighlightProvider(() => Promise.reject(new Error('grammars still loading')));
+        const el = mount(EDIT);
+        await flush();
+        await flush();
+        expect(el.querySelector('.aparte-diff-line__code')!.children).toHaveLength(0);
+        aparteGlobalConfig.setHighlightProvider((code) => `<pre><code>${code.split('\n').map((l) => `<span class="line"><b>${l}</b></span>`).join('\n')}</code></pre>`);
+        await flush();
+        await flush();
+        expect(el.querySelector('.aparte-diff-line__code b')?.textContent).toBe('const a = 1;');
+    });
+
+    it('colours the lines again when the highlighter changes', async () => {
+        const wrap = (tag: string) => (code: string) => `<pre><code>${code.split('\n').map((l) => `<span class="line"><${tag}>${l}</${tag}></span>`).join('\n')}</code></pre>`;
+        aparteGlobalConfig.setHighlightProvider(wrap('i'));
+        const el = mount(EDIT);
+        await flush();
+        await flush();
+        expect(el.querySelector('.aparte-diff-line__code i')?.textContent).toBe('const a = 1;');
+        aparteGlobalConfig.setHighlightProvider(wrap('b'));
+        await flush();
+        await flush();
+        expect(el.querySelector('.aparte-diff-line__code i')).toBeNull();
+        expect([...el.querySelectorAll('.aparte-diff-line__code b')].map((b) => b.textContent)).toEqual(['const a = 1;', 'const b = 2;', 'const b = 20;', 'const c = 3;']);
     });
 
     it('keeps a line plain when the highlighter cannot cut it line for line', async () => {

@@ -50,7 +50,8 @@ Importing the package defines the element (`AparteDiff`). `diff` takes three sha
 
 - **A file's two texts**, `{ path, before, after }` (`AparteDiffSource`; add `oldPath` for a
   rename). The element computes the diff, and every unchanged line can be shown: each folded run
-  gets a "Show 24 unchanged lines" button.
+  gets a "Show 24 unchanged lines" button. A side that does not exist is `null`: `before: null`
+  for a file created, `after: null` for one deleted. `''` is a file that exists and is empty.
 - **A unified diff's text**, as `git diff` prints it or a model returns it: several files, new,
   deleted, renamed and binary ones included. The folded runs then say how many lines they leave
   out, since the text does not hold them.
@@ -147,8 +148,26 @@ const files = parseUnifiedDiff(patch); // back to data
 `diffTexts` (`DiffTextsOptions`: `context`, `path`, `oldPath`) finds the fewest added and removed
 lines, with three unchanged lines around each change by default, as `git diff` does. A file saved
 with Windows line endings reads the same as one without; a last line that gains or loses its
-newline shows as changed. Two texts with thousands of changes between them show the changed block
-removed then added: a true account of the change, without searching for the shortest one.
+newline shows as changed. A side given as `null` is a file that does not exist:
+
+```ts
+import { diffTexts } from '@aparte/plugin-diff';
+
+diffTexts(null, 'hello\n', { path: 'notes.md' }).status; // 'added'
+diffTexts('bye\n', null, { path: 'old.md' }).status;     // 'deleted'
+diffTexts('', 'hello\n', { path: 'empty.md' }).status;   // 'modified': an empty file filled in
+```
+
+A large file is first cut at the lines it holds once on each side, in the same order (patience
+anchoring, as `git diff --patience` does), and each gap between them is diffed on its own: a
+200,000-line file changed in a thousand places still gives a thousand small hunks, in well under a
+second. A gap with thousands of changes and little in common shows as removed then added: a true
+account of the change, without searching for the shortest one.
+
+`formatUnifiedDiff` writes what `git apply` takes, with git's `new file mode` and
+`deleted file mode` headers for a file created or deleted. `parseUnifiedDiff` reads a rename only
+where git says one (`rename from` and `rename to`, or a `similarity index`): a plain
+`diff -u x.c.orig x.c` is a change to `x.c`.
 
 An `AparteDiffFile` is `{ path, oldPath, status, added, removed, hunks, binary }`, its status an
 `AparteDiffFileStatus` (`modified`, `added`, `deleted`, `renamed`). Each `AparteDiffHunk` has its
@@ -162,7 +181,8 @@ one.
 With a highlighter installed — [`@aparte/plugin-shiki`](/guides/markdown/), or your own
 `setHighlightProvider` — the lines are coloured in the language the file's extension names, each
 side of the change at once so a line reads in its context. Without one, they are plain text. A
-highlighter installed after the view was drawn colours it then.
+highlighter installed or replaced after the view was drawn colours it then, and one that failed
+(still loading its grammars) is tried again at the next change of the config.
 
 ## In a framework
 

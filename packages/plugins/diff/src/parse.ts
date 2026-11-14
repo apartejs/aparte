@@ -4,7 +4,8 @@
  *
  * The reader follows `git diff` and `diff -u`: a file starts at `diff --git` or at a `---`
  * line followed by a `+++` one; its extended headers (`new file mode`, `deleted file mode`,
- * `rename from` / `rename to`, `Binary files … differ`) say what happened to it; a hunk is
+ * `rename from` / `rename to`, `similarity index`, `Binary files … differ`) say what happened
+ * to it — a rename only when git says so, so `diff -u x.c.orig x.c` is a change to `x.c`; a hunk is
  * read for exactly as many lines as its `@@` header counts, so a removed line that itself
  * starts with `--` is a line, not the next file. What is around the diff — a commit message,
  * an email's signature — is skipped.
@@ -13,6 +14,8 @@ import type { AparteDiffFile, AparteDiffHunk, AparteDiffLine } from './types.js'
 
 const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/;
 const NO_NEWLINE = '\\';
+/** The mode a created or deleted file is written with: a regular file, as git gives most. */
+const FILE_MODE = '100644';
 
 /**
  * The files of a unified diff, in the order it lists them. A text that holds no diff gives
@@ -30,18 +33,29 @@ export function parseUnifiedDiff(text: string): AparteDiffFile[] {
     let fromGit: [string, string] | null = null;
     let renameFrom: string | null = null;
     let renameTo: string | null = null;
+    // Its `---` and `+++` paths as written, prefixes kept: null for `/dev/null`.
     let minus: string | null = null;
     let plus: string | null = null;
     // Whether the file's `---` / `+++` pair was read: `minus` is null for `/dev/null` too.
     let headers = false;
+    // git said the two paths are one file moved (`similarity index`), or a copy of it.
+    let similar = false;
+    let copied = false;
 
     const close = () => {
         if (!file) return;
-        const oldPath = renameFrom ?? (minus === null ? fromGit?.[0] : minus);
-        const newPath = renameTo ?? (plus === null ? fromGit?.[1] : plus);
+        // `a/` and `b/` are git's prefixes: taken off under its `diff --git` line, or when the
+        // pair wears both. Plain `diff -u old/x new/x` names its trees, which stay.
+        const prefixed = fromGit !== null || ((minus === null || minus.startsWith('a/')) && (plus === null || plus.startsWith('b/')));
+        const side = (path: string | null): string | null => (path !== null && prefixed ? stripSide(path) : path);
+        const oldPath = renameFrom ?? (minus === null ? fromGit?.[0] : side(minus));
+        const newPath = renameTo ?? (plus === null ? fromGit?.[1] : side(plus));
         if (file.status !== 'deleted') file.path = newPath ?? oldPath ?? '';
         else file.path = oldPath ?? newPath ?? '';
-        if (file.status === 'modified' && oldPath && newPath && oldPath !== newPath) {
+        // A rename is git's word for it, never two paths that differ: `diff -u x.c.orig x.c`
+        // is a change to x.c.
+        const renamed = renameFrom !== null || renameTo !== null || (similar && !copied && fromGit !== null && fromGit[0] !== fromGit[1]);
+        if (file.status === 'modified' && renamed && oldPath && newPath && oldPath !== newPath) {
             file.status = 'renamed';
             file.oldPath = oldPath;
         }
@@ -51,7 +65,7 @@ export function parseUnifiedDiff(text: string): AparteDiffFile[] {
         file = null;
         fromGit = null;
         renameFrom = renameTo = minus = plus = null;
-        headers = false;
+        headers = similar = copied = false;
     };
     const open = () => {
         close();
@@ -92,6 +106,8 @@ export function parseUnifiedDiff(text: string): AparteDiffFile[] {
             else if (line.startsWith('deleted file mode')) current.status = 'deleted';
             else if (line.startsWith('rename from ')) renameFrom = unquote(line.slice('rename from '.length));
             else if (line.startsWith('rename to ')) renameTo = unquote(line.slice('rename to '.length));
+            else if (line.startsWith('similarity index ')) similar = true;
+            else if (line.startsWith('copy from ') || line.startsWith('copy to ')) copied = true;
             else if (line.startsWith('Binary files ') || line === 'GIT binary patch') current.binary = true;
         }
         i++;
@@ -145,12 +161,11 @@ function readHunk(lines: readonly string[], at: number, header: RegExpExecArray,
     return i;
 }
 
-/** A `---` / `+++` path: without its `a/` or `b/`, its date, its quotes; `null` for `/dev/null`. */
+/** A `---` / `+++` path: without its date and its quotes, its `a/` or `b/` still on; `null` for `/dev/null`. */
 function headerPath(value: string): string | null {
     let path = value.includes('\t') ? value.slice(0, value.indexOf('\t')) : value;
     path = unquote(path.trimEnd());
-    if (path === '/dev/null') return null;
-    return stripSide(path);
+    return path === '/dev/null' ? null : path;
 }
 
 function stripSide(path: string): string {
@@ -223,7 +238,10 @@ function range(start: number, count: number): string {
 
 /**
  * Files as a unified diff, the way `git diff` writes it: what `parseUnifiedDiff` reads back,
- * and what `git apply` takes. With `diffTexts`, a server can send a patch as text.
+ * and what `git apply` takes. With `diffTexts`, a server can send a patch as text. A file
+ * created or deleted carries git's `new file mode` / `deleted file mode` header (as a regular
+ * file, `100644`), which `git apply` needs to create one; a rename carries `rename from` and
+ * `rename to`.
  *
  * @example
  * formatUnifiedDiff(diffTexts(before, after, { path: 'src/parse.ts' }));
@@ -239,7 +257,10 @@ export function formatUnifiedDiff(files: AparteDiffFile | readonly AparteDiffFil
         const status = file.status ?? (file.oldPath && file.oldPath !== file.path ? 'renamed' : 'modified');
         const oldPath = file.oldPath ?? file.path;
         out.push(`diff --git ${quote(`a/${oldPath}`)} ${quote(`b/${file.path}`)}`);
-        if (status === 'renamed') out.push(`rename from ${quote(oldPath)}`, `rename to ${quote(file.path)}`);
+        // Without it, git reads `--- /dev/null` as a file named `dev/null` and refuses the patch.
+        if (status === 'added') out.push(`new file mode ${FILE_MODE}`);
+        else if (status === 'deleted') out.push(`deleted file mode ${FILE_MODE}`);
+        else if (status === 'renamed') out.push(`rename from ${quote(oldPath)}`, `rename to ${quote(file.path)}`);
         if (file.binary) {
             out.push(`Binary files ${status === 'added' ? '/dev/null' : `a/${oldPath}`} and ${status === 'deleted' ? '/dev/null' : `b/${file.path}`} differ`);
             continue;

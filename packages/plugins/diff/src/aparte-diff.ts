@@ -47,6 +47,8 @@ interface Shown {
     expanded: Set<number>;
     /** Each side's lines as the highlighter coloured them, by line number, and the classes its block wore. */
     html: { old: Map<number, string>; new: Map<number, string>; className: string } | null;
+    /** The colouring asked last: an answer to an earlier one is not drawn. */
+    attempt: number;
     /** The line whose number takes the file's one tab stop. */
     roving: string | null;
 }
@@ -78,9 +80,14 @@ const STATUS_BADGES: Partial<Record<string, [WordKey, string]>> = {
 
 let instances = 0;
 
+/** A side of `AparteDiffSource`: a text, or `null` for a file that is not there. */
+const isSide = (side: unknown): side is string | null => typeof side === 'string' || side === null;
+
+/** A file's two texts, one of them `null` at most (a file created or deleted). */
 function isSource(value: unknown): value is AparteDiffSource {
-    return typeof value === 'object' && value !== null
-        && typeof (value as AparteDiffSource).before === 'string' && typeof (value as AparteDiffSource).after === 'string';
+    if (typeof value !== 'object' || value === null) return false;
+    const { before, after } = value as { before?: unknown; after?: unknown };
+    return isSide(before) && isSide(after) && (before !== null || after !== null);
 }
 
 function isFile(value: unknown): value is AparteDiffFile {
@@ -90,7 +97,7 @@ function isFile(value: unknown): value is AparteDiffFile {
 /** What the app gave, as files to show. */
 function filesOf(input: AparteDiffInput | null): Shown[] {
     const shown = (file: AparteDiffFile, source?: AparteDiffSource): Shown => {
-        const old = source ? splitLines(source.before) : null;
+        const old = source ? splitLines(source.before ?? '') : null;
         const lines = file.hunks.flatMap((h) => h.lines);
         return {
             file: {
@@ -99,11 +106,12 @@ function filesOf(input: AparteDiffInput | null): Shown[] {
                 removed: typeof file.removed === 'number' ? file.removed : lines.filter((l) => l.kind === 'del').length,
             },
             oldLines: old ? old.lines : null,
-            newLines: source ? splitLines(source.after).lines : null,
+            newLines: source ? splitLines(source.after ?? '').lines : null,
             oldEndsWithNewline: old ? old.endsWithNewline : true,
             collapsed: false,
             expanded: new Set(),
             html: null,
+            attempt: 0,
             roving: null,
         };
     };
@@ -226,7 +234,6 @@ export class AparteDiff extends ElementBase {
     private _comments: AparteDiffComment[] = [];
     private readonly _id = `aparte-diff-${++instances}`;
     private _generation = 0;
-    private _highlighted = false;
     private _stopConfig: (() => void) | null = null;
     private _selection: Selection | null = null;
     private _form: CommentForm | null = null;
@@ -243,7 +250,6 @@ export class AparteDiff extends ElementBase {
         this._input = value ?? null;
         this._shown = filesOf(this._input);
         this._generation++;
-        this._highlighted = false;
         this._selection = null;
         this._writing = false;
         this._form?.node.remove();
@@ -306,9 +312,13 @@ export class AparteDiff extends ElementBase {
     }
 
     private _onConfigChange(): void {
+        // A highlighter taken off leaves plain text, not the colours it gave.
+        if (!this._config.hasHighlightProvider()) for (const shown of this._shown) shown.html = null;
         this._render();
-        // A highlighter installed after the lines were drawn colours them now.
-        if (!this._highlighted) void this._highlight();
+        // Core says the config changed, not what changed in it: a highlighter installed, or
+        // replaced, is one of those, so the lines are coloured again — one that failed before
+        // gets another try. What they show stays until the new colours land.
+        void this._highlight(true);
     }
 
     /** Draw every file again from the state, the reader's selection, field and focus kept. */
@@ -528,14 +538,18 @@ export class AparteDiff extends ElementBase {
 
     // ── Colours ────────────────────────────────────────────────────────────
 
-    /** Colour every file not coloured yet, each side once, and put the colours in the lines on screen. */
-    private async _highlight(): Promise<void> {
+    /**
+     * Colour each file not coloured yet — or, `again`, every file — each side as one text, and
+     * put the colours in the lines on screen. A file is coloured only once its highlighter
+     * answered: one that failed (still loading its grammars) leaves it plain, to be tried again.
+     */
+    private async _highlight(again = false): Promise<void> {
         const config = this._config;
         if (!config.hasHighlightProvider()) return;
-        this._highlighted = true;
         const generation = this._generation;
         await Promise.all(this._shown.map(async (shown, index) => {
-            if (shown.html) return;
+            if (shown.html && !again) return;
+            const attempt = ++shown.attempt;
             const language = languageOfPath(shown.file.path);
             const side = (which: AparteDiffSide): { lines: string[]; numbers: number[] } => {
                 const full = which === 'old' ? shown.oldLines : shown.newLines;
@@ -546,7 +560,8 @@ export class AparteDiff extends ElementBase {
             const old = side('old');
             const next = side('new');
             const [oldHtml, newHtml] = await Promise.all([highlightLines(config, old.lines, language), highlightLines(config, next.lines, language)]);
-            if (generation !== this._generation || (!oldHtml && !newHtml)) return;
+            // A new change, or a later colouring of this file, has the last word.
+            if (generation !== this._generation || attempt !== shown.attempt || (!oldHtml && !newHtml)) return;
             shown.html = {
                 old: new Map((oldHtml?.lines ?? []).map((html, i) => [old.numbers[i]!, html])),
                 new: new Map((newHtml?.lines ?? []).map((html, i) => [next.numbers[i]!, html])),

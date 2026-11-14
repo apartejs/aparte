@@ -8,7 +8,7 @@
  * setup off gives back what the tool showed before.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { aparteGlobalConfig, AparteConfig, registerDefaultRenderers, type AparteMessage, type AparteToolCallSegment } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, getSegmentRenderer, registerDefaultRenderers, type AparteMessage, type AparteToolCallSegment } from '@aparte/core';
 import { setupDiff } from '../index.js';
 import type { AparteDiff } from '../aparte-diff.js';
 
@@ -33,7 +33,7 @@ function call(result: unknown, status: AparteToolCallSegment['status'] = 'resolv
 
 const map = (result: { before: string; after: string }, input: Record<string, unknown>) => ({ path: String(input['path']), before: result.before, after: result.after });
 
-const detailsOf = (config = aparteGlobalConfig) => config.getToolDisplay('edit_file')!.details as (s: AparteToolCallSegment) => HTMLElement | string;
+const detailsOf = (config = aparteGlobalConfig) => config.getToolDisplay('edit_file')!.details as (s: AparteToolCallSegment, held?: HTMLElement) => HTMLElement | string;
 
 describe('setupDiff', () => {
     it('puts the change behind the tool’s line, opened, from what map reads', () => {
@@ -59,11 +59,45 @@ describe('setupDiff', () => {
         expect(diff.closest('details')!.open).toBe(true);
     });
 
-    it('gives the same element for the same result, and a new one for a new result', () => {
+    it('gives back the element its row holds for the same result, and a new one for a new result', () => {
         stops.push(setupDiff({ tool: 'edit_file', map }));
-        const first = detailsOf()(call({ before: BEFORE, after: AFTER }));
-        expect(detailsOf()(call({ before: BEFORE, after: AFTER }))).toBe(first);
-        expect(detailsOf()(call({ before: BEFORE, after: 'x\n' }))).not.toBe(first);
+        const first = detailsOf()(call({ before: BEFORE, after: AFTER })) as HTMLElement;
+        expect(detailsOf()(call({ before: BEFORE, after: AFTER }), first)).toBe(first);
+        expect(detailsOf()(call({ before: BEFORE, after: 'x\n' }), first)).not.toBe(first);
+        // Something else the row held is not taken for a diff.
+        const foreign = document.createElement('aparte-diff');
+        expect(detailsOf()(call({ before: BEFORE, after: AFTER }), foreign)).not.toBe(foreign);
+    });
+
+    it('gives each row of the same call its own diff, and keeps none for a row of its own', () => {
+        registerDefaultRenderers();
+        stops.push(setupDiff({ tool: 'edit_file', map }));
+        const renderer = getSegmentRenderer('tool_call')!;
+        const draw = (segment: AparteToolCallSegment): HTMLElement => {
+            const out = renderer.render(segment);
+            const tpl = document.createElement('template');
+            if (typeof out === 'string') tpl.innerHTML = out.trim();
+            const el = (typeof out === 'string' ? tpl.content.firstElementChild : out) as HTMLElement;
+            document.body.append(el);
+            renderer.setup?.(el, segment);
+            return el;
+        };
+        const segment = call({ before: BEFORE, after: AFTER });
+        // The reply's row and the one of a pane beside it, drawing the same call.
+        const inline = draw(segment);
+        const pane = draw(segment);
+        const own = inline.querySelector('aparte-diff');
+        const other = pane.querySelector('aparte-diff');
+        expect(own).not.toBeNull();
+        expect(other).not.toBeNull();
+        expect(own).not.toBe(other);
+        renderer.update!(inline, segment);
+        renderer.update!(pane, segment);
+        renderer.relabel!(inline, segment);
+        expect(inline.querySelector('aparte-diff')).toBe(own);
+        expect(pane.querySelector('aparte-diff')).toBe(other);
+        // A row drawn afresh starts one of its own: nothing is kept by the call's id.
+        expect(detailsOf()(segment)).not.toBe(detailsOf()(segment));
     });
 
     it('shows nothing behind a call that has not finished', () => {

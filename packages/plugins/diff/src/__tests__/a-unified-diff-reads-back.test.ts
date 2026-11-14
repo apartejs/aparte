@@ -148,8 +148,27 @@ describe('parseUnifiedDiff', () => {
         expect(accented).toEqual({ path: 'café.md', status: 'modified', added: 0, removed: 0, hunks: [] });
         const [spaced] = parseUnifiedDiff('diff --git a/my notes.md b/my notes.md\nold mode 100644\nnew mode 100755\n');
         expect(spaced!.path).toBe('my notes.md');
-        const [moved] = parseUnifiedDiff('diff --git a/old name.md b/new.md\nold mode 100644\nnew mode 100755\n');
+        const [moved] = parseUnifiedDiff('diff --git a/old name.md b/new.md\nsimilarity index 100%\n');
         expect([moved!.path, moved!.oldPath, moved!.status]).toEqual(['new.md', 'old name.md', 'renamed']);
+    });
+
+    it('reads plain diff -u headers as a change to the new path, never as a rename git did not say', () => {
+        const hunk = '@@ -1 +1 @@\n-a\n+b\n';
+        const shapes = [
+            // `diff -ru old new`: the two trees' own names, no a/ and b/ to take off.
+            ['--- old/src/x.c\t2026-11-13 10:00:00 +0100\n+++ new/src/x.c\t2026-11-14 10:00:00 +0100\n', 'new/src/x.c'],
+            // A file against its backup.
+            ['--- x.c.orig\n+++ x.c\n', 'x.c'],
+            // git's prefixes without its `diff --git` line, as a model often writes it.
+            ['--- a/src/x.c\n+++ b/src/x.c\n', 'src/x.c'],
+        ] as const;
+        for (const [headers, path] of shapes) {
+            const [file] = parseUnifiedDiff(headers + hunk);
+            expect([file!.path, file!.oldPath, file!.status], headers).toEqual([path, undefined, 'modified']);
+        }
+        // Nor two different paths on a git line that says nothing of a rename.
+        const [changed] = parseUnifiedDiff('diff --git a/x.c b/y.c\n--- a/x.c\n+++ b/y.c\n' + hunk);
+        expect([changed!.path, changed!.oldPath, changed!.status]).toEqual(['y.c', undefined, 'modified']);
     });
 });
 

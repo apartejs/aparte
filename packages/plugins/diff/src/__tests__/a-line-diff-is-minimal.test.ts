@@ -122,6 +122,29 @@ describe('the line diff', () => {
         expect(apply(before, file)).toEqual(linesOf(after));
     });
 
+    it('keeps a large file with changes all through it to small hunks, well within a second', () => {
+        // 200,000 lines, one in 150 changed: 1,334 changes over a file that is 99% shared.
+        const before = Array.from({ length: 200_000 }, (_, i) => `line ${i}`);
+        const after = before.map((line, i) => (i % 150 === 0 ? `changed ${i}` : line));
+        const start = performance.now();
+        const file = diffTexts(`${before.join('\n')}\n`, `${after.join('\n')}\n`);
+        const took = performance.now() - start;
+        expect(file).toMatchObject({ added: 1334, removed: 1334 });
+        expect(file.hunks).toHaveLength(1334);
+        // Each change, its line removed and added with three unchanged lines either side.
+        expect(Math.max(...file.hunks.map((h) => h.lines.length))).toBe(8);
+        expect(took).toBeLessThan(2000);
+        expect(apply(`${before.join('\n')}\n`, file)).toEqual(after);
+    });
+
+    it('stays minimal on a file where every other line changed', () => {
+        const before = Array.from({ length: 6000 }, (_, i) => `l${i}`);
+        const after = before.map((line, i) => (i % 2 ? line : `x${i}`));
+        const file = diffTexts(before.join('\n'), after.join('\n'));
+        expect(file).toMatchObject({ added: 3000, removed: 3000 });
+        expect(apply(before.join('\n'), file)).toEqual(after);
+    });
+
     it('stays minimal on a large file with a few edits', () => {
         const lines = Array.from({ length: 3000 }, (_, i) => `line ${i}`);
         const edited = [...lines];

@@ -52,11 +52,15 @@ export interface AparteDiffFile {
     binary?: boolean;
 }
 
-/** A file's text before and after: the element computes the diff, and can show every unchanged line. */
+/**
+ * A file's text before and after: the element computes the diff, and can show every unchanged
+ * line. A side that does not exist is `null` — `before: null` for a file created, `after: null`
+ * for one deleted — and `''` is a file that exists and is empty.
+ */
 export interface AparteDiffSource {
     path: string;
-    before: string;
-    after: string;
+    before: string | null;
+    after: string | null;
     /** Its path before, when it was renamed. */
     oldPath?: string;
 }

@@ -4,13 +4,17 @@
  * added and removed lines that turn one text into the other, in time proportional to the
  * length of the texts times the number of changes — small for an agent's edit.
  *
- * Two limits, both said where they bite:
+ * Three steps keep a large file fast, each said where it bites:
  *  - the lines the two texts share at their start and at their end are taken off first, so
  *    the search only runs over the part that changed;
- *  - past `MAX_COST` changes (two texts with little in common) the search stops, and what is
- *    left of the middle is shown as removed then added: still a true account of the change,
- *    no longer the shortest one. The memory the search keeps grows with the square of the
- *    changes, which is what the bound is for.
+ *  - a part longer than `ANCHOR_FROM` lines is first cut at the lines that appear once in
+ *    each text, in the same order (the longest such run: "patience" anchoring, as
+ *    `git diff --patience` does), and each gap between two of them is diffed on its own. A
+ *    large file changed all through still gives one small hunk per change, in little time;
+ *  - in a gap, past `MAX_COST` changes (two texts with little in common there) the search
+ *    stops, and that gap alone is shown as removed then added: still a true account of the
+ *    change, no longer the shortest one. The memory the search keeps grows with the square
+ *    of the changes, which is what the bound is for.
  *
  * No DOM anywhere: `diffTexts` runs on a server as well.
  */
@@ -19,29 +23,116 @@ import type { AparteDiffFile, AparteDiffHunk, AparteDiffLine } from './types.js'
 /** One step of the edit: a line kept, removed from the old text, or added from the new one. */
 export type Edit = 'eq' | 'del' | 'add';
 
-/** The changes the search follows before it shows the rest as replaced. */
+/** The changes the search follows, in one gap, before it shows the rest of the gap as replaced. */
 const MAX_COST = 2000;
+
+/**
+ * Past this many lines (both sides), a part is cut at its anchors before it is searched. Below
+ * it the search is cheap and always finishes (it cannot need more than `MAX_COST` changes),
+ * so the diff is the shortest.
+ */
+const ANCHOR_FROM = MAX_COST;
 
 /** The lines unchanged around a change, as `git diff` keeps them. */
 const DEFAULT_CONTEXT = 3;
+
+/** A part of the two texts still to diff, or (a number) that many unchanged lines to write. */
+type Task = { a0: number; a1: number; b0: number; b1: number } | number;
 
 /**
  * The edit that turns `a` into `b`, one step per line, removals before additions inside a
  * run of changes.
  */
 export function diffLines(a: readonly string[], b: readonly string[]): Edit[] {
-    let start = 0;
-    while (start < a.length && start < b.length && a[start] === b[start]) start++;
-    let endA = a.length;
-    let endB = b.length;
-    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
-        endA--;
-        endB--;
+    const edits: Edit[] = [];
+    // A stack rather than recursion: a long file cut at its anchors, again and again, must not
+    // run out of call stack. The parts are taken in order, so the edits are written in order.
+    const tasks: Task[] = [{ a0: 0, a1: a.length, b0: 0, b1: b.length }];
+    while (tasks.length) {
+        const task = tasks.pop()!;
+        if (typeof task === 'number') {
+            for (let k = 0; k < task; k++) edits.push('eq');
+            continue;
+        }
+        let { a0, a1, b0, b1 } = task;
+        while (a0 < a1 && b0 < b1 && a[a0] === b[b0]) {
+            edits.push('eq');
+            a0++;
+            b0++;
+        }
+        let shared = 0;
+        while (a1 > a0 && b1 > b0 && a[a1 - 1] === b[b1 - 1]) {
+            a1--;
+            b1--;
+            shared++;
+        }
+        if (shared) tasks.push(shared);
+        if (a1 - a0 + (b1 - b0) > ANCHOR_FROM) {
+            const anchors = anchorsOf(a, b, a0, a1, b0, b1);
+            if (anchors.length) {
+                // Pushed last part first, so the first comes off first.
+                const parts: Task[] = [];
+                let pa = a0;
+                let pb = b0;
+                for (const [i, j] of anchors) {
+                    parts.push({ a0: pa, a1: i, b0: pb, b1: j }, 1);
+                    pa = i + 1;
+                    pb = j + 1;
+                }
+                parts.push({ a0: pa, a1, b0: pb, b1 });
+                for (let k = parts.length - 1; k >= 0; k--) tasks.push(parts[k]!);
+                continue;
+            }
+        }
+        for (const edit of middle(a, b, a0, a1, b0, b1)) edits.push(edit);
     }
-    const edits: Edit[] = new Array<Edit>(start).fill('eq');
-    for (const edit of middle(a, b, start, endA, start, endB)) edits.push(edit);
-    for (let i = endA; i < a.length; i++) edits.push('eq');
     return removalsFirst(edits);
+}
+
+/**
+ * The lines that appear exactly once in `a[a0..a1)` and once in `b[b0..b1)`, as pairs of
+ * their positions — the longest run of them in the same order on both sides (a longest
+ * increasing subsequence, by patience sorting). Lines unique on both sides are almost always
+ * the same line, unmoved: the safe places to cut a large diff.
+ */
+function anchorsOf(a: readonly string[], b: readonly string[], a0: number, a1: number, b0: number, b1: number): Array<[number, number]> {
+    // Per line: its count in `a`, its count in `b`, and where it is in `b`.
+    const seen = new Map<string, [number, number, number]>();
+    for (let i = a0; i < a1; i++) {
+        const entry = seen.get(a[i]!);
+        if (entry) entry[0]++;
+        else seen.set(a[i]!, [1, 0, -1]);
+    }
+    for (let j = b0; j < b1; j++) {
+        const entry = seen.get(b[j]!);
+        if (!entry) continue;
+        entry[1]++;
+        entry[2] = j;
+    }
+    const pairs: Array<[number, number]> = [];
+    for (let i = a0; i < a1; i++) {
+        const entry = seen.get(a[i]!)!;
+        if (entry[0] === 1 && entry[1] === 1) pairs.push([i, entry[2]]);
+    }
+    if (!pairs.length) return pairs;
+    // Patience sorting over the `b` positions: `tails[k]` ends the best run of length k + 1.
+    const tails: number[] = [];
+    const before = new Int32Array(pairs.length).fill(-1);
+    for (let p = 0; p < pairs.length; p++) {
+        const j = pairs[p]![1];
+        let lo = 0;
+        let hi = tails.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (pairs[tails[mid]!]![1] < j) lo = mid + 1;
+            else hi = mid;
+        }
+        if (lo > 0) before[p] = tails[lo - 1]!;
+        tails[lo] = p;
+    }
+    const run: Array<[number, number]> = [];
+    for (let p = tails[tails.length - 1]!; p >= 0; p = before[p]!) run.push(pairs[p]!);
+    return run.reverse();
 }
 
 /** Myers' forward search over `a[a0..a1)` and `b[b0..b1)`, and the walk back along its trace. */
@@ -136,7 +227,7 @@ export interface DiffTextsOptions {
     context?: number;
     /** The file's path, as the diff names it. */
     path?: string;
-    /** Its path before, when it was renamed. */
+    /** Its path before, when it was renamed. Not read for a file created or deleted (a `null` side). */
     oldPath?: string;
 }
 
@@ -145,15 +236,21 @@ export interface DiffTextsOptions {
  * without their endings, so a file saved with Windows line endings reads the same; a last
  * line that gains or loses its newline is shown changed, marked `noNewline`.
  *
+ * A side that does not exist is `null`: `before: null` is a file created (`added`),
+ * `after: null` a file deleted (`deleted`). `''` is a file that exists and is empty, so
+ * `diffTexts('', text)` is that file filled in (`modified`). `formatUnifiedDiff` writes each
+ * as git does, so the patch applies.
+ *
  * @example
  * const file = diffTexts(before, after, { path: 'src/parse.ts' });
  * file.added;   // 1
  * file.hunks;   // [{ oldStart: 12, oldCount: 7, newStart: 12, newCount: 7, lines: [...] }]
+ * diffTexts(null, 'hello\n', { path: 'notes.md' }).status; // 'added'
  */
-export function diffTexts(before: string, after: string, options: DiffTextsOptions = {}): AparteDiffFile {
+export function diffTexts(before: string | null, after: string | null, options: DiffTextsOptions = {}): AparteDiffFile {
     const context = Math.max(0, Math.floor(options.context ?? DEFAULT_CONTEXT));
-    const old = splitLines(before);
-    const next = splitLines(after);
+    const old = splitLines(before ?? '');
+    const next = splitLines(after ?? '');
     // A last line without its newline is not the same line as one with it: the key says so.
     const keys = (side: typeof old) => side.lines.map((line, i) => (i === side.lines.length - 1 && !side.endsWithNewline ? `${line}\u0000` : line));
     const edits = diffLines(keys(old), keys(next));
@@ -182,7 +279,10 @@ export function diffTexts(before: string, after: string, options: DiffTextsOptio
         removed: lines.filter((l) => l.kind === 'del').length,
         hunks: hunksOf(lines, context),
     };
-    if (options.oldPath !== undefined && options.oldPath !== file.path) {
+    // A file created or deleted has one path: there is nothing to have been renamed.
+    if (before === null && after !== null) file.status = 'added';
+    else if (after === null && before !== null) file.status = 'deleted';
+    else if (options.oldPath !== undefined && options.oldPath !== file.path) {
         file.oldPath = options.oldPath;
         file.status = 'renamed';
     }
