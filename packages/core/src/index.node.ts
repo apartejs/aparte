@@ -302,6 +302,8 @@ export type {
     AparteElicitationFieldControl,
     AparteSiblingNavRenderer,
     AparteBubbleShellRenderer,
+    AparteStepLabel,
+    AparteStepLabelContext,
     AparteModelPreference,
     AparteModelPreferenceProvider,
     AparteSanitizer,

@@ -330,6 +330,8 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
+// The parameter types of `registerStepLabel`: what a step's label is, and what a function label is told.
+export type { AparteStepLabel, AparteStepLabelContext } from './config/index.js';
 export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteCodeLanguageRenderer, AparteCodeLanguageContext, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteCoreIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer, AparteImageDecision, AparteImagePolicy } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
