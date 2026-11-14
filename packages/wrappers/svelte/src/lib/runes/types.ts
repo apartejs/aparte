@@ -11,8 +11,21 @@ import type { AparteChatEventCallbacks } from '../generated/chat-events.js';
  * each receives the event's detail, then the event. Declared here are the data, the snippets
  * and what the host reports back (`onmessagesChange` and the three after it).
  */
-export interface AparteChatProps extends AparteChatEventCallbacks {
-    /** The host element's `id`, and therefore the `targetId` every event this chat carries. Generated when omitted. */
+/**
+ * The events a plugin adds to `HTMLElementEventMap` (`aparte-subagent-open`…) as the event
+ * attributes Svelte 5 gives them — `onaparte-subagent-open={(event) => …}` — typed by that map.
+ */
+type AparteElementEventAttributes = {
+    [K in Extract<keyof HTMLElementEventMap, `aparte-${string}`> as `on${K}`]?: (event: HTMLElementEventMap[K]) => void;
+};
+
+export interface AparteChatProps extends AparteChatEventCallbacks, AparteElementEventAttributes {
+    /**
+     * Any other `onaparte-*` event — a plugin's whose package is not imported, or your own. The
+     * attribute is set on the chat's root element (`getElement()`), where the event arrives.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any event's detail
+    [event: `onaparte-${string}`]: ((event: CustomEvent<any>) => void) | undefined;    /** The host element's `id`, and therefore the `targetId` every event this chat carries. Generated when omitted. */
     id?: string;
     /** The messages on the active path. Bindable: `bind:messages` keeps yours in step with what the chat does. */
     messages?: AparteMessage[];

@@ -790,6 +790,7 @@
       "AparteUi",
       "useAparteChat",
       "useAparteClient",
+      "useAparteEvent",
       "useConversationManager"
     ],
     "@aparte/runner-ag-ui": [

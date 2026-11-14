@@ -11,7 +11,7 @@ import React, {
     useImperativeHandle,
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventProps } from '../generated/chat-events.js';
 
@@ -407,6 +407,8 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         focusInput: () => (composerRef.current as unknown as { focus?: () => void })?.focus?.(),
         isStreaming: () => hostRef.current?.isStreaming ?? false,
         getViewport: () => viewportRef.current,
+        getElement: () => hostElRef.current,
+        getComposer: () => composerRef.current as AparteComposer | null,
     }), []);
 
     return (

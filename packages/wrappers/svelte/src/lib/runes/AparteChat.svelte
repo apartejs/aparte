@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi, type AparteComposer } from '@aparte/core';
   import type { AparteMessage, AparteSegment } from '../types.js';
   import type { AparteChatProps } from './types.js';
   import { APARTE_CHAT_EVENT_BINDINGS } from '../generated/chat-events.js';
@@ -165,6 +165,12 @@
     listener: (event: Event) => (rest[callback] as Callback)?.((event as CustomEvent).detail, event),
   }));
 
+  // What `rest` holds beyond the chat's own callbacks goes on the root element: an event core
+  // has no callback for — `onaparte-subagent-open={…}`, a plugin's — is Svelte 5's event
+  // attribute there, and heard where every event of the chat arrives.
+  const own = new Set<string>(APARTE_CHAT_EVENT_BINDINGS.map((b) => b.callback));
+  const rootAttrs = $derived(Object.fromEntries(Object.entries(rest).filter(([key]) => !own.has(key))));
+
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
     releaseDeferredHydration(rootRef);
@@ -236,6 +242,14 @@
   export function scrollToBottom() { (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(); }
   /** The `<aparte-chat-viewport>` element — the same accessor on all four wrappers. */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
+  /**
+   * The chat's root element (`div[data-aparte-chat]`), where every event of the chat arrives.
+   * An event core has no callback for — a plugin's — is `onaparte-some-event={…}` on the chat,
+   * which lands here; this is the same element for `addEventListener`.
+   */
+  export function getElement(): HTMLElement | null { return rootRef ?? null; }
+  /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+  export function getComposer(): AparteComposer | null { return (composerRef as AparteComposer | undefined) ?? null; }
   export function focusInput() { (composerRef as unknown as { focus?: () => void })?.focus?.(); }
   export function isStreaming(): boolean { return host?.isStreaming ?? false; }
 
@@ -246,12 +260,13 @@
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
       truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-      scrollToBottom, focusInput, isStreaming, getViewport,
+      scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }
 </script>
 
 <div
+  {...rootAttrs}
   class="aparte-chat-container {className}"
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}

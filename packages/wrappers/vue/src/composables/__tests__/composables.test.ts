@@ -101,6 +101,7 @@ describe('useAparteChat', () => {
         addBranch: true, addSiblingOf: true, truncateFrom: true, truncateResponsesAfter: true,
         injectTokenStream: true, stopTokenStream: true, setConversationId: true,
         scrollToBottom: true, focusInput: true, isStreaming: true, getViewport: true,
+        getElement: true, getComposer: true,
     } satisfies Record<keyof AparteChatImperativeApi, true>;
 
     it('exposes every member of AparteChatImperativeApi', () => {

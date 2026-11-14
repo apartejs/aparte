@@ -33,6 +33,7 @@ import type {
     AparteChatHostBinding,
     AparteConfig,
     AparteChatImperativeApi,
+    AparteComposer,
     AparteTypeToFocus,
 } from '@aparte/core';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
@@ -577,6 +578,14 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      * wrappers.
      */
     getViewport(): HTMLElement | null { return this.viewportRef?.nativeElement ?? null; }
+    /**
+     * The host `<aparte-chat>` element, where every event of the chat arrives. An event core
+     * has no output for — a plugin's — is `(aparte-some-event)` on the tag in your template, or
+     * `addEventListener` on this.
+     */
+    getElement(): HTMLElement | null { return (this.elementRef.nativeElement as HTMLElement | undefined) ?? null; }
+    /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+    getComposer(): AparteComposer | null { return (this.inputRef?.nativeElement as AparteComposer | undefined) ?? null; }
     /** Focus the composer input. */
     focusInput(): void {
         (this.inputRef?.nativeElement as unknown as { focus?: () => void })?.focus?.();

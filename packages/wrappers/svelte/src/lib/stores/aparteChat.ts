@@ -1,39 +1,18 @@
 import { get, writable, type Writable } from 'svelte/store';
 import type { AparteChatImperativeApi } from '@aparte/core';
-import type { AparteMessage, AparteSegment } from '../types.js';
+import type { AparteMessage } from '../types.js';
 
-export interface AparteChatStore {
+/**
+ * The messages store and the connection, plus the whole imperative surface — it extends
+ * {@link AparteChatImperativeApi}, so a method added there is here, not left behind.
+ */
+export interface AparteChatStore extends AparteChatImperativeApi {
     /** Subscribe with `$messages` and bind to `<AparteChat messages={$messages}>`. */
     messages: Writable<AparteMessage[]>;
     /** Register the component instance via `bind:this`. */
     connect(component: AparteChatImperativeApi | null): void;
     /** Wire to `on:messagesChange={(e) => chat.onMessagesChange(e.detail)}`. */
     onMessagesChange(messages: AparteMessage[]): void;
-    appendMessage(message: AparteMessage, options?: { historical?: boolean }): void;
-    updateMessage(messageId: string, updates: Partial<AparteMessage>): void;
-    updateLastMessage(content: string, options?: { append?: boolean }): void;
-    addSegment(segment: AparteSegment): void;
-    updateSegment(segmentId: string, updates: Partial<AparteSegment>): void;
-    removeSegment(segmentId: string): void;
-    appendToSegment(segmentId: string, content: string): void;
-    /**
-     * The host's list — the authority, and mid-stream a frame ahead of the
-     * `messages` store, which is synced once per paint rather than per token.
-     */
-    getMessages(): AparteMessage[];
-    clearMessages(options?: { revokeAttachments?: boolean }): void;
-    addBranch(messageId: string): number;
-    addSiblingOf(existingId: string, message: AparteMessage): string | null;
-    truncateFrom(messageId: string): void;
-    truncateResponsesAfter(userMessageId: string): void;
-    injectTokenStream(messageId: string, tokens: AsyncIterable<string>): Promise<void>;
-    stopTokenStream(): void;
-    setConversationId(id: string | null): Promise<void>;
-    isStreaming(): boolean;
-    scrollToBottom(): void;
-    focusInput(): void;
-    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
-    getViewport(): HTMLElement | null;
 }
 
 /**
@@ -78,5 +57,7 @@ export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore
         scrollToBottom: () => comp?.scrollToBottom(),
         focusInput: () => comp?.focusInput(),
         getViewport: () => comp?.getViewport() ?? null,
+        getElement: () => comp?.getElement() ?? null,
+        getComposer: () => comp?.getComposer() ?? null,
     };
 }

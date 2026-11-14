@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { AparteMessage, AparteSegment } from '../types.js';
+import type { AparteMessage } from '../types.js';
 import type { AparteChatImperativeApi } from '@aparte/core';
 
 /**
@@ -19,7 +19,7 @@ import type { AparteChatImperativeApi } from '@aparte/core';
  * );
  * // The user's message is appended automatically on send — don't re-add it.
  */
-export interface UseAparteChat {
+export interface UseAparteChat extends AparteChatImperativeApi {
     messages: AparteMessage[];
     setMessages: React.Dispatch<React.SetStateAction<AparteMessage[]>>;
     // Typed to match `<AparteChat>`'s forwardRef target so `ref={chat.ref}`
@@ -27,32 +27,6 @@ export interface UseAparteChat {
     // useRef(null) `RefObject<T | null>` shape against `Ref<T>`, so the (safe)
     // cast lives here once, not in every consumer.
     ref: React.RefObject<AparteChatImperativeApi>;
-    // ── imperative helpers (delegate to the component handle) ──
-    appendMessage: (message: AparteMessage, options?: { historical?: boolean }) => void;
-    updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
-    updateLastMessage: (content: string, options?: { append?: boolean }) => void;
-    addSegment: (segment: AparteSegment) => void;
-    updateSegment: (segmentId: string, updates: Partial<AparteSegment>) => void;
-    removeSegment: (segmentId: string) => void;
-    appendToSegment: (segmentId: string, content: string) => void;
-    /**
-     * The host's list — the authority, and mid-stream a frame ahead of the
-     * `messages` state, which is synced once per paint rather than per token.
-     */
-    getMessages: () => AparteMessage[];
-    clearMessages: (options?: { revokeAttachments?: boolean }) => void;
-    addBranch: (messageId: string) => number;
-    addSiblingOf: (existingId: string, message: AparteMessage) => string | null;
-    truncateFrom: (messageId: string) => void;
-    truncateResponsesAfter: (userMessageId: string) => void;
-    injectTokenStream: (messageId: string, tokens: AsyncIterable<string>) => Promise<void>;
-    stopTokenStream: () => void;
-    setConversationId: (id: string | null) => Promise<void>;
-    isStreaming: () => boolean;
-    scrollToBottom: () => void;
-    focusInput: () => void;
-    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
-    getViewport: () => HTMLElement | null;
 }
 
 export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
@@ -83,5 +57,7 @@ export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
         scrollToBottom: () => h()?.scrollToBottom(),
         focusInput: () => h()?.focusInput(),
         getViewport: () => h()?.getViewport() ?? null,
+        getElement: () => h()?.getElement() ?? null,
+        getComposer: () => h()?.getComposer() ?? null,
     };
 }

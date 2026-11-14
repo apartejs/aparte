@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus, uuid } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
   import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventDetails } from './generated/chat-events.js';
 
@@ -301,6 +301,14 @@
    * wrappers.
    */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
+  /**
+   * The chat's root element (`div[data-aparte-chat]`), where every event of the chat arrives —
+   * so where to listen for one core has no `on:` for, a plugin's: `bind:this` the chat, then
+   * `getElement()?.addEventListener('aparte-some-event', …)` in `onMount`.
+   */
+  export function getElement(): HTMLElement | null { return rootRef ?? null; }
+  /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+  export function getComposer(): AparteComposer | null { return (composerRef as AparteComposer | undefined) ?? null; }
   export function focusInput() {
     (composerRef as unknown as { focus?: () => void })?.focus?.();
   }
@@ -315,7 +323,7 @@
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
       truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-      scrollToBottom, focusInput, isStreaming, getViewport,
+      scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }
 </script>

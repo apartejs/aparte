@@ -1,5 +1,6 @@
 import type { AparteMessage } from './models.js';
 import type { AparteSegment } from './segments.js';
+import type { AparteComposer } from '../components/composer/aparte-composer.js';
 
 /**
  * The canonical imperative surface a framework `<AparteChat>` exposes (React's
@@ -74,6 +75,20 @@ export interface AparteChatImperativeApi {
     isStreaming: () => boolean;
     /** The `<aparte-chat-viewport>` element — same `getViewport()` on all four wrappers. */
     getViewport: () => HTMLElement | null;
+    /**
+     * The chat's root element — the `div[data-aparte-chat]` in React, Vue and Svelte, the
+     * host `<aparte-chat>` in Angular — once mounted, `null` before. Every event the chat's
+     * parts send bubbles up to it, so this is where to listen for one core has no prop for:
+     * a plugin's (`aparte-subagent-open`, `aparte-artifact-open`…) or your own.
+     * `getElement().addEventListener('aparte-subagent-open', …)`. Same name as
+     * {@link AparteUiHandle.getElement}.
+     */
+    getElement: () => HTMLElement | null;
+    /**
+     * The chat's `<aparte-composer>` element, once mounted, `null` before — for its methods
+     * (`focus()`, `reset()`…) and the events it sends. {@link focusInput} focuses its field.
+     */
+    getComposer: () => AparteComposer | null;
 }
 
 /**

@@ -14,6 +14,8 @@ export type { AparteChatImperativeApi } from '@aparte/core';
 // Idiomatic ergonomics: a hook that owns the messages state + component ref.
 export { useAparteChat } from './hooks/useAparteChat.js';
 export type { UseAparteChat } from './hooks/useAparteChat.js';
+// The generic path: an event core has no prop for (a plugin's, or your own), typed by HTMLElementEventMap.
+export { useAparteEvent } from './hooks/useAparteEvent.js';
 
 // Annex: client lifecycle, reactive conversation manager, universal proxy.
 export { useAparteClient } from './hooks/useAparteClient.js';

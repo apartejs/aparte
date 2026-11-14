@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventEmits } from '../generated/chat-events.js';
 
@@ -249,6 +249,10 @@ const isStreaming = () => host?.isStreaming ?? false;
 // `getViewport()` (not a raw `viewport` ref): the same accessor on all four
 // wrappers — Svelte 4 can only expose functions, so the shared name is one.
 const getViewport = () => viewportRef.value ?? null;
+// The root, where every event of the chat arrives — and so where an event core has no emit
+// for (a plugin's) is heard: `@aparte-some-event` on `<AparteChat>` falls through to it.
+const getElement = () => rootRef.value ?? null;
+const getComposer = () => (composerRef.value as AparteComposer | undefined) ?? null;
 
 // `satisfies` makes a dropped or mistyped method a compile error — the canonical
 // AparteChatImperativeApi is enforced here, not just aliased for consumers.
@@ -256,7 +260,7 @@ defineExpose({
   appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
   appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
   truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-  scrollToBottom, focusInput, isStreaming, getViewport,
+  scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
 } satisfies AparteChatImperativeApi);
 </script>
 

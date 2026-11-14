@@ -8,6 +8,7 @@ export { AparteChat };
 
 // Idiomatic ergonomics: a composable that owns the messages ref + component ref.
 export { useAparteChat } from './composables/useAparteChat.js';
+export type { UseAparteChat } from './composables/useAparteChat.js';
 // The imperative surface `<AparteChat>` exposes via `defineExpose`, re-exported
 // straight from `@aparte/core` — the single source of truth. It used to be
 // aliased here as `AparteChatInstance` and as `AparteChatHandle` in React: one
