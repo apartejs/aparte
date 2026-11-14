@@ -11,6 +11,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { getSegmentRenderer, registerDefaultRenderers } from '../../segment-renderers.js';
 import { aparteGlobalConfig } from '../../../config/index.js';
 import type { AparteToolCallSegment, AparteToolLine } from '../../../types/index.js';
+import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 
 registerDefaultRenderers();
 const renderer = () => getSegmentRenderer('tool_call')!;
@@ -115,6 +116,29 @@ describe('a line that opens elsewhere', () => {
         expect(row.hasAttribute('data-current')).toBe(false);
         expect(button(row)!.hasAttribute('aria-current')).toBe(false);
         expect(button(row)!.getAttribute('aria-label')).toBe('Open');
+    });
+
+    it('tints the line of the row whose subject is open, a row with a detail beside its button included', () => {
+        // The rules that paint the tint, read from the stylesheet as the browser would match them.
+        const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, '');
+        const tints = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+            .filter(([, selector, body]) => selector!.includes('[data-current]') && /background:\s*var\(--aparte-surface-2\)/.test(body!))
+            .map(([, selector]) => selector!.trim());
+        expect(tints.length).toBeGreaterThan(0);
+        const tinted = (el: Element): boolean => tints.some((selector) => el.matches(selector));
+
+        const lineOf = (details: AparteToolLine['details']): Element => {
+            aparteGlobalConfig.setToolLineProvider((): AparteToolLine => ({ details, open: { label: 'Shown', current: true, onOpen: () => {} } }));
+            const row = draw(call({ status: 'resolved' }));
+            expect(row.hasAttribute('data-current')).toBe(true);
+            return row.querySelector(':scope > .aparte-tool-line, :scope > .aparte-tool-disclosure > .aparte-tool-summary')!;
+        };
+        // Nothing behind the line: the row's own line.
+        expect(tinted(lineOf(false))).toBe(true);
+        // A detail and an Open button: the summary of the disclosure the row wraps — a sub-agent's row.
+        const summary = lineOf(() => 'Its work');
+        expect(summary.matches('.aparte-tool-disclosure > .aparte-tool-summary')).toBe(true);
+        expect(tinted(summary)).toBe(true);
     });
 
     it('calls the latest provider answer, and gains or loses the button on update', () => {

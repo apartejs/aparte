@@ -262,8 +262,11 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     min-block-size: 1lh;
 }
 .aparte-segment-tool-call[data-opens] > .aparte-tool-line { cursor: pointer; }
+/* The summary of a wrapped disclosure is a grandchild: `> :is(…, .aparte-tool-disclosure > …)`
+   would ask its parent to be the row and the disclosure at once, and never matched. */
 .aparte-segment-tool-call[data-opens] > .aparte-tool-line:hover,
-.aparte-segment-tool-call[data-current] > :is(.aparte-tool-line, .aparte-tool-summary, .aparte-tool-disclosure > .aparte-tool-summary) { background: var(--aparte-surface-2); }
+.aparte-segment-tool-call[data-current] > :is(.aparte-tool-line, .aparte-tool-summary),
+.aparte-segment-tool-call[data-current] > .aparte-tool-disclosure > .aparte-tool-summary { background: var(--aparte-surface-2); }
 .aparte-tool-open[aria-current='true'] { color: var(--aparte-primary); }
 .aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-disclosure > .aparte-tool-summary > .aparte-tool-activity,
 .aparte-segment-tool-call:not([data-quiet]) > .aparte-tool-summary > .aparte-tool-activity {
