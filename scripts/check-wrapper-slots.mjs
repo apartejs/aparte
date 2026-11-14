@@ -18,10 +18,15 @@
  * check-node-import — the two other cross-package contracts that no single package's test
  * suite can hold.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { CORE_CEM } from './dispatch-sites.mjs';
+import { readChatEvents, readChatTree } from './chat-surface.mjs';
 import {
     IMPLEMENTATIONS,
     CALLBACK_PROOFS,
+    CHAT_EVENT_PROOFS,
     DATA_PROP_PROOFS,
     SOURCES,
     readWrapperSlots,
@@ -85,6 +90,49 @@ for (const prop of dataProps) {
     }
 }
 
+/*
+ * The chat's events, by structure — and by the manifest when there is one.
+ *
+ * The events are core's: `<aparte-chat>`'s `@fires`, generated into every wrapper. So this is
+ * no longer React compared to three others (the way the callbacks above once were, and the way
+ * the hole stayed open — React held two of twenty-three and the other three agreed with it).
+ * Each component must import what was generated, walk it and listen on its root for each
+ * entry; this runs before any build, so that is all it can read from the tree. Which events,
+ * and that each one arrives with its detail and its event, is each wrapper's coverage test.
+ *
+ * Once core is built, the manifest is read too (`readChatEvents`), and every event it lists
+ * must be in each generated file: a stale generated folder is a wrapper missing an event
+ * that only a rebuild would show.
+ */
+for (const [key, proof] of Object.entries(CHAT_EVENT_PROOFS)) {
+    if (!proof.proves(sources[key])) {
+        missing.push({ slot: 'the chat events', wrapper: proof.label, expected: proof.usage });
+    }
+}
+
+const GENERATED = {
+    react: 'packages/wrappers/react/src/generated/chat-events.ts',
+    vue: 'packages/wrappers/vue/src/generated/chat-events.ts',
+    svelte: 'packages/wrappers/svelte/src/lib/generated/chat-events.ts',
+    angular: 'packages/wrappers/angular/src/generated/chat-events.ts',
+};
+const here = dirname(fileURLToPath(import.meta.url));
+let chatEventCount = null;
+if (existsSync(resolve(here, '..', CORE_CEM))) {
+    const events = readChatEvents(readChatTree());
+    chatEventCount = events.length;
+    for (const [key, file] of Object.entries(GENERATED)) {
+        const path = resolve(here, '..', file);
+        if (!existsSync(path)) continue; // not generated yet: the structure above is what a fresh tree has
+        const generated = readFileSync(path, 'utf8');
+        for (const ev of events) {
+            if (!generated.includes(`'${ev.name}'`)) {
+                missing.push({ slot: ev.name, wrapper: `${key} (generated)`, expected: `the event in ${file} — regenerate: nx run <wrapper>:gen` });
+            }
+        }
+    }
+}
+
 const names = slots.map((s) => s.slot).join(', ');
 
 if (missing.length) {
@@ -143,5 +191,6 @@ if (idGaps.length) {
 console.log(
     `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} host callbacks on all ${Object.keys(SOURCES).length} components (four wrappers, two Svelte entries) — ${names}; `
     + `${dataProps.length} data props/render hooks parity-checked (plus \`id\`, separately); `
+    + `every component forwards the chat's events${chatEventCount === null ? ' (structure only: core is not built)' : ` (${chatEventCount} in the manifest, all in each generated file)`}; `
     + `and all ${Object.keys(SOURCES).length} accept a caller-supplied host id.`,
 );

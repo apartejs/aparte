@@ -267,6 +267,47 @@ export const CALLBACK_PROOFS = {
 };
 
 /**
+ * How each chat component forwards the chat's events — by STRUCTURE, because this guard runs
+ * before any build and the events are not in the tree until one has.
+ *
+ * The events come from core's manifest and are generated into each wrapper (`generated/
+ * chat-events`); a wrapper hears every one of them when it (a) imports what was generated,
+ * (b) walks it, and (c) puts a listener on the chat's root per entry. Any of the three gone and
+ * an event stops arriving with no error anywhere. WHICH events, and that each really arrives
+ * with its detail and its event, is each wrapper's coverage test, read from the manifest.
+ *
+ *   React, Vue, Svelte 4, Svelte runes   import the table, `APARTE_CHAT_EVENT_BINDINGS`, map it
+ *                                        by the key their framework needs (`prop`, `emit`,
+ *                                        `cancelable`, `callback`) and `addEventListener(type, …)`.
+ *   Angular                              `extends AparteChatEvents` (the generated base, whose
+ *                                        outputs are the events) and calls `forwardChatEvents`.
+ */
+const tableProof = (key) => (src) => {
+    const s = stripComments(src);
+    const imported = new RegExp(`import\\s*\\{[^}]*\\bAPARTE_CHAT_EVENT_BINDINGS\\b[^}]*\\}\\s*from\\s*['"][^'"]*generated/chat-events(?:\\.js)?['"]`).test(s);
+    const walked = new RegExp(`\\bAPARTE_CHAT_EVENT_BINDINGS\\.map\\(\\s*\\(\\s*\\{[^}]*\\b${key}\\b`).test(s);
+    const listening = /\.addEventListener\(\s*type\b/.test(s);
+    return imported && walked && listening;
+};
+
+export const CHAT_EVENT_PROOFS = {
+    react: { label: 'React', usage: 'APARTE_CHAT_EVENT_BINDINGS.map(({ type, prop }) => root.addEventListener(type, …))', proves: tableProof('prop') },
+    vue: { label: 'Vue', usage: 'APARTE_CHAT_EVENT_BINDINGS.map(({ type, emit }) => …) and addEventListener(type, …)', proves: tableProof('emit') },
+    svelte: { label: 'Svelte', usage: 'APARTE_CHAT_EVENT_BINDINGS.map(({ type, name, cancelable }) => …) and addEventListener(type, …)', proves: tableProof('cancelable') },
+    svelteRunes: { label: 'Svelte runes', usage: 'APARTE_CHAT_EVENT_BINDINGS.map(({ type, callback }) => …) and addEventListener(type, …)', proves: tableProof('callback') },
+    angular: {
+        label: 'Angular',
+        usage: 'class … extends AparteChatEvents, and this.forwardChatEvents(host, zone)',
+        proves: (src) => {
+            const s = stripComments(src);
+            return /\bimport\s*\{[^}]*\bAparteChatEvents\b[^}]*\}\s*from\s*['"][^'"]*generated\/chat-events['"]/.test(s)
+                && /\bclass\s+\w+\s+extends\s+AparteChatEvents\b/.test(s)
+                && /\bthis\.forwardChatEvents\(/.test(s);
+        },
+    },
+};
+
+/**
  * Every prop that is NEITHER a slot (`?: React.ReactNode`) NOR a callback
  * (`on…?: (…) => void`) — the ~17 data props (`placeholder`, `disabled`,
  * `conversationId`, `config`, …) and the one render hook (`renderBubble`,
@@ -424,7 +465,7 @@ function vueFallthroughEnabled(src) {
     return !/inheritAttrs\s*:\s*false/.test(stripComments(src));
 }
 
-function resolveName(prop, wrapper) {
+export function resolveName(prop, wrapper) {
     return DATA_PROP_ALIASES[prop.react]?.[wrapper] ?? prop.react;
 }
 
