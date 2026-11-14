@@ -48,6 +48,8 @@ function stateBadge(segment: AparteToolCallSegment): string {
     // Paused for a person: two bars, so the one state a reader must act on wears a glyph
     // like every other — it used to be the only bare word in the row.
     if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word(cfg.t('approvalWaiting'))}`;
+    // Waiting its turn: on screen where the model wrote it, not running yet.
+    if (isQueued(segment)) return word(cfg.t('toolQueued'));
     if (status === 'pending') return word(cfg.t('toolRunning'));
     if (status === 'resolved') return `${cfg.getIcon('check')}${word(cfg.t('toolCompleted'))}`;
     if (status === 'rejected') return `${cfg.getIcon('close')}${word(cfg.t('toolRejected'))}`;
@@ -457,20 +459,30 @@ const isQuiet = (segment: AparteToolCallSegment): boolean =>
     contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.quiet ?? true;
 
 /**
+ * Waiting its turn: in its step (`segment.queued`, live), or behind a paused server run's call
+ * (`deferred.reason === 'queued'`, saved with the conversation, so a reload reads it too). Only
+ * while it is pending.
+ */
+const isQueued = (segment: AparteToolCallSegment): boolean =>
+    (segment.status ?? 'pending') === 'pending' && (segment.queued === true || segment.deferred?.reason === 'queued');
+
+/**
  * What the row shows of its state, quiet or not — one answer for `render`, `update` and
  * `relabel`, so the three cannot disagree. The default, quiet row: the label shimmers while
  * it runs, and the word for "running" and "done" leaves the screen (the label's tense says
  * it) but stays for a screen reader. An agent's row (`quiet: false`): the spinner while it
  * runs and every word. A wait, a refusal, a failure and a stop show on both: those a person
- * must know.
+ * must know — a call queued behind another included, which is not running yet: no motion,
+ * and its word shown.
  */
 function quietOf(segment: AparteToolCallSegment): { shimmer: boolean; spinner: boolean; stateHidden: boolean } {
     const status = segment.status ?? 'pending';
     const quiet = isQuiet(segment);
+    const running = status === 'pending' && !isQueued(segment);
     return {
-        shimmer: quiet && status === 'pending',
-        spinner: !quiet && status === 'pending',
-        stateHidden: quiet && (status === 'pending' || status === 'resolved'),
+        shimmer: quiet && running,
+        spinner: !quiet && running,
+        stateHidden: quiet && (running || status === 'resolved'),
     };
 }
 
@@ -481,6 +493,7 @@ function setQuiet(element: Element, segment: AparteToolCallSegment): void {
     // streams is patched before the bubble's redraw, and the chevron and the target's font
     // read this attribute.
     element.toggleAttribute('data-quiet', isQuiet(segment));
+    element.toggleAttribute('data-queued', isQueued(segment));
     // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can read, and
     // jsdom has no layout to ask. Same treatment as the cancel button.
     element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', !quiet.spinner);
@@ -690,7 +703,8 @@ function drawDefault(segment: AparteToolCallSegment, behind: Behind, line: Apart
      */
     const pill = pillMarkup(segment, line);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
     // The quiet line, for a stylesheet: the target in the chat's font, the chevron at the end.
-    const quiet = isQuiet(segment) ? ' data-quiet' : '';
+    // And a call waiting its turn, which runs nothing yet.
+    const quiet = (isQuiet(segment) ? ' data-quiet' : '') + (isQueued(segment) ? ' data-queued' : '');
     // The marks of a line that opens elsewhere: fixed attribute names, no value of the provider's.
     const opensAt = openAttrs(line);
     const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source

@@ -967,6 +967,7 @@
     "toolNoApprover",
     "toolNotRunAfterRefusal",
     "toolOutput",
+    "toolQueued",
     "toolRefusedByPolicy",
     "toolRejected",
     "toolRejectedSaid",

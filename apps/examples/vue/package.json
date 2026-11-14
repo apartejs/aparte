@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/example-vue",
-  "version": "0.0.74",
+  "version": "0.0.75",
   "private": true,
   "type": "module",
   "description": "Minimal Vue example — @aparte/vue + a real (BYOK / local) model.",

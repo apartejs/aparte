@@ -38,9 +38,15 @@ export function markStandIn(segment: AparteToolCallSegment): AparteToolCallSegme
     return segment;
 }
 
+/**
+ * A call running or waiting for a person — not one waiting its turn (in its step, or behind a
+ * paused run's call), which is next, not now.
+ */
 const isOpenCall = (segment: AparteSegment): segment is AparteToolCallSegment =>
     segment.type === 'tool_call'
-    && ['pending', 'awaiting-approval'].includes((segment as AparteToolCallSegment).status ?? 'pending');
+    && ['pending', 'awaiting-approval'].includes((segment as AparteToolCallSegment).status ?? 'pending')
+    && !(segment as AparteToolCallSegment).queued
+    && (segment as AparteToolCallSegment).deferred?.reason !== 'queued';
 
 /** Plain text, trimmed; `''` for anything else or for a function that throws. */
 const textOf = (read: () => unknown): string => {

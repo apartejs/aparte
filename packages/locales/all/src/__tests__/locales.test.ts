@@ -63,6 +63,11 @@ describe.each(LOCALES)('$tag', ({ tag, language, locale, exportName }) => {
         expect(KEYS.filter((k) => !open[k]!.trim())).toEqual([]);
     });
 
+    it('tells a call queued behind another from one waiting for a person', () => {
+        // Two different waits, on the same row: "Queued" is not "Waiting".
+        expect(open['toolQueued']).not.toBe(open['approvalWaiting']);
+    });
+
     it('has no key core does not declare', () => {
         const known = new Set([...KEYS, 'tag', 'direction']);
         expect(Object.keys(locale).filter((k) => !known.has(k))).toEqual([]);

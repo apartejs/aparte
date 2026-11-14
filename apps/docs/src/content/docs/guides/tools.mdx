@@ -57,6 +57,79 @@ The client's `maxTurns` caps the model's turns in one reply, ten by default, and
 reaches it ends on an error message. A model whose declared `capabilities` leave out
 `function_calling` gets no tools; a model that declares nothing gets them.
 
+## Several calls in one reply
+
+When the model calls several tools in one reply, each call keeps its place: it starts once the
+calls the model made before it have finished, and the calls made after it wait for it. A coding
+agent's `edit_file` then `run_command` runs the command on the edited file, and two edits of one
+file land in the order the model wrote them.
+
+A tool whose result does not depend on that order says `parallel: true`, and its calls run
+together with the calls around them that say the same. Read-only tools together, writes and
+commands one at a time: the rule coding agents follow.
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+import type { AparteTool, AparteToolHandler } from '@aparte/core';
+
+declare const readFile: AparteToolHandler, editFile: AparteToolHandler, runCommand: AparteToolHandler; // yours
+
+const onePath = { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] };
+
+const tools: Array<[AparteTool, AparteToolHandler]> = [
+  // Reads run together: three files read at once take the time of the slowest.
+  [{ name: 'read_file', description: 'Read a file.', inputSchema: onePath, parallel: true }, readFile],
+  // Writes and commands keep their place, and wait for the calls made before them.
+  [{ name: 'edit_file', description: 'Edit a file.', inputSchema: onePath, needsApproval: true }, editFile],
+  [{
+    name: 'run_command',
+    description: 'Run a shell command.',
+    inputSchema: { type: 'object', properties: { cmd: { type: 'string' } }, required: ['cmd'] },
+  }, runCommand],
+];
+for (const [tool, handler] of tools) aparteGlobalConfig.registerTool(tool, handler);
+new AparteClient().start();
+```
+
+A reply that calls `read_file` twice, then `edit_file`, then `run_command` reads both files at
+once, then edits, then runs the command. Every row is there as soon as the model makes the call,
+in the order it wrote them: a call waiting its turn reads **Queued** (`toolQueued` in the locale)
+until it runs. A call that waits for an [approval](#require-approval-human-in-the-loop)
+holds the calls made after it, those of `parallel` tools included, until the person has answered:
+the command does not run while the edit waits, and if the edit is refused the command is not run
+at all (`Not run: an earlier call was refused`). [Several calls in one
+reply](/guides/engine/#several-calls-in-one-reply) has every rule.
+
+A tool from an MCP server says whether it only reads with its `readOnlyHint` annotation, and that
+maps directly:
+
+```ts
+import type { AparteTool } from '@aparte/core';
+
+// A tool as an MCP server's `tools/list` describes it.
+interface McpTool {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+  annotations?: { readOnlyHint?: boolean };
+}
+
+const fromMcp = (tool: McpTool): AparteTool => ({
+  name: tool.name,
+  description: tool.description ?? '',
+  inputSchema: tool.inputSchema,
+  parallel: tool.annotations?.readOnlyHint === true,
+});
+```
+
+To run every call one after another, those of `parallel` tools too, pass `parallelTools: false`:
+
+```ts
+import { AparteClient } from '@aparte/core';
+
+new AparteClient({ parallelTools: false }).start();
+```
+
 ## What the row shows
 
 <Variant id="tool-statuses" caption="A tool call in each of its states, on an agent's row (quiet: false)." />
@@ -77,11 +150,12 @@ scroll. What a tool is called, and whether its row is drawn at all, is yours to 
 | State | Word | Note after the word | When |
 | --- | --- | --- | --- |
 | `awaiting-approval` | Waiting | | a person has not decided yet |
+| `pending`, with `queued` | Queued | | the call waits its turn behind another call of the same reply: no spinner, no shimmer, the word shown on every row |
 | `pending` | Running | | the handler runs, with a spinner on an agent's row and a shimmer on a quiet one |
 | `resolved` | Done | | the handler answered |
 | `rejected` | Rejected | `You said: “…”`, when the person wrote something instead of choosing | a person refused it |
 | `rejected` | Rejected | `Refused by policy` | a [policy](#decide-in-code) refused it |
-| `rejected` | Rejected | `Not run: an earlier call was refused` | a paused [server](/guides/server-loop/) or agent run asked about several calls, and an earlier one was refused |
+| `rejected` | Rejected | `Not run: an earlier call was refused` | a call the model made earlier in the same reply was refused, here or when a paused [server](/guides/server-loop/) or agent run asked about several calls |
 | `aborted` | Stopped | none | the reply was stopped (Stop) |
 | `aborted` | Stopped | `Timed out` | the handler outlived `toolTimeoutMs` |
 | `aborted` | Stopped | `Not available here` | no handler is registered for the tool |
@@ -104,7 +178,7 @@ and `extendLocale` changes them:
 import { aparteGlobalConfig } from '@aparte/core';
 
 aparteGlobalConfig.extendLocale({
-  toolRunning: 'Working…', toolCompleted: 'Done', toolRejected: 'Refused',
+  toolRunning: 'Working…', toolQueued: 'Next', toolCompleted: 'Done', toolRejected: 'Refused',
   toolStopped: 'Stopped', toolFailed: 'Failed', approvalWaiting: 'Waiting',
   toolInput: 'Arguments', toolOutput: 'Result',
   // the notes after the word

@@ -58,6 +58,21 @@ describe('createAgentStreamRunner', () => {
         expect((calls[0]!.init.headers as Record<string, string>)['x-test']).toBe('1');
     });
 
+    it('hands on a queued call and the moment it goes on, as the server wrote them', async () => {
+        const { fetch } = fakeFetch(() => new Response(ndjson(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'e', name: 'edit_file', input: {} },
+            { type: 'tool-start', toolCallId: 'c', name: 'run_command', input: {}, queued: true },
+            { type: 'tool-resolved', toolCallId: 'e', result: 'ok' },
+            { type: 'tool-running', toolCallId: 'c' },
+            { type: 'run-done' },
+        )));
+        const { opts, events } = options();
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts);
+        expect(events[2]).toEqual({ type: 'tool-start', toolCallId: 'c', name: 'run_command', input: {}, queued: true });
+        expect(events[4]).toEqual({ type: 'tool-running', toolCallId: 'c' });
+    });
+
     it('hands the emitter the run-done line whole, finishReason included', async () => {
         const { fetch } = fakeFetch(() => new Response(ndjson(
             { type: 'run-start' }, { type: 'run-done', finishReason: 'length' },

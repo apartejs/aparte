@@ -54,6 +54,7 @@ export const ko: AparteLocale = {
     checkpointPending: "컨텍스트를 요약하는 중…",
     checkpointFailed: "컨텍스트를 요약하지 못했습니다",
     toolRunning: "실행 중",
+    toolQueued: "순서 대기",
     toolFailed: "실패",
     toolCompleted: "완료",
     toolRejected: "거부됨",

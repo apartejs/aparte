@@ -1,19 +1,24 @@
 /**
- * The tool calls of one model step run at the same time.
+ * The tool calls of one model step whose tools say `parallel: true` run at the same time.
  *
- * Each call starts the moment its `tool_use` arrives, and the model's stream goes on being
- * read while it runs. The step ends once every call of it is settled. What a host keeps does
- * not depend on which call finished first: the history lists the calls, and their results, in
- * the order the model made them. A person is asked about one call at a time, in that order;
- * a refusal lets the calls already running finish and runs none of the others.
+ * Each such call starts the moment its `tool_use` arrives, and the model's stream goes on
+ * being read while it runs. The step ends once every call of it is settled. What a host keeps
+ * does not depend on which call finished first: the history lists the calls, and their
+ * results, in the order the model made them. A person is asked about one call at a time, in
+ * that order; a refusal lets the calls already running finish and runs none of the others.
  *
- * `parallelTools: false` puts the loop back to one call after another.
+ * Every tool here says `parallel: true` (a tool that says nothing keeps its place: see
+ * `a-tool-call-keeps-its-place-unless-its-tool-says-parallel`). `parallelTools: false` puts
+ * the loop back to one call after another, whatever the tools say.
  */
 import { describe, it, expect } from 'vitest';
 import { runStreamAgent, type StreamRunOptions } from '../stream-run';
 import { runSubAgent } from '../sub-agent';
-import type { StreamAgentMessage, StreamChatEvent, StreamChatRequest, StreamRunEvent, StreamToolHandler } from '../stream-events';
+import type { StreamAgentMessage, StreamChatEvent, StreamChatRequest, StreamRunEvent, StreamToolConfig, StreamToolHandler } from '../stream-events';
 import { agentIdOf, ask, done, indexOf, recorder, scripted, text, toolUse } from './sub-agent-script';
+
+/** Every tool runs beside the others; `gated` asks first. */
+const together = (name: string): StreamToolConfig => (name === 'gated' ? { needsApproval: true, parallel: true } : { parallel: true });
 
 /** A promise the test settles by hand. */
 function deferred<T = void>() {
@@ -56,6 +61,7 @@ function run(opts: Partial<StreamRunOptions> & Pick<StreamRunOptions, 'transport
     const done = runStreamAgent({
         messageId: 'm1', baseRequest: ask('parent'), emitter, signal: abort.signal,
         onHistoryAppend: (m) => history.push(m),
+        toolConfigLookup: together,
         ...opts,
     });
     return { done, events, history, abort };
@@ -126,17 +132,18 @@ describe('the calls of one step run at the same time', () => {
         expect(r.events.at(-1)?.type).toBe('run-done');
     });
 
-    it('asks about one call at a time, in call order, while a call that needs no approval runs', async () => {
+    it('asks about one call at a time, in call order, while a call made before them that needs no approval runs', async () => {
         const free = heldTool();
         const asked: string[] = [];
         const decisions: Record<string, ReturnType<typeof deferred<{ approved: boolean }>>> = {
             g1: deferred(), g2: deferred(),
         };
-        const { transportCall } = scripted({ parent: [[toolUse('g1', 'gated'), toolUse('g2', 'gated'), toolUse('f', 'free'), done], [text('Done.'), done]] });
+        // `f` first: a call made AFTER a waiting one waits for its answer (see
+        // `a-call-waiting-for-a-person-holds-the-calls-after-it`).
+        const { transportCall } = scripted({ parent: [[toolUse('f', 'free'), toolUse('g1', 'gated'), toolUse('g2', 'gated'), done], [text('Done.'), done]] });
         const r = run({
             transportCall,
             toolLookup: (n) => (n === 'free' ? free.handler : async (c) => ({ content: `ran ${c.id}` })),
-            toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : undefined),
             approvalResolver: (call) => { asked.push(call.id); return decisions[call.id]!.promise; },
         });
 
@@ -159,7 +166,7 @@ describe('the calls of one step run at the same time', () => {
 
         decisions['g2']!.resolve({ approved: true });
         await r.done;
-        expect(ids(r.history)).toEqual(['assistant:g1,g2,f', 'tool:g1', 'tool:g2', 'tool:f']);
+        expect(ids(r.history)).toEqual(['assistant:f,g1,g2', 'tool:f', 'tool:g1', 'tool:g2']);
     });
 
     it('lets the calls already running finish after a refusal, and runs none of the others', async () => {
@@ -171,13 +178,14 @@ describe('the calls of one step run at the same time', () => {
         const r = run({
             transportCall,
             toolLookup: (n) => (n === 'slow' ? slow.handler : async (c) => { gatedRuns.push(c.id); return { content: 'ran' }; }),
-            toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : undefined),
             approvalResolver: (call) => { asked.push(call.id); return refusal.promise; },
         });
 
         await slow.started;
         await settle();
-        expect(of(r.events, 'tool-start', 'g2')).toHaveLength(1);
+        // Read, and held behind `g1`'s question: its row says it waits.
+        expect(of(r.events, 'tool-start', 'g1')).toHaveLength(1);
+        expect(of(r.events, 'tool-start', 'g2')[0]).toMatchObject({ queued: true });
         refusal.resolve({ approved: false });
         await settle();
         // `g1` was refused; `g2` was waiting its turn to be asked, so nobody is asked about it.
@@ -215,11 +223,16 @@ describe('the calls of one step run at the same time', () => {
 
     it('ends a call still waiting its turn to be asked when a Stop lands, and nobody is asked about it', async () => {
         const asked: string[] = [];
-        const { transportCall } = scripted({ parent: [[toolUse('g1', 'gated'), toolUse('g2', 'gated'), done]] });
+        // A tool that asks the person itself, through its run: the question it holds open is
+        // not a gate of the step, so `g` starts, and waits its turn to be asked.
+        const asksItself: StreamToolHandler = async (_call, signal, runCtx) => {
+            const decision = await runCtx!.approvalResolver!({ id: 'own', name: 'charge_card', input: {} }, signal);
+            return { content: decision.approved ? 'charged' : 'not charged' };
+        };
+        const { transportCall } = scripted({ parent: [[toolUse('t', 'asks'), toolUse('g', 'gated'), done]] });
         const r = run({
             transportCall,
-            toolLookup: () => async () => ({ content: 'ran' }),
-            toolConfigLookup: () => ({ needsApproval: true }),
+            toolLookup: (n) => (n === 'asks' ? asksItself : async () => ({ content: 'ran' })),
             // As core's own channel does: a Stop answers the open question with a no.
             approvalResolver: (call, signal) => {
                 asked.push(call.id);
@@ -228,15 +241,17 @@ describe('the calls of one step run at the same time', () => {
         });
 
         await settle();
-        expect(asked).toEqual(['g1']);
+        expect(asked).toEqual(['own']);
+        expect(of(r.events, 'tool-start', 'g')).toHaveLength(1);
         r.abort.abort();
         await r.done;
 
-        // `g2` was next in line: once `g1` gives its turn back, the Stop is what it finds.
-        expect(asked).toEqual(['g1']);
-        expect(of(r.events, 'tool-awaiting-approval').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['g1']);
-        expect(of(r.events, 'tool-aborted').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { cause?: string }).cause]))
-            .toEqual([['g1', 'stopped'], ['g2', 'stopped']]);
+        // `g` was next in line: once the tool gives its turn back, the Stop is what it finds.
+        expect(asked).toEqual(['own']);
+        expect(of(r.events, 'tool-awaiting-approval')).toHaveLength(0);
+        // Both end stopped, the running tool and the call that waited its turn behind it.
+        expect(of(r.events, 'tool-aborted').map((e) => `${(e as { toolCallId: string }).toolCallId}:${(e as { cause?: string }).cause}`).sort())
+            .toEqual(['g:stopped', 't:stopped']);
         expect(of(r.events, 'tool-rejected')).toHaveLength(0);
         expect(r.events.slice(-2).map((e) => e.type)).toEqual(['run-aborted', 'run-done']);
         expect(r.history).toEqual([]);
@@ -332,7 +347,6 @@ describe('the questions of sub-agents running at the same time', () => {
         const r = run({
             transportCall,
             toolLookup: (n) => (n === 'delegate' ? delegate : async () => ({ content: 'ran' })),
-            toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : undefined),
             approvalResolver: (call) => new Promise((resolve) => { open.push({ id: call.id, answer: resolve }); }),
         });
 
@@ -359,7 +373,7 @@ describe('a question a tool asks through its run', () => {
     };
     const lookups = {
         toolLookup: (n: string): StreamToolHandler => (n === 'charges' ? charges : async () => ({ content: 'ran' })),
-        toolConfigLookup: (n: string) => (n === 'gated' ? { needsApproval: true } : undefined),
+        toolConfigLookup: together,
     };
 
     it('waits for the question already open, and is asked once it is answered', async () => {
@@ -403,7 +417,7 @@ describe('a question a tool asks through its run', () => {
 describe('a paused call does not stop the calls already running', () => {
     const lookups = (read: StreamToolHandler) => ({
         toolLookup: (n: string) => (n === 'read_file' ? read : n === 'delete_file' ? (async () => ({ content: 'deleted' })) : undefined),
-        toolConfigLookup: (n: string) => (n === 'delete_file' ? { needsApproval: true } : n === 'ask_user' ? { external: true } : {}),
+        toolConfigLookup: (n: string): StreamToolConfig => (n === 'delete_file' ? { needsApproval: true, parallel: true } : n === 'ask_user' ? { external: true, parallel: true } : { parallel: true }),
     });
 
     it('suspends once every call is settled or paused, with every paused call listed, and resumes', async () => {
@@ -476,7 +490,7 @@ describe('sub-agents of two calls of one step', () => {
 });
 
 describe('parallelTools: false', () => {
-    it('runs the calls of one step one after another, with the events in that order', async () => {
+    it('runs the calls of one step one after another, with the events in that order, though their tools say parallel', async () => {
         const after = (ms: number, content: string): StreamToolHandler => async () => {
             await new Promise((r) => setTimeout(r, ms));
             return { content };
@@ -497,7 +511,7 @@ describe('parallelTools: false', () => {
         expect(ids(r.history)).toEqual(['assistant:a,b', 'tool:a', 'tool:b']);
     });
 
-    it('is not what the loop does by default: the faster call answers first', async () => {
+    it('is not what the loop does by default for tools that say parallel: the faster call answers first', async () => {
         const after = (ms: number, content: string): StreamToolHandler => async () => {
             await new Promise((r) => setTimeout(r, ms));
             return { content };

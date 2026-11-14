@@ -198,12 +198,17 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     // Each call's segment as `tool-start` built it: a call this run did not start is one a
     // paused run left (see `settle`).
     const toolSegments = new Map<string, AparteToolCallSegment>();
+    // The rows drawn `queued` that have not gone on yet: the first change of each takes the
+    // mark off. Only theirs, so a step where nothing waits writes what it always wrote.
+    const queued = new Set<string>();
+    const unqueued = <U extends Partial<AparteToolCallSegment>>(id: string, update: U): U =>
+        (queued.delete(id) ? { ...update, queued: undefined } : update);
     // A call this run never started is one a paused run left — a resume replays no
     // `tool-start`. Settling it ends the pause, so its row drops `deferred`, and the
     // server's ticket with it: a saved conversation keeps no answered call "paused".
     const settle = (toolCallId: string, update: Partial<AparteToolCallSegment>): void => {
         const id = `tool-${toolCallId}`;
-        target.updateSegment?.(id, (toolSegments.has(id) ? update : { ...update, deferred: undefined }) as Partial<AparteSegment>);
+        target.updateSegment?.(id, unqueued(id, toolSegments.has(id) ? update : { ...update, deferred: undefined }) as Partial<AparteSegment>);
     };
     let thinkingContent = '';
     let thinkingCollapsed = false;
@@ -465,8 +470,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     type: 'tool_call',
                     toolCall: { id: e.toolCallId, name: e.name, input: e.input as Record<string, unknown> },
                     status: 'pending',
+                    // Read while it cannot go on yet: its row now, where the model wrote it.
+                    ...(e.queued ? { queued: true as const } : {}),
                 };
                 toolSegments.set(toolSeg.id, toolSeg);
+                if (e.queued) queued.add(toolSeg.id);
                 const renderer = config.getToolRenderer(e.name);
                 if (renderer) injectToolRendererStyles(e.name, renderer);
                 // Always added, whatever it draws. A call a renderer or a display hides
@@ -478,8 +486,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
             }
 
+            case 'tool-running': {
+                // A queued call goes on: it is a running row from here.
+                const id = `tool-${e.toolCallId}`;
+                if (queued.delete(id)) target.updateSegment?.(id, { queued: undefined } as Partial<AparteSegment>);
+                break;
+            }
+
             case 'tool-awaiting-approval':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'awaiting-approval' });
+                target.updateSegment?.(`tool-${e.toolCallId}`, unqueued(`tool-${e.toolCallId}`, { status: 'awaiting-approval' as const }) as Partial<AparteSegment>);
                 dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input }, targetId);
                 break;
 
@@ -549,8 +564,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     const id = `tool-${p.toolCallId}`;
                     const deferred = { reason: p.reason, ...(typeof ticket === 'string' ? { ticket } : {}) };
                     // Every call is in the message — started here at `tool-start`, or by the run
-                    // that paused first — so a pause is always an update of its row.
-                    target.updateSegment?.(id, { deferred } as Partial<AparteSegment>);
+                    // that paused first — so a pause is always an update of its row. A queued one
+                    // waits for the resume now, which `deferred` says.
+                    target.updateSegment?.(id, unqueued(id, { deferred }) as Partial<AparteSegment>);
                 }
                 // The RUN is over; the TURN goes on, through the run that resumes it.
                 target.updateMessage?.(messageId, { status: 'completed' });

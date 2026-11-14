@@ -24,7 +24,9 @@ async function runWith(parallelTools: boolean) {
         messageId: 'm1', baseRequest: ask('parent'), transportCall,
         parallelTools,
         toolLookup: (n) => (n === 'slow' ? hangs : async () => ({ content: 'ran' })),
-        toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true } : undefined),
+        // Both may run beside each other: a tool that says nothing keeps its place, and
+        // `gated` would wait for the slow call to time out before it pauses.
+        toolConfigLookup: (n) => (n === 'gated' ? { needsApproval: true, parallel: true } : { parallel: true }),
         toolTimeoutMs: 20,
         deferral: {},
         emitter: (e) => { events.push(e); },

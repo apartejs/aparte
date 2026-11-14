@@ -280,6 +280,21 @@ export interface StreamToolConfig {
      * handler.
      */
     external?: boolean;
+    /**
+     * Whether a call of this tool may run beside the other calls of its step (see
+     * `StreamRunOptions.parallelTools`). Left out, the call keeps its place: it starts once
+     * every call made before it in the same step has settled, and the calls made after it
+     * start once it has. `true` lets it run together with the calls around it that say
+     * `true` too: a read, a search, a lookup — anything whose result does not depend on
+     * the order. A write or a command keeps its place, so `edit_file` then `run_command`
+     * runs the command on the edited file.
+     *
+     * A tool described by MCP says so with its annotations:
+     * `parallel: tool.annotations?.readOnlyHint === true`.
+     *
+     * @default false
+     */
+    parallel?: boolean;
 }
 
 /**
@@ -375,6 +390,8 @@ export type StreamApprovalResolver = (
  * - `thinking-delta`  → addSegment('thinking') then updateSegment(content); first `text-delta` after
  *                       thinking collapses it (updateSegment collapsed:true)
  * - `tool-start`      → renderer lookup + per-tool-name CSS inject into document.head + addSegment
+ *                       (with `queued` when the call waits its place in the step)
+ * - `tool-running`    → updateSegment(queued: undefined) — a queued call goes on
  * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request`
  * - `tool-approved`   → updateSegment('pending')
  * - `tool-rejected`   → updateSegment('rejected', result)
@@ -407,7 +424,21 @@ export type StreamRunEvent =
     /** Offsets into the text this model call streamed: the text since its `turn-start`. */
     | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[]; agentId?: string }
     | { type: 'thinking-delta'; delta: string; agentId?: string }
-    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; agentId?: string }
+    /**
+     * The model called a tool: its row, where the model wrote it, sent as the call is read and
+     * before it runs. `queued` when the call cannot run yet: it waits until the calls before it
+     * in the step let it start (see `StreamRunOptions.parallelTools`) — a call before it that
+     * keeps its place, any call still running when this one keeps its place, or a call waiting
+     * for a decision — or it comes after a pause point. `tool-running` follows once it goes on,
+     * unless the step ends first (a refusal, a stop, a pause).
+     */
+    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; queued?: true; agentId?: string }
+    /**
+     * A call whose `tool-start` said `queued` goes on now: to its approval if it needs one (a
+     * `tool-awaiting-approval` follows), else to its handler. Never sent for a call that went
+     * on at once.
+     */
+    | { type: 'tool-running'; toolCallId: string; agentId?: string }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown; agentId?: string }
     | { type: 'tool-approved'; toolCallId: string; agentId?: string }
     /**
@@ -505,8 +536,9 @@ export interface StreamToolRun {
     readonly maxTurns: number;
     readonly toolTimeoutMs: number;
     /**
-     * Whether the run's tool calls of one step run at the same time (its `parallelTools`). A
-     * sub-agent's loop does as its run does. Absent means the default, `true`.
+     * Whether the calls of tools that say `parallel: true` run together in this run (its
+     * `parallelTools`). A sub-agent's loop does as its run does. Absent means the default,
+     * `true`.
      */
     readonly parallelTools?: boolean;
     /** The run's own id generator, so the ids a nested loop mints never collide with it. */

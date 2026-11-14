@@ -54,6 +54,7 @@ export const fr: AparteLocale = {
     checkpointPending: "Résumé du contexte en cours…",
     checkpointFailed: "Impossible de résumer le contexte",
     toolRunning: "En cours",
+    toolQueued: "Dans la file",
     toolFailed: "Échec",
     toolCompleted: "Terminé",
     toolRejected: "Refusé",

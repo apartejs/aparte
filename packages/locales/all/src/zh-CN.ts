@@ -54,6 +54,7 @@ export const zhCN: AparteLocale = {
     checkpointPending: "正在总结上下文…",
     checkpointFailed: "无法总结上下文",
     toolRunning: "运行中",
+    toolQueued: "排队中",
     toolFailed: "失败",
     toolCompleted: "完成",
     toolRejected: "已拒绝",

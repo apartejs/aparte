@@ -1,5 +1,7 @@
 # @aparte/plugin-compaction
 
+## 1.8.0
+
 ## 1.7.0
 
 ### Patch Changes

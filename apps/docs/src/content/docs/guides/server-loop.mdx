@@ -53,10 +53,41 @@ the first signing and all verifying.
 | `prepareRequest(request, req)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it |
 | `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
 | `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default; a tool's own `maxTurns` applies too |
+| `parallelTools` | run together the calls of one reply whose tools say `parallel: true`, `true` by default; `false` runs every call one after another |
 | `ticketMaxAgeMs` | how long a paused run can wait, seven days by default |
 | `onTicket(id)` | a check on each resume; `false` refuses it with a 409 |
 | `transport` | how the server calls the model, `new AparteDirectTransport({ byok: true })` by default |
 | `crypto` | the Web Crypto used to sign, for [Node 18](#node-18) |
+
+When the model calls several tools in one reply, a server tool runs beside the others only when it
+says `parallel: true`. One that says nothing keeps its place: it starts once the calls made before
+it have finished, so a coding agent's `edit_file` then `run_command` runs the command on the edited
+file. Mark the tools that only read, and pass `parallelTools: false` to run every call one after
+another, those too ([Several calls in one reply](/guides/engine/#several-calls-in-one-reply)):
+
+```ts
+import { createAparteAgentHandler, type AparteAgentTool } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+declare const readFile: AparteAgentTool['handler'], editFile: AparteAgentTool['handler'], runCommand: AparteAgentTool['handler']; // yours
+declare function isSignedIn(req: Request): boolean;
+
+const onePath = { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] };
+const oneCommand = { type: 'object', properties: { cmd: { type: 'string' } }, required: ['cmd'] };
+
+export const POST = createAparteAgentHandler({
+  providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  authorize: (req) => isSignedIn(req),
+  secret: process.env.AGENT_SECRET!,
+  tools: [
+    // Reads run together; the edit and the command keep their place.
+    { tool: { name: 'read_file', description: 'Read a file.', inputSchema: onePath, parallel: true }, handler: readFile },
+    { tool: { name: 'edit_file', description: 'Edit a file.', inputSchema: onePath, needsApproval: true }, handler: editFile },
+    { tool: { name: 'run_command', description: 'Run a shell command.', inputSchema: oneCommand }, handler: runCommand },
+  ],
+  // parallelTools: false,   // every call one after another, the reads too
+});
+```
 
 :::note[A page on another site can post to this route]
 It does so with your visitor's cookie, in a form that needs no preflight. The handler refuses any

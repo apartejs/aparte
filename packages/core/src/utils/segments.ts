@@ -111,6 +111,8 @@ export function stampSegmentOnInsert(
  *    call that carries a continuation ticket (`deferred.ticket`): a server loop paused
  *    on it, nothing in the page was awaiting it, and it can still be answered
  *    (`AparteClient.resumeDeferred`).
+ *  - a `tool_call`'s `queued` is dropped: it says a call waits its turn in a step being
+ *    run now, and no run of this page is running it.
  */
 export function adoptSegment(
     segments: readonly AparteSegment[],
@@ -119,8 +121,9 @@ export function adoptSegment(
     /** The message arrives in flight (`streaming`/`pending`): its running calls are live. */
     live = false,
 ): AparteSegment {
+    const { queued: _live, ...rest } = segment as AparteSegment & { queued?: true };
     return {
-        ...segment,
+        ...rest,
         messageId,
         index: segments.length,
         isStreaming: false,

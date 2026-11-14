@@ -54,6 +54,7 @@ export const es: AparteLocale = {
     checkpointPending: "Resumiendo el contexto…",
     checkpointFailed: "No se pudo resumir el contexto",
     toolRunning: "En curso",
+    toolQueued: "En cola",
     toolFailed: "Falló",
     toolCompleted: "Hecho",
     toolRejected: "Rechazado",

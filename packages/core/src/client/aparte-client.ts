@@ -198,6 +198,14 @@ export interface AparteClientOptions {
      * as `runStreamAgent`, so the value means one thing whichever loop runs.
      */
     toolTimeoutMs?: number;
+    /**
+     * Run together the calls of one reply whose tools say `parallel: true`. `false` runs
+     * every call one after another, each finished before the next is read, whatever its
+     * tool says. A tool that says nothing keeps its place either way. Passed to the loop
+     * as its own `parallelTools`, so a `streamRunner` of yours receives it too.
+     * @default true
+     */
+    parallelTools?: boolean;
 
     /**
      * Whether a send appends the optimistic USER bubble before the reply streams.
@@ -1920,6 +1928,7 @@ export class AparteClient {
             if (!tool) return undefined;
             return {
                 maxTurns: tool.maxTurns,
+                parallel: tool.parallel,
                 needsApproval: hostOwnsDecision
                     ? tool.needsApproval
                     : (call: AparteToolCall) => {
@@ -1969,6 +1978,7 @@ export class AparteClient {
             // inline path, so setting it was silently ignored here. Exactly the
             // asymmetry the option was added to remove.
             toolTimeoutMs: this.options.toolTimeoutMs,
+            ...(this.options.parallelTools !== undefined ? { parallelTools: this.options.parallelTools } : {}),
             // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),

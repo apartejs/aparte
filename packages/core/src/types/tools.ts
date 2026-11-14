@@ -34,8 +34,27 @@ export interface AparteTool {
      * same turn runs — and then the model gets a turn to answer it, so it can
      * say what it will do instead. The refusal may carry the user's own words.
      *
+     * While the decision is pending, the calls the model made after this one in the
+     * same reply wait for it; the calls made before it go on running.
      */
     needsApproval?: boolean;
+    /**
+     * Whether a call of this tool may run beside the other calls of the same reply.
+     *
+     * Left out, the call keeps its place: it starts once every call the model made
+     * before it in that reply has finished, and the calls made after it wait for it. So
+     * `edit_file` then `run_command` runs the command on the edited file. `true` lets it
+     * run together with the calls around it that say `true` too — a read, a search, a
+     * lookup: anything whose result does not depend on the order.
+     *
+     * A tool described by MCP says so with its annotations:
+     * `parallel: tool.annotations?.readOnlyHint === true`.
+     *
+     * `parallelTools: false` on the client (or the server handler) runs every call one
+     * after another, whatever this says.
+     * @default false
+     */
+    parallel?: boolean;
 }
 
 /**

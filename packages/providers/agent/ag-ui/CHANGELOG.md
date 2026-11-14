@@ -1,5 +1,7 @@
 # @aparte/runner-ag-ui
 
+## 1.8.0
+
 ## 1.7.0
 
 ### Minor Changes
