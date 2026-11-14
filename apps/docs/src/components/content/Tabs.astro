@@ -11,7 +11,8 @@
  * `syncKey` ties every group that shares it — pick React once and every framework switch
  * on the site shows React. The choice is stored, and an inline script right after the
  * group applies it before the page paints, so a returning reader never sees Vanilla flash
- * first. Arrows, Home and End move between tabs; the panel follows the focus.
+ * first. The keyboard is the kit's `enhanceTabs`: arrows, Home and End move between tabs, and
+ * the panel follows the focus.
  */
 interface Props {
     syncKey?: string;
@@ -68,56 +69,41 @@ const panels = html.replace(/<div class="site-tabs__panel" role="tabpanel" data-
 }
 
 <script>
+    // The headless entry: the same function, without the custom elements the browser entry
+    // defines on import — most pages with tabs run no chat.
+    import { enhanceTabs } from '@aparte/core/headless';
+
     const KEY = 'site-tabs:';
+    const LIST = 'starlight-tabs > [role="tablist"]';
 
-    function show(group: Element, label: string): boolean {
-        const tabs = [...group.querySelectorAll<HTMLElement>(':scope > [role="tablist"] > [role="tab"]')];
-        const at = tabs.findIndex((t) => t.textContent?.trim() === label);
-        if (at < 0) return false;
-        const panels = [...group.querySelectorAll<HTMLElement>(':scope > [role="tabpanel"]')];
-        tabs.forEach((t, i) => {
-            t.setAttribute('aria-selected', String(i === at));
-            t.tabIndex = i === at ? 0 : -1;
-        });
-        panels.forEach((p, i) => (p.hidden = i !== at));
-        return true;
-    }
+    // Every group on the page, for as long as the page lives.
+    for (const list of document.querySelectorAll<HTMLElement>(LIST)) enhanceTabs(list);
 
-    function choose(tab: HTMLElement): void {
-        const group = tab.closest('starlight-tabs');
+    /** The other groups following a choice; their own changes are not choices. */
+    let following = false;
+
+    document.addEventListener('aparte-tab-change', (event) => {
+        if (following) return;
+        const tab = event.detail.tab;
+        const group = tab.closest<HTMLElement>('starlight-tabs');
+        const key = group?.dataset.syncKey;
+        if (!group || !tab.parentElement?.matches(LIST) || !key) return;
         const label = tab.textContent?.trim() ?? '';
-        if (!group) return;
-        const key = (group as HTMLElement).dataset.syncKey;
-        if (!key) {
-            show(group, label);
-            return;
-        }
         // Every group with the same key follows. The tab that was clicked stays where it
         // is on screen, whatever the groups above it now measure.
         const before = tab.getBoundingClientRect().top;
-        for (const other of document.querySelectorAll(`starlight-tabs[data-sync-key="${CSS.escape(key)}"]`)) show(other, label);
+        following = true;
+        for (const other of document.querySelectorAll<HTMLElement>(`starlight-tabs[data-sync-key="${CSS.escape(key)}"]`)) {
+            if (other === group) continue;
+            const same = [...other.querySelectorAll<HTMLElement>(':scope > [role="tablist"] > [role="tab"]')].find((t) => t.textContent?.trim() === label);
+            same?.click();
+        }
+        following = false;
         scrollBy(0, tab.getBoundingClientRect().top - before);
         try {
             localStorage.setItem(KEY + key, label);
         } catch {
             // Without storage the choice holds for this page only.
         }
-    }
-
-    document.addEventListener('click', (event) => {
-        const tab = (event.target as Element | null)?.closest<HTMLElement>('starlight-tabs > [role="tablist"] > [role="tab"]');
-        if (tab) choose(tab);
-    });
-    document.addEventListener('keydown', (event) => {
-        const tab = (event.target as Element | null)?.closest<HTMLElement>('starlight-tabs > [role="tablist"] > [role="tab"]');
-        if (!tab) return;
-        const tabs = [...tab.parentElement!.querySelectorAll<HTMLElement>('[role="tab"]')];
-        const at = tabs.indexOf(tab);
-        const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[event.key];
-        if (to === undefined) return;
-        event.preventDefault();
-        const next = tabs[(to + tabs.length) % tabs.length]!;
-        next.focus();
-        choose(next);
     });
 </script>

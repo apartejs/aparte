@@ -1,5 +1,168 @@
 # @aparte/core
 
+## 1.7.0
+
+### Minor Changes
+
+- 88d71f3: An agent's activity can now be drawn: register a renderer with `config.registerActivityRenderer(type, renderer)`. AG-UI `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` are no longer dropped.
+
+  ```ts
+  const off = aparteGlobalConfig.registerActivityRenderer("search-progress", {
+    render: (segment) => {
+      const line = document.createElement("p");
+      line.textContent = `${(segment.content as { read: number }).read} of 5 sources read`;
+      return line;
+    },
+    update: (line, segment) => {
+      line.textContent = `${(segment.content as { read: number }).read} of 5 sources read`;
+    },
+  });
+  ```
+
+  - `@aparte/engine`: a run event `activity` (`{ id, activityType, content, agentId? }`) in `StreamRunEvent`, and the same in a model call's stream (`StreamChatEvent`), which the loop passes on; a sub-agent's handle passes it on with its `agentId`. `content` is always the activity's WHOLE current value: a consumer never applies a patch.
+  - `@aparte/core`: a built-in segment type, `AparteActivitySegment` (`{ type: 'activity', activityId, activityType, content }`), placed in the reply where the activity first arrived and updated in place by every later event with the same id — never a second segment, a reply resumed after a pause included: its new run's adapter finds the segment on the reply through the target's `getMessage` (which the viewport and a wrapper's host have) or, for a segment list, its `segments` — two new optional members of `StreamAdapterTarget`. The text it interrupts ends there and what follows is written after it, as around a tool call. It is drawn by the renderer registered for its type (`registerActivityRenderer` returns the function that takes it off; `getActivityRenderer` reads it); the renderer's `update` patches the same element, and without `update` it is drawn again from `render`. With no renderer for its type it is kept on the message and draws nothing — an empty hidden element, no room, no orphan header — and a renderer registered later, or after a reload, draws it. It is saved with the message, never copied with the reply's text, and never sent to the model: the wire history skips it by name. `activity` joins `AparteStreamEventMap`, so a provider can stream it. New types: `AparteActivitySegment`, `AparteActivityRenderer`.
+  - `@aparte/runner-ag-ui`: `ACTIVITY_SNAPSHOT` becomes an `activity` with its content; `ACTIVITY_DELTA` is applied (RFC 6902, as `STATE_DELTA` is) to the content the runner holds for that message id, and the whole result is passed on. Per AG-UI 1.0, a snapshot with `replace: false` leaves an existing activity as it stands (content and type), and a delta for an activity no snapshot created is skipped with a warning, never failing the run; a patch that cannot apply leaves the activity as it was, with a warning. A sub-agent's activity is attributed by its `subagentRunId`, and its delta stays its own. The conformance lane now asserts the two activity fixtures' messages.
+  - `@aparte/provider-scenario`: a script step `{ activity: { type, content, id? } }`; the same `id` later updates it, in the same turn or a later one; in a scripted sub-agent it is the sub-agent's.
+
+  A sub-agent's activity lands in its own conversation with no change to `@aparte/plugin-subagents`: drawn under its line (`details: 'transcript'`) and in `<aparte-subagent-view>` by the same registered renderers.
+
+- 43db964: A step the agent announces now shows while it runs: the waiting indicator says it beside its dots, and a sub-agent's line says its own. AG-UI `STEP_STARTED` / `STEP_FINISHED` are no longer dropped.
+
+  ```ts
+  // A sub-agent of your own loop announces one through its handle:
+  agent.emit({ type: "step-start", name: "Reading the files" });
+  agent.emit({ type: "step-end", name: "Reading the files" });
+  // A scripted model:
+  createScenarioProvider({
+    turns: [
+      [{ step: "Reading the parser" }, { tool: "read_file" }],
+      [{ endStep: "Reading the parser" }, { text: "Done." }],
+    ],
+  });
+  ```
+
+  - `@aparte/engine`: two run events, `step-start` and `step-end` (`{ name, agentId? }`), in `StreamRunEvent`, and the same two in a model call's stream (`StreamChatEvent`), which the loop passes on. A sub-agent's handle passes them on with its `agentId`. Steps may nest and overlap; `step-end` ends the latest open step of its name.
+  - `@aparte/core`: the stream adapter keeps the reply's open steps and tells the chat through a new optional target method, `setStep(messageId, name | null)`, only when the step to show changes, and with `null` when the run ends. The bubble's `setStep(name)` writes it in a `.aparte-waiting-step` span beside the dots while the reply waits (nothing written yet, or a call done and the next not begun), and makes it the screen reader's label in place of "Typing", announced politely as it changes. The viewport and a wrapper's host forward it; the host keeps it for a bubble the framework has not painted yet, so the wrappers need nothing. It is live only: never a segment, never saved, never sent to the model, and gone once the reply has text or ends. `step-start` / `step-end` join `AparteStreamEventMap`, so a provider can stream them.
+  - `@aparte/runner-ag-ui`: `STEP_STARTED` / `STEP_FINISHED` become `step-start` / `step-end`, a sub-agent's attributed by its `subagentRunId`. A step still open when its sub-agent ends, or when the run ends (finished, failed, refused or stopped), is closed then, so nothing is left lit.
+  - `@aparte/plugin-subagents`: a sub-agent's step is its line's second line while none of its calls runs; a running call wins, and when the step ends the line says what it said before. Kept apart from the sub-agent's saved conversation.
+  - `@aparte/provider-scenario`: two script steps, `{ step }` and `{ endStep }`, in the same turn or across turns (a step can last across a tool call); in a scripted sub-agent the step is the sub-agent's.
+
+- e97381c: Menus and tabs drawn with the kit can now be driven from the keyboard: `enhanceMenu`, `enhanceContextMenu` and `enhanceTabs`.
+
+  ```ts
+  import { enhanceMenu, enhanceContextMenu, enhanceTabs } from "@aparte/core";
+
+  const releaseMenu = enhanceMenu(button, menu, { align: "end" });
+  menu.addEventListener("aparte-menu-select", (e) =>
+    run(e.detail.item.dataset.action),
+  );
+
+  const releaseRowMenu = enhanceContextMenu(list, rowMenu, {
+    onOpen: (target) => (target.closest("[data-id]") ? undefined : false),
+  });
+
+  const releaseTabs = enhanceTabs(tablist);
+  tablist.addEventListener("aparte-tab-change", (e) =>
+    console.log(e.detail.tab, e.detail.panel),
+  );
+  ```
+
+  Each takes the kit's existing markup (`.aparte-menu` with `role="menuitem"` items, `.aparte-tabs` with `role="tab"` and `aria-controls`) and returns a function that stops it. Nothing changes for markup drawn without them.
+
+  - **`enhanceMenu(trigger, menu, options?)`** — the WAI-ARIA menu button. The button opens the menu on a click, Enter, Space, ArrowDown (first item) or ArrowUp (last item); inside, the arrows wrap, Home and End jump, a letter goes to the next item that starts with it, and disabled, `aria-disabled` or hidden items are skipped. Escape closes it and puts the focus back on the button; Tab closes it and moves on from the button; a press outside, the focus leaving or a resize close it, and so does a scroll that moves the button (the page, a list it is in) but not one beside it, such as a reply streaming in. A click on the button of an open menu closes it, WebKit included. One menu is open at a time. The menu is shown with `hidden` and placed fixed under the button with `placeFloating` (options: `align`, `side`, `gap`, `margin`, `rtl`). `onOpen` fills it as it opens (return `false` to keep it shut), `onClose` runs after.
+  - **`enhanceContextMenu(region, menu, options?)`** — the same menu, opened by a right click (at the pointer), Shift+F10 or the Menu key (under the focused element) anywhere in `region`. `onOpen(target)` says which element it was asked about; return `false` to leave the browser its own menu. Escape puts the focus back where it was.
+  - **`aparte-menu-select`** fires on the menu with `{ item }` when an item is chosen, before it closes; `preventDefault()` keeps it open. A `menuitemcheckbox` or `menuitemradio` is not ticked for you: set `aria-checked` in the listener.
+  - **`enhanceTabs(tablist, options?)`** — the WAI-ARIA tabs. One tab stop, ArrowRight / ArrowLeft (the other way round in right-to-left) or ArrowDown / ArrowUp with `aria-orientation="vertical"`, Home and End, disabled and hidden tabs skipped; `aria-selected` kept, the panel named by `aria-controls` shown and the others `hidden`. `activation: 'manual'` lets the arrows move the focus only. **`aparte-tab-change`** fires on the tablist before a tab is selected, with `{ tab, panel, previous }`; `preventDefault()` keeps the current one. Select from code with `tab.click()`.
+  - All three touch no DOM until called, so they are exported from the server entry too.
+
+  The conversation list's row menu now runs on them: it gains type-ahead, and a right click, Shift+F10 or the Menu key on a row opens the same menu there. Tab in the menu now moves on from the `⋯` button instead of stopping on it. The elicitation panel's stepped questions and `@aparte/plugin-artifacts`' card tabs run on `enhanceTabs` too; the card's panes also carry `hidden` when they are not shown.
+
+- 735fa71: The tool calls of one model step now run at the same time; pass `parallelTools: false` to run them one after another.
+
+  ```ts
+  runStreamAgent({ ...options, parallelTools: false });
+  // in a chat:
+  new AparteClient({
+    streamRunner: (opts) => runStreamAgent({ ...opts, parallelTools: false }),
+  });
+  ```
+
+  Each call starts as soon as the model asks for it, and the rest of the reply keeps streaming while it runs; the model is called again once every call of the step has finished. Two tools that each run a sub-agent now run both sub-agents at once, their events interleaving under their own `agentId`.
+
+  What does not depend on which call finishes first:
+
+  - The history is in call order: the assistant message lists the calls as the model made them, and their `tool` results follow in that order. `onHistoryAppend` reports them in that order too, each once every call before it has finished.
+  - A person is asked about one call at a time, in call order, sub-agents' calls included; the calls that need no approval run meanwhile.
+  - A refusal lets the calls already running finish. A call still waiting for its question is not run and is answered "Not run: an earlier call of the same step was refused." (`by: 'earlier-refusal'`); the rest of the reply is not read, and the model then answers the refusal, as before.
+  - A Stop, the turn limit, a call with no handler or no resolver, or a crash stops every call still running (`tool-aborted`, cause `'stopped'`), then the run ends as before.
+  - With `deferral`, a call that pauses does not stop the calls already running: the run is suspended once all of them have finished or paused, and `run-suspended` lists every paused call. A call the model makes after the pause waits, as before. If a call stops the run meanwhile (a timeout, no handler), the run ends as it does one call after another: the paused calls end as `tool-aborted` (`'stopped'`), and nothing is suspended.
+
+  `StreamToolRun` gains `parallelTools`, so a sub-agent's loop does as its run does. `@aparte/core` re-exports the option through `AparteStreamRunOptions`.
+
+- 504b70b: The plan card can be drawn from an agent's activity: `setupPlanCard({ activity: 'plan' })`. A TanStack AI router's plan now reaches the reply as a `plan` activity.
+
+  ```ts
+  import { setupPlanCard } from "@aparte/plugin-cards/plan";
+
+  setupPlanCard({ activity: "plan" }); // AG-UI ACTIVITY_*, a sub-agent, a scenario
+  setupPlanCard({ activity: ["plan", "todos"], tool: "update_plan" }); // both paths at once
+  ```
+
+  - **`@aparte/plugin-cards`**: every card's setup takes `activity` (a type or a list of types), so any
+    card can be driven by an activity. The activity's content is read as the card's data (for the plan
+    card, every shape `readPlan` reads: Claude Code's `todos`, Codex's `plan`, a Markdown checklist…).
+    Each new content patches the same card in place; content that holds nothing to draw yet draws
+    nothing, and an update the card cannot read leaves the card it drew.
+  - **`@aparte/runner-ag-ui`**: TanStack AI 1.0 puts its router's plan on each direct child's
+    `SUBAGENT_STARTED` (`metadata.tanstack.subagentPlan`, `{ steps: [{ names, order? }] }`), once. The
+    runner now emits it as one `plan` activity of the reply (it is the parent's plan of its
+    sub-agents, not a sub-agent's own): a step per agent in the router's order, in progress when the
+    agent starts, done, failed or blocked when it ends. Steps the router moved past read as done.
+  - **`@aparte/plugin-subagents`**: a sub-agent's conversation (under its line, in
+    `<aparte-subagent-view>`) now follows activity and tool renderers registered after it was drawn,
+    as a bubble does. Before, only a change of segment renderer redrew a row.
+  - **`@aparte/core`**: `onRenderersChange(listener)` is exported, for a row loop written outside
+    the bubble: it hears every segment, tool or activity renderer registered or taken off, once per
+    config per microtask.
+
+- b921d2e: A sub-agent's line can open its conversation beside the chat: `setupSubagents({ open: 'event' })` and `connectSubagentView({ chat, view, split })`. Without the option, nothing changes.
+
+  ```ts
+  import {
+    connectSubagentView,
+    setupSubagents,
+  } from "@aparte/plugin-subagents";
+
+  setupSubagents({ open: "event" });
+  connectSubagentView({
+    chat: document.getElementById("chat")!,
+    view: document.querySelector("aparte-subagent-view")!,
+    split: document.querySelector("aparte-split")!,
+  });
+  ```
+
+  - `@aparte/plugin-subagents`: `open: 'event'` puts an Open button (core's button recipe, named "Open Researcher" in the chat's ten languages) at the end of each sub-agent's line. Pressing it — click, Enter or Space — dispatches `aparte-subagent-open` (`AparteSubagentOpenEventDetail`: `targetId?`, `messageId`, `agentId`, `name?`, `toolCallId?`), bubbling and composed. A line with nothing behind it also opens on a click anywhere on it; with `details` too, the line keeps toggling its detail and only the button opens elsewhere, so one click never means two things. `connectSubagentView` points an `<aparte-subagent-view>` at the sub-agent, opens the split's second pane (on a phone the split shows the view, then the chat again), marks the open line (`data-current` on the row, `aria-current="true"` on its button) and returns a function that undoes it all. Without a split, `onOpen` and `onClose` hand the layout to the app. A sub-agent's own sub-agents, drawn as lines in the view, open in the same view.
+  - `<aparte-subagent-view closable>`: the sub-agent's name and a Close button above its conversation; Close, or Escape inside the view, dispatches `aparte-subagent-view-close` (the view does not hide itself). `connectSubagentView` sets it, folds the pane on it and puts the focus back on the line's button. `focusTitle()` puts the focus on the name. A view opened while its sub-agent works now reads it from the plugin's last write when the chat does not hold it yet (a framework that mirrors the messages a step behind).
+  - `@aparte/core`: `AparteToolLine.open` (`AparteToolLineOpen`: `label`, `onOpen(row)`, `current?`) — a tool-line provider can say a call can be shown elsewhere. Core draws the button at the end of the line, calls `onOpen` with the row, and keeps the button's name and the `current` marks in step on update and relabel. On a row with a detail the button stays out of the `<summary>` (a control inside it is no control of its own): the row is then a `div` wrapping its `<details class="aparte-tool-disclosure">`, the button in an `.aparte-tool-open-slot` beside it, at the same place on the line. Without `open`, the row is unchanged.
+
+- 5b6a286: A tool display's `details` function now gets the element its row shows as a second argument: return it to keep it.
+
+  ```ts
+  aparteGlobalConfig.registerToolDisplay("edit_file", {
+    details: (segment, held) => held ?? drawChange(segment),
+  });
+  ```
+
+  `held` is the element the function returned for that row the last time it was asked, still in place behind the line; it is absent on a row's first drawing. So a detail with state of its own (a fold opened, a comment half written) is kept through the call's updates and a language switch without a cache in the app, and two rows drawing the same call (a reply and a pane beside it) never share one element. A function that ignores the argument behaves as before.
+
+### Patch Changes
+
+- Updated dependencies [88d71f3]
+- Updated dependencies [43db964]
+- Updated dependencies [735fa71]
+- Updated dependencies [fe37513]
+  - @aparte/engine@1.7.0
+
 ## 1.6.0
 
 ### Minor Changes

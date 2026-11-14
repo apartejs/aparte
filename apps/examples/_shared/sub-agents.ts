@@ -16,6 +16,7 @@
  * is `@aparte/plugin-subagents`.
  */
 import { contentToText, type AparteChatRequest, type AparteToolCallSegment } from '@aparte/core';
+import { connectSubagentView } from '@aparte/plugin-subagents';
 import type { Scenario } from '@aparte/provider-scenario';
 
 /** The tool the delegating steps call: the scenario provider's default name. */
@@ -26,6 +27,12 @@ export const SUBAGENT_PROMPTS = {
     team: 'Get the release ready with three sub-agents.',
     one: 'Ask a sub-agent for the last release.',
     gated: 'Have a sub-agent run the build.',
+} as const;
+
+/** The steps the one-sub-agent path announces: the model's own, and its sub-agent's. */
+export const STEPS = {
+    reply: 'Checking the changelog',
+    subagent: 'Reading CHANGELOG.md',
 } as const;
 
 /** What the model searches for itself while the three sub-agents work. */
@@ -100,17 +107,22 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
             },
         ],
     },
+    // With steps, as an agent announces the stage it is in: the model's shows in the reply's
+    // waiting indicator until it writes, and lasts until its answer (`subagentDone`); the
+    // sub-agent's shows on its line while none of its calls runs.
     subagent: {
         when: /\bsub-?agent\b/i,
         turn: [
+            { step: STEPS.reply },
+            { wait: 800 },
             { text: 'A sub-agent can look that up.' },
             {
                 subagents: [{
                     name: LEAD.one,
                     task: 'Find the last release in the changelog',
                     turns: [
-                        [{ thinking: 'The newest entry is at the top of CHANGELOG.md.' }, { wait: 1200 }, { tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
-                        'The last entry is 0.16.11.',
+                        [{ step: STEPS.subagent }, { thinking: 'The newest entry is at the top of CHANGELOG.md.' }, { wait: 1200 }, { tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
+                        [{ endStep: STEPS.subagent }, { text: 'The last entry is 0.16.11.' }],
                     ],
                 }],
             },
@@ -130,7 +142,7 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
     subagentsDone: {
         turn: 'Ready to cut **0.17.0**: the checklist wants a changelog entry and a green build, the last release was 0.16.11, and a feature release is a minor bump. Say *ship it* and I will write the entry and run the build.',
     },
-    subagentDone: { turn: 'The last release was **0.16.11**, so the next one is 0.17.0.' },
+    subagentDone: { turn: [{ endStep: STEPS.reply }, { text: 'The last release was **0.16.11**, so the next one is 0.17.0.' }] },
     subagentApprovalDone: { turn: 'The build is green: 12.4 s, no errors.' },
     subagentApprovalRefused: { turn: 'The build did not run: its command was refused, so I cannot say whether it passes.' },
     // A delegation no path above wrote (a local model calling the tool on its own).
@@ -206,4 +218,33 @@ export function delegateLabel(segment: AparteToolCallSegment): string {
     if (segment.status === 'pending') return `Delegating to ${n} sub-agents…`;
     if (segment.status === 'resolved') return `Delegated to ${n} sub-agents`;
     return `Delegate to ${n} sub-agents`;
+}
+
+/**
+ * `?subagent-view`: a sub-agent's line opens its conversation in a pane at the end of the page.
+ *
+ * The same on every example, so it cannot wrap the framework's own chat in a split: the pane
+ * is an `<aside>` of its own, outside what the framework renders, shown and hidden by
+ * `connectSubagentView`'s `onOpen` and `onClose` (an app with an `<aparte-split>` passes it as
+ * `split` instead). The line's Open button is `setupSubagents({ open: 'event' })`, in
+ * site-setup.ts, under the same flag.
+ */
+export function mountSubagentPane(): void {
+    const pane = document.createElement('aside');
+    pane.className = 'site-subagent-pane';
+    pane.setAttribute('aria-label', 'Sub-agent');
+    pane.hidden = true;
+    const view = document.createElement('aparte-subagent-view');
+    pane.append(view);
+    document.body.append(pane);
+    // The page's body as the chat: the one element every framework leaves in place. A framework
+    // may draw its `<aparte-chat>` again (React's development mounts twice), and a listener on
+    // the first one would hear nothing; the line's event bubbles to the body all the same, and
+    // the view finds the chat's viewport under it.
+    connectSubagentView({
+        chat: document.body,
+        view,
+        onOpen: () => { pane.hidden = false; },
+        onClose: () => { pane.hidden = true; },
+    });
 }

@@ -189,6 +189,19 @@ Declined, the built-ins stay out for good, so text, reasoning, code, errors and 
 renderers of yours. Each function takes a configuration as its last argument, to act on one chat's
 registry. `new AparteClient({ autoRegister: false })` declines the built-ins the same way.
 
+A loop that draws segments outside the bubble (a panel, a side view) redraws its rows when a
+renderer changes, as the bubble does. `onRenderersChange` tells it: once per configuration and per
+microtask, whenever a segment, tool or activity renderer is registered or taken off.
+
+```ts
+import { aparteGlobalConfig, onRenderersChange } from '@aparte/core';
+
+const redrawRows = () => { /* draw your rows again with the renderers now in effect */ };
+const off = onRenderersChange((config) => {
+  if (config === aparteGlobalConfig) redrawRows();
+});
+```
+
 ## Next
 
 <Cards

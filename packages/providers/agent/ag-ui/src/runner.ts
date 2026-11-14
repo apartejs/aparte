@@ -7,7 +7,9 @@ import type {
 } from '@aparte/core';
 import { toAgUiMessages, toAgUiTools } from './messages.js';
 import { enforce } from './enforce.js';
-import { applyStateDelta } from './state.js';
+import { applyActivityDelta, applyStateDelta } from './state.js';
+import { createSubagentHistory, subagentMessages } from './subagent-history.js';
+import type { SubagentRecord } from './subagent-history.js';
 import { createTranslator } from './translate.js';
 import { createVerifier } from './verify.js';
 import { readAgUiEvents } from './wire.js';
@@ -97,6 +99,14 @@ interface Ticket {
      * The resume settles those rows under it: the row lives in the sub-agent's conversation.
      */
     agents?: Record<string, string>;
+    /** The paused run's sub-agents, their own messages included: the resume hands them back (`subagentMessages`). */
+    subagents?: SubagentRecord[];
+    /**
+     * A TanStack AI router's plan card as the paused run left it: its id, so the resumed run
+     * (a new run id) patches the same card, and what it had ticked, which a resume does not
+     * announce again (a sub-agent that finished is not re-run).
+     */
+    plan?: { id: string; steps: string[][]; status: Record<string, string> };
 }
 
 function readTicket(token: string | undefined): Ticket | undefined {
@@ -110,12 +120,34 @@ function readTicket(token: string | undefined): Ticket | undefined {
     }
 }
 
+/** What a run leaves the turn that ran it: its thread, whether it paused, how to close its steps. */
+interface Track {
+    threadId?: string;
+    suspended: boolean;
+    closeSteps?: () => void;
+}
+
 /** The run's own events. */
 const PARENT = '';
 
 /** What an event says of its owner: nothing for the run's own, its `agentId` for a sub-agent's. */
 function by(owner: string): { agentId?: string } {
     return owner ? { agentId: owner } : {};
+}
+
+/**
+ * TanStack AI's router plan, as its `withPlan` puts it on each DIRECT child's
+ * `SUBAGENT_STARTED`: `metadata.tanstack.subagentPlan`, `{ steps: [{ names, order? }] }` — the
+ * agents of each step, in order. `undefined` for anything else.
+ */
+function routerPlanOf(event: { [key: string]: unknown }): string[][] | undefined {
+    const tanstack = (event['metadata'] as { tanstack?: { subagentPlan?: { steps?: unknown } } } | undefined)?.tanstack;
+    const steps = tanstack?.subagentPlan?.steps;
+    if (!Array.isArray(steps)) return undefined;
+    const names = steps
+        .map((step) => (Array.isArray((step as { names?: unknown })?.names) ? (step as { names: unknown[] }).names.filter((n): n is string => typeof n === 'string' && n !== '') : []))
+        .filter((step) => step.length > 0);
+    return names.length ? names : undefined;
 }
 
 /** An interrupt's reason, as what the page must do about its call. */
@@ -130,11 +162,15 @@ function interruptKind(interrupt: AgUiInterrupt): 'approval' | 'external' | unde
  * the LAST step's report. That is what the page's own loop reports for a run of several
  * turns, and what the context gauge reads: the size of the conversation the model last saw.
  * Summed, a three-step run read as three times the context it used.
+ *
+ * `first` when the run's sub-agents ran: TanStack AI then puts their calls on the run's
+ * terminal too (`withChildUsage`, as AG-UI 1.0 asks: "calls made by its subagents included"),
+ * AFTER the run's own report, so the last entry is a sub-agent's model call, not the run's.
  */
-function readUsage(value: unknown): Usage | undefined {
+function readUsage(value: unknown, pick: 'first' | 'last' = 'last'): Usage | undefined {
     const entries = (Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : [])
         .filter((u): u is Record<string, unknown> => Boolean(u) && typeof u === 'object');
-    const last = entries.at(-1);
+    const last = pick === 'first' ? entries[0] : entries.at(-1);
     if (!last) return undefined;
     const num = (key: string): number => (typeof last[key] === 'number' ? last[key] as number : 0);
     const cached = num('cachedInputTokens');
@@ -243,7 +279,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     const stableThread = options.threadId !== undefined;
     /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
     const unanswered = new Map<string, string[]>();
-    const runOnce = async (opts: AparteStreamRunOptions, track: { threadId?: string; suspended: boolean }): Promise<Usage | undefined> => {
+    const runOnce = async (opts: AparteStreamRunOptions, track: Track): Promise<Usage | undefined> => {
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
         const request = opts.baseRequest as AparteChatRequest;
@@ -260,20 +296,34 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // `tool` messages after the history; answers to interrupts go in one `resume`
         // batch, since the protocol refuses a partial one.
         const messages: AgUiMessage[] = toAgUiMessages(request.messages, flatten, warn);
+        const pausedAgents = Array.isArray(ticket?.subagents) ? ticket.subagents : [];
+        // The sub-agents whose messages go back (TanStack's, see below): an answer to one of
+        // their calls goes with them, after the message that declares the call.
+        const sentBack = new Set(pausedAgents.filter((r) => r.tanstack).map((r) => r.id));
+        const answers = new Map<string, AgUiMessage>();
         for (const [toolCallId, outcome] of Object.entries(outcomes)) {
             if (interrupted.has(toolCallId)) continue;
             // A page tool the page refused (its `needsApproval`, its policy): the refusal is
             // the call's result, the sentence the model reads. An approval needs no message.
             if (outcome.kind === 'decision' && outcome.approved) continue;
-            messages.push({
+            const answer: AgUiMessage = {
                 id: `aparte-result-${toolCallId}`,
                 role: 'tool',
                 toolCallId,
                 content: outcome.kind === 'failed' ? `Error: ${outcome.error}`
                     : outcome.kind === 'decision' ? rejectionText(outcome)
                     : outcome.content,
-            });
+            };
+            const owner = ticket?.agents?.[toolCallId];
+            if (owner !== undefined && sentBack.has(owner)) answers.set(toolCallId, answer);
+            else messages.push(answer);
         }
+        // The paused run's sub-agents, as they wrote and ran, after the history: the page's
+        // history holds none of it (their lines draw it), and TanStack AI resumes a paused
+        // sub-agent only from its own messages (it refuses the answer otherwise). Only the
+        // sub-agents TanStack announced: any other agent keeps its sub-agents' work itself, and
+        // gets the history and the answers alone.
+        messages.push(...subagentMessages(pausedAgents, answers));
         const left = ticket ? [] : (unanswered.get(threadId) ?? []);
         unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
@@ -343,7 +393,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         /** A sub-agent's calls the paused run handed the page: their outcomes settle under it. */
         const ticketAgents = new Map(Object.entries(ticket?.agents ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
         /** This run's sub-agents: announced by SUBAGENT_STARTED or met first in an attributed event, and whether still open. */
-        const agents = new Map<string, { open: boolean; parent?: string }>();
+        const agents = new Map<string, { open: boolean; parent?: string; name?: string }>();
+        /** What each sub-agent wrote and ran, kept for the ticket if the run pauses. */
+        const transcripts = createSubagentHistory(pausedAgents);
+        /**
+         * Whether TanStack AI serves the run: it tags its events with `metadata.tanstack`. Its
+         * sub-agents are then marked so in the ticket, and their messages go back on the resume
+         * — the one agent that needs them.
+         */
+        let tanstackRun = false;
+        /** Whether the run's own model has spoken since the last RUN_FINISHED: `readUsage` reads its report then. */
+        let ownStep = false;
 
         const tagOf = (event: { [key: string]: unknown }): string | undefined =>
             (typeof event['subagentRunId'] === 'string' ? event['subagentRunId'] : undefined);
@@ -378,10 +438,60 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             agents.set(agentId, { open: true });
             emit({ type: 'agent-start', agentId });
         };
+        /** The steps open, in the order they opened, each with its owner (`''` for the run's own). */
+        const openSteps: { owner: string; name: string }[] = [];
+        /** Close what is still open — one owner's, or everyone's — the latest first, so nothing is left lit. */
+        const closeSteps = (owner?: string) => {
+            for (let i = openSteps.length - 1; i >= 0; i -= 1) {
+                const step = openSteps[i]!;
+                if (owner !== undefined && step.owner !== owner) continue;
+                openSteps.splice(i, 1);
+                emit({ type: 'step-end', name: step.name, ...by(step.owner) });
+            }
+        };
+        track.closeSteps = closeSteps;
+        /**
+         * Each activity's type, content and owner as it stands, by its message id: a delta is
+         * applied here and the page receives the whole result. A patch never changes the
+         * object it reads (it works on a copy), so content already handed on stays as it was.
+         */
+        const activities = new Map<string, { activityType: string; content: unknown; owner: string }>();
+        const showActivity = (id: string, at: { activityType: string; content: unknown; owner: string }) => {
+            activities.set(id, at);
+            emit({ type: 'activity', id, activityType: at.activityType, content: at.content, ...by(at.owner) });
+        };
+        /**
+         * A TanStack AI router's plan of its sub-agents (`routerPlanOf`): the reply's own `plan`
+         * activity — it is the parent's plan, not a sub-agent's, and the same on every child — a
+         * step per agent in the router's order, ticked from each agent's start and end. It is sent
+         * once, so the statuses are the runner's: a router starts a step only once the steps
+         * before it finished, so those are done (a resumed run does not start them again).
+         */
+        // Its card is the reply's, not the run's: a resumed run (a new run id, the plan sent
+        // again with the sub-agent it re-announces) patches the card the paused run drew, and
+        // keeps what that one had ticked.
+        const paused = ticket?.plan;
+        let routerPlan: { steps: string[][]; status: Map<string, string> } | undefined = paused && Array.isArray(paused.steps)
+            ? { steps: paused.steps, status: new Map(Object.entries(paused.status ?? {})) }
+            : undefined;
+        const planId = typeof paused?.id === 'string' ? paused.id : `router-plan:${runId}`;
+        const tickRouterPlan = (name: string | undefined, status: 'in-progress' | 'done' | 'failed' | 'blocked') => {
+            const at = name === undefined ? -1 : routerPlan?.steps.findIndex((step) => step.includes(name)) ?? -1;
+            if (!routerPlan || at < 0) return;
+            if (status === 'in-progress') {
+                for (const before of routerPlan.steps.slice(0, at).flat()) if (routerPlan.status.get(before) !== 'failed') routerPlan.status.set(before, 'done');
+            }
+            routerPlan.status.set(name!, status);
+            const steps = routerPlan.steps.flat().map((title) => ({ title, status: routerPlan!.status.get(title) ?? 'pending' }));
+            showActivity(planId, { activityType: 'plan', content: { steps }, owner: PARENT });
+        };
         const endAgent = (agentId: string, status: 'done' | 'failed' | 'waiting', detail: { result?: string; error?: string } = {}) => {
+            // Its steps end with it: its line would otherwise say one it is no longer on.
+            closeSteps(agentId);
             const agent = agents.get(agentId);
             if (agent) agent.open = false;
             emit({ type: 'agent-end', agentId, status, ...detail, ...(agent?.parent ? { parentAgentId: agent.parent } : {}) });
+            if (agent && !agent.parent) tickRouterPlan(agent.name, status === 'waiting' ? 'blocked' : status);
         };
         /** Fail the sub-agents still open, the latest first (a nested one before the one that opened it). */
         const failOpenAgents = (error: string) => {
@@ -495,6 +605,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             // all the same (AG-UI 1.0 accepts unannounced attribution): it starts here.
             const tag = tagOf(event);
             if (tag !== undefined && !event.type.startsWith('SUBAGENT_')) meet(tag);
+            const metadata = (event as { metadata?: unknown }).metadata;
+            if (metadata && typeof metadata === 'object' && typeof (metadata as { tanstack?: unknown }).tanstack === 'object') tanstackRun = true;
             switch (event.type) {
                 case 'RUN_STARTED': {
                     // A run after a failed one supersedes it: the stream ran again, and the new
@@ -523,14 +635,20 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 }
                 case 'TEXT_MESSAGE_START':
                 case 'REASONING_START':
-                case 'REASONING_MESSAGE_START':
-                    nextStep(messageOwner(event));
+                case 'REASONING_MESSAGE_START': {
+                    const owner = messageOwner(event);
+                    if (owner === PARENT) ownStep = true;
+                    nextStep(owner);
                     break;
+                }
                 case 'TEXT_MESSAGE_CONTENT':
                 case 'TEXT_MESSAGE_CHUNK': {
                     const owner = messageOwner(event);
                     const delta = typeof event['delta'] === 'string' ? event['delta'] : '';
+                    if (owner === PARENT) ownStep = true;
                     if (delta) { nextStep(owner); emit({ type: 'text-delta', delta, ...by(owner) }); lane(owner).textOpen = true; }
+                    const id = typeof event['messageId'] === 'string' ? event['messageId'] : chunkMessages.get(`${event.type}\u0000${tag ?? PARENT}`);
+                    if (owner !== PARENT && delta && id !== undefined) transcripts.text(owner, id, delta);
                     break;
                 }
                 case 'TEXT_MESSAGE_END':
@@ -546,12 +664,20 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 case 'TOOL_CALL_START': {
                     const id = String(event['toolCallId']);
                     if (!calls.has(id)) lastCall.set(tag ?? PARENT, id);
-                    calls.set(id, { name: String(event['toolCallName'] ?? ''), args: '', owner: newCallOwner(event) });
+                    const owner = newCallOwner(event);
+                    const name = String(event['toolCallName'] ?? '');
+                    calls.set(id, { name, args: '', owner });
+                    if (owner === PARENT) ownStep = true;
+                    else transcripts.call(owner, id, name);
                     break;
                 }
                 case 'TOOL_CALL_ARGS': {
-                    const call = calls.get(String(event['toolCallId']));
-                    if (call && typeof event['delta'] === 'string') call.args += event['delta'];
+                    const id = String(event['toolCallId']);
+                    const call = calls.get(id);
+                    if (call && typeof event['delta'] === 'string') {
+                        call.args += event['delta'];
+                        if (call.owner !== PARENT) transcripts.args(call.owner, id, event['delta']);
+                    }
                     break;
                 }
                 case 'TOOL_CALL_CHUNK': {
@@ -567,6 +693,12 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     }
                     if (typeof event['toolCallName'] === 'string' && event['toolCallName']) call.name = event['toolCallName'];
                     if (typeof event['delta'] === 'string') call.args += event['delta'];
+                    if (call.owner === PARENT) {
+                        ownStep = true;
+                    } else {
+                        transcripts.call(call.owner, id, call.name);
+                        if (typeof event['delta'] === 'string') transcripts.args(call.owner, id, event['delta']);
+                    }
                     break;
                 }
                 case 'TOOL_CALL_END': {
@@ -581,6 +713,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // The row is where its call was started; a result's own tag is the fallback.
                     const owner = callOwner(toolCallId) ?? tag ?? PARENT;
                     const content = resultText(event['content']);
+                    if (owner !== PARENT) transcripts.result(owner, typeof event['messageId'] === 'string' ? event['messageId'] : undefined, toolCallId, content);
                     const meta = event['metadata'] as { tanstack?: { state?: unknown } } | undefined;
                     if (meta?.tanstack?.state === 'output-error') {
                         emit({ type: 'tool-failed', toolCallId, error: content, ...by(owner) });
@@ -601,11 +734,31 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // An id met before, or announced again by a resumed run (LangGraph continues a
                     // suspended invocation under its id), is the same agent going on: announced
                     // again with what this event says, never an error.
-                    agents.set(agentId, { open: true, ...(parent ? { parent } : {}) });
+                    const name = String(event['name']);
+                    agents.set(agentId, { open: true, name, ...(parent ? { parent } : {}) });
+                    const metadata = event['metadata'];
+                    transcripts.start(agentId, {
+                        name,
+                        ...(typeof event['description'] === 'string' ? { description: event['description'] } : {}),
+                        ...(toolCallId ? { parentToolCallId: toolCallId } : {}),
+                        ...(parent ? { parentSubagentRunId: parent } : {}),
+                        ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { metadata: metadata as Record<string, unknown> } : {}),
+                    });
+                    // A router's plan comes with its direct children; a nested router's never does.
+                    // It is ticked BEFORE the agent is announced: the plan's card is placed where
+                    // it first arrives, so it stands above the agents' lines rather than between
+                    // the first and the second.
+                    if (!parent) {
+                        if (!routerPlan) {
+                            const steps = routerPlanOf(event);
+                            if (steps) routerPlan = { steps, status: new Map() };
+                        }
+                        tickRouterPlan(name, 'in-progress');
+                    }
                     emit({
                         type: 'agent-start',
                         agentId,
-                        name: String(event['name']),
+                        name,
                         ...(typeof event['description'] === 'string' ? { description: event['description'] } : {}),
                         ...(toolCallId ? { toolCallId } : {}),
                         ...(parent ? { parentAgentId: parent } : {}),
@@ -619,12 +772,17 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     const agentId = String(event['subagentRunId']);
                     flush(agentId);
                     for (const [id, call] of calls) if (call.owner === agentId) startTool(id);
+                    const outcome = event['outcome'] as { type?: unknown; interruptIds?: unknown } | undefined;
                     if (event.type === 'SUBAGENT_ERROR') {
+                        transcripts.end(agentId, 'error');
                         endAgent(agentId, 'failed', { error: typeof event['message'] === 'string' && event['message'] ? event['message'] : 'The sub-agent failed.' });
-                    } else if ((event['outcome'] as { type?: unknown } | undefined)?.type === 'suspended') {
+                    } else if (outcome?.type === 'suspended') {
                         // Paused on an interrupt of its own or of a descendant: the run's outcome says which.
+                        const ids = Array.isArray(outcome.interruptIds) ? outcome.interruptIds.filter((id): id is string => typeof id === 'string') : [];
+                        transcripts.end(agentId, 'suspended', ids);
                         endAgent(agentId, 'waiting');
                     } else {
+                        transcripts.end(agentId, 'finished');
                         endAgent(agentId, 'done', event['result'] !== undefined ? { result: resultText(event['result']) } : {});
                     }
                     break;
@@ -656,7 +814,12 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // tool results and the next step. The LAST one says how the run ended.
                     for (const id of calls.keys()) startTool(id);
                     for (const owner of lanes.keys()) flush(owner);
-                    usage = readUsage(event['usage']) ?? usage;   // the last step's report wins
+                    // The last step's report wins. With sub-agents, the run's own report is the
+                    // first entry, and a run whose own model never spoke (a router that only
+                    // delegated) has none: what is listed is its sub-agents'.
+                    if (agents.size === 0) usage = readUsage(event['usage']) ?? usage;
+                    else if (ownStep) usage = readUsage(event['usage'], 'first') ?? usage;
+                    ownStep = false;
                     lane(PARENT).stepEnded = true;
                     for (const at of lanes.values()) at.stepEnded = true;   // every owner's step ends
                     endedOnFinish = true;
@@ -666,12 +829,54 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     };
                     break;
                 }
+                // A step is a name with a start and an end, its owner's: shown while it lasts
+                // (the waiting indicator, a sub-agent's line). Steps may nest and overlap, and
+                // one ends the latest open step of its name under the same owner.
+                case 'STEP_STARTED': {
+                    const owner = tag ?? PARENT;
+                    const name = String(event['stepName'] ?? '');
+                    openSteps.push({ owner, name });
+                    emit({ type: 'step-start', name, ...by(owner) });
+                    break;
+                }
+                case 'STEP_FINISHED': {
+                    const owner = tag ?? PARENT;
+                    const name = String(event['stepName'] ?? '');
+                    for (let i = openSteps.length - 1; i >= 0; i -= 1) {
+                        if (openSteps[i]!.owner !== owner || openSteps[i]!.name !== name) continue;
+                        openSteps.splice(i, 1);
+                        emit({ type: 'step-end', name, ...by(owner) });
+                        break;
+                    }
+                    break;
+                }
+                // An activity is structured progress, drawn by the renderer the app registered for
+                // its type. A snapshot overwrites it unless it says `replace: false` (AG-UI 1.0:
+                // "only an explicit false asks a consumer to leave what is already there") — its
+                // type included; a delta patches what is held. Either way the page gets it whole.
+                case 'ACTIVITY_SNAPSHOT': {
+                    const id = String(event['messageId'] ?? '');
+                    const held = activities.get(id);
+                    if (held && event['replace'] === false) break;
+                    showActivity(id, { activityType: String(event['activityType'] ?? ''), content: event['content'], owner: held?.owner ?? tag ?? PARENT });
+                    break;
+                }
+                case 'ACTIVITY_DELTA': {
+                    const id = String(event['messageId'] ?? '');
+                    const held = activities.get(id);
+                    // Skipped, never failed, and nothing invented from the delta (the corpus's
+                    // `activity-delta-missing-target-tolerated`); the specification asks for a warning.
+                    if (!held) { warn(`ACTIVITY_DELTA for "${id}", an activity no ACTIVITY_SNAPSHOT created: skipped.`); break; }
+                    const content = applyActivityDelta(held.content, event['patch'], warn);
+                    if (content !== held.content) showActivity(id, { ...held, content });
+                    break;
+                }
                 default:
-                    // STEP_*, MESSAGES_SNAPSHOT, ACTIVITY_*, RAW, CUSTOM: agent state aparté
-                    // does not draw.
+                    // MESSAGES_SNAPSHOT, RAW, CUSTOM: agent state aparté does not draw.
                     break;
             }
         }
+        closeSteps();
         if (opts.signal.aborted) return usage;
         if (runError) {
             for (const [toolCallId, call] of started) if (!answered.has(toolCallId)) emit({ type: 'tool-aborted', toolCallId, ...by(call.owner) });
@@ -743,6 +948,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 runId: finished.runId,
                 interrupts: [...interrupts, ...cancelled],
                 ...(owned.length ? { agents: Object.fromEntries(owned) } : {}),
+                ...(transcripts.records().length ? { subagents: transcripts.records(tanstackRun) } : {}),
+                ...(routerPlan ? { plan: { id: planId, steps: routerPlan.steps, status: Object.fromEntries(routerPlan.status) } } : {}),
             };
             track.suspended = true;
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
@@ -753,13 +960,15 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         return usage;
     };
     return async (opts) => {
-        const track: { threadId?: string; suspended: boolean } = { suspended: false };
+        const track: Track = { suspended: false };
         try {
             return await runOnce(opts, track);
         } finally {
             // A thread minted for one turn is forgotten when the turn ends, however it ends —
             // done, failed or stopped — unless it paused, since only a resume reuses it.
             if (track.threadId && !stableThread && !track.suspended) states.delete(track.threadId);
+            // A stream refused or cut mid-way: the steps it left open go out with it.
+            track.closeSteps?.();
         }
     };
 }

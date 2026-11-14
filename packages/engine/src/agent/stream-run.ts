@@ -41,6 +41,7 @@ import type {
     StreamAgentHandle,
     StreamAgentStatus,
 } from './stream-events.js';
+import { chainTurns, createTurnstile, gateOf, inTurn, type Turnstile } from './approval-turn.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
 const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -74,6 +75,34 @@ export interface StreamRunOptions {
     /** Per-tool-call handler timeout in ms. @default 300000 */
     toolTimeoutMs?: number;
     /**
+     * Run the tool calls of one model step at the same time. Each call starts the moment
+     * the model asks for it, and the rest of the model's reply goes on being read while it
+     * runs; the next step waits until every call of this one is settled. `false` runs them
+     * one after another, each finished before the next is read.
+     *
+     * What stays the same either way:
+     * - **The history is in call order.** The assistant message lists the calls in the
+     *   order the model made them, and their `tool` results follow in that order, whichever
+     *   finished first.
+     * - **A person is asked about one call at a time**, in call order. The calls that need
+     *   nobody's approval run in the meantime.
+     * - **A refusal runs nothing more of the step.** The calls already running finish; a
+     *   call still waiting to be asked is not run, and its result says so
+     *   (`by: 'earlier-refusal'`); the rest of the reply is not read. The model then reads
+     *   the refusal.
+     * - **A Stop, the turn limit, or a call that cannot run** (no handler, no resolver)
+     *   stops every call of the step, as `tool-aborted` with the cause `'stopped'` for
+     *   those still running, and the run ends.
+     * - **With `deferral`**, a call that pauses does not stop the calls already running:
+     *   the run is suspended once every call is settled or paused, and `run-suspended`
+     *   lists every paused one. A call the model makes after the pause waits too. A call
+     *   that stops the run meanwhile (a timeout, no handler) ends it, as one call after
+     *   another would: the paused ones end as `tool-aborted` (`'stopped'`), nothing suspends.
+     *
+     * @default true
+     */
+    parallelTools?: boolean;
+    /**
      * Called for every turn the loop appends to the history — the assistant message
      * carrying the turn's calls, each `tool` message answering one (resolved or
      * rejected), a pipeline phase's reply, and, when sub-agents started in the background
@@ -89,6 +118,9 @@ export interface StreamRunOptions {
      * `request.messages` — and mirrors these notifications into its append-only
      * log, instead of reimplementing the loop's tool bookkeeping. Synchronous and
      * ordered, like {@link emitter}.
+     *
+     * Calls that run at the same time (see {@link parallelTools}) are reported in CALL
+     * order: each once it and every call before it have completed.
      *
      * One rule about the envelope: a turn's assistant message is reported ONCE, when
      * its first call completes, and the calls that complete later in the same turn are
@@ -179,12 +211,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         transportCall,
         toolLookup,
         toolConfigLookup,
-        approvalResolver,
         emitter,
         signal,
         maxTurns = DEFAULT_MAX_TURNS,
         toolTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS,
         deferral,
+        parallelTools = true,
     } = opts;
 
     // Reassignable: the synthetic-toolChoice bypass strips `toolChoice`/`tools`
@@ -199,9 +231,19 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // that can pause, or has nobody to ask, cannot hold a sub-agent's question.
     // The sub-agents its tools start in the background: the run waits for them before it ends.
     const background = createBackground(emitter, idGen, signal, toolTimeoutMs);
+    // One question at a time, in the order asked: the run's own calls take their turn in
+    // `processCall`, and with calls running together, a sub-agent's ask takes one here too.
+    // A sub-agent's run (its resolver comes from a run that holds a turn of its own) takes
+    // its own turn, then its run's, before a question is announced — and once both are
+    // held, it asks without waiting again.
+    const outer = gateOf(opts.approvalResolver);
+    const approvalTurn = outer ? chainTurns(createTurnstile(), outer.turn) : createTurnstile();
+    const approvalResolver = outer ? outer.ask : opts.approvalResolver;
     const runBase: ToolRunBase = {
         emitter, canAsk: !deferral && approvalResolver !== undefined, canBackground: !deferral,
-        transportCall, toolLookup, toolConfigLookup, approvalResolver, maxTurns, toolTimeoutMs, idGen,
+        transportCall, toolLookup, toolConfigLookup,
+        approvalResolver: parallelTools && approvalResolver ? inTurn(approvalTurn, approvalResolver) : approvalResolver,
+        maxTurns, toolTimeoutMs, parallelTools, idGen,
         background,
     };
 
@@ -242,7 +284,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     const tail = deferral ? unansweredTail(messages) : [];
     if (tail.length > 0) {
         const stillPending: StreamDeferredCall[] = [];
-        const ctx: CallContext = { turns: 1, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall: () => {}, append, deferral, runBase };
+        const ctx: CallContext = { turns: 1, maxTurns, toolLookup, toolConfigLookup, approvalResolver, approvalTurn, emitter, signal, toolTimeoutMs, declareCall: () => {}, append, deferral, runBase };
         for (const [i, call] of tail.entries()) {
             if (stillPending.length > 0) {
                 stillPending.push({ toolCallId: call.id, name: call.name, input: call.input, reason: queuedReason(call, toolConfigLookup) });
@@ -470,19 +512,25 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // matters: the loop spends nearly all of its time parked on `next()`, so an
         // abort arriving while parked — the user pressing Stop while watching text
         // stream — is invisible to a check that only runs before the await. It also
-        // covers both shapes a provider takes on abort: an `error` event or a quiet
-        // close. Without it the `error` branch below throws and the caller reports a
-        // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
+        // covers the three shapes a provider takes on abort: an `error` event, a quiet
+        // close, or a read that rejects. Without it the `error` branch below throws and
+        // the caller reports a deliberate stop as a failure. Mirrors `_streamLoop`'s
+        // `bailOnAbort`.
         // The calls this turn leaves for someone else to answer (see `deferral`).
         const pending: StreamDeferredCall[] = [];
         // Without the resume's answers: they were given for the calls a previous run left
         // pending, never for a new call that carries the same id — and a vendor that sends
         // no ids has them minted per stream, so the next turn reuses them.
         const callContext: CallContext = {
-            turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, emitter, signal, toolTimeoutMs, declareCall, append,
+            turns, maxTurns, toolLookup, toolConfigLookup, approvalResolver, approvalTurn, emitter, signal, toolTimeoutMs, declareCall, append,
             deferral: deferral && { ...deferral, outcomes: undefined },
             runBase,
         };
+        // The step's calls, when they run together (see `parallelTools`): each starts as it is
+        // read, and the reading goes on.
+        const step = parallelTools ? createParallelStep(callContext) : undefined;
+        // A read the step's halt left waiting: the iterator is closed without waiting for it.
+        let outstandingRead = false;
 
         const iterator = response[Symbol.asyncIterator]();
         const bailOnAbort = async (): Promise<boolean> => {
@@ -499,11 +547,39 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         try {
             while (true) {
                 if (await bailOnAbort()) break;
+                // A call of the step stopped it (a refusal, a stop, a crash): nothing more
+                // of the reply is read, as when the calls run one after another.
+                if (step?.halted()) break;
 
-                const step = await iterator.next();
+                let next: IteratorResult<StreamChatEvent>;
+                try {
+                    const read = iterator.next();
+                    if (step?.busy()) {
+                        // Raced: a call still running can stop the step while the reading waits
+                        // on the provider.
+                        const first = await Promise.race([read, step.onHalt.then((): typeof HALTED => HALTED)]);
+                        if (first === HALTED) {
+                            outstandingRead = true;
+                            Promise.resolve(read).catch(() => { /* nobody reads it any more */ });
+                            break;
+                        }
+                        next = first;
+                    } else {
+                        next = await read;
+                    }
+                } catch (error) {
+                    // A provider reading a fetch on the run's signal does not always close
+                    // quietly on a Stop: its read REJECTS, with an AbortError or with whatever
+                    // the cut socket says. Decided by the signal, as the run's end is: once it
+                    // aborted, that is the Stop, and the run ends as for a quiet close. A
+                    // failure while nobody stopped anything is the provider's, and fails the run.
+                    if (await bailOnAbort()) break;
+                    throw error;
+                }
                 if (await bailOnAbort()) break;
-                if (step.done) break;
-                const event = step.value;
+                if (step?.halted()) break;
+                if (next.done) break;
+                const event = next.value;
 
                 if (event.type === 'thinking') {
                     emitter({ type: 'thinking-delta', delta: event.delta });
@@ -520,6 +596,18 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     // Offsets are the provider's, into this call's text — the adapter's
                     // turn, since `turn-start` opens one per call. Passed on as they are.
                     emitter({ type: 'sources', sources: event.sources, ...(event.citations ? { citations: event.citations } : {}) });
+                    continue;
+                }
+
+                if (event.type === 'step-start' || event.type === 'step-end') {
+                    // Not the loop's to read: passed on for whoever shows the run.
+                    emitter({ type: event.type, name: event.name });
+                    continue;
+                }
+
+                if (event.type === 'activity') {
+                    // Whole each time, and not the loop's to read: passed on as it came.
+                    emitter({ type: 'activity', id: event.id, activityType: event.activityType, content: event.content });
                     continue;
                 }
 
@@ -568,6 +656,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
 
                 const call: StreamToolCall = { id: callId, name: event.name, input: event.input };
+                if (step) {
+                    step.start(call);
+                    continue;
+                }
                 if (pending.length > 0) {
                     // Past the pause point nothing runs. The call is declared, and says what
                     // it waits for, so the client answers every call of the reply in ONE
@@ -591,6 +683,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 if (verdict === 'stop-turn') break;
             }
 
+            // The step is over once every call of it is: its results enter the history in
+            // call order, and what its calls decided is what the turn does next. Before the
+            // flush below, so a step's events end before its text is finalised, as they do
+            // when the calls run one after another.
+            if (step) {
+                const settled = await step.finish();
+                if (settled.failure) throw settled.failure.error;
+                pending.push(...settled.pending);
+                if (settled.stopRun) continueLoop = false;
+            }
+
             // Turn boundary: finalize the parser (flush residual text). Mirrors
             // `_streamLoop`'s `textParser.finalize()` call — runs on normal
             // end AND abort-break, but NOT after a thrown `error` (which escapes
@@ -602,8 +705,16 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator,
-            // however it fails on the way out (see `bailOnAbort`).
-            try { await iterator.return?.(undefined); } catch { /* best effort */ }
+            // however it fails on the way out (see `bailOnAbort`). Not awaited while a read
+            // is still waiting on the provider: an async generator queues `return` behind it.
+            try {
+                const closing = iterator.return?.(undefined);
+                if (outstandingRead) Promise.resolve(closing).catch(() => { /* best effort */ });
+                else await closing;
+            } catch { /* best effort */ }
+            // A crash leaves by here too (a provider `error` while calls run): they are
+            // stopped, and each says so, before the run fails.
+            if (step) await step.abandon();
         }
 
         // Calls left pending: the run ends here, without `run-done` — the turn goes on
@@ -709,6 +820,8 @@ interface CallContext {
     toolLookup: StreamRunOptions['toolLookup'];
     toolConfigLookup: StreamRunOptions['toolConfigLookup'];
     approvalResolver: StreamRunOptions['approvalResolver'];
+    /** The run's one question at a time: taken before a person is asked, given back once they answered. */
+    approvalTurn: Turnstile;
     emitter: StreamRunEmitter;
     signal: AbortSignal;
     toolTimeoutMs: number;
@@ -717,6 +830,21 @@ interface CallContext {
     append: (message: StreamAgentMessage) => void;
     deferral: StreamDeferral | undefined;
     runBase: ToolRunBase;
+    /**
+     * Told the call's verdict the moment it is reached, before `processCall`'s promise
+     * settles: a parallel step must know at once that a call paused or stopped the step, so
+     * that the next `tool_use` it reads is treated as it would be one call after another.
+     * Not told `'continue'`.
+     */
+    decided?: (verdict: Exclude<CallVerdict, 'continue'>) => void;
+    /** Whether a call of the same step was refused while this one waited to be asked. */
+    stepRefused?: () => boolean;
+}
+
+/** Hands a verdict back, telling the step first (see {@link CallContext.decided}). */
+function told<V extends Exclude<CallVerdict, 'continue'>>(ctx: CallContext, verdict: V): V {
+    ctx.decided?.(verdict);
+    return verdict;
 }
 
 /**
@@ -761,7 +889,7 @@ function refuse(
     ctx.emitter({ type: 'tool-rejected', toolCallId: call.id, ...refusal });
     ctx.declareCall(call);
     ctx.append({ role: 'tool', content: refusal.reason, toolCallId: call.id, toolName: call.name });
-    return 'stop-turn';
+    return told(ctx, 'stop-turn');
 }
 
 /**
@@ -790,7 +918,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     const effectiveMaxTurns = cfg?.maxTurns ?? ctx.maxTurns;
     if (ctx.turns > effectiveMaxTurns) {
         ctx.emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: call.id });
-        return 'stop-run';
+        return told(ctx, 'stop-run');
     }
 
     // Known to the model, run elsewhere: its result comes back in the answer, and
@@ -801,9 +929,9 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     if (cfg?.external) {
         if (!ctx.deferral) {
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
-            return 'stop-run';
+            return told(ctx, 'stop-run');
         }
-        if (!answer || answer.kind === 'decision') return { defer: 'external' };
+        if (!answer || answer.kind === 'decision') return told(ctx, { defer: 'external' });
         if (answer.kind === 'failed') {
             // Like a crashing handler: the row hears it, then the run ends on it.
             ctx.emitter({ type: 'tool-failed', toolCallId: call.id, error: answer.error });
@@ -818,7 +946,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     const handler = ctx.toolLookup(call.name);
     if (!handler) {
         ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-handler' });
-        return 'stop-run';
+        return told(ctx, 'stop-run');
     }
 
     let effectiveInput = call.input;
@@ -832,29 +960,32 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // Never a `'deny'`: that one is decided here, and an answer that came back with
         // the resume — the page's, for a call queued behind a pause — cannot overrule it.
         const provided = answer?.kind === 'decision' && gated !== 'deny' ? answer : undefined;
-        // Announced only when someone is actually being asked: a `'deny'` is a
-        // decision already made, and announcing a pause for it painted
-        // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
-        // for a call nobody was ever going to be asked about.
-        if (gated !== 'deny' && !provided) {
-            ctx.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
-        }
-        // Nobody here can be asked (the run is not in the page): the call waits for a
-        // decision a later run will carry. A `'deny'` is never deferred — it is
-        // already decided, and refused below as without `deferral`.
-        if (!provided && ctx.deferral && gated !== 'deny') return { defer: 'approval' };
         /*
-         * Nothing can ask, so nothing may answer.
-         *
-         * The default was `async () => ({ approved: false })`, which sent the
-         * loop into the refusal branch and appended "rejected by the user" —
-         * a host that forgot to wire a resolver had not refused anything, and
-         * the model was told a person had. A misconfiguration is an aborted
-         * call, not a decision.
+         * One question at a time, in call order. The turn is taken BEFORE the call is
+         * announced, so a second call of the step shows no question while the first is still
+         * open; the calls that need nobody run meanwhile. Free, it is handed over at once, so
+         * a call that waits for nobody announces in the same tick as before. A sub-agent's
+         * turn is its own run's AND every run above it (see `chainTurns`): its row shows no
+         * question while a sibling sub-agent's, or the parent's, is still open.
          */
-        if (!provided && !ctx.approvalResolver) {
-            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-resolver' });
-            return 'stop-run';
+        let release: (() => void) | undefined;
+        if (!provided && ctx.approvalResolver && !(ctx.deferral && gated !== 'deny')) {
+            const turn = ctx.approvalTurn();
+            if (typeof turn === 'function') {
+                release = turn;
+            } else {
+                release = await turn;
+                // It waited behind an earlier call's question: what happened meanwhile decides.
+                if (signal.aborted) {
+                    release();
+                    ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
+                    return told(ctx, 'stop-run');
+                }
+                if (ctx.stepRefused?.()) {
+                    release();
+                    return refuse(ctx, call, { by: 'earlier-refusal' });
+                }
+            }
         }
         /*
          * A stop is not a refusal either. Core's built-in channel resolves
@@ -871,20 +1002,52 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
          * call: the segment stayed `awaiting-approval` for good.
          */
         let decision: Awaited<ReturnType<StreamApprovalResolver>> | undefined = provided;
-        if (!decision && !signal.aborted && ctx.approvalResolver) {
-            try {
-                decision = await ctx.approvalResolver(
-                    { id: call.id, name: call.name, input },
-                    signal,
-                );
-            } catch (err) {
-                if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
+        // From the moment the turn is held, every way out gives it back — an announcement that
+        // throws (an emitter or an observer behind it) included: a turn held for good leaves
+        // every later question of the run waiting, and the step never settles.
+        try {
+            // Announced only when someone is actually being asked: a `'deny'` is a
+            // decision already made, and announcing a pause for it painted
+            // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
+            // for a call nobody was ever going to be asked about.
+            if (gated !== 'deny' && !provided) {
+                ctx.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
             }
+            // Nobody here can be asked (the run is not in the page): the call waits for a
+            // decision a later run will carry. A `'deny'` is never deferred — it is
+            // already decided, and refused below as without `deferral`.
+            if (!provided && ctx.deferral && gated !== 'deny') return told(ctx, { defer: 'approval' });
+            /*
+             * Nothing can ask, so nothing may answer.
+             *
+             * The default was `async () => ({ approved: false })`, which sent the
+             * loop into the refusal branch and appended "rejected by the user" —
+             * a host that forgot to wire a resolver had not refused anything, and
+             * the model was told a person had. A misconfiguration is an aborted
+             * call, not a decision.
+             */
+            if (!provided && !ctx.approvalResolver) {
+                ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'no-resolver' });
+                return told(ctx, 'stop-run');
+            }
+            if (!decision && !signal.aborted && ctx.approvalResolver) {
+                try {
+                    decision = await ctx.approvalResolver(
+                        { id: call.id, name: call.name, input },
+                        signal,
+                    );
+                } catch (err) {
+                    if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
+                }
+            }
+        } finally {
+            // Answered (or stopped): the next call of the step may be asked.
+            release?.();
         }
         if (signal.aborted || !decision) {
             // No decision without an abort is a resolver that threw an AbortError: a stop too.
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
-            return 'stop-run';
+            return told(ctx, 'stop-run');
         }
 
         if (!decision.approved) {
@@ -939,7 +1102,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // exits above, which this branch was missing: a stopped turn
         // must not go on running the tool calls that follow it.
         ctx.emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: call.id, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: call.id });
-        return 'stop-run';
+        return told(ctx, 'stop-run');
     } else if (outcome.status === 'failed') {
         // A crash is the handler's, and the run ends on it as before —
         // but the row hears about it first, instead of spinning for good.
@@ -951,6 +1114,143 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         ctx.append({ role: 'tool', content: outcome.content, toolCallId: call.id, toolName: call.name });
     }
     return 'continue';
+}
+
+/** What a raced read resolves to when the step stopped first. */
+const HALTED: unique symbol = Symbol('halted');
+
+/** One call of a parallel step, and what it leaves for the history until its turn to enter it. */
+interface StepCall {
+    call: StreamToolCall;
+    declared: boolean;
+    messages: StreamAgentMessage[];
+    pending?: StreamDeferredCall;
+    settled: boolean;
+}
+
+/**
+ * The calls of one model step, run at the same time (see `StreamRunOptions.parallelTools`).
+ *
+ * Each call goes through the same `processCall` as one call after another, with three
+ * differences. Its history is held back, and enters the turn's in CALL order: a call's
+ * declaration and `tool` message once it and every call before it are settled, so the
+ * history equals the sequential one whatever finished first. Its signal is the step's, so a
+ * call that stops the run (a Stop, the turn limit, no handler, a crash) stops the others
+ * still running. And its verdict is known the moment it is reached (`decided`), so a call
+ * read after a pause or a stop is treated as it would be one after another.
+ */
+function createParallelStep(turn: CallContext) {
+    const controller = new AbortController();
+    const forwardStop = (): void => controller.abort();
+    if (turn.signal.aborted) controller.abort();
+    else turn.signal.addEventListener('abort', forwardStop, { once: true });
+
+    const calls: StepCall[] = [];
+    const running: Promise<void>[] = [];
+    let flushed = 0;
+    let paused = false;
+    let refused = false;
+    let stopRun = false;
+    let failure: { error: unknown } | undefined;
+    let wake!: () => void;
+    const onHalt = new Promise<void>((resolve) => { wake = resolve; });
+
+    // The longest settled prefix enters the history. A paused call of a step that was stopped
+    // is not declared: the run ends, nothing will ever answer it, and one call after another
+    // it was never read (the call that stopped the run comes before it).
+    const flush = (): void => {
+        while (flushed < calls.length && calls[flushed]!.settled) {
+            const entry = calls[flushed++]!;
+            if (entry.declared && !(stopRun && entry.pending)) turn.declareCall(entry.call);
+            for (const message of entry.messages) turn.append(message);
+        }
+    };
+    const stopAll = (): void => {
+        stopRun = true;
+        controller.abort();
+        wake();
+    };
+    const settledAll = async (): Promise<void> => {
+        await Promise.all(running);
+        turn.signal.removeEventListener('abort', forwardStop);
+        flush();
+    };
+
+    return {
+        /** Resolves once a call stopped the step: the reply is read no further. */
+        onHalt,
+        halted: (): boolean => refused || stopRun,
+        /** Whether a call is still running: only then can the step stop while the reply is read. */
+        busy: (): boolean => flushed < calls.length,
+        start(call: StreamToolCall): void {
+            const entry: StepCall = { call, declared: false, messages: [], settled: false };
+            calls.push(entry);
+            if (paused) {
+                // Past the pause point nothing runs, as one call after another: the call is
+                // declared, and says what it waits for.
+                const reason = queuedReason(call, turn.toolConfigLookup);
+                if (reason === 'approval') {
+                    turn.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
+                }
+                entry.declared = true;
+                entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason };
+                entry.settled = true;
+                flush();
+                return;
+            }
+            const ctx: CallContext = {
+                ...turn,
+                signal: controller.signal,
+                declareCall: () => { entry.declared = true; },
+                append: (message) => { entry.messages.push(message); },
+                decided: (verdict) => {
+                    if (typeof verdict === 'object') paused = true;
+                    else if (verdict === 'stop-run') stopAll();
+                    else { refused = true; wake(); }
+                },
+                stepRefused: () => refused,
+            };
+            running.push(processCall(call, ctx).then(
+                (verdict) => {
+                    if (typeof verdict !== 'object') return;
+                    entry.declared = true;
+                    entry.pending = { toolCallId: call.id, name: call.name, input: call.input, reason: verdict.defer };
+                },
+                // A crash: the first one fails the run, once the others are stopped.
+                (error: unknown) => {
+                    failure ??= { error };
+                    stopAll();
+                },
+            ).finally(() => {
+                entry.settled = true;
+                flush();
+            }));
+        },
+        /** Waits for every call, and says what the step decided. */
+        async finish(): Promise<{ failure?: { error: unknown }; stopRun: boolean; pending: StreamDeferredCall[] }> {
+            await settledAll();
+            if (stopRun) {
+                // The run ends here, so a call that paused (or queued behind the pause) will
+                // never be resumed: it is stopped like the calls the stop cut short, and the
+                // run ends instead of suspending — as one call after another, where the call
+                // that stopped the run came first and this one was never read.
+                for (const entry of calls) {
+                    if (entry.pending) turn.emitter({ type: 'tool-aborted', toolCallId: entry.call.id, cause: 'stopped' });
+                }
+                return { ...(failure ? { failure } : {}), stopRun, pending: [] };
+            }
+            return {
+                ...(failure ? { failure } : {}),
+                stopRun,
+                pending: calls.flatMap((entry) => (entry.pending ? [entry.pending] : [])),
+            };
+        },
+        /** The turn failed on its own: the calls still running are stopped, and waited for. */
+        async abandon(): Promise<void> {
+            controller.abort();
+            await settledAll();
+        },
+    };
 }
 
 async function invokeToolHandler(

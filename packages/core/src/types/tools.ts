@@ -273,11 +273,17 @@ export interface AparteToolDisplay {
  * markup that is harmless but can still mislead. Return `''` for nothing behind the
  * line yet: no disclosure, which appears once there is something (a result, say).
  *
+ * `held` is the element this row shows behind its line now, when the function returned one
+ * the last time it was asked for this row: hand it back to keep it, and what the reader did
+ * in it (a fold opened, a field half written). It is absent on a row's first drawing, so an
+ * element is never shared by two rows drawing the same call (a reply and a pane beside it),
+ * and nothing needs keeping once the row is gone.
+ *
  * A function that throws costs the row its detail, never its line, and never falls back
  * to the raw Input and Output. Register the same function rather than a new closure each
  * time: a different `details` redraws the messages on screen.
  */
-export type AparteToolDetails = (segment: AparteToolCallSegment) => HTMLElement | string;
+export type AparteToolDetails = (segment: AparteToolCallSegment, held?: HTMLElement) => HTMLElement | string;
 
 /**
  * What a tool-line provider says about one call — `AparteConfig.setToolLineProvider`. A
@@ -304,6 +310,27 @@ export interface AparteToolLine {
     note?: string;
     /** What is behind the line, when the display has no `details` key. */
     details?: false | AparteToolDetails;
+    /**
+     * Somewhere else the call can be opened: a pane beside the chat that shows what it stands
+     * for. Core draws an Open button at the end of the line and calls `onOpen` when it is
+     * pressed (click, Enter, Space). A row with nothing behind it also opens on a click
+     * anywhere on its line; a row with a disclosure keeps its line for the disclosure, so one
+     * click never means two things. Left out, nothing: no button, no pointer.
+     */
+    open?: AparteToolLineOpen;
+}
+
+/** What a tool line opens elsewhere — {@link AparteToolLine.open}. */
+export interface AparteToolLineOpen {
+    /** The Open button's accessible name and tooltip, in the reader's language ("Open Researcher"). Plain text. */
+    label: string;
+    /** Called with the row when the reader opens it. */
+    onOpen: (row: HTMLElement) => void;
+    /**
+     * What the call stands for is the one open elsewhere now: the button carries
+     * `aria-current="true"` and the row `data-current`, so a reader sees which one is shown.
+     */
+    current?: boolean;
 }
 
 /**

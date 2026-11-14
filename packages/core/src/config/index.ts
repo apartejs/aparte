@@ -1,4 +1,4 @@
-export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './aparte-config.js';
+export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS, onRenderersChange } from './aparte-config.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config-context.js';
 // Exported, not internal: a consumer writing their own element needs the same
 // hook the built-ins use, or "bring your own component" means "and reimplement

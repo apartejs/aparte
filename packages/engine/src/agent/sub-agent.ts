@@ -16,6 +16,7 @@
  */
 
 import { runStreamAgent, type StreamRunOptions } from './stream-run.js';
+import { relayApprovalResolver } from './approval-turn.js';
 import type {
     StreamAgentHandle,
     StreamAgentStatus,
@@ -130,8 +131,10 @@ async function drive(
     // that already names an agent is a sub-agent's of this one: the innermost one asks.
     const parentResolver = run.canAsk ? run.approvalResolver : undefined;
     const self = { id: agent.agentId, ...(opts.name !== undefined ? { name: opts.name } : {}) };
+    // Relayed, not wrapped: the run's place in line goes with it, so the nested loop waits for
+    // it before it announces a call (see `approval-turn.ts`).
     const approvalResolver: StreamRunOptions['approvalResolver'] = parentResolver
-        && ((call, sig) => parentResolver(call.agent ? call : { ...call, agent: self }, sig));
+        && relayApprovalResolver(parentResolver, (call) => (call.agent ? call : { ...call, agent: self }));
 
     try {
         const usage = await runStreamAgent({
@@ -146,6 +149,7 @@ async function drive(
             signal,
             maxTurns: opts.maxTurns ?? run.maxTurns,
             toolTimeoutMs: run.toolTimeoutMs,
+            ...(run.parallelTools !== undefined ? { parallelTools: run.parallelTools } : {}),
             idGen: run.idGen,
         });
         if (signal.aborted) {

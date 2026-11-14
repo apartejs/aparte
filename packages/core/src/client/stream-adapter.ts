@@ -20,6 +20,7 @@ import { segmentContentUpdate } from '../utils/segments.js';
 import { aparteGlobalConfig, type AparteConfig, type AparteRunEventObserver, type AparteRunEventContext } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent, AparteSource, AparteCitation } from '../types/index.js';
 import type {
+    AparteActivitySegment,
     AparteThinkingSegment,
     AparteToolCallSegment,
 } from '../types/segments.js';
@@ -128,6 +129,26 @@ export interface StreamAdapterTarget {
     updateSegment?(segmentId: string, updates: Partial<AparteSegment>): void;
     typeName?(text: string): void;
     setUsage?(id: string, usage: AparteUsage): void;
+    /**
+     * The step the reply is on, live: its name while one is open (the latest one opened),
+     * `null` once none is. Told only when it changes, and `null` when the run ends. Never
+     * stored — a target that shows nothing of it leaves it out.
+     */
+    setStep?(id: string, name: string | null): void;
+    /**
+     * The message as the target holds it, read for its segments: a reply that resumes after a
+     * pause is written by a NEW adapter, and what the paused run placed is found there — an
+     * activity sent again under the same id is that one going on, updated in place. The
+     * viewport and a wrapper's host have it. A target with neither this nor `segments` is
+     * written as if the reply were new.
+     */
+    getMessage?(id: string): AparteMessage | undefined;
+    /**
+     * The segments, when the target is itself one list rather than a chat (`createSegmentList`,
+     * a sub-agent's conversation): read for the same reason as `getMessage`. Not a message: a
+     * list is not a chat that can be asked for one.
+     */
+    readonly segments?: readonly AparteSegment[];
     dispatchEvent(event: Event): boolean;
 }
 
@@ -270,8 +291,58 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         thinkingCollapsed = true;
     };
 
+    // The reply's steps still open, in the order they opened: the latest shows, and when it
+    // ends the one before it shows again. Live only — nothing of it reaches the message.
+    const steps: string[] = [];
+    let shownStep: string | null = null;
+    const showStep = (): void => {
+        const next = steps.at(-1) ?? null;
+        if (next === shownStep) return;
+        shownStep = next;
+        target.setStep?.(messageId, next);
+    };
+    const endSteps = (): void => {
+        steps.length = 0;
+        showStep();
+    };
+
+    /** The text the parser holds is final: written, and the sources placed again over it. */
+    const flushText = (): void => {
+        const finals = parser.finalize();
+        for (const s of finals) {
+            noteText(s);
+            if (!streaming.has(s.id)) target.addSegment?.(s);
+            else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
+        }
+        // The segments are final now: place again what came before them.
+        placeSources();
+    };
+
+    // The reply's activities, by segment id: a later event with the same id updates the segment
+    // the first one placed — this run's, or the run's before a pause, read off the reply.
+    const activities = new Set<string>();
+    const placed = (id: string): boolean => {
+        if (activities.has(id)) return true;
+        const existing = target.getMessage ? target.getMessage(messageId)?.segments : target.segments;
+        if (!existing?.some((s) => s.id === id)) return false;
+        activities.add(id);
+        return true;
+    };
+
     const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
+            case 'step-start':
+                steps.push(e.name);
+                showStep();
+                break;
+
+            case 'step-end': {
+                const at = steps.lastIndexOf(e.name);
+                if (at >= 0) steps.splice(at, 1);
+                showStep();
+                break;
+            }
+
             case 'run-start':
                 target.updateMessage?.(messageId, { status: 'streaming' });
                 break;
@@ -351,15 +422,24 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
             }
 
-            case 'text-flush': {
-                const finals = parser.finalize();
-                for (const s of finals) {
-                    noteText(s);
-                    if (!streaming.has(s.id)) target.addSegment?.(s);
-                    else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
+            case 'text-flush':
+                flushText();
+                break;
+
+            case 'activity': {
+                const id = `activity-${e.id}`;
+                if (placed(id)) {
+                    // The same activity again, whole: its segment changes in place, never a second
+                    // one — a resumed run's included, which is a new adapter on the same reply.
+                    target.updateSegment?.(id, { activityType: e.activityType, content: e.content } as Partial<AparteSegment>);
+                    break;
                 }
-                // The segments are final now: place again what came before them.
-                placeSources();
+                activities.add(id);
+                // Where it first arrived: the text before it ends there, and what follows is
+                // written after it, as around a tool call.
+                flushText();
+                const segment: AparteActivitySegment = { id, type: 'activity', activityId: e.id, activityType: e.activityType, content: e.content };
+                target.addSegment?.(segment);
                 break;
             }
 
@@ -452,10 +532,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
 
             case 'run-aborted':
+                endSteps();
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
 
             case 'run-suspended': {
+                endSteps();
                 // A server loop paused: each pending call records why it waits and the
                 // server's ticket (the wire adds `ticket` to this event), so the paused
                 // call lives in the conversation the app saves and a reload can answer it.
@@ -482,6 +564,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'run-done':
+                endSteps();
                 // Persisted with the message, so a reload shows a cut-off reply as cut off.
                 target.updateMessage?.(messageId, {
                     status: 'completed',

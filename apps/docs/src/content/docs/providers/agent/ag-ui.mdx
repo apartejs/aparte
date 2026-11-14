@@ -60,7 +60,11 @@ text is not the answer, and the model never reads it back — and hands it to th
 sub-agent's, several at once if they interleave. Add `@aparte/plugin-subagents` and each sub-agent is
 one line in the reply, on the row of the call that opened it; without it, the call shows as an
 ordinary tool row. A sub-agent's interrupt is asked about like the agent's own, and the question
-names the sub-agent. Most integrations announce sub-agents only when told to:
+names the sub-agent. To TanStack AI, which continues a paused sub-agent only from its own messages,
+the resume sends them after the history, each tagged with its `subagentRunId`; any other agent keeps
+its sub-agents' work itself and gets the history and the answers alone. A TanStack AI router's plan
+reaches the page as a `plan` activity ([TanStack AI](/providers/agent/tanstack-ai/#sub-agents-and-the-routers-plan)).
+Most integrations announce sub-agents only when told to:
 [Sub-agents](/guides/sub-agents/#an-ag-ui-agent) lists the option each one documents.
 
 ## The protocol's own rules

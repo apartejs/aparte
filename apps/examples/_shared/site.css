@@ -140,3 +140,22 @@ aparte-chat,
 .settings-group[data-disabled] {
     opacity: 0.55;
 }
+
+/* `?subagent-view`: a sub-agent's conversation, opened from its line, in a pane at the end of
+   the page (sub-agents.ts, mountSubagentPane). Outside what the framework draws, so it floats. */
+.site-subagent-pane {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 20;
+    inline-size: min(26rem, 100%);
+    overflow: auto;
+    padding: var(--aparte-space-5);
+    background: var(--aparte-surface-1);
+    border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
+    box-sizing: border-box;
+}
+
+.site-subagent-pane[hidden] {
+    display: none;
+}

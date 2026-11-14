@@ -57,7 +57,9 @@ import type { AparteTrigger } from '@aparte/plugin-triggers';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
-import { DELEGATE, delegateLabel, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { DELEGATE, delegateLabel, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
+import { DIFF_SCENARIOS, setupDiffReview } from './diff-review';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -185,6 +187,10 @@ async function run(): Promise<SiteSetup> {
                 // The three sub-agent paths (sub-agents.ts), first: their prompts also say
                 // "release", which the showcase's `release` listens for.
                 ...SUBAGENT_SCENARIOS,
+                // An activity the model reports while it reads (activity.ts).
+                ...ACTIVITY_SCENARIOS,
+                // An edit shown as a diff, and a review of it (diff-review.ts).
+                ...DIFF_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,
@@ -210,6 +216,9 @@ async function run(): Promise<SiteSetup> {
         if (!agentUrl && !agUiUrl && !n8nUrl) {
             const { tool, handler } = scenarioSubagentTool(scripted);
             aparteGlobalConfig.registerTool(tool, handler);
+            // The README edit the scripted model makes, its diff in the reply, and the review
+            // sent back from it. A canned edit, so only for the scripted model.
+            setupDiffReview();
         }
         // The showcase's weather turn calls this tool. An app that never registered it
         // would see the call fail — also a scenario, but the round-trip is the point here.
@@ -283,8 +292,16 @@ async function run(): Promise<SiteSetup> {
 
     // 2a''. Sub-agents: one line each — its name, its task, what it is doing, "1 tool · 3 s" —
     //       with its own text and calls kept out of the reply. Whichever model answers: an AG-UI
-    //       agent's sub-agents get the same lines as the scripted model's.
-    setupSubagents();
+    //       agent's sub-agents get the same lines as the scripted model's. `?subagent-view`:
+    //       each line's Open button shows that sub-agent's conversation in a pane beside the chat.
+    if (new URLSearchParams(location.search).has('subagent-view')) {
+        setupSubagents({ open: 'event' });
+        mountSubagentPane();
+    } else {
+        setupSubagents();
+    }
+    //       An agent's activity ("Read 2 of 3 sources") is drawn by the renderer of its type.
+    setupActivity();
 
     // 2b. Approval modes over those names. Core owns the mechanism — a policy on the
     //     config, the gate in the loop, the panel at the composer, the refusal the model

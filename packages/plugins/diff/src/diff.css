@@ -1,0 +1,312 @@
+/*
+ * @aparte/plugin-diff — a change, line by line.
+ *
+ * Only what is the plugin's own: the file's frame and header, the grid of lines, the folds,
+ * the comments. The buttons are core's `aparte-btn`, the field core's `aparte-field`, the
+ * tags core's `aparte-badge`; this sheet places them and draws none of them.
+ *
+ * The lines are one grid per file — old number, new number, marker, code — so the numbers
+ * line up whatever their width, and each row is a subgrid that paints its own tint. The grid
+ * carries `dir="ltr"`: code reads left to right in a right-to-left page; everything around
+ * it uses logical properties and follows the page.
+ *
+ * The tints are the plugin's tokens, each falling back to core's: added on the success
+ * surface, removed on the error surface, so a theme that moves those moves the diff.
+ */
+aparte-diff {
+    display: block;
+    min-inline-size: 0;
+    color: var(--aparte-text);
+    font-family: var(--aparte-font-family);
+    font-size: var(--aparte-font-size-sm);
+}
+
+aparte-diff[hidden] {
+    display: none;
+}
+
+.aparte-diff-file {
+    overflow: hidden;
+    border: var(--aparte-border-width) solid var(--aparte-code-border);
+    border-radius: var(--aparte-radius-md);
+    background: var(--aparte-code-bg);
+}
+
+.aparte-diff-file + .aparte-diff-file {
+    margin-block-start: var(--aparte-space-3);
+}
+
+/* ── The header: path, what happened, counts ─────────────────────────────── */
+
+.aparte-diff-file__head {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+    padding: var(--aparte-space-1) var(--aparte-space-2);
+    background: var(--aparte-code-header-bg);
+    color: var(--aparte-code-header-text);
+}
+
+/* The path takes the room, and its button reads from the leading edge. */
+.aparte-diff-file__toggle {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    min-inline-size: 0;
+    color: inherit;
+}
+
+.aparte-diff-file__chevron {
+    display: inline-flex;
+    flex: none;
+    transition: transform var(--aparte-duration-fast);
+}
+
+.aparte-diff-file__toggle[aria-expanded='false'] > .aparte-diff-file__chevron {
+    transform: rotate(-90deg);
+}
+
+.aparte-diff-file__toggle[aria-expanded='false']:dir(rtl) > .aparte-diff-file__chevron {
+    transform: rotate(90deg);
+}
+
+.aparte-diff-file__path {
+    overflow: hidden;
+    font-family: var(--aparte-code-font-family);
+    font-weight: var(--aparte-font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aparte-diff-file__status {
+    flex: none;
+}
+
+.aparte-diff-file__stat {
+    display: inline-flex;
+    flex: none;
+    gap: var(--aparte-space-2);
+    padding-inline-end: var(--aparte-space-1);
+    font-family: var(--aparte-code-font-family);
+    font-variant-numeric: tabular-nums;
+}
+
+.aparte-diff-file__added {
+    color: var(--aparte-diff-added-ink, var(--aparte-success-ink));
+}
+
+.aparte-diff-file__removed {
+    color: var(--aparte-diff-removed-ink, var(--aparte-error-ink));
+}
+
+/* ── The lines ───────────────────────────────────────────────────────────── */
+
+/* The rule under the header belongs to the lines: a folded file has none. */
+.aparte-diff-file__lines {
+    display: grid;
+    grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+    border-block-start: var(--aparte-border-width) solid var(--aparte-code-border);
+    font-family: var(--aparte-code-font-family);
+    font-size: var(--aparte-code-block-font-size);
+    line-height: var(--aparte-code-block-line-height);
+}
+
+.aparte-diff-file__lines[hidden] {
+    display: none;
+}
+
+.aparte-diff-line {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+}
+
+.aparte-diff-line[data-kind='add'] {
+    background: var(--aparte-diff-added-bg, var(--aparte-success-surface));
+}
+
+.aparte-diff-line[data-kind='del'] {
+    background: var(--aparte-diff-removed-bg, var(--aparte-error-surface));
+}
+
+/* Picked for a comment: its own tint, and a bar on the leading edge of the code. */
+.aparte-diff-line[data-selected] {
+    background: var(--aparte-diff-selected-bg, var(--aparte-surface-hover));
+    box-shadow: inset var(--aparte-space-1) 0 0 var(--aparte-primary);
+}
+
+.aparte-diff-line:focus {
+    outline: none;
+}
+
+/* The two numbers. A `<span>`, or with `commentable` a button that draws as a number: no chrome. */
+.aparte-diff-line__gutter {
+    display: grid;
+    grid-column: span 2;
+    grid-template-columns: subgrid;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--aparte-text-muted);
+    font: inherit;
+    user-select: none;
+}
+
+button.aparte-diff-line__gutter {
+    cursor: pointer;
+}
+
+button.aparte-diff-line__gutter:hover,
+.aparte-diff-line[data-selected] > .aparte-diff-line__gutter {
+    color: var(--aparte-text);
+}
+
+button.aparte-diff-line__gutter:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+}
+
+.aparte-diff-line__num {
+    min-inline-size: 3ch;
+    padding-inline: var(--aparte-space-2);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+.aparte-diff-line__marker {
+    padding-inline: var(--aparte-space-1);
+    color: var(--aparte-text-muted);
+    user-select: none;
+}
+
+.aparte-diff-line[data-kind='add'] > .aparte-diff-line__marker {
+    color: var(--aparte-diff-added-ink, var(--aparte-success-ink));
+}
+
+.aparte-diff-line[data-kind='del'] > .aparte-diff-line__marker {
+    color: var(--aparte-diff-removed-ink, var(--aparte-error-ink));
+}
+
+/* Wraps rather than scrolls: no line hides past the edge, and the view needs no tab stop to scroll. */
+.aparte-diff-line__code {
+    padding-block: 0;
+    padding-inline: 0 var(--aparte-space-3);
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    overflow-wrap: anywhere;
+    tab-size: 4;
+    white-space: pre-wrap;
+}
+
+/* ── Between the lines ───────────────────────────────────────────────────── */
+
+.aparte-diff-fold,
+.aparte-diff-eof,
+.aparte-diff-file__lines > .aparte-diff-empty,
+.aparte-diff-file__lines > .aparte-diff-binary {
+    grid-column: 1 / -1;
+}
+
+.aparte-diff-fold {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+    min-inline-size: 0;
+    padding: var(--aparte-space-1) var(--aparte-space-2);
+    background: var(--aparte-surface-2);
+    color: var(--aparte-text-muted);
+    font-family: var(--aparte-font-family);
+    font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-diff-fold__show {
+    flex: none;
+}
+
+.aparte-diff-fold__count {
+    flex: none;
+    padding-inline: var(--aparte-space-2);
+}
+
+.aparte-diff-fold__section {
+    min-inline-size: 0;
+    overflow: hidden;
+    font-family: var(--aparte-code-font-family);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.aparte-diff-eof {
+    padding-inline-start: var(--aparte-space-3);
+    color: var(--aparte-text-muted);
+    font-family: var(--aparte-font-family);
+    font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-diff-empty,
+.aparte-diff-binary {
+    margin: 0;
+    padding: var(--aparte-space-3);
+    color: var(--aparte-text-muted);
+    font-family: var(--aparte-font-family);
+}
+
+/* ── Comments ────────────────────────────────────────────────────────────── */
+
+.aparte-diff-comment,
+.aparte-diff-form {
+    grid-column: 1 / -1;
+    margin-block: var(--aparte-space-2);
+    margin-inline: var(--aparte-space-3);
+    font-family: var(--aparte-font-family);
+    font-size: var(--aparte-font-size-sm);
+    line-height: var(--aparte-line-height-normal);
+}
+
+.aparte-diff-comment {
+    padding: var(--aparte-space-2) var(--aparte-space-3);
+    border: var(--aparte-border-width) solid var(--aparte-border);
+    border-inline-start: var(--aparte-space-1) solid var(--aparte-primary);
+    border-radius: var(--aparte-radius-md);
+    background: var(--aparte-surface-1);
+}
+
+.aparte-diff-comment__head {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-2);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-diff-comment__text {
+    margin-block: var(--aparte-space-1) 0;
+    margin-inline: 0;
+    color: var(--aparte-text);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.aparte-diff-form {
+    display: grid;
+    gap: var(--aparte-space-2);
+}
+
+.aparte-diff-form__label {
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-diff-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--aparte-space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .aparte-diff-file__chevron {
+        transition: none;
+    }
+}

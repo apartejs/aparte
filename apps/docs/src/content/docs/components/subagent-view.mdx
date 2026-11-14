@@ -63,6 +63,45 @@ aparte-subagent-view[data-empty] {
 }
 ```
 
+### Open a sub-agent beside the chat
+
+Let the reader pick which sub-agent the view shows: `setupSubagents({ open: 'event' })` puts an
+Open button at the end of each sub-agent's line, and `connectSubagentView` does the rest.
+
+```html
+<aparte-split position="55">
+  <aparte-chat id="chat"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+```
+
+```ts
+import { connectSubagentView, setupSubagents } from '@aparte/plugin-subagents';
+import type { SubagentViewSplit } from '@aparte/plugin-subagents';
+
+setupSubagents({ open: 'event' });
+
+const disconnect = connectSubagentView({
+  chat: document.getElementById('chat')!,
+  view: document.querySelector('aparte-subagent-view')!,
+  split: document.querySelector<SubagentViewSplit>('aparte-split')!,
+});
+```
+
+The split starts with the chat alone. Pressing a line's Open button (click, Enter or Space)
+dispatches `aparte-subagent-open` with `messageId` and `agentId`; the wiring points the view at that
+sub-agent, opens the split's second pane, and marks the line (`data-current` on the row,
+`aria-current="true"` on its button). It sets `closable` on the view: the sub-agent's name and a
+Close button above its conversation. Close, or Escape inside the view, sends
+`aparte-subagent-view-close`; the wiring folds the pane and puts the focus back on the line's
+button. On a phone, where the split shows one pane at a time, the same two steps show the view and
+then the chat again.
+
+Without a split (a tab, a drawer), pass `onOpen` and `onClose` instead and show the view yourself:
+`ConnectSubagentViewOptions` holds them all (`chat`, `view`, `split`, `pane`, `onOpen`, `onClose`).
+The [sub-agents guide](/guides/sub-agents/#open-a-sub-agent-beside-the-chat) says how the button
+and a line's `details` share the line.
+
 ### Which sub-agents a reply has
 
 The chat dispatches two events, both bubbling:

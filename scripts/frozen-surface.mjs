@@ -99,6 +99,7 @@ const MANIFESTS = [
     ['@aparte/plugin-approval', 'packages/plugins/approval/dist/custom-elements.json'],
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts/dist/custom-elements.json'],
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user/dist/custom-elements.json'],
+    ['@aparte/plugin-diff', 'packages/plugins/diff/dist/custom-elements.json'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector/dist/custom-elements.json'],
     ['@aparte/plugin-subagents', 'packages/plugins/subagents/dist/custom-elements.json'],
     ['@aparte/plugin-triggers', 'packages/plugins/triggers/dist/custom-elements.json'],

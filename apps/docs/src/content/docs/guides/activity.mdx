@@ -1,0 +1,96 @@
+---
+title: Show an agent's activity
+description: Draw the progress an agent reports while it works — "3 of 5 sources read", a list of files, a plan — with a renderer for each type, updated in place as the agent sends it again.
+sidebar:
+  order: 4.6
+  label: Activity
+guide:
+  group: agents
+---
+
+An agent can report structured progress while it works: how many sources it has read, the files it
+is looking at, the plan it follows. Each such report is an **activity**. It has an id, a type the
+agent chooses (`'search-progress'`, `'file-list'`, `'PLAN'`) and a content, sent whole each time it
+changes. The activity takes its place in the reply where it first arrives, and every later report
+with the same id updates it there.
+
+The chat does not know what your agent's types mean, so it draws an activity only through a
+renderer you register for its type.
+
+## Draw a type of activity
+
+`config.registerActivityRenderer(type, renderer)` draws every activity of that type. `render` draws
+it the first time; `update` patches the same element each time the agent sends it again, so it is
+never rebuilt while it changes:
+
+```ts
+import { aparteGlobalConfig, type AparteActivitySegment } from '@aparte/core';
+
+interface SearchProgress { read: number; of: number }
+
+const sentence = (segment: AparteActivitySegment): string => {
+  const { read, of } = segment.content as SearchProgress;
+  return `${read} of ${of} sources read`;
+};
+
+const stop = aparteGlobalConfig.registerActivityRenderer('search-progress', {
+  render: (segment) => {
+    const line = document.createElement('p');
+    line.className = 'search-progress';
+    line.textContent = sentence(segment);
+    return line;
+  },
+  update: (line, segment) => {
+    line.textContent = sentence(segment);
+  },
+});
+
+// Later, to stop drawing it:
+stop();
+```
+
+`content` is whatever the agent sent: treat it as untrusted. Set `textContent`, as above, or return
+an HTML string and escape every value you put in it with `escapeHtml`. The renderer, an
+`AparteActivityRenderer`, may also declare
+`setup` (listeners, a framework component) and `cleanup` (unmount it when the activity leaves the
+page). Without `update`, the activity is drawn again from `render` on each change.
+
+Activities already on screen follow a registration: register a renderer later and they are drawn,
+take it off and they are not.
+
+## Without a renderer
+
+An activity whose type has no renderer is kept on the message and draws nothing: no row, no space,
+and a reply that holds nothing else shows no name or time over an empty bubble. It is saved with the
+conversation, so a renderer registered later, or after a reload, draws it.
+
+Either way it is never sent to the model: the history the next turn sends leaves it out.
+
+## Where activities come from
+
+**An AG-UI agent:** nothing to do. `ACTIVITY_SNAPSHOT` and `ACTIVITY_DELTA` arrive as activities:
+the runner applies each delta to what it holds and hands on the whole content, so a renderer never
+patches anything. A snapshot with `replace: false` leaves an activity already there as it stands. A
+sub-agent's activity, named by its `subagentRunId`, is drawn in that
+[sub-agent's conversation](/guides/sub-agents/), under its line or in `<aparte-subagent-view>`, by
+the same renderers.
+
+**Your own loop:** a model's stream, a runner or a sub-agent's handle sends
+`{ type: 'activity', id, activityType, content }`. Send it again with the same `id` and the whole new
+content to update it. The [engine's events](/guides/engine/#events) list it.
+
+**A scripted model:** the [scenario provider](/providers/ai/scenario/#activities) has a step for it,
+`{ activity: { type: 'search-progress', content: { read: 3, of: 5 }, id: 'p1' } }`.
+
+## A plan, ready-made
+
+An agent's plan or todo list is the activity most agents report. The
+[plan card](/components/plan-card/#from-an-activity) is a renderer for it, ticked in place as the agent
+works, and it reads the shapes agents already send (Claude Code's `todos`, Codex's `plan`, a Markdown
+checklist):
+
+```ts
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+
+setupPlanCard({ activity: 'plan' });
+```

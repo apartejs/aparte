@@ -1,7 +1,7 @@
 {
     "name": "@aparte-workspace/docs",
     "type": "module",
-    "version": "0.0.73",
+    "version": "0.0.74",
     "private": true,
     "scripts": {
         "gen:css-vars": "node scripts/gen-css-vars.mjs",
@@ -44,6 +44,7 @@
         "@aparte/plugin-compaction": "workspace:*",
         "@aparte/plugin-cards": "workspace:*",
         "@aparte/plugin-chartjs": "workspace:*",
+        "@aparte/plugin-diff": "workspace:*",
         "@aparte/plugin-echarts": "workspace:*",
         "@aparte/plugin-katex": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",

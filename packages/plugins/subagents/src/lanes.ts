@@ -33,6 +33,7 @@ import {
     type StreamAdapterTarget,
 } from '@aparte/core';
 import { subagentOf } from './status.js';
+import { stepEnded, stepStarted, stepsEnded } from './steps.js';
 import {
     SUBAGENT_SEGMENT_TYPE,
     type AparteSubagent,
@@ -61,6 +62,20 @@ export interface LaneWrite {
     readonly messageId: string;
     readonly agentId: string;
     readonly anchor: AparteSegment;
+}
+
+/**
+ * The last anchor written for each sub-agent of a run still going, by reply and agent: what a
+ * view opened in the middle of a run reads before the next write reaches it — the chat a
+ * framework mirrors may not hold the lane yet. Dropped when the run ends: the conversation
+ * holds it then.
+ */
+const lastWrites = new Map<string, LaneWrite>();
+const writeKey = (messageId: string, agentId: string): string => `${messageId}\u0000${agentId}`;
+
+/** The last anchor written for this sub-agent while its run goes on, if any. */
+export function lastLaneWrite(messageId: string, agentId: string): LaneWrite | undefined {
+    return lastWrites.get(writeKey(messageId, agentId));
 }
 
 /** Who hears every anchor written, from every setup: the standalone views. */
@@ -253,7 +268,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             }
         }
         write(run, lane.host, lane.anchorId, updates);
-        if (laneWatchers.size === 0 || run.closed) return;
+        if (run.closed) return;
         // The anchor as the conversation holds it now; a host that cannot be read gets the
         // plugin's own shape, which reads the same state.
         const anchor = anchorOf(run, lane) ?? {
@@ -266,6 +281,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             agentId: lane.id,
             anchor,
         };
+        lastWrites.set(writeKey(run.messageId, lane.id), note);
         for (const fn of [...laneWatchers]) {
             try {
                 fn(note);
@@ -328,6 +344,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (run.closed) return;
         for (const lane of run.lanes.values()) {
             const working = lane.status === 'running' || lane.status === 'waiting';
+            stepsEnded(run.messageId, lane.id);
             settleLane(lane, true);
             lane.streaming = false;
             run.dirty.add(lane);
@@ -339,6 +356,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
     /** Drop a run without writing anything. */
     const forget = (run: Run): void => {
+        for (const lane of run.lanes.values()) {
+            stepsEnded(run.messageId, lane.id);
+            lastWrites.delete(writeKey(run.messageId, lane.id));
+        }
         run.closed = true;
         stopFrame(run);
         run.unlisten();
@@ -443,6 +464,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
     /** A lane whose id a new sub-agent now carries: settled as it stands, written, and no longer reached by its id. */
     const retire = (run: Run, lane: Lane): void => {
         run.lanes.delete(lane.id);
+        stepsEnded(run.messageId, lane.id);
         if (lane.status === 'running' || lane.status === 'waiting') {
             lane.status = 'stopped';
             settleLane(lane, true);
@@ -561,6 +583,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (e.error !== undefined) lane.error = e.error;
         // Waiting is not over: its text and its calls stay as they are, its segment streams on.
         if (e.status !== 'waiting') {
+            stepsEnded(run.messageId, lane.id);
             settleLane(lane, false);
             lane.streaming = false;
         }
@@ -575,6 +598,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             if (event.type === 'tool-awaiting-approval') lane.asking.add(event.toolCallId);
             else if (event.type !== 'tool-start') lane.asking.delete(event.toolCallId);
         }
+        // Its step is said on its line, live, and kept out of its conversation: the line reads
+        // it at the draw this event's write brings about.
+        if (event.type === 'step-start') stepStarted(run.messageId, lane.id, event.name);
+        else if (event.type === 'step-end') stepEnded(run.messageId, lane.id, event.name);
         const before = lane.list.segments.length;
         lane.emit(event as AparteStreamRunEvent);
         if (event.type === 'tool-start') callStarted(run, lane, event.toolCallId);

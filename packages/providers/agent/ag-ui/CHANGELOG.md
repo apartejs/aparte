@@ -1,5 +1,102 @@
 # @aparte/runner-ag-ui
 
+## 1.7.0
+
+### Minor Changes
+
+- 88d71f3: An agent's activity can now be drawn: register a renderer with `config.registerActivityRenderer(type, renderer)`. AG-UI `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` are no longer dropped.
+
+  ```ts
+  const off = aparteGlobalConfig.registerActivityRenderer("search-progress", {
+    render: (segment) => {
+      const line = document.createElement("p");
+      line.textContent = `${(segment.content as { read: number }).read} of 5 sources read`;
+      return line;
+    },
+    update: (line, segment) => {
+      line.textContent = `${(segment.content as { read: number }).read} of 5 sources read`;
+    },
+  });
+  ```
+
+  - `@aparte/engine`: a run event `activity` (`{ id, activityType, content, agentId? }`) in `StreamRunEvent`, and the same in a model call's stream (`StreamChatEvent`), which the loop passes on; a sub-agent's handle passes it on with its `agentId`. `content` is always the activity's WHOLE current value: a consumer never applies a patch.
+  - `@aparte/core`: a built-in segment type, `AparteActivitySegment` (`{ type: 'activity', activityId, activityType, content }`), placed in the reply where the activity first arrived and updated in place by every later event with the same id — never a second segment, a reply resumed after a pause included: its new run's adapter finds the segment on the reply through the target's `getMessage` (which the viewport and a wrapper's host have) or, for a segment list, its `segments` — two new optional members of `StreamAdapterTarget`. The text it interrupts ends there and what follows is written after it, as around a tool call. It is drawn by the renderer registered for its type (`registerActivityRenderer` returns the function that takes it off; `getActivityRenderer` reads it); the renderer's `update` patches the same element, and without `update` it is drawn again from `render`. With no renderer for its type it is kept on the message and draws nothing — an empty hidden element, no room, no orphan header — and a renderer registered later, or after a reload, draws it. It is saved with the message, never copied with the reply's text, and never sent to the model: the wire history skips it by name. `activity` joins `AparteStreamEventMap`, so a provider can stream it. New types: `AparteActivitySegment`, `AparteActivityRenderer`.
+  - `@aparte/runner-ag-ui`: `ACTIVITY_SNAPSHOT` becomes an `activity` with its content; `ACTIVITY_DELTA` is applied (RFC 6902, as `STATE_DELTA` is) to the content the runner holds for that message id, and the whole result is passed on. Per AG-UI 1.0, a snapshot with `replace: false` leaves an existing activity as it stands (content and type), and a delta for an activity no snapshot created is skipped with a warning, never failing the run; a patch that cannot apply leaves the activity as it was, with a warning. A sub-agent's activity is attributed by its `subagentRunId`, and its delta stays its own. The conformance lane now asserts the two activity fixtures' messages.
+  - `@aparte/provider-scenario`: a script step `{ activity: { type, content, id? } }`; the same `id` later updates it, in the same turn or a later one; in a scripted sub-agent it is the sub-agent's.
+
+  A sub-agent's activity lands in its own conversation with no change to `@aparte/plugin-subagents`: drawn under its line (`details: 'transcript'`) and in `<aparte-subagent-view>` by the same registered renderers.
+
+- 43db964: A step the agent announces now shows while it runs: the waiting indicator says it beside its dots, and a sub-agent's line says its own. AG-UI `STEP_STARTED` / `STEP_FINISHED` are no longer dropped.
+
+  ```ts
+  // A sub-agent of your own loop announces one through its handle:
+  agent.emit({ type: "step-start", name: "Reading the files" });
+  agent.emit({ type: "step-end", name: "Reading the files" });
+  // A scripted model:
+  createScenarioProvider({
+    turns: [
+      [{ step: "Reading the parser" }, { tool: "read_file" }],
+      [{ endStep: "Reading the parser" }, { text: "Done." }],
+    ],
+  });
+  ```
+
+  - `@aparte/engine`: two run events, `step-start` and `step-end` (`{ name, agentId? }`), in `StreamRunEvent`, and the same two in a model call's stream (`StreamChatEvent`), which the loop passes on. A sub-agent's handle passes them on with its `agentId`. Steps may nest and overlap; `step-end` ends the latest open step of its name.
+  - `@aparte/core`: the stream adapter keeps the reply's open steps and tells the chat through a new optional target method, `setStep(messageId, name | null)`, only when the step to show changes, and with `null` when the run ends. The bubble's `setStep(name)` writes it in a `.aparte-waiting-step` span beside the dots while the reply waits (nothing written yet, or a call done and the next not begun), and makes it the screen reader's label in place of "Typing", announced politely as it changes. The viewport and a wrapper's host forward it; the host keeps it for a bubble the framework has not painted yet, so the wrappers need nothing. It is live only: never a segment, never saved, never sent to the model, and gone once the reply has text or ends. `step-start` / `step-end` join `AparteStreamEventMap`, so a provider can stream them.
+  - `@aparte/runner-ag-ui`: `STEP_STARTED` / `STEP_FINISHED` become `step-start` / `step-end`, a sub-agent's attributed by its `subagentRunId`. A step still open when its sub-agent ends, or when the run ends (finished, failed, refused or stopped), is closed then, so nothing is left lit.
+  - `@aparte/plugin-subagents`: a sub-agent's step is its line's second line while none of its calls runs; a running call wins, and when the step ends the line says what it said before. Kept apart from the sub-agent's saved conversation.
+  - `@aparte/provider-scenario`: two script steps, `{ step }` and `{ endStep }`, in the same turn or across turns (a step can last across a tool call); in a scripted sub-agent the step is the sub-agent's.
+
+- 504b70b: The plan card can be drawn from an agent's activity: `setupPlanCard({ activity: 'plan' })`. A TanStack AI router's plan now reaches the reply as a `plan` activity.
+
+  ```ts
+  import { setupPlanCard } from "@aparte/plugin-cards/plan";
+
+  setupPlanCard({ activity: "plan" }); // AG-UI ACTIVITY_*, a sub-agent, a scenario
+  setupPlanCard({ activity: ["plan", "todos"], tool: "update_plan" }); // both paths at once
+  ```
+
+  - **`@aparte/plugin-cards`**: every card's setup takes `activity` (a type or a list of types), so any
+    card can be driven by an activity. The activity's content is read as the card's data (for the plan
+    card, every shape `readPlan` reads: Claude Code's `todos`, Codex's `plan`, a Markdown checklist…).
+    Each new content patches the same card in place; content that holds nothing to draw yet draws
+    nothing, and an update the card cannot read leaves the card it drew.
+  - **`@aparte/runner-ag-ui`**: TanStack AI 1.0 puts its router's plan on each direct child's
+    `SUBAGENT_STARTED` (`metadata.tanstack.subagentPlan`, `{ steps: [{ names, order? }] }`), once. The
+    runner now emits it as one `plan` activity of the reply (it is the parent's plan of its
+    sub-agents, not a sub-agent's own): a step per agent in the router's order, in progress when the
+    agent starts, done, failed or blocked when it ends. Steps the router moved past read as done.
+  - **`@aparte/plugin-subagents`**: a sub-agent's conversation (under its line, in
+    `<aparte-subagent-view>`) now follows activity and tool renderers registered after it was drawn,
+    as a bubble does. Before, only a change of segment renderer redrew a row.
+  - **`@aparte/core`**: `onRenderersChange(listener)` is exported, for a row loop written outside
+    the bubble: it hears every segment, tool or activity renderer registered or taken off, once per
+    config per microtask.
+
+### Patch Changes
+
+- acdac24: A TanStack AI sub-agent that paused for an approval now resumes: the runner sends the sub-agents' own messages back with the answer. Nothing to change in your code.
+
+  - **The resume carries the sub-agents' messages.** TanStack AI continues a paused sub-agent only from
+    its own messages, found after the last user message, each tagged with its `subagentRunId`, with
+    its card in `metadata.tanstack.subagent` (name, status, the interrupts it waits on, the router's
+    plan). The page's history never holds a sub-agent's words, so the resume carried none, and
+    TanStack refused it: `Resume entry references unknown interrupt`. The runner now keeps what each
+    sub-agent wrote and ran, hands it to the page in the pause's ticket, and sends it after the
+    history on the resume. A sibling that had finished is sent as finished, so TanStack does not run
+    it again; the answer to a browser tool a sub-agent called goes with that sub-agent's messages,
+    after the one that declares the call. Only to TanStack AI (a run whose events carry
+    `metadata.tanstack`): any other AG-UI agent keeps its sub-agents' work itself, and its resume is
+    unchanged. Verified against TanStack AI 1.0's real `chat()`, with a router and with agent tools.
+  - **One plan card across a pause.** The router's plan used the run's id, and a resumed run has a
+    new one, so the resume drew a second card. The card's id now comes with the ticket, and so does
+    what it had ticked; the page's resumed run updates the card in place (with `@aparte/core` of the
+    same release, whose stream adapter finds an activity a paused run placed on the reply).
+  - **A run's usage is its own when its sub-agents ran.** TanStack AI puts the sub-agents' model calls
+    on the run's `RUN_FINISHED` too, after the run's own report, so the runner reported the last
+    sub-agent call's usage as the reply's. It now reads the run's own (the first entry), and none
+    when the run's own model never spoke (a router that only delegates).
+
 ## 1.6.0
 
 ### Minor Changes

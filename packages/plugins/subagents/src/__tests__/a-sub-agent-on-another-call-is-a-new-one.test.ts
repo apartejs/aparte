@@ -119,4 +119,64 @@ describe('two sub-agents of one reply across a pause', () => {
         expect(lineOn(c, 'c2')).toMatchObject({ name: 'Writer', status: 'done' });
         expect(textOfAll(lineOn(c, 'c2')!.segments)).toBe('Written.');
     });
+
+    it('the first sub-agent, left waiting by the pause, reads stopped once its id is reused on another call', () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 'agent-0', name: 'first', toolCallId: 'c1' },
+            ...as('agent-0', { type: 'turn-start' }, { type: 'text-delta', delta: 'Waiting for you.' }),
+            { type: 'agent-end', agentId: 'agent-0', status: 'waiting' },
+            { type: 'run-suspended', pending: [] },
+        );
+        const ended: unknown[] = [];
+        c.host.addEventListener('aparte-subagent-end', (e) => ended.push((e as CustomEvent).detail));
+        const resumed = c.again();
+        // The resume's first sub-agent, under the paused run's id, on another call: nothing will
+        // ever resume the first one.
+        for (const e of [{ type: 'run-start' }, ...delegated('c3', 'agent-0', 'second', 'From the second.')] as AparteStreamRunEvent[]) resumed(e);
+
+        expect(lineOn(c, 'c1')).toMatchObject({ name: 'first', status: 'stopped' });
+        // Its text is settled as it stood, and streams no more.
+        expect(textOfAll(lineOn(c, 'c1')!.segments)).toBe('Waiting for you.');
+        expect(lineOn(c, 'c1')!.segments.some((s) => s.isStreaming === true)).toBe(false);
+        // An app hears it end, stopped, before the second one's own end.
+        expect(ended).toEqual([
+            expect.objectContaining({ agentId: 'agent-0', status: 'stopped' }),
+            expect.objectContaining({ agentId: 'agent-0', status: 'done' }),
+        ]);
+        expect(lineOn(c, 'c3')).toMatchObject({ name: 'second', status: 'done' });
+        expect(textOfAll(lineOn(c, 'c3')!.segments)).toBe('From the second.');
+    });
+
+    it("a reused id's second sub-agent, on a call another one holds, gets a segment beside the first one's", () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'Planner' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Planned.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'turn-start' },
+            { type: 'tool-start', toolCallId: 'c2', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 'b1', name: 'Reader', toolCallId: 'c2' },
+            // The same id as the planner's, on the call the reader's line already stands for.
+            { type: 'agent-start', agentId: 'a1', name: 'Writer', toolCallId: 'c2' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Written.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'agent-end', agentId: 'b1', status: 'done' },
+            { type: 'tool-resolved', toolCallId: 'c2', result: 'ok' },
+            { type: 'run-done' },
+        );
+        const own = (id: string) => subagentOf(c.segments().find((s) => s.id === id)!);
+        // The first keeps its own segment, untouched by the second.
+        expect(own('subagent-a1')).toMatchObject({ id: 'a1', name: 'Planner', status: 'done' });
+        expect(textOfAll(own('subagent-a1')!.segments)).toBe('Planned.');
+        expect(own('subagent-a1-2')).toMatchObject({ id: 'a1', name: 'Writer', status: 'done' });
+        expect(textOfAll(own('subagent-a1-2')!.segments)).toBe('Written.');
+        // And the call's line is still the reader's.
+        expect(lineOn(c, 'c2')).toMatchObject({ id: 'b1', name: 'Reader' });
+    });
 });

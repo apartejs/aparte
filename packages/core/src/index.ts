@@ -111,6 +111,8 @@ export type {
     AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
+    AparteActivitySegment,
+    AparteActivityRenderer,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
     // and its union names all its members, yet the error segment could not be written
     // down: narrowing on `type: 'error'` gave a
@@ -193,6 +195,7 @@ export type {
     AparteToolDisplay,
     AparteToolDetails,
     AparteToolLine,
+    AparteToolLineOpen,
     AparteToolCallView,
     AparteMountedView,
     AparteToolMount,
@@ -322,7 +325,7 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 export { parseAparteEventStream } from './parsers/index.js';
 
 // Export config
-export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS, onRenderersChange } from './config/index.js';
 export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
@@ -360,6 +363,12 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 export { cssEscape } from './utils/css-escape.js';
 export { placeFloating } from './utils/place-floating.js';
 export type { AparteFloatingOptions } from './utils/place-floating.js';
+// The keyboard of the kit's menu and tabs, written once (#198): functions over markup the
+// app already draws, so a wrapper, a template or a plain page calls them alike.
+export { enhanceMenu, enhanceContextMenu } from './utils/menu.js';
+export type { AparteMenuOptions, AparteContextMenuOptions, AparteMenuSelectDetail } from './utils/menu.js';
+export { enhanceTabs } from './utils/tabs.js';
+export type { AparteTabsOptions, AparteTabChangeDetail } from './utils/tabs.js';
 // Exported because the same wall is hit outside core: a wrapper naming its host
 // element, a provider tagging a request, or any bring-your-own-loop consumer
 // generating message ids all reach for `crypto.randomUUID`, which does not exist

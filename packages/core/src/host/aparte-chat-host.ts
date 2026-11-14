@@ -35,6 +35,7 @@ import {
  * exposing the surface works (custom element, test double).
  */
 interface StreamingBubble extends SyncableBubble {
+    setStep?(name: string | null): void;
     addSegment?(segment: AparteSegment): void;
     removeSegment?(segmentId: string): void;
     updateMessage?(updates: { status?: string }): void;
@@ -199,6 +200,8 @@ export class AparteChatHost {
 
     /** Id of the assistant message currently streaming (null when idle). */
     private _streamingId: string | null = null;
+    /** The step the streaming reply is on: kept until its bubble is painted, never in the list. */
+    private _step: { messageId: string; name: string } | null = null;
     /**
      * The message object each bubble was last drawn from, by id (skip-rerender cache).
      *
@@ -521,6 +524,8 @@ export class AparteChatHost {
         if (updates.status) {
             this._bubbleById(messageId)?.updateMessage?.({ status: updates.status });
         }
+        // The step goes with the reply's end, however it ended.
+        if (this._step?.messageId === messageId && isTerminalStatus(merged.status)) this._step = null;
         // A write to a message that is not the last would otherwise reach the list and
         // never the screen: `syncBubbles` re-syncs a message once and then skips it (the
         // last one it re-syncs on every render). So the bubble is told here — a Restore
@@ -543,6 +548,16 @@ export class AparteChatHost {
                 this.updateSegment(id, { isStreaming: false });
             }
         }
+    }
+
+    /**
+     * Say the step the agent is on in the reply's waiting indicator, or `null` for none. Live
+     * only: never written into the message list. Kept for a bubble the framework has not
+     * painted yet, and given to it when it is.
+     */
+    setStep(messageId: string, name: string | null): void {
+        this._step = name === null ? null : { messageId, name };
+        this._bubbleById(messageId)?.setStep?.(name);
     }
 
     /** Append/replace the last message content (streaming text). */
@@ -917,6 +932,7 @@ export class AparteChatHost {
             if (!bubble) return;
             populateBubbleFromMessage(bubble, message);
             this._renderedIds.set(message.id, message);
+            if (this._step?.messageId === message.id) bubble.setStep?.(this._step.name);
         });
         // The bubbles may be new since the compaction began (a framework renders late).
         this._checkpointState.reapply();
@@ -1055,6 +1071,7 @@ export class AparteChatHost {
         host['updateLastMessage'] = (c: string, o?: { append?: boolean }) => this.updateLastMessage(c, o);
         host['addSegment'] = (s: AparteSegment) => this.addSegment(s);
         host['updateSegment'] = (id: string, u: Partial<AparteSegment>) => this.updateSegment(id, u);
+        host['setStep'] = (id: string, name: string | null) => this.setStep(id, name);
         host['removeSegment'] = (id: string) => this.removeSegment(id);
         host['appendToSegment'] = (id: string, c: string) => this.appendToSegment(id, c);
         host['getMessages'] = () => this.getMessages();

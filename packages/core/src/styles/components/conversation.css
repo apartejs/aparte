@@ -218,7 +218,7 @@
 }
 
 /* The row's menu: the menu recipe draws it, the element places it (`position: fixed`,
-   `top`/`left` computed at open time, closed on any scroll). Fixed rather than
+   `top`/`left` computed at open time, closed when the list or the page scrolls). Fixed rather than
    absolute because the list scrolls, and an absolute menu on the last rows was clipped
    by that overflow. */
 .aparte-conv-menu {

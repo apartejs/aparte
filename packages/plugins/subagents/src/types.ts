@@ -66,6 +66,15 @@ export interface SubagentsOptions {
      * closed until the reader opens it — or open, with the tool display's `open: true`.
      */
     details?: false | 'transcript' | AparteToolDetails;
+    /**
+     * What the line can open elsewhere. `'event'`: an Open button at the end of the line
+     * dispatches `aparte-subagent-open`, for the app to show the sub-agent's conversation
+     * somewhere else (`connectSubagentView` shows it in an `<aparte-subagent-view>` beside the
+     * chat). A line with nothing behind it opens on a click anywhere on it too; with `details`,
+     * the line keeps opening its detail and only the button opens elsewhere. Left out (the
+     * default), the line opens nothing: no button, no pointer.
+     */
+    open?: false | 'event';
 }
 
 /**
@@ -103,9 +112,29 @@ export interface AparteSubagentEndEventDetail {
     status: AparteSubagentStatus;
 }
 
+/**
+ * A reader pressed a sub-agent's Open button (`setupSubagents({ open: 'event' })`): show its
+ * conversation elsewhere — an `<aparte-subagent-view>` with this `messageId` and `agentId`.
+ * Dispatched from the line, bubbles and is composed.
+ *
+ * @event aparte-subagent-open
+ */
+export interface AparteSubagentOpenEventDetail {
+    /** The chat the reply is in, when the line knows it. */
+    targetId?: string;
+    /** The reply the sub-agent works for: a view's `message-id`. */
+    messageId: string;
+    /** Which sub-agent: a view's `agent-id`. */
+    agentId: string;
+    name?: string;
+    /** The call that opened it, when its line is that call's row. */
+    toolCallId?: string;
+}
+
 declare global {
     interface HTMLElementEventMap {
         'aparte-subagent-start': CustomEvent<AparteSubagentStartEventDetail>;
         'aparte-subagent-end': CustomEvent<AparteSubagentEndEventDetail>;
+        'aparte-subagent-open': CustomEvent<AparteSubagentOpenEventDetail>;
     }
 }

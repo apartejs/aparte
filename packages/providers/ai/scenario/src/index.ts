@@ -67,6 +67,25 @@ export type ScenarioStep =
      * each ended ("… is back"). In `scenarios` mode that last answer is routed by that message.
      */
     | { subagents: ScenarioSubagent[]; toolName?: string; id?: string; background?: boolean }
+    /**
+     * Open a named step of the work ("Reading the parser"), as an agent announces one: the
+     * reply's waiting indicator says it while nothing else is shown, and in a scripted
+     * sub-agent its line does. Live only — nothing of it is kept in the reply or read by the
+     * model. Ended by `{ endStep }` with the same name, in this turn or a later one (so a step
+     * can span a tool call); one never ended goes with the reply. Steps may nest: the latest
+     * open one is shown.
+     */
+    | { step: string }
+    /** End the step of that name opened last. */
+    | { endStep: string }
+    /**
+     * Report an activity, as an agent reports its progress: `type` is its kind, the key a
+     * renderer is registered under (`config.registerActivityRenderer`), and `content` its whole
+     * current value. A later step with the same `id` updates it in place, in this turn or a
+     * later one; without an `id` each step is an activity of its own. Kept with the reply,
+     * never read by the model; in a scripted sub-agent it is the sub-agent's.
+     */
+    | { activity: { type: string; content: unknown; id?: string } }
     /** Fail the turn with this message — what a provider error looks like to the UI. */
     | { error: string }
     /** Pause, in milliseconds — a slow model, a long tool. */
@@ -323,6 +342,13 @@ function play(
                         const id = step.id ?? `scenario_${++sequence}`;
                         loopIdOf(id);
                         controller.enqueue({ type: 'tool_use', id, name: step.tool, input: step.input ?? {} });
+                    } else if ('step' in step) {
+                        controller.enqueue({ type: 'step-start', name: step.step });
+                    } else if ('endStep' in step) {
+                        controller.enqueue({ type: 'step-end', name: step.endStep });
+                    } else if ('activity' in step) {
+                        const { type, content, id } = step.activity;
+                        controller.enqueue({ type: 'activity', id: id ?? `scenario_${++sequence}`, activityType: type, content });
                     } else if ('error' in step) {
                         controller.enqueue({ type: 'error', message: step.error });
                         controller.close();

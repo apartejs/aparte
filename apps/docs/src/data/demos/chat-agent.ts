@@ -392,6 +392,82 @@ export const CHAT_AGENT_DEMOS: DemoEntry[] = [
 </script>`,
     },
 
+    // ── Diff ──────────────────────────────────────────────────────────────────
+    {
+        id: 'diff',
+        title: 'A file change, open to comments on a line',
+        plugins: ['markdown', 'diff'],
+        html: `<!-- In your app: import '@aparte/plugin-diff'. Click a line number to comment; Shift+click for a range. -->
+<aparte-diff commentable></aparte-diff>
+
+<script>
+  const view = document.querySelector('aparte-diff');
+  view.diff = {
+    path: 'src/parse.ts',
+    before: [
+      'export function parse(input: string): number {',
+      '  let total = 0;',
+      '  for (const [, amount, unit] of input.matchAll(TOKEN)) {',
+      '    total += parseInt(amount, 10) * UNITS[unit];',
+      '  }',
+      '  return total;',
+      '}',
+      '',
+    ].join('\\n'),
+    after: [
+      'export function parse(input: string): number {',
+      '  let total = 0;',
+      '  for (const [, amount, unit] of input.matchAll(TOKEN)) {',
+      '    total += Number(amount) * UNITS[unit];',
+      '  }',
+      "  if (total === 0) throw new RangeError('Nothing to parse');",
+      '  return total;',
+      '}',
+      '',
+    ].join('\\n'),
+  };
+
+  // The element keeps no comment: your app does, and hands them back to be shown.
+  const comments = [
+    { path: 'src/parse.ts', side: 'new', startLine: 4, endLine: 4, text: 'Number keeps the fraction: 1.5h is ninety minutes now.', state: 'sent' },
+  ];
+  view.comments = comments;
+  view.addEventListener('aparte-diff-comment', (event) => {
+    comments.push({ ...event.detail, state: 'pending' });
+    view.comments = comments;
+  });
+</script>`,
+    },
+    {
+        id: 'diff-tool',
+        title: "An edit tool's result, shown as a diff under its line",
+        plugins: ['markdown', 'diff'],
+        html: `<!-- In your app: import { setupDiff } from '@aparte/plugin-diff'. -->
+<aparte-chat-bubble message-id="a1" data-role="assistant"></aparte-chat-bubble>
+
+<script>
+  const { aparteGlobalConfig } = window.aparte;
+  const { setupDiff } = window.apartePlugins.diff;
+
+  aparteGlobalConfig.registerToolDisplay('edit_file', { summary: (call) => call.toolCall.input.path });
+  setupDiff({
+    tool: 'edit_file',
+    map: (result, input) => ({ path: input.path, before: result.before, after: result.after }),
+  });
+
+  const before = ['## Install', '', 'npm install spanwise', '', 'Durations are whole hours.', ''].join('\\n');
+  const after = ['## Install', '', 'npm install spanwise', '', 'Durations can be decimal: 1.5h is ninety minutes.', ''].join('\\n');
+  document.querySelector('aparte-chat-bubble').setSegments([
+    { id: 's1', type: 'text', content: 'The README promised whole hours only. I changed that line.' },
+    {
+      id: 's2', type: 'tool_call', status: 'resolved',
+      toolCall: { id: 't1', name: 'edit_file', input: { path: 'README.md' } },
+      result: JSON.stringify({ before, after }),
+    },
+  ]);
+</script>`,
+    },
+
     // ── Sub-agents ────────────────────────────────────────────────────────────
     {
         id: 'subagents',

@@ -34,11 +34,12 @@ type Handler = (request: Request) => Promise<Response>;
 
 /**
  * Mounts `server/endpoint.ts` on the dev server, so `pnpm dev` is the page and the agent in one
- * process: the agent at `/agent`, the scripted sub-agent run at `/subagents`. Loaded through Vite
- * on each request: an edit to the agent applies on the next message.
+ * process: the agent at `/agent`, the scripted sub-agent run at `/subagents`, the TanStack AI
+ * agent at `/tanstack`. Loaded through Vite on each request: an edit to the agent applies on the
+ * next message.
  */
 function agentEndpoint(): Plugin {
-    const routes = { '/agent': 'handle', '/subagents': 'handleSubagents' } as const;
+    const routes = { '/agent': 'handle', '/subagents': 'handleSubagents', '/tanstack': 'handleTanstack' } as const;
     return {
         name: 'agent-endpoint',
         configureServer(server: ViteDevServer) {

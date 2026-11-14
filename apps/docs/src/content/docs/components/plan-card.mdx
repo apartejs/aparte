@@ -63,6 +63,25 @@ setupPlanCard({ tool: 'write_todos', map: (_result, input) => input });
 `readPlan` reads a list of steps or of strings, a Markdown checklist, and the todo lists agents
 already write. The statuses and fields are in [the guide](/guides/cards/#an-agents-plan--plan).
 
+## From an activity
+
+An agent can report its plan as an [activity](/guides/activity/) rather than through a tool: AG-UI's
+`ACTIVITY_SNAPSHOT` and `ACTIVITY_DELTA`, a sub-agent of your own loop, a scripted model. Name the
+activity type and the card draws its content, in any shape `readPlan` reads:
+
+```ts
+import { setupPlanCard } from '@aparte/plugin-cards/plan';
+
+setupPlanCard({ activity: 'plan' });
+// Several types, and a tool beside them:
+setupPlanCard({ activity: ['plan', 'todos'], tool: 'update_plan' });
+```
+
+Each time the agent sends the activity again, the same card is updated in place: the steps tick
+without a second card or a redraw. Content that holds no step yet draws nothing until it does, and an
+update the card cannot read leaves the card as it was. A sub-agent's plan is drawn in that
+[sub-agent's conversation](/guides/sub-agents/), under its line and in `<aparte-subagent-view>`.
+
 ## Related
 
 - [Tool call](/components/tool/) — the row of each call the plan describes.

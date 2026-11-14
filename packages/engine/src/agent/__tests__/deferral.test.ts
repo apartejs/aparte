@@ -77,7 +77,9 @@ describe('deferral: the pause', () => {
         expect(types(events)).not.toContain('tool-aborted');
     });
 
-    it('runs the calls BEFORE the pause point and keeps the ones after it pending', async () => {
+    // Whether the calls of the step run together or one after another (`parallelTools`),
+    // the pause point is the same, and so is what the client is handed.
+    it.each([true, false])('runs the calls BEFORE the pause point and keeps the ones after it pending (parallelTools: %s)', async (parallelTools) => {
         const t = scripted([
             { type: 'tool_use', id: 'r1', name: 'read_file', input: { path: 'x' } },
             { type: 'tool_use', id: 'd1', name: 'delete_file', input: { path: 'x' } },
@@ -85,7 +87,7 @@ describe('deferral: the pause', () => {
             { type: 'tool_use', id: 'd2', name: 'delete_file', input: { path: 'y' } },
             { type: 'done' },
         ] as StreamChatEvent[]);
-        const { done, events, history } = run({ transportCall: t.call, deferral: {} });
+        const { done, events, history } = run({ transportCall: t.call, deferral: {}, parallelTools });
         await done;
         expect(events.filter((e) => e.type === 'tool-resolved').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['r1']);
         expect(suspension(events).pending.map((p) => [p.toolCallId, p.reason])).toEqual([

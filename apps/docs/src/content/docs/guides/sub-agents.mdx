@@ -45,7 +45,7 @@ an agent given none (`subagentsUnnamed`) ship with the
 plugin in the same ten languages as [`@aparte/locales`](/guides/localization/), and `extendLocale`
 replaces them.
 
-## Three ways sub-agents reach the page
+## Four ways sub-agents reach the page
 
 ### An AG-UI agent
 
@@ -80,6 +80,24 @@ default, because a client older than sub-agents fails on their events. What each
 
 An integration that does not announce its sub-agents streams their work as the agent's own, and
 the chat draws it as part of the reply.
+
+### An n8n workflow
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner } from '@aparte/runner-n8n';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+}).start();
+```
+
+An **AI Agent Tool** — an agent another AI Agent calls as a tool — gets a line named after its
+node, with its text in it and out of the reply, once its caller streams again. Leave **Enable Streaming** on in the AI
+Agent Tool's options: n8n sends nothing of one that does not stream. What n8n tells and does not
+tell is on [the n8n runner's page](/providers/agent/n8n/#sub-agents).
 
 ### A tool of your own loop
 
@@ -167,10 +185,11 @@ export const POST = createAparteAgentHandler({
 });
 ```
 
-A sub-agent's tools are found among the run's: on the server, the tools the request offers. To run
-several sub-agents side by side, open them in the same tool with `Promise.all`, each with
-`detached: true`: one call's line can stand for only one sub-agent, so each of them gets a line of
-its own.
+A sub-agent's tools are found among the run's: on the server, the tools the request offers. Several
+sub-agents run side by side when the model delegates several times in one reply: the tool calls of
+one step run at the same time ([`parallelTools`](/guides/engine/#several-calls-in-one-reply)). One
+tool can also open several, with `Promise.all`, each with `detached: true`: one call's line can
+stand for only one sub-agent, so each of them gets a line of its own.
 
 #### While the chat goes on
 
@@ -268,10 +287,12 @@ setupSubagents({
   activity: true,          // a second line: what it is on, then what it did
   counts: true,            // "3 tools · 12s", once it is over
   details: 'transcript',   // its conversation under the line; false (the default) for nothing
+  open: 'event',           // an Open button that shows it beside the chat; see below
 });
 ```
 
-The three are `SubagentsOptions`. `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
+These are `SubagentsOptions`; `open` is explained in
+[Open a sub-agent beside the chat](#open-a-sub-agent-beside-the-chat). `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
 conversation under it — the task it was given, its text, its reasoning, its own tool rows and its
 own sub-agents as lines, drawn by the reply's renderers and kept up to date while it works — closed
 until the reader opens it. A function puts what it returns there, as a tool display's `details`
@@ -301,6 +322,66 @@ A hidden line is still saved with the conversation, its sub-agent's conversation
 With [a turn's steps folded behind one line](/guides/tool-display/#fold-a-turn-behind-one-line), a
 sub-agent drawn on its call's line folds with the turn's other steps. One with a line of its own
 stays in view, as a step that waits or failed does.
+
+## Steps
+
+An agent can say what stage of its work it is in — *Searching the repository*, *Reading the
+parser* — with a step: a name, a start and an end. While the reply has nothing to show yet, or a
+call is done and the next has not begun, the waiting indicator says the agent's step beside its
+dots. A sub-agent's step shows on its line, as its second line, while none of its calls runs; a
+running call still wins. Steps may nest: the latest one open shows, and the one before it comes
+back when it ends.
+
+A step shows while it lasts and nothing more. It is not kept in the reply, not saved with the
+conversation and not sent to the model. Once the reply has text, or ends, it is gone.
+
+**An AG-UI agent:** nothing to do. `STEP_STARTED` and `STEP_FINISHED` are shown as they arrive, a
+sub-agent's by its `subagentRunId`, and a step the agent leaves open closes when its run ends.
+
+**Your own loop:** a sub-agent announces a step through the handle `startAgent` returns. Send
+`step-end` with the same name when the stage is over:
+
+```ts
+import { aparteGlobalConfig, type AparteToolHandler } from '@aparte/core';
+
+declare function indexFiles(signal: AbortSignal): Promise<number>; // yours
+
+const handleIndex: AparteToolHandler = async (call, _signal, context) => {
+  const agent = context!.run!.startAgent({ name: 'Indexer', description: 'Index the project' });
+  agent.emit({ type: 'step-start', name: 'Reading the files' });
+  const count = await indexFiles(agent.signal);
+  agent.emit({ type: 'step-end', name: 'Reading the files' });
+  agent.end('done', { result: `${count} files indexed.` });
+  return { toolCallId: call.id, content: `${count} files indexed.` };
+};
+
+aparteGlobalConfig.registerTool(
+  { name: 'index', description: 'Index the project.', inputSchema: { type: 'object', properties: {} } },
+  handleIndex,
+);
+```
+
+A loop of your own (`streamRunner`) emits the same two events for the reply's own steps, without an
+`agentId`, and a model's stream can carry them too: `{ type: 'step-start', name }` among its events
+is passed on as is.
+
+**A scripted model:** the [scenario provider](/providers/ai/scenario/#steps) has a step of its own,
+`{ step: 'Reading the parser' }`, ended by `{ endStep: 'Reading the parser' }`.
+
+An app that wants to keep a mark of a step in the reply draws it from
+[`config.observeRunEvents`](/guides/engine/#events), which hears every `step-start` and `step-end`.
+
+A sub-agent can also report its progress as an [activity](/guides/activity/) — "3 of 5 sources
+read" — which the renderer you register for its type draws in that sub-agent's conversation, under
+its line and in `<aparte-subagent-view>`, updated in place as it changes. A sub-agent that reports
+its plan that way gets the [plan card](/components/plan-card/#from-an-activity) there with
+`setupPlanCard({ activity: 'plan' })`.
+
+When a [TanStack AI](/providers/agent/tanstack-ai/) `subagents.router` picks the agents, it sends
+its plan with them: which agents run, in which order. That is the reply's plan rather than one
+sub-agent's, so the runner hands it on as a `plan` activity of the reply, one step per agent, in
+progress when the agent starts and done or failed when it ends. `setupPlanCard({ activity: 'plan' })`
+draws it.
 
 ## Show the conversation elsewhere
 
@@ -335,6 +416,51 @@ document.getElementById('chat')!.addEventListener('aparte-subagent-start', (even
 It follows the sub-agent live, shows the saved conversation after a reload, and draws nothing until
 there is something to show. `aparte-subagent-end` says how each one ended. The
 [component page](/components/subagent-view/) has the rest.
+
+### Open a sub-agent beside the chat
+
+To let the reader pick the sub-agent, give each line an Open button with
+`setupSubagents({ open: 'event' })`, and wire the view with `connectSubagentView`:
+
+```html
+<aparte-split position="55">
+  <aparte-chat id="chat"></aparte-chat>
+  <aparte-subagent-view for="chat"></aparte-subagent-view>
+</aparte-split>
+```
+
+```ts
+import { connectSubagentView, setupSubagents } from '@aparte/plugin-subagents';
+import type { SubagentViewSplit } from '@aparte/plugin-subagents';
+
+setupSubagents({ open: 'event' });
+
+const disconnect = connectSubagentView({
+  chat: document.getElementById('chat')!,
+  view: document.querySelector('aparte-subagent-view')!,
+  split: document.querySelector<SubagentViewSplit>('aparte-split')!,
+});
+```
+
+The button sits at the end of each sub-agent's line, named "Open Researcher" in the chat's
+language. Pressing it (click, Enter or Space) dispatches `aparte-subagent-open`
+(`AparteSubagentOpenEventDetail`: `messageId`, `agentId`, `name`, and `toolCallId` when the line is
+that call's row). `connectSubagentView` then:
+
+- points the view at that sub-agent and opens the split's second pane (on a phone, where the split
+  shows one pane, it shows the view);
+- marks the line: the row gets `data-current` and its button `aria-current="true"`, until another
+  one is opened or the view closes;
+- makes the view `closable`: the sub-agent's name and a Close button above its conversation. Close,
+  or Escape inside the view, folds the pane and puts the focus back on the button that opened it.
+
+A line with nothing behind it also opens on a click anywhere on it. With `details: 'transcript'`
+too, the line keeps opening the conversation under itself and only the button opens it beside
+the chat, so one click never means two things. A sub-agent's own sub-agents are lines inside the
+view, and they open in the same view. Without `open`, the line has no button and opens nothing.
+
+Without a split, pass `onOpen` and `onClose` and show the view your own way (a tab, a drawer).
+`disconnect()` undoes all of it.
 
 The plugin ships no framework binding: the element is a plain tag in every framework. A Vue or
 Svelte template accepts it as it is, and Angular with `CUSTOM_ELEMENTS_SCHEMA` on the component
@@ -399,10 +525,6 @@ the sub-agent.
 
 ## What it does not do yet
 
-- **Side by side, inside one tool.** The engine runs a reply's tool calls one at a time, so two
-  delegating calls in one step run one after the other with `runSubAgent`. Sub-agents run side by
-  side when one tool opens them together, when they are started in the background, or when an
-  agent framework runs them.
 - **What the model was told stays in the run.** The message saying the sub-agents started in the
   background are back is in that run's history only: the next turn's history is drawn from the
   reply, and reads the model's answer to it, not the message.

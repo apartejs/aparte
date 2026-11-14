@@ -149,6 +149,12 @@
         "target"
       ]
     },
+    "aparte-diff": {
+      "package": "@aparte/plugin-diff",
+      "attributes": [
+        "commentable"
+      ]
+    },
     "aparte-elicitation": {
       "package": "@aparte/core",
       "attributes": []
@@ -255,6 +261,7 @@
       "package": "@aparte/plugin-subagents",
       "attributes": [
         "agent-id",
+        "closable",
         "data-empty",
         "data-inline",
         "for",
@@ -307,6 +314,7 @@
       "aparte-feedback-reason",
       "aparte-launcher-toggle",
       "aparte-link-click",
+      "aparte-menu-select",
       "aparte-message-aborted",
       "aparte-message-done",
       "aparte-message-error",
@@ -325,6 +333,7 @@
       "aparte-sidebar-toggle",
       "aparte-split-resize",
       "aparte-suggestion",
+      "aparte-tab-change",
       "aparte-tool-approval-request",
       "aparte-trigger-select"
     ],
@@ -444,6 +453,9 @@
       "defineMountedSegmentRenderer",
       "defineMountedToolRenderer",
       "detachConfig",
+      "enhanceContextMenu",
+      "enhanceMenu",
+      "enhanceTabs",
       "escapeAttr",
       "escapeHtml",
       "estimateTokens",
@@ -460,6 +472,7 @@
       "isSafeUrl",
       "isSegmentSettled",
       "measureContext",
+      "onRenderersChange",
       "overrideSegmentRenderer",
       "parseAparteEventStream",
       "parseMarkdownToSegments",
@@ -679,6 +692,13 @@
       "splitHistoryBudget",
       "transcriptForSummary"
     ],
+    "@aparte/plugin-diff": [
+      "AparteDiff",
+      "diffTexts",
+      "formatUnifiedDiff",
+      "parseUnifiedDiff",
+      "setupDiff"
+    ],
     "@aparte/plugin-echarts": [
       "ECHARTS_SERIES_HUES",
       "echartsPalette",
@@ -714,6 +734,7 @@
     "@aparte/plugin-subagents": [
       "AparteSubagentView",
       "SUBAGENT_SEGMENT_TYPE",
+      "connectSubagentView",
       "setupSubagents",
       "subagentOf",
       "subagentStatus",

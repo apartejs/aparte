@@ -153,6 +153,83 @@ test('a conversation can be deleted from its row menu', async ({ page }) => {
     expect(await page.evaluate(() => (window as unknown as { __deleteFired?: boolean }).__deleteFired)).toBe(true);
 });
 
+/*
+ * The row menu runs on `enhanceMenu`, the kit's menu button. jsdom has no default actions:
+ * whether Enter on the ⋯ really clicks it, and where a real Tab goes once the menu has put
+ * the focus back on the ⋯, only a browser says.
+ */
+test('a row\'s menu answers the keyboard: Enter opens it, the arrows and a letter move, Escape gives the focus back', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    await page.goto('/?scenario&fast');
+    await expect(page.locator(`${LIST} [data-conv-id]`)).toHaveCount(10);
+    const row = page.locator(`${LIST} [data-conv-id="c-weather"]`);
+    const more = row.locator('.aparte-conv-item__more');
+    const item = (action: string) => row.locator(`[role="menu"] [data-menu-action="${action}"]`);
+
+    await more.focus();
+    await page.keyboard.press('Enter');
+    await expect(row.locator('[role="menu"]')).toBeVisible();
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(item('rename'), 'it opens on its first item').toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(item('pin')).toBeFocused();
+    await page.keyboard.press('d');
+    await expect(item('delete'), 'a letter goes to the item that starts with it').toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(item('rename'), 'and the arrows wrap round').toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(row.locator('[role="menu"]')).toHaveCount(0);
+    await expect(more).toBeFocused();
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+
+    // Tab closes it and moves on from the ⋯, as if the menu had never been in the way.
+    const after = await more.evaluate((button) => {
+        const all = [...document.querySelectorAll<HTMLElement>('button, [href], input, textarea, [tabindex]')]
+            .filter((el) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && el.offsetParent !== null);
+        return all[all.indexOf(button as HTMLElement) + 1]?.outerHTML.slice(0, 80) ?? null;
+    });
+    await page.keyboard.press('ArrowDown');
+    await expect(item('rename')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(row.locator('[role="menu"]')).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80) ?? null)).toBe(after);
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('Shift+F10 on a row opens its menu there, and Escape gives the focus back to the row', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    await page.goto('/?scenario&fast');
+    await expect(page.locator(`${LIST} [data-conv-id]`)).toHaveCount(10);
+    const row = page.locator(`${LIST} [data-conv-id="c-weather"]`);
+    const title = row.locator('.aparte-conv-item__select');
+
+    await title.focus();
+    await page.keyboard.press('Shift+F10');
+    const menu = row.locator('[role="menu"]');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-menu-action="rename"]')).toBeFocused();
+    // Against the row it was asked about (under it, or over it near the bottom of the
+    // window), not at the corner of the window.
+    const rowBox = (await row.boundingBox())!;
+    const menuBox = (await menu.boundingBox())!;
+    const gapY = Math.max(0, menuBox.y - (rowBox.y + rowBox.height), rowBox.y - (menuBox.y + menuBox.height));
+    expect(gapY, 'against the row').toBeLessThan(16);
+    expect(Math.abs(menuBox.x - rowBox.x), 'at its start edge').toBeLessThan(16);
+    await page.keyboard.press('Escape');
+    await expect(row.locator('[role="menu"]')).toHaveCount(0);
+    await expect(title).toBeFocused();
+
+    // A right click opens the same menu at the pointer; the browser's own stays away.
+    const box = (await title.boundingBox())!;
+    await page.mouse.click(box.x + 20, box.y + box.height / 2, { button: 'right' });
+    await expect(menu).toBeVisible();
+    const at = (await menu.boundingBox())!;
+    expect(Math.abs(at.x - (box.x + 20)), 'at the pointer').toBeLessThan(4);
+    await page.keyboard.press('Escape');
+    await expect(row.locator('[role="menu"]')).toHaveCount(0);
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
 test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
     // SAB-12 regression: selecting a row with the keyboard must not move the focus away
     // from that row. The cause was the sidebar's `manager.subscribe` callback reassigning

@@ -17,19 +17,28 @@ import type {
   AparteToolCallSegment,
   AparteSegmentRenderer,
   AparteToolRenderer,
+  AparteActivityRenderer,
+  AparteActivitySegment,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 
 /**
- * A segment as drawn: its element, the renderer that drew it and — for a tool call — the
- * tool renderer in effect then. Kept so `cleanup` reaches the renderer that DREW the
- * element, and so a registry change can tell which segments to draw again.
+ * A segment as drawn: its element, the renderer that drew it and — for a tool call or an
+ * activity — the tool or activity renderer in effect then. Kept so `cleanup` reaches the
+ * renderer that DREW the element, and so a registry change can tell which segments to draw again.
  */
 interface DrawnSegment {
   el: HTMLElement;
   renderer: AparteSegmentRenderer | undefined;
-  tool: AparteToolRenderer | null;
+  tool: AparteToolRenderer | AparteActivityRenderer | null;
   segment: AparteSegment;
+}
+
+/** The tool or activity renderer behind a drawn element, as its segment renderer recorded it. */
+function innerRendererThatDrew(segment: AparteSegment, el: Element): AparteToolRenderer | AparteActivityRenderer | null {
+  if (segment.type === 'tool_call') return toolRendererThatDrew(el);
+  if (segment.type === 'activity') return activityRendererThatDrew(el);
+  return null;
 }
 import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
@@ -37,6 +46,7 @@ import { relabelCitations, renderSourceList } from '../../renderers/citations.js
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
 import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
+import { activityRenderer, activityRendererThatDrew } from '../../renderers/segments/activity.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
@@ -338,6 +348,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _role: AparteBubbleRole = 'assistant';
   private _attachments: AparteAttachment[] = [];
   private _usage: AparteUsage | null = null;
+  /** The step the agent is on while this reply waits: live only, never part of the message. */
+  private _step: string | null = null;
   private _finishReason: AparteFinishReason | null = null;
   /** The checkpoint this message carries: the separator above it is drawn from it. */
   private _contextSummary: AparteContextSummary | null = null;
@@ -480,6 +492,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     return cfg.getToolRenderer(name) ?? null;
   }
 
+  /** The tool or activity renderer in effect for a segment, when core's own renderer for its type is what draws it. */
+  private _innerRendererFor(segment: AparteSegment): AparteToolRenderer | AparteActivityRenderer | null {
+    if (segment.type !== 'activity') return this._toolRendererFor(segment);
+    if (resolveSegmentRenderer('activity', this._cfg) !== activityRenderer) return null;
+    return this._cfg.getActivityRenderer((segment as AparteActivitySegment).activityType) ?? null;
+  }
+
   /**
    * Record a segment as drawn, set it up, then read back which tool renderer is behind the
    * row (tool-call.ts records it as the row is set up — one record, not a second lookup).
@@ -500,7 +519,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // again, so what was just mounted cannot outlive it.
     if (!this.isConnected) this._scheduleReleaseCheck();
     if (renderer?.setup) runWithConfig(this._cfg, () => renderer.setup!(el, drawnAs));
-    if (segment.type === 'tool_call') drawn.tool = toolRendererThatDrew(el);
+    drawn.tool = innerRendererThatDrew(segment, el);
   }
 
   /**
@@ -592,7 +611,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   /** The renderer that drew this segment is still the one in effect (for a tool call, the tool renderer too). */
   private _stillDrawnByCurrent(segment: AparteSegment, drawn: DrawnSegment): boolean {
     return resolveSegmentRenderer(segment.type, this._cfg) === drawn.renderer
-      && this._toolRendererFor(segment) === drawn.tool;
+      && this._innerRendererFor(segment) === drawn.tool;
   }
 
   /**
@@ -626,7 +645,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * as that renderer is still the one in effect.
    */
   private _keepsItsDrawing(segment: AparteSegment, drawn: DrawnSegment): boolean {
-    const mounted = isMountedRenderer(drawn.renderer) || (segment.type === 'tool_call' && isMountedRenderer(drawn.tool));
+    const mounted = isMountedRenderer(drawn.renderer) || isMountedRenderer(drawn.tool);
     return mounted && this._stillDrawnByCurrent(segment, drawn);
   }
 
@@ -1093,6 +1112,22 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
+   * Say the step the agent is on ("Reading the parser") while this reply waits, or `null`
+   * when it is on none. The client calls it as the run announces steps.
+   *
+   * Live only: the words show beside the waiting dots while the reply has nothing to show
+   * (or between two calls), and are what a screen reader hears in place of "Typing". They
+   * are never one of the message's segments, never saved and never sent to the model, and
+   * they go with the reply's end even when nobody closed the step.
+   */
+  setStep(name: string | null): void {
+    const next = typeof name === 'string' && name.trim() ? name.trim() : null;
+    if (next === this._step) return;
+    this._step = next;
+    this._updateWaiting();
+  }
+
+  /**
    * Say why the model stopped writing this reply (assistant only).
    *
    * Only `'length'` draws anything: a quiet note after the content that the reply was cut
@@ -1547,7 +1582,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         const now = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
         if (now && now !== drawn.el) {
           drawn.el = now;
-          drawn.tool = segment.type === 'tool_call' ? toolRendererThatDrew(now) : null;
+          drawn.tool = innerRendererThatDrew(segment, now);
         }
       }
     } else {
@@ -1633,7 +1668,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
             <div class="aparte-content" dir="auto"></div>
             <div class="aparte-waiting" hidden>
               <span class="aparte-dots" aria-hidden="true"><span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span></span>
-              <span class="aparte-sr-only"></span>
+              <span class="aparte-waiting-step aparte-shimmer" aria-hidden="true" dir="auto" hidden></span>
+              <span class="aparte-sr-only" aria-live="polite">${escapeHtml(this._cfg.getLocale().typing ?? '')}</span>
             </div>
           </div>
           <div class="aparte-footer">
@@ -1794,8 +1830,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
     if (!el) return;
     el.hidden = !waiting;
+    // The step the agent is on, beside the dots: the visible words are hidden from a screen
+    // reader, which hears them from the label instead — once, as they change.
+    const step = waiting ? this._step : null;
+    let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
+    if (!words && step) {
+      // A shell of the app's own may not have it: added where the default shell has it.
+      words = document.createElement('span');
+      words.className = 'aparte-waiting-step aparte-shimmer';
+      words.setAttribute('aria-hidden', 'true');
+      words.dir = 'auto';
+      const dots = el.querySelector('.aparte-dots');
+      if (dots) dots.after(words);
+      else el.prepend(words);
+    }
+    if (words) {
+      words.hidden = !step;
+      if (step && words.textContent !== step) words.textContent = step;
+    }
     if (!waiting) return;
-    const label = this._cfg.getLocale().typing;
+    const label = step ?? this._cfg.getLocale().typing;
     const sr = el.querySelector('.aparte-sr-only');
     if (sr && sr.textContent !== label) sr.textContent = label;
   }
@@ -2322,7 +2376,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    */
   private _copyableText(): string {
     return (this._content || this._segments
-      .filter(s => s.type !== 'thinking')
+      // An activity is progress, not the reply, and its content is the agent's data.
+      .filter(s => s.type !== 'thinking' && s.type !== 'activity')
       .map(s => (s as { content?: string }).content ?? '')
       .join('\n')).trim();
   }
@@ -2790,6 +2845,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _updateStreaming(streaming: boolean): void {
     const wasStreaming = this._streaming;
     this._streaming = streaming;
+    // A step lives as long as the reply streams: one nobody closed does not outlive it.
+    if (!streaming) this._step = null;
     const message = this.querySelector('.aparte-message');
     if (message) {
       message.setAttribute('data-streaming', String(streaming));

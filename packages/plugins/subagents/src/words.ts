@@ -41,6 +41,16 @@ export const WORDS = {
         en: 'Sub-agent', fr: 'Sous-agent', de: 'Subagent', es: 'Subagente', it: 'Sottoagente',
         ja: 'サブエージェント', ko: '하위 에이전트', pt: 'Subagente', ru: 'Субагент', zh: '子智能体',
     },
+    /** The Open button on a sub-agent's line (`setupSubagents({ open: 'event' })`): its name and tooltip. */
+    subagentsOpen: {
+        en: 'Open {name}', fr: 'Ouvrir {name}', de: '{name} öffnen', es: 'Abrir {name}', it: 'Apri {name}',
+        ja: '{name} を開く', ko: '{name} 열기', pt: 'Abrir {name}', ru: 'Открыть: {name}', zh: '打开 {name}',
+    },
+    /** The Close button of a `<aparte-subagent-view closable>`. */
+    subagentsClose: {
+        en: 'Close', fr: 'Fermer', de: 'Schließen', es: 'Cerrar', it: 'Chiudi',
+        ja: '閉じる', ko: '닫기', pt: 'Fechar', ru: 'Закрыть', zh: '关闭',
+    },
 } satisfies Record<string, Word>;
 
 export type WordKey = keyof typeof WORDS;

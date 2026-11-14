@@ -1,7 +1,7 @@
 {
   "name": "@aparte-workspace/example-shared",
   "private": true,
-  "version": "0.0.46",
+  "version": "0.0.47",
   "type": "module",
   "description": "What the five chat-site examples share: the setup, the skin, the sample data. Imported by relative path; a package only so pnpm links its dependencies here.",
   "dependencies": {
@@ -12,6 +12,7 @@
     "@aparte/plugin-artifacts": "workspace:*",
     "@aparte/plugin-ask-user": "workspace:*",
     "@aparte/plugin-compaction": "workspace:*",
+    "@aparte/plugin-diff": "workspace:*",
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",

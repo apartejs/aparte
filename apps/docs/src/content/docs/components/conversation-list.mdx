@@ -26,7 +26,8 @@ Each row is two buttons: its title, which selects it, and a `⋯` that opens its
 
 ### The row's menu
 
-Press `⋯` on a row above: rename, pin or unpin, archive or unarchive, delete. Every item fires an
+Press `⋯` on a row above: rename, pin or unpin, archive or unarchive, delete. A right click on a
+row, Shift+F10 or the Menu key opens the same menu there. Every item fires an
 event and stops. Rename turns the title into a field (Enter or leaving it commits, Escape cancels); delete asks first,
 inside the menu, because it is the one action you cannot undo.
 
@@ -116,7 +117,9 @@ search field around it, in the [sidebar](/components/sidebar/).
 - The list is a navigation landmark named from the `conversationList` locale key ("Conversations"),
   unless you give it an `aria-label` or `aria-labelledby` of your own.
 - Each date group is a group named by its heading; the selected row is marked `aria-current`.
-- The `⋯` button announces a menu and whether it is open; the menu's items are menu items.
+- The `⋯` button announces a menu and whether it is open; the menu's items are menu items, with
+  the [menu](/components/menu/)'s keyboard: the arrows, Home and End, a letter to jump, and Escape
+  back to the button.
 - While loading, the list is `aria-busy` and a status line says the conversations are loading.
 
 ## Related

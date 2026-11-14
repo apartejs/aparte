@@ -29,6 +29,31 @@ export function getStaticPaths() {
 const { kind, name, example } = Astro.props;
 
 /*
+ * A segment core draws nothing of its own for: the page registers a renderer first, as an app
+ * does, so the frame shows the segment drawn rather than an empty viewport. An `activity` is
+ * drawn by the renderer registered for its type (`registerActivityRenderer`); this one is the
+ * example's own type, written the way that method's documentation writes it.
+ */
+const SETUP: Record<string, string> = {
+    activity: `const drawProgress = (el, segment) => {
+  const { read, of } = segment.content;
+  el.firstChild.textContent = read + ' of ' + of + ' sources read';
+  el.lastChild.max = of;
+  el.lastChild.value = read;
+};
+window.aparte.aparteGlobalConfig.registerActivityRenderer('search-progress', {
+  render: (segment) => {
+    const el = document.createElement('div');
+    el.className = 'aparte-segment';
+    el.append(document.createElement('span'), document.createElement('progress'));
+    drawProgress(el, segment);
+    return el;
+  },
+  update: drawProgress,
+});`,
+};
+
+/*
  * `role: 'assistant'` because that is who emits segments; a user message is plain text.
  * The timestamp is stamped at run time rather than baked in, so the frame never shows a
  * build date as if it were now.
@@ -50,5 +75,5 @@ ${example
 <PreviewDocument
     title={`${name} (${kind}) — live preview`}
     markup='<aparte-chat-viewport style="min-height: 3rem"></aparte-chat-viewport>'
-    scripts={[seed]}
+    scripts={SETUP[kind] ? [SETUP[kind], seed] : [seed]}
 />

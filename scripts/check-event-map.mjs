@@ -221,11 +221,18 @@ const uiEvents = new Set([...uiEventsBody.matchAll(/'(aparte-[a-z0-9-]+)'/g)].ma
 /**
  * Element-dispatched events deliberately absent from the proxy list.
  *
- * Empty today, and that is the honest state: every one of core's element dispatches
- * is forwarded. It exists so that leaving one out is a DECISION with a reason beside it
- * rather than an omission — the failure mode this whole guard was written for.
+ * It exists so that leaving one out is a DECISION with a reason beside it rather than an
+ * omission — the failure mode this whole guard was written for.
  */
-const UI_EVENTS_EXEMPT = new Map([]);
+const UI_EVENTS_EXEMPT = new Map([
+    // `enhanceMenu` / `enhanceContextMenu` / `enhanceTabs` dispatch these on markup the APP
+    // drew and handed them, so the app already holds the element to listen on. Inside the
+    // chat, the uses are core's own (the conversation list's row menu, which keeps its event
+    // to itself, the elicitation chips) or a plugin's (the artifact card's tabs): internal
+    // state, not a contract a wrapper consumer is owed.
+    ['aparte-menu-select', 'dispatched on the app\'s own menu by enhanceMenu / enhanceContextMenu'],
+    ['aparte-tab-change', 'dispatched on the app\'s own tablist by enhanceTabs'],
+]);
 
 if (uiEvents.size === 0) {
     problems.push(

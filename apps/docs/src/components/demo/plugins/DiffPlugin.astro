@@ -1,0 +1,10 @@
+---
+/** `@aparte/plugin-diff` for a demo frame: the import defines `<aparte-diff>`, and `setupDiff` is on `window.apartePlugins.diff`. */
+---
+
+<script>
+    import * as diff from '@aparte/plugin-diff';
+
+    const host = window as unknown as { apartePlugins?: Record<string, unknown> };
+    (host.apartePlugins ??= {}).diff = diff;
+</script>

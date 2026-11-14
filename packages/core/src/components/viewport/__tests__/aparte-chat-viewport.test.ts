@@ -524,7 +524,7 @@ describe('AparteChatViewport', () => {
         // segment carries hunks), so narrow instead of reading it off the union.
         const firstSegContent = (messageId: string): string | undefined => {
             const s = viewport.getMessage(messageId)?.segments?.[0];
-            return s && 'content' in s ? s.content : undefined;
+            return s && 'content' in s && typeof s.content === 'string' ? s.content : undefined;
         };
         type SegAPI = {
             addSegment(s: AparteSegment): void;

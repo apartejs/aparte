@@ -56,6 +56,8 @@ export type {
     AparteSegmentMount,
     AparteCustomSegment,
     AparteToolCallSegment,
+    AparteActivitySegment,
+    AparteActivityRenderer,
     // The same five the browser barrel gained, and they belong here for the same reason:
     // a type has no DOM. `AparteSegmentBase` is the constraint on the exported
     // `AparteSegmentRenderer<T>`, so an SSR consumer writing a renderer for a segment type
@@ -133,6 +135,7 @@ export type {
     AparteToolDisplay,
     AparteToolDetails,
     AparteToolLine,
+    AparteToolLineOpen,
     AparteToolCallView,
     AparteMountedView,
     AparteToolMount,
@@ -270,7 +273,7 @@ export type {
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS, onRenderersChange } from './config/index.js';
 export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
@@ -358,6 +361,11 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 export { cssEscape } from './utils/css-escape.js';
 export { placeFloating } from './utils/place-floating.js';
 export type { AparteFloatingOptions } from './utils/place-floating.js';
+// They touch the DOM only when called, so a server can import them beside the markup it renders.
+export { enhanceMenu, enhanceContextMenu } from './utils/menu.js';
+export type { AparteMenuOptions, AparteContextMenuOptions, AparteMenuSelectDetail } from './utils/menu.js';
+export { enhanceTabs } from './utils/tabs.js';
+export type { AparteTabsOptions, AparteTabChangeDetail } from './utils/tabs.js';
 export { uuid } from './utils/uuid.js';
 export { copyText } from './utils/copy-text.js';
 // Pure and DOM-free, so the SSR barrel carries it too — and that is the point: a

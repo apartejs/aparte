@@ -143,7 +143,7 @@ const config = defineConfig({
         // (pause, Stop in the wait, the cap, the resume history) measured 96.93%.
         // Lines and statements 93 -> 95 with #100 (2026-10-11): the page-without-provider suites
         // measured 96.93%.
-        'packages/core/src/client/**': { lines: 95, statements: 95, functions: 97, branches: 97 },
+        'packages/core/src/client/**': { lines: 97, statements: 97, functions: 97, branches: 97 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -224,6 +224,8 @@ const config = defineConfig({
         // plugin-chartjs (2026-10-31): measured 100 / 94.92 / 97.40 on a stand-in Chart.js (jsdom draws nothing).
         'packages/plugins/chartjs/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 93 },
+        // plugin-diff (2026-11-14): measured 98.97 / 91.62 / 97.84 when the package landed.
+        'packages/plugins/diff/src/**': { lines: 98, statements: 98, functions: 96, branches: 90 },
         // plugin-echarts (2026-10-31): measured 99.74 / 95.27 / 97.37 on a stand-in ECharts.
         'packages/plugins/echarts/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.

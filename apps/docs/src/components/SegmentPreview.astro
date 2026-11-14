@@ -30,7 +30,9 @@ const preview = SEGMENT_PREVIEWS.find((entry) => entry.kind === kind);
         <PreviewFrame
             src={`/preview/segment/${kind.replace(/_/g, '-')}/`}
             label={`Live preview of a ${kind} segment`}
-            caption="Core's own renderer, drawing the example printed below inside a real viewport. A segment is data — this is what the library makes of it, and it looks the same in every framework."
+            caption={kind === 'activity'
+                ? "Core places the activity in the reply; the drawing is a renderer the page registered for its type, as an app does. Without one, nothing is drawn."
+                : "Core's own renderer, drawing the example printed below inside a real viewport. A segment is data — this is what the library makes of it, and it looks the same in every framework."}
         />
     )
 }

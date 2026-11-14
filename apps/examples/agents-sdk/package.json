@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-agents-sdk",
-    "version": "0.0.30",
+    "version": "0.0.31",
     "private": true,
     "type": "module",
     "engines": {
@@ -14,9 +14,11 @@
     "dependencies": {
         "@ag-ui/core": "^1.0.3",
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-cards": "workspace:*",
         "@aparte/plugin-subagents": "workspace:*",
         "@aparte/runner-ag-ui": "workspace:*",
-        "@openai/agents": "^0.21.0"
+        "@openai/agents": "^0.21.0",
+        "@tanstack/ai": "^1.0.0"
     },
     "devDependencies": {
         "typescript": "^5.4.0",

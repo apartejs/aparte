@@ -38,3 +38,23 @@ which *Load Previous Session: From Memory* needs.
 | `v2.44-history-memory-not-on-trigger.json` | `loadPreviousSession` with the memory connected to the agent only: a 500 (its `stacktrace`, local paths, trimmed) |
 
 n8n labels every one of them `application/json; charset=utf-8`, the streamed ones included.
+
+## n8n 2.47.7, sub-agents
+
+The `v2.47-*` files were recorded on 2026-11-13 from n8n 2.47.7 (Docker `n8nio/n8n`), on a scripted
+OpenAI-compatible model that calls the first tool it is offered, then streams `<ROLE>-CHUNK-1..3`
+(the role is read off each agent's system message). The workflow: a public Chat Trigger, Response
+Mode *Streaming* → an AI Agent (`Root Agent`, streaming on) with an **AI Agent Tool** (`Research
+Agent`) as its tool, each on its own OpenAI Chat Model node. The message was sent as the runner sends
+it.
+
+| File | The workflow, and the message |
+| --- | --- |
+| `v2.47-stream-sub-agent.json` | the root calls `Research Agent`, which streams: its frames come under its own node, between the root's empty block and the root's answer |
+| `v2.47-stream-sub-agent-nested.json` | `Research Agent` has its own AI Agent Tool, `Fact Checker`: three levels, each caller's empty block before its callee |
+| `v2.47-stream-sub-agent-twice.json` | the root calls `Research Agent` twice in one reply: runs 0 and 1 of the same node, one after the other |
+| `v2.47-stream-sub-agent-not-streaming.json` | *Enable Streaming* off on the AI Agent Tool: no frame of it at all |
+| `v2.47-stream-sub-agent-after-preamble.json` | the root writes a sentence before its call: its block before the sub-agent is not empty |
+
+No frame names the tool call, its input, its result or the caller: a sub-agent is known only by its
+node's frames coming between its caller's blocks.

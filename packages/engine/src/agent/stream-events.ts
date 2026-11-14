@@ -103,7 +103,20 @@ export type StreamChatEvent =
     | ({ type: 'tool_use' } & StreamToolCall)
     | { type: 'error'; message: string; code?: string }
     | { type: 'done'; usage?: StreamUsage; finishReason?: StreamFinishReason }
-    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[] };
+    | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[] }
+    /**
+     * A named step of the agent's work begins or ends ("Reading the parser"): the loop
+     * forwards it as the run event of the same name. Steps may nest and overlap; one is
+     * identified by its name.
+     */
+    | { type: 'step-start'; name: string }
+    | { type: 'step-end'; name: string }
+    /**
+     * Structured progress the agent reports ("3 of 5 sources read"): `id` names the activity,
+     * `activityType` what kind it is, `content` its WHOLE current value — sent again, whole,
+     * each time it changes. The loop forwards it as the run event of the same name.
+     */
+    | { type: 'activity'; id: string; activityType: string; content: unknown };
 
 /**
  * A tool declaration, structurally mirroring core's `AparteTool`.
@@ -376,6 +389,11 @@ export type StreamApprovalResolver = (
  *                        adapter marks them and completes the message — the TURN goes on
  *                        through the run that resumes them
  * - `agent-start` / `agent-end` → a sub-agent begins and ends; never part of the reply
+ * - `step-start` / `step-end` → a named step of the work begins and ends; shown while it
+ *                        lasts (the waiting indicator, a sub-agent's line), never stored
+ * - `activity`        → structured progress, whole each time: one segment per `id` in the reply,
+ *                        drawn by the renderer the app registered for its `activityType`, never
+ *                        sent to the model
  *
  * `agentId`, on every event that is not run-level, names the sub-agent the event belongs
  * to: absent, it is the run's own. The four run-level events (`run-start`, `run-done`,
@@ -414,6 +432,23 @@ export type StreamRunEvent =
     | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string }
     /** A sub-agent ends, once: `result` is what it answered, `error` why it failed. */
     | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; parentAgentId?: string }
+    /**
+     * A named step of the work begins ("Searching the repository"), announced by the model's
+     * stream, a runner or a sub-agent; the loop only forwards it. Steps may nest and overlap
+     * (AG-UI allows both): one is identified by its `name` within its owner, the run or the
+     * sub-agent `agentId` names. Live only — nothing of it is stored or sent to the model.
+     */
+    | { type: 'step-start'; name: string; agentId?: string }
+    /** The step of that name ends: the latest one open under that name, for that owner. */
+    | { type: 'step-end'; name: string; agentId?: string }
+    /**
+     * Structured progress the agent reports, announced by the model's stream, a runner or a
+     * sub-agent; the loop only forwards it. `id` names the activity within its owner,
+     * `activityType` says what kind it is (the app's or the agent's vocabulary, never core's),
+     * and `content` is its WHOLE current value: a later event with the same `id` replaces it,
+     * so a consumer never applies a patch. Kept with the reply, never sent to the model.
+     */
+    | { type: 'activity'; id: string; activityType: string; content: unknown; agentId?: string }
     | { type: 'run-aborted' }
     /** `finishReason` is the last model call's: in a tool turn, the step that wrote the reply. */
     | { type: 'run-done'; usage?: StreamUsage; finishReason?: StreamFinishReason }
@@ -469,6 +504,11 @@ export interface StreamToolRun {
     readonly approvalResolver?: StreamApprovalResolver;
     readonly maxTurns: number;
     readonly toolTimeoutMs: number;
+    /**
+     * Whether the run's tool calls of one step run at the same time (its `parallelTools`). A
+     * sub-agent's loop does as its run does. Absent means the default, `true`.
+     */
+    readonly parallelTools?: boolean;
     /** The run's own id generator, so the ids a nested loop mints never collide with it. */
     readonly idGen: (prefix: string) => string;
 }

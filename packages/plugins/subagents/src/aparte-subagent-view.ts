@@ -17,6 +17,7 @@
 import {
     createSegmentList,
     deferHydrationOf,
+    onRenderersChange,
     resolveConfig,
     runWithConfig,
     subscribeConfigChange,
@@ -25,9 +26,10 @@ import {
     type AparteSegment,
 } from '@aparte/core';
 import { LaneDrawing } from './drawing.js';
-import { watchLaneWrites, type LaneWrite } from './lanes.js';
+import { lastLaneWrite, watchLaneWrites, type LaneWrite } from './lanes.js';
 import { subagentOf, subagentStatus } from './status.js';
 import { ensureStyles } from './styles.js';
+import { word } from './words.js';
 
 /** Where the view reads the conversation: a chat element, its viewport, or anything with `getMessages()`. */
 export type SubagentViewSource = (Element | object) & {
@@ -106,6 +108,9 @@ const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement
  * @attr {string} agent-id - Which sub-agent (`aparte-subagent-start`'s `agentId`).
  * @attr {boolean} data-empty - Written BY the element while there is nothing to show (an unknown sub-agent, or one not started yet): it then draws nothing. Read-only; style or fold your layout against it.
  * @attr {boolean} data-inline - Written BY the element when it is a line's detail rather than a view of its own. Read-only.
+ * @attr {boolean} closable - A pane of its own: the sub-agent's name and a Close button above its conversation, and Escape inside it closes too. Both only say so (`aparte-subagent-view-close`): the app, or `connectSubagentView`, folds the pane.
+ *
+ * @fires {CustomEvent} aparte-subagent-view-close - The Close button, or Escape inside a `closable` view. The view does not hide itself: the app owns the layout. Bubbles.
  *
  * @cssprop [--aparte-subagent-indent=var(--aparte-space-6)] - The space between the rule down the leading edge and the conversation, in a standalone view.
  *
@@ -129,10 +134,14 @@ const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement
  * ```
  */
 export class AparteSubagentView extends ElementBase {
-    static get observedAttributes(): string[] { return ['for', 'message-id', 'agent-id']; }
+    static get observedAttributes(): string[] { return ['for', 'message-id', 'agent-id', 'closable']; }
 
     private _chat: SubagentViewSource | null = null;
     private _task: HTMLElement | null = null;
+    /** A closable view's head: the sub-agent's name and Close. */
+    private _head: HTMLElement | null = null;
+    private _name: HTMLElement | null = null;
+    private _close: HTMLButtonElement | null = null;
     private _drawing: LaneDrawing | null = null;
     /** The config the rows were drawn with, and the segment they were drawn from. */
     private _config: AparteConfig | null = null;
@@ -140,11 +149,21 @@ export class AparteSubagentView extends ElementBase {
     private _listening: EventTarget | null = null;
     private _stopConfig: (() => void) | null = null;
     private _stopWatching: (() => void) | null = null;
+    private _stopRenderers: (() => void) | null = null;
     private _queued = false;
     private _releaseQueued = false;
     private _warned = '';
 
     private readonly _onConversation = (): void => this._schedule();
+    private readonly _onKeydown = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape' || event.defaultPrevented || !this._closable()) return;
+        event.preventDefault();
+        this._emitClose();
+    };
+    /** A renderer registered or taken off on the config the rows were drawn with: the rows it changes are drawn again. */
+    private readonly _onRenderers = (config: AparteConfig): void => {
+        if (config === this._config) this.refresh();
+    };
     private readonly _onWrite = (write: LaneWrite): void => {
         if (fed.has(this) || !this.isConnected) return;
         if (write.messageId !== this.getAttribute('message-id') || write.agentId !== this.getAttribute('agent-id')) return;
@@ -163,6 +182,11 @@ export class AparteSubagentView extends ElementBase {
         this.refresh();
     }
 
+    /** Put the focus on the sub-agent's name, in a `closable` view: where a pane that just opened starts. */
+    focusTitle(): void {
+        if (this._name && !this._head?.hidden) this._name.focus();
+    }
+
     /** Read the sub-agent again and draw it: what the element does on every change it hears. */
     refresh(): void {
         const feed = fed.get(this);
@@ -177,6 +201,8 @@ export class AparteSubagentView extends ElementBase {
     connectedCallback(): void {
         ensureStyles();
         this._build();
+        this.addEventListener('keydown', this._onKeydown);
+        this._stopRenderers ??= onRenderersChange(this._onRenderers);
         if (!fed.has(this)) {
             this._listen();
             this._stopWatching ??= watchLaneWrites(this._onWrite);
@@ -188,11 +214,14 @@ export class AparteSubagentView extends ElementBase {
     }
 
     disconnectedCallback(): void {
+        this.removeEventListener('keydown', this._onKeydown);
         this._unlisten();
         this._stopWatching?.();
         this._stopWatching = null;
         this._stopConfig?.();
         this._stopConfig = null;
+        this._stopRenderers?.();
+        this._stopRenderers = null;
         // Gone for good, or only moved (a row rebuilt around it, a fold taking its row)?
         // Decided once the move is over.
         if (this._releaseQueued) return;
@@ -208,6 +237,8 @@ export class AparteSubagentView extends ElementBase {
         if (previous === value || !this.isConnected || fed.has(this)) return;
         if (_name === 'for') this._listen();
         this.refresh();
+        // Shown or taken away, its words in place: a closable view's head.
+        if (_name === 'closable' && this._config) this._relabelHead(this._config);
     }
 
     // ── Reading the conversation ───────────────────────────────────────────
@@ -254,7 +285,11 @@ export class AparteSubagentView extends ElementBase {
         } catch {
             return null;
         }
-        const anchor = message ? findSubagent(message.segments ?? [], agentId) : undefined;
+        // A run still going may have written the lane before the chat a framework mirrors
+        // holds it: the last write, then, as the next one would bring it.
+        const live = lastLaneWrite(messageId, agentId);
+        const anchor = (message ? findSubagent(message.segments ?? [], agentId) : undefined)
+            ?? (live && this._matches(live) ? live.anchor : undefined);
         // Said once, for the developer: a finished reply that holds no such sub-agent. A reply
         // still being written may hold it soon, and a missing reply may arrive.
         const key = `${messageId}\u0000${agentId}`;
@@ -297,24 +332,73 @@ export class AparteSubagentView extends ElementBase {
 
     private _onConfigChange(): void {
         this.refresh();
-        if (this._config) this._drawing?.relabel(this._config);
+        if (this._config) {
+            this._drawing?.relabel(this._config);
+            this._relabelHead(this._config);
+        }
+    }
+
+    /** A pane of its own, never a line's detail. */
+    private _closable(): boolean {
+        return this.hasAttribute('closable') && !fed.has(this);
+    }
+
+    private _emitClose(): void {
+        this.dispatchEvent(new CustomEvent('aparte-subagent-view-close', { bubbles: true, composed: true }));
+    }
+
+    /** The head's words, in the chat's language: the name, and Close. */
+    private _relabelHead(config: AparteConfig): void {
+        if (!this._head) return;
+        const closable = this._closable();
+        this._head.hidden = !closable;
+        // Nothing in a head that is not shown: the view's text is its conversation's.
+        if (!closable) {
+            this._name!.textContent = '';
+            return;
+        }
+        const name = (this._anchor ? subagentOf(this._anchor)?.name?.trim() : '') || word(config, 'subagentsUnnamed');
+        if (this._name!.textContent !== name) this._name!.textContent = name;
+        const close = word(config, 'subagentsClose');
+        if (this._close!.getAttribute('aria-label') !== close) {
+            this._close!.setAttribute('aria-label', close);
+            this._close!.title = close;
+            // The chat's icon provider: static SVG the app or core supplied.
+            this._close!.innerHTML = config.getIcon('close');
+        }
     }
 
     // ── Drawing ────────────────────────────────────────────────────────────
 
     private _build(): void {
         if (this._drawing) {
-            // Moved, or put back after a release: its two parts go back first.
+            // Moved, or put back after a release: its parts go back first.
             if (this._task!.parentNode !== this) this.prepend(this._task!);
+            if (this._head!.parentNode !== this) this.prepend(this._head!);
             if (this._drawing.container.parentNode !== this) this.append(this._drawing.container);
             return;
         }
+        // The head of a closable view: hidden until the attribute says so.
+        const head = this.ownerDocument.createElement('div');
+        head.className = 'aparte-subagent-head';
+        head.hidden = true;
+        const name = this.ownerDocument.createElement('h2');
+        name.className = 'aparte-subagent-name';
+        name.tabIndex = -1;
+        const close = this.ownerDocument.createElement('button');
+        close.type = 'button';
+        close.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-subagent-close';
+        close.addEventListener('click', () => this._emitClose());
+        head.append(name, close);
+        this._head = head;
+        this._name = name;
+        this._close = close;
         const task = this.ownerDocument.createElement('p');
         task.className = 'aparte-subagent-task';
         task.hidden = true;
         const list = this.ownerDocument.createElement('div');
         list.className = 'aparte-subagent-transcript';
-        this.append(task, list);
+        this.append(head, task, list);
         this._task = task;
         this._drawing = new LaneDrawing(list);
     }
@@ -332,6 +416,7 @@ export class AparteSubagentView extends ElementBase {
         const task = (anchor ? subagentOf(anchor)?.description?.trim() : '') ?? '';
         if (this._task!.textContent !== task) this._task!.textContent = task;
         this._task!.hidden = !task;
+        this._relabelHead(config);
         const lane = anchor ? laneOf(anchor) : { segments: [], live: false };
         runWithConfig(config, () => drawing.sync(lane.segments, config, lane.live));
     }
@@ -367,5 +452,8 @@ if (typeof customElements !== 'undefined' && !customElements.get('aparte-subagen
 declare global {
     interface HTMLElementTagNameMap {
         'aparte-subagent-view': AparteSubagentView;
+    }
+    interface HTMLElementEventMap {
+        'aparte-subagent-view-close': CustomEvent<void>;
     }
 }

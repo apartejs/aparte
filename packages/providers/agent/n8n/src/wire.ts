@@ -15,10 +15,10 @@
 
 /** One thing an answer carries, in order. */
 export type N8nReplyPart =
-    /** A node starts streaming. `stream` names it (node, run, item). */
-    | { kind: 'begin'; stream: string }
+    /** A node starts streaming. `stream` names it (node, run, item); `node` is its name in the workflow. */
+    | { kind: 'begin'; stream: string; node?: string }
     /** A piece of text. `stream` is absent for a line that was not a frame. */
-    | { kind: 'item'; stream?: string; text: string }
+    | { kind: 'item'; stream?: string; node?: string; text: string }
     | { kind: 'end'; stream: string }
     /** The workflow failed; its message. */
     | { kind: 'error'; message: string }
@@ -75,10 +75,16 @@ function streamOf(frame: { metadata?: Record<string, unknown> }): string {
     return `${String(m['nodeId'] ?? '')}:${String(m['runIndex'] ?? 0)}:${String(m['itemIndex'] ?? 0)}`;
 }
 
+/** The node's name, which n8n stamps on every frame as `metadata.nodeName`. */
+function nodeOf(frame: { metadata?: Record<string, unknown> }): { node?: string } {
+    const name = frame.metadata?.['nodeName'];
+    return typeof name === 'string' && name ? { node: name } : {};
+}
+
 function frameToPart(frame: { type: string; content?: unknown; metadata?: Record<string, unknown> }): N8nReplyPart | undefined {
     switch (frame.type) {
-        case 'begin': return { kind: 'begin', stream: streamOf(frame) };
-        case 'item': return { kind: 'item', stream: streamOf(frame), text: typeof frame.content === 'string' ? frame.content : '' };
+        case 'begin': return { kind: 'begin', stream: streamOf(frame), ...nodeOf(frame) };
+        case 'item': return { kind: 'item', stream: streamOf(frame), ...nodeOf(frame), text: typeof frame.content === 'string' ? frame.content : '' };
         case 'end': return { kind: 'end', stream: streamOf(frame) };
         case 'error': return { kind: 'error', message: typeof frame.content === 'string' ? frame.content : '' };
         // n8n's heartbeat: it says the workflow is still running, nothing to draw.

@@ -10,7 +10,7 @@ import { setupPlanCard } from '@aparte/plugin-cards/plan';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdown';
-import { setupSubagents } from '@aparte/plugin-subagents';
+import { connectSubagentView, setupSubagents } from '@aparte/plugin-subagents';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import diff from '@shikijs/langs/diff';
 import json from '@shikijs/langs/json';
@@ -26,7 +26,7 @@ import { createToolbox, PLAN_TOOL, planReceipt, statusOf, summaryOf, TOOLS, type
 import { createWorkspace } from './workspace';
 
 type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void };
-type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
+type Composer = HTMLElement & { value: string; streaming: boolean; panelActive: boolean; setValue(value: string): void; submit(): void };
 
 /** How long each tool takes, so the row and the status line are seen running. */
 const LATENCY: Record<ToolName, number> = { read_file: 350, search: 450, write_file: 400, run_command: 900 };
@@ -49,7 +49,22 @@ async function main(): Promise<void> {
     setupArtifacts();
 
     const root = document.querySelector<HTMLElement>('.agent-workshop')!;
-    const workspace = createWorkspace(root.querySelector('.agent-workshop__workspace')!, initialFiles());
+    // A review from Changes goes to the agent as the person's next message, through the composer;
+    // what the person was writing comes back after it. Not while a reply streams or a question
+    // holds the composer: there, a send would stop the reply or answer the question.
+    const workspace = createWorkspace(root.querySelector('.agent-workshop__workspace')!, initialFiles(), {
+        sendReview(text) {
+            const composer = root.querySelector<Composer>('aparte-composer')!;
+            if (composer.streaming || composer.panelActive) return false;
+            const draft = composer.value;
+            composer.setValue(text);
+            composer.submit();
+            if (draft.trim()) composer.setValue(draft);
+            // On a phone, where one pane shows at a time, the answer is in the chat.
+            root.querySelector<HTMLElement & { pane: 'start' | 'end' }>('aparte-split')!.pane = 'start';
+            return true;
+        },
+    });
     const toolbox = createToolbox(workspace);
     const status = root.querySelector('aparte-chat-status')!;
     // The status line under the reply speaks for the agent's own calls: a sub-agent's say what they
@@ -81,9 +96,10 @@ async function main(): Promise<void> {
     }
 
     // The agent's task list: update_plan returns where the plan stands, and the plan card draws
-    // the list from the call's input, a new card at each update.
+    // the list from the call's input, a new card at each update. A sub-agent reports its plan as
+    // an activity instead (scenario.ts, the Parser reader): the same card, ticked in place.
     aparteGlobalConfig.registerTool(PLAN_TOOL, async (call) => ({ toolCallId: call.id, content: planReceipt(call.input) }));
-    setupPlanCard({ tool: PLAN_TOOL.name, map: (_result, input) => input });
+    setupPlanCard({ tool: PLAN_TOOL.name, map: (_result, input) => input, activity: 'plan' });
 
     // Which of these tools read, write or execute: the mode decides which of them ask first,
     // and Plan refuses the last two with a reason the model reads. The plan changes no file, so
@@ -109,10 +125,11 @@ async function main(): Promise<void> {
 
     // Sub-agents: the model hands parts of a job to `delegate`, which runs each one as a loop of
     // its own on this page's tools. Each gets one line under the call (its name, its task, what it
-    // is running, "1 tool · 2 s"), and the line opens on its own rows and terminal output.
+    // is running, "1 tool · 2 s"), and the line opens on its own rows and terminal output. Its
+    // Open button shows the same conversation in the workspace, in a tab of its own, live.
     const delegate = scenarioSubagentTool(model);
     aparteGlobalConfig.registerTool(delegate.tool, delegate.handler);
-    setupSubagents({ details: 'transcript' });
+    setupSubagents({ details: 'transcript', open: 'event' });
     // Read like the other rows: `delegate to 3 sub-agents`, saying Running and Done, and each
     // sub-agent's line (named by the agent) too.
     aparteGlobalConfig.registerToolDisplay(delegate.tool.name, {
@@ -135,6 +152,22 @@ async function main(): Promise<void> {
     suggestions.suggestions = SUGGESTIONS;
 
     workspace.open('src/parse.ts', 'opened');
+
+    // The sub-agent tab: no split to open here (the workspace is always beside the chat), so the
+    // wiring hands the layout to the workspace, and on a phone the split shows the workspace pane.
+    const split = root.querySelector<HTMLElement & { pane: 'start' | 'end' }>('aparte-split')!;
+    connectSubagentView({
+        chat: root.querySelector('aparte-chat')!,
+        view: root.querySelector('aparte-subagent-view')!,
+        onOpen: ({ name }) => {
+            workspace.showAgent(name ?? 'Sub-agent');
+            split.pane = 'end';
+        },
+        onClose: () => {
+            workspace.hideAgent();
+            split.pane = 'start';
+        },
+    });
 
     const viewport = root.querySelector<Viewport>('aparte-chat-viewport')!;
     const composer = root.querySelector<Composer>('aparte-composer')!;

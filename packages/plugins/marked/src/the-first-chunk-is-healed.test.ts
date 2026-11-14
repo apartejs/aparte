@@ -11,12 +11,12 @@
  * source, through this package's test alias).
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { aparteGlobalConfig, populateBubbleFromMessage, type AparteMessage } from '@aparte/core';
+import { aparteGlobalConfig, populateBubbleFromMessage, type AparteMessage, type AparteSegment } from '@aparte/core';
 import { setupMarkedStreamingProvider } from './streaming.js';
 
 type Bubble = HTMLElement & {
     addSegment(segment: { id: string; type: 'text'; content: string }): void;
-    updateSegment(id: string, updates: { content?: string; isStreaming?: boolean }): void;
+    updateSegment(id: string, updates: Partial<AparteSegment>): void;
     updateMessage(updates: Record<string, unknown>): void;
 };
 

@@ -85,6 +85,44 @@ Compute the offsets from the strings (`text.indexOf(passage)`) rather than count
 an edit to a sentence cannot leave a chip on the wrong words. Ask the `showcase` for *"why is
 the sky blue?"* or *"with sources"* to see a three-source answer.
 
+## Steps
+
+A `step` opens a named stage of the work, as an agent announces one, and `endStep` with the
+same name ends it — in the same turn or a later one, so a step can last across a tool call. The
+reply's waiting indicator shows it while nothing else is shown, and in a sub-agent's `turns` it
+shows on that sub-agent's line. It is live only: nothing of it is kept in the reply or read by
+the model, and one left open goes with the reply.
+
+```ts
+createScenarioProvider({
+  turns: [
+    [{ step: 'Reading the parser' }, { wait: 800 }, { tool: 'read_file', input: { path: 'src/parser.ts' } }],
+    [{ endStep: 'Reading the parser' }, { text: 'It splits the input on commas.' }],
+  ],
+});
+```
+
+## Activities
+
+An `activity` reports the model's progress as an agent does: a `type`, the key the page's
+renderer is registered under (`config.registerActivityRenderer`), and the whole current
+`content`. A later step with the same `id` updates it in place, in the same turn or a later one;
+without an `id`, each step is an activity of its own. It is kept with the reply and never read by
+the model; in a sub-agent's `turns` it is that sub-agent's.
+
+```ts
+createScenarioProvider({
+  turns: [
+    [
+      { activity: { type: 'search-progress', content: { read: 0, of: 5 }, id: 'p1' } },
+      { wait: 600 },
+      { activity: { type: 'search-progress', content: { read: 5, of: 5 }, id: 'p1' } },
+      { text: 'All five sources agree.' },
+    ],
+  ],
+});
+```
+
 ## Sub-agents
 
 A `subagents` step makes the model delegate: it calls one ordinary tool, `delegate`, with

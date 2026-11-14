@@ -102,6 +102,7 @@ n8n keeps what the agent remembers.
 | --- | --- |
 | the streamed frames of a node (`begin`, `item`, `end`) | the reply's text, as it arrives |
 | the frames of a second node that streams | a block of its own, below the first — never interleaved |
+| the frames of an AI Agent Tool, after its caller's empty block | a sub-agent's line ([Sub-agents](#sub-agents)), not the reply |
 | a whole answer (`{ output }`, `text` or `message`) | the reply's text, at once |
 | a whole answer with none of those fields | the [error card's](/components/error/#what-the-card-says) sentence; the console names the fields it got and how to end the workflow — never the JSON |
 | an `error` frame | the error card's sentence, below what was drawn; the console has the workflow's message |
@@ -117,6 +118,39 @@ The runner's message stays on the error segment's `content`, and reaches
 The answer is read line by line as it streams, whatever pieces the network cuts it into. A frame
 type the runner does not know is skipped, and `onWarning` is told, `console.warn` by default; so
 is a stream cut in the middle of a frame, whose text before the cut is kept.
+
+## Sub-agents
+
+n8n's **AI Agent Tool** is an agent another AI Agent calls as a tool, and it can call one of its
+own. With [`@aparte/plugin-subagents`](/guides/sub-agents/#an-n8n-workflow) on the page, each one
+the agent calls gets a line named after its node, its text in that line and kept out of the reply;
+one called by a sub-agent is a line inside its caller's conversation.
+
+```ts
+import { AparteClient } from '@aparte/core';
+import { createN8nRunner } from '@aparte/runner-n8n';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+new AparteClient({
+  streamRunner: createN8nRunner({ webhookUrl: 'https://your-n8n.example.com/webhook/<id>/chat' }),
+}).start();
+```
+
+What n8n sends, recorded on n8n 2.47.7: a sub-agent streams as frames of its own node, between the
+calling agent's blocks — the caller's block ends empty when its model asks for the tool, the
+sub-agent's frames follow under its own node name, then the caller streams its answer under its
+first node, run and item again. That is all the runner has to go on; there is no frame for the
+call, its input or its result. So:
+
+- A sub-agent shows only if it streams: leave **Enable Streaming** on in the AI Agent Tool's options.
+  n8n sends nothing of one that does not, and the reply is drawn as usual.
+- The line appears once the calling agent streams again, the sub-agent's answer whole in it: only
+  that proves the frames before were a sub-agent's. If it never does (two agents in a row, the first
+  answering nothing), there was no sub-agent: that text is the reply, drawn once, with no line.
+- If the calling agent writes text before its call ("Let me ask the researcher"), the stream looks
+  like two agents in a row, and the sub-agent's text is drawn in the reply, a block of its own.
+- Without the plugin, a sub-agent's text is kept out of the reply and not shown; the console says so.
 
 ## Files
 

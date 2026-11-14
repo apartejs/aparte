@@ -168,6 +168,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
 | `@aparte/plugin-artifacts` | A `create_artifact` tool the model calls, and the card that shows its result: the code, and a live preview |
 | `@aparte/plugin-subagents` | An agent's sub-agents, one line each — name, task, what it is doing now — with its conversation under the line or in a pane |
+| `@aparte/plugin-diff` | A file change as hunks with line numbers, in the reply or beside it, with comments on a line for a review |
 | `@aparte/plugin-storage-idb` | Keep conversations in the browser: an IndexedDB storage adapter, attachments kept as files, no server |
 | `@aparte/plugin-titler` | A title for every conversation, from a small model that runs in the browser |
 | `@aparte/locales` | The UI strings in nine languages — French, Spanish, Portuguese (Brazil), German, Italian, Russian, Japanese, Korean, Chinese (Simplified); English is core's built-in default |

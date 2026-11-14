@@ -37,14 +37,16 @@
    row shows two. A two-line item wraps its name and its `__description` in a `__body`;
    the gutter then spans both lines.
 
-   WHERE it sits is yours. There is no positioning here and no anchoring logic —
-   floating a box next to a trigger needs collision detection and a scroll listener,
-   which is an interaction library's job, not a stylesheet's. Same split as the popover
-   and the tooltip below it.
+   WHERE it sits is not this sheet's: there is no positioning here — floating a box
+   next to a trigger needs collision detection and a scroll listener, which is script,
+   not a stylesheet. Same split as the popover and the tooltip below it.
 
-   The roles above are not decoration either: this draws a menu, it does not announce
-   one. `role="menu"` / `role="menuitem"` and the arrow-key handling that pattern
-   requires are yours to add. */
+   `enhanceMenu(trigger, menu)` from `@aparte/core` is that script: it opens the menu
+   from its button, places it, and gives it the keyboard of the menu button pattern —
+   the arrows, Home and End, a letter to jump, Escape and the focus back on the button.
+   `enhanceContextMenu(region, menu)` opens the same menu on a right click, Shift+F10 or
+   the Menu key. Without them the roles above are only a look: they promise a keyboard
+   that is then yours to write. */
 .aparte-menu {
   /* Component-local tokens: no shared knob in the token set covers a dropdown's
      own width and elevation, so they live here — same width as the select's

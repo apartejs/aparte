@@ -9,8 +9,9 @@
  * brings the top layer, the focus trap and Escape with it.
  *
  * Everything below is the LOOK only. Where and when a surface opens is markup and
- * script the caller owns: a <details open> toggling itself, a positioning library placing
- * a menu next to its trigger. Nothing here reaches for position:fixed on your behalf.
+ * script: a <details open> toggling itself, `enhanceMenu()` / `enhanceTabs()` from
+ * `@aparte/core` driving a menu or a row of tabs. Nothing here reaches for
+ * position:fixed on your behalf.
  *
  *     <div class="aparte-tabs" role="tablist" aria-label="Result view">
  *       <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-a-preview" aria-controls="tabs-a-preview-panel" aria-selected="true" tabindex="0">Preview</button>
@@ -62,15 +63,15 @@
    Two looks, one behaviour. `--underline` marks the current tab with a rule beneath it
    and is the quieter of the two; `--segmented` puts the whole row in a track and fills
    the current tab, which reads as a control rather than as navigation. Neither moves
-   anything: `aria-selected` is what says which tab is current, and the app owns it.
+   anything: `aria-selected` is what says which tab is current.
 
-   The markup below is the whole contract of the role, and all of it is yours to write:
-   ONE tab stop for the list (`tabindex="0"` on the selected tab, `-1` on the rest),
-   `aria-controls` from each tab to its `role="tabpanel"`, and `aria-labelledby` back.
-   The app also owns the ArrowLeft/ArrowRight/Home/End handler that moves the selection
-   and the stop together — `@aparte/plugin-artifacts`' card has a working one to copy.
-   A tablist without those is louder than plain buttons and says less: every tab a tab
-   stop, and none of them naming what it opens.
+   The markup below is the contract of the role: `aria-controls` from each tab to its
+   `role="tabpanel"`, and `aria-labelledby` back. `enhanceTabs(tablist)` from
+   `@aparte/core` does the rest: ONE tab stop for the list (`tabindex="0"` on the
+   selected tab, `-1` on the rest), the arrows, Home and End moving the selection and the
+   stop together, and `hidden` on the panels not shown. A tablist without it is louder
+   than plain buttons and says less: every tab a tab stop, and none of them naming what
+   it opens.
 
        <div class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
          <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-u-preview" aria-controls="tabs-u-preview-panel" aria-selected="true" tabindex="0">Preview</button>

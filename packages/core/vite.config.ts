@@ -51,6 +51,13 @@ export default defineConfig({
             // built bytes for.
             external: ['@aparte/engine'],
             output: {
+                // The kit's keyboard (`enhanceMenu`, `enhanceTabs`) and the three small
+                // utilities it uses, in a file of their own. A consumer's bundler takes a
+                // file as one module, so a page that imports only these from the headless
+                // entry — a site header — would otherwise load the whole chunk both entries
+                // share, the client and the config with it (76 kB gzip), to open a menu.
+                manualChunks: (id) =>
+                    /[\\/]src[\\/]utils[\\/](menu|tabs|place-floating|event-target|css-escape)\.ts$/.test(id) ? 'kit-keyboard' : undefined,
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name && assetInfo.name.endsWith('.css')) return 'index.css';
                     return assetInfo.name || '[name][extname]';

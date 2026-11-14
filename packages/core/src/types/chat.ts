@@ -223,6 +223,20 @@ export interface AparteStreamEventMap {
      * arrive; a later event adds to the earlier ones.
      */
     sources:  { sources: AparteSource[]; citations?: AparteCitation[] }
+    /**
+     * A named step of the agent's work begins ("Reading the parser"); `step-end` with the same
+     * name ends it. Shown while it lasts — the reply's waiting indicator, a sub-agent's line —
+     * and never stored. Steps may nest and overlap.
+     */
+    'step-start': { name: string }
+    'step-end':   { name: string }
+    /**
+     * Structured progress the agent reports ("3 of 5 sources read"): `id` names it,
+     * `activityType` says what kind it is, and `content` is its WHOLE current value — send it
+     * again, whole, with the same `id` to update it. Drawn by the renderer registered for its
+     * type (`config.registerActivityRenderer`), kept with the reply, never sent to the model.
+     */
+    activity: { id: string; activityType: string; content: unknown }
 }
 
 /** Discriminated union derived from AparteStreamEventMap — stays in sync automatically. */
