@@ -26,7 +26,10 @@ export type * from '../generated/element-attributes.js';
  * `''` as ON (`presenceOn` in utils/presence.ts) — one spelling, both paths.
  *
  * `null` is in the union alongside `undefined` because all three treat it as REMOVE,
- * and Vue templates write exactly that (`:streaming="… ? '' : null"`).
+ * and Vue templates write exactly that (`:streaming="… ? '' : null"`). It is on every
+ * attribute, not only a presence one: `useConversationManager().activeId` is a
+ * `string | null`, and `active-id={manager.activeId}` has to compile as it is written —
+ * React and Svelte write no attribute for it, Vue removes it.
  *
  * A numeric attribute takes a number or the string it becomes, because both read
  * naturally in a template.
@@ -36,8 +39,8 @@ export type * from '../generated/element-attributes.js';
  * That difference is the whole reason this is a mapping and not the declared type.
  */
 export type AparteAttrValue<T> = T extends boolean ? '' | null | undefined
-    : T extends number ? number | string
-    : T;
+    : T extends number ? number | string | null
+    : T | null;
 
 /** An element's attribute surface, in template spelling. Used by three of four wrappers. */
 export type AparteTemplateAttrs<T> = { [K in keyof T]?: AparteAttrValue<NonNullable<T[K]>> };
