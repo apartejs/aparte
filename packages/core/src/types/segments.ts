@@ -325,10 +325,12 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
      */
     abortCause?: import('@aparte/engine').StreamAbortCause | 'turn-limit';
     /**
-     * Set while a `pending` call waits its turn in its step: a call before it still runs and
-     * keeps its place, or waits for a decision (see `AparteTool.parallel`). The row is where
+     * Set while a `pending` call waits its turn in its step, until the calls before it let it
+     * start: a call before it that keeps its place, any call still running when this one keeps
+     * its place (see `AparteTool.parallel`), or a call waiting for a decision. The row is where
      * the model wrote the call, and says it waits rather than runs. Removed once the call goes
-     * on or ends. Live only: a restored conversation never carries it.
+     * on or ends. Live only: a restored conversation never carries it — a call a paused server
+     * run left waiting its turn says so with `deferred.reason: 'queued'`, which is saved.
      */
     queued?: true;
     /**

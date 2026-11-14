@@ -73,6 +73,21 @@ describe('a queued row', () => {
         expect(state(now).textContent).toBe('Running');
     });
 
+    it('reads Queued for a call a paused server run left waiting its turn, saved or live', () => {
+        aparteGlobalConfig.registerToolDisplay('run_command', { quiet: false });
+        const el = draw(call({ queued: undefined, deferred: { reason: 'queued', ticket: 'T' } }));
+        expect(el.hasAttribute('data-queued')).toBe(true);
+        expect(spinner(el).hidden).toBe(true);
+        expect(state(el).textContent).toBe('Queued');
+    });
+
+    it('reads Running again once the resume runs the call it left queued', () => {
+        const el = draw(call({ queued: undefined, deferred: { reason: 'queued', ticket: 'T' } }));
+        const now = updated(el, call({ queued: undefined, deferred: undefined }));
+        expect(now.hasAttribute('data-queued')).toBe(false);
+        expect(name(now).classList.contains('aparte-shimmer')).toBe(true);
+    });
+
     it('says it in the reader\'s language', () => {
         aparteGlobalConfig.extendLocale({ toolQueued: 'En attente' });
         expect(state(draw(call())).textContent).toBe('En attente');

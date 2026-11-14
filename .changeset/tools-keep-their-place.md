@@ -22,7 +22,13 @@ new AparteClient({ parallelTools: false });
 createAparteAgentHandler({ ...options, parallelTools: false });
 ```
 
-Do you have to touch your code? Only if you relied on 1.7.0 running the calls of one reply at the same time: give those tools `parallel: true` (on `AparteTool`, on a server tool's `tool`, or on `StreamToolConfig` for `runStreamAgent`). Fixes #202.
+Do you have to touch your code?
+
+- If you relied on 1.7.0 running the calls of one reply at the same time: give those tools `parallel: true` (on `AparteTool`, on a server tool's `tool`, or on `StreamToolConfig` for `runStreamAgent`).
+- If you time a call from its `tool-start`: `tool-start` now comes when the model writes the call, before it runs, so a call that waits its turn counts its time in the queue. A queued call (`queued: true`) runs from its `tool-running`.
+- If you `switch` exhaustively on `StreamRunEvent['type']` (or `AparteStreamRunEvent['type']`): the new `tool-running` event needs a case.
+
+Fixes #202.
 
 Since 1.7.0 every call of one model step ran at the same time. For a coding agent that broke what the model meant: `edit_file` then `run_command` raced, and with an approval policy the command (allowed) ran while the person was still being asked about the edit, on the file as it was. A server loop could not opt out at all.
 

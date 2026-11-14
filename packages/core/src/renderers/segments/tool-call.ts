@@ -48,8 +48,8 @@ function stateBadge(segment: AparteToolCallSegment): string {
     // Paused for a person: two bars, so the one state a reader must act on wears a glyph
     // like every other — it used to be the only bare word in the row.
     if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word(cfg.t('approvalWaiting'))}`;
-    // Waiting its turn in its step: on screen where the model wrote it, not running yet.
-    if (status === 'pending' && segment.queued) return word(cfg.t('toolQueued'));
+    // Waiting its turn: on screen where the model wrote it, not running yet.
+    if (isQueued(segment)) return word(cfg.t('toolQueued'));
     if (status === 'pending') return word(cfg.t('toolRunning'));
     if (status === 'resolved') return `${cfg.getIcon('check')}${word(cfg.t('toolCompleted'))}`;
     if (status === 'rejected') return `${cfg.getIcon('close')}${word(cfg.t('toolRejected'))}`;
@@ -458,9 +458,13 @@ function iconOf(segment: AparteToolCallSegment): string {
 const isQuiet = (segment: AparteToolCallSegment): boolean =>
     contextConfig().getToolDisplay(segment.toolCall?.name ?? '')?.quiet ?? true;
 
-/** Waiting its turn in its step (`segment.queued`), a mark for a stylesheet: only while it is pending. */
+/**
+ * Waiting its turn: in its step (`segment.queued`, live), or behind a paused server run's call
+ * (`deferred.reason === 'queued'`, saved with the conversation, so a reload reads it too). Only
+ * while it is pending.
+ */
 const isQueued = (segment: AparteToolCallSegment): boolean =>
-    (segment.status ?? 'pending') === 'pending' && segment.queued === true;
+    (segment.status ?? 'pending') === 'pending' && (segment.queued === true || segment.deferred?.reason === 'queued');
 
 /**
  * What the row shows of its state, quiet or not — one answer for `render`, `update` and
@@ -474,7 +478,7 @@ const isQueued = (segment: AparteToolCallSegment): boolean =>
 function quietOf(segment: AparteToolCallSegment): { shimmer: boolean; spinner: boolean; stateHidden: boolean } {
     const status = segment.status ?? 'pending';
     const quiet = isQuiet(segment);
-    const running = status === 'pending' && !segment.queued;
+    const running = status === 'pending' && !isQueued(segment);
     return {
         shimmer: quiet && running,
         spinner: !quiet && running,

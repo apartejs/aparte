@@ -337,8 +337,10 @@ export type AparteLocale = {
      */
     toolRunning?: string;
     /**
-     * The tool row's word for a call that waits its turn: the model made it after a call that
-     * still runs and keeps its place, or that waits for an answer (default: "Queued").
+     * The tool row's word for a call that waits its turn: it starts only once the calls the
+     * model made before it let it — one that keeps its place, any call still running when this
+     * one keeps its place, or one waiting for an answer — or once a paused run resumes. Not
+     * the word for a call waiting for a person, `approvalWaiting` (default: "Queued").
      */
     toolQueued?: string;
     toolCompleted?: string;

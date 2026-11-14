@@ -30,6 +30,13 @@ describe("a sub-agent's line", () => {
         stop();
     });
 
+    it('passes over a call left waiting its turn by a pause', () => {
+        const stop = setupSubagents();
+        const line = aparteGlobalConfig.getToolLineProvider()!(carrying([call('w1', 'edit_file'), call('w2', 'run_command', { deferred: { reason: 'queued' } })]));
+        expect(line?.activity).toBe('edit_file');
+        stop();
+    });
+
     it('names the queued call once it goes on', () => {
         const stop = setupSubagents();
         const line = aparteGlobalConfig.getToolLineProvider()!(carrying([call('w1', 'edit_file', { status: 'resolved' }), call('w2', 'run_command')]));

@@ -63,6 +63,13 @@ describe('the fold of a turn with a queued call', () => {
         expect(row().querySelector('.aparte-tool-state')!.textContent).toBe('Running');
     });
 
+    it('names the call that runs, not one a paused server run left waiting its turn', () => {
+        const el = bubble();
+        el.addSegment(call('a', 'read_file'));
+        el.addSegment({ ...call('b', 'run_command'), deferred: { reason: 'queued', ticket: 'T' } } as AparteSegment);
+        expect(line(el).current).toBe('read_file');
+    });
+
     it('names the queued call once it goes on', () => {
         const el = bubble();
         el.addSegment(call('a', 'edit_file'));

@@ -13,6 +13,8 @@ import { describe, it, expect } from 'vitest';
 import { createStreamAdapter } from '../stream-adapter.js';
 import { aparteGlobalConfig } from '../../config/index.js';
 import { adoptSegment } from '../../utils/segments.js';
+import { createSegmentList } from '../../utils/segment-list.js';
+import { getSegmentRenderer, registerDefaultRenderers } from '../../renderers/segment-renderers.js';
 import type { AparteMessage, AparteSegment, AparteToolCallSegment } from '../../types/index.js';
 
 function target() {
@@ -93,6 +95,34 @@ describe('the adapter', () => {
 
         for (const s of t.added) expect(s).not.toHaveProperty('queued');
         for (const [, u] of t.updates) expect(u).not.toHaveProperty('queued');
+    });
+});
+
+describe('a call a paused server run leaves waiting its turn', () => {
+    it('is drawn Queued through the suspension, and after a reload', () => {
+        registerDefaultRenderers();
+        const list = createSegmentList({ messageId: 'm1' });
+        const emit = createStreamAdapter({ target: list as never, config: aparteGlobalConfig, messageId: 'm1' });
+        emit({ type: 'run-start' });
+        emit({ type: 'turn-start' });
+        emit({ type: 'tool-start', toolCallId: 'e', name: 'edit_file', input: {} });
+        emit({ type: 'tool-awaiting-approval', toolCallId: 'e', name: 'edit_file', input: {} });
+        emit({ type: 'tool-start', toolCallId: 'c', name: 'run_command', input: {}, queued: true });
+        emit({ type: 'text-flush' });
+        emit({ type: 'run-suspended', pending: [
+            { toolCallId: 'e', name: 'edit_file', input: {}, reason: 'approval' },
+            { toolCallId: 'c', name: 'run_command', input: {}, reason: 'queued' },
+        ], ticket: 'T' } as never);
+
+        const live = list.segments.find((s) => s.id === 'tool-c') as AparteToolCallSegment;
+        const reloaded = adoptSegment([], JSON.parse(JSON.stringify(live)) as AparteSegment, 'm1') as AparteToolCallSegment;
+        for (const segment of [live, reloaded]) {
+            const out = getSegmentRenderer('tool_call')!.render(segment);
+            const tpl = document.createElement('template');
+            tpl.innerHTML = String(out).trim();
+            expect(tpl.content.querySelector('.aparte-tool-state')!.textContent).toBe('Queued');
+        }
+        expect(reloaded).toMatchObject({ status: 'pending', deferred: { reason: 'queued', ticket: 'T' } });
     });
 });
 
