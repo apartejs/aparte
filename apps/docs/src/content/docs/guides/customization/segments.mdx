@@ -8,6 +8,7 @@ sidebar:
 
 import Cards from '../../../../components/content/Cards.astro';
 import Variant from '../../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../../components/content/tabs';
 
 <Variant id="custom-view" caption="A segment of a type of its own, drawn by its renderer inside the reply." />
 
@@ -39,11 +40,83 @@ registerSegmentRenderer<ChartSegment>({
   },
   getStyles: () => '.my-chart { font-variant-numeric: tabular-nums; }',
 });
-
-// A chart in the reply a1, once it is on screen:
-const chart: ChartSegment = { id: 'c1', type: 'chart', values: [3, 5, 2] };
-document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart);
 ```
+
+A chart in a reply, once the reply is on screen:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+const chart: ChartSegment = { id: 'c1', type: 'chart', values: [3, 5, 2] };
+document.querySelector('aparte-chat-viewport')?.addSegment('a1', chart);   // the reply a1
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+const chat = useAparteChat();   // with ref={chat.ref} on <AparteChat>
+
+chat.ref.current?.addSegment({ id: 'c1', type: 'chart', values: [3, 5, 2] });   // the last reply
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+
+const chat = useAparteChat();
+
+const addChart = () => chat.addSegment({ id: 'c1', type: 'chart', values: [3, 5, 2] });   // the last reply
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" />
+  <button @click="addChart">Add the chart</button>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+
+  let chat = $state<AparteChatImperativeApi>();
+</script>
+
+<AparteChat bind:this={chat} />
+<button onclick={() => chat?.addSegment({ id: 'c1', type: 'chart', values: [3, 5, 2] })}>Add the chart</button>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat></aparte-chat><button (click)="addChart()">Add the chart</button>`,
+})
+export class ChatComponent {
+  private readonly chat = viewChild.required(AparteChatComponent);
+
+  addChart() {
+    this.chat().addSegment({ id: 'c1', type: 'chart', values: [3, 5, 2] });   // the last reply
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 A reply is a list of typed parts, segments, and a renderer draws every segment of its type. It
 returns an element, or a string of markup with a single root element that you escape yourself.

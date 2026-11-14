@@ -9,6 +9,7 @@ guide:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="cards-weather" caption="One tool, one card, three variants chosen from the data." />
 
@@ -510,6 +511,9 @@ A server, a runner or your own code can add a card as a segment. Each card build
 sentence a text-only reader gets — the history a model reads back, a build without the card.
 The page still sets the card up, with no `tool`: that is what draws its segments.
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
 
@@ -519,6 +523,85 @@ const viewport = document.querySelector('aparte-chat-viewport')!;
 viewport.addSegment('a1', weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
 // { type: 'card', card: 'weather', data: {…}, fallback: 'Lille: 11°C, Rain' }
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useAparteChat } from '@aparte/react';
+import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard();
+
+const chat = useAparteChat();   // in your component, with ref={chat.ref} on <AparteChat>
+
+// the card goes into the last reply, once it is on screen
+const showWeather = () =>
+  chat.ref.current?.addSegment(weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { useAparteChat } from '@aparte/vue';
+import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard();
+
+const chat = useAparteChat();   // with :ref="chat.chatRef" on <AparteChat>
+
+// the card goes into the last reply, once it is on screen
+const showWeather = () => chat.addSegment(weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
+</script>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
+
+  setupWeatherCard();
+
+  let chat = $state<AparteChatImperativeApi>();
+
+  // the card goes into the last reply, once it is on screen
+  const showWeather = () => chat?.addSegment(weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
+</script>
+
+<AparteChat bind:this={chat} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { setupWeatherCard, weatherCard } from '@aparte/plugin-cards/weather';
+
+setupWeatherCard();
+
+@Component({ selector: 'app-chat', standalone: true, imports: [AparteChatComponent], template: `<aparte-chat></aparte-chat>` })
+export class ChatComponent {
+  private readonly chat = viewChild.required(AparteChatComponent);
+
+  // the card goes into the last reply, once it is on screen
+  showWeather() {
+    this.chat().addSegment(weatherCard.segment({ location: 'Lille', temperature: 11, condition: 'rain' }));
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+On a framework chat, `addSegment` takes the segment alone and adds it to the last message, so start
+the reply first (`appendMessage`, as in [Your own loop](/guides/bring-your-own-loop/)).
 
 Every card's entry exports its definition the same way — `itemsCard`, `productCard`, `placeCard`,
 `statsCard`, `orderCard`, `stockCard`, `planCard`, `scoreCard`, `mediaCard`, `linkCard`.
