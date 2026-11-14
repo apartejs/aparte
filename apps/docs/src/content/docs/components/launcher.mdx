@@ -10,6 +10,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import Usage from '../../../generated/api/elements/aparte-launcher.usage.mdx';
 import LauncherApi from '../../../generated/api/elements/aparte-launcher.api.mdx';
 
@@ -104,6 +105,9 @@ The state is `maximized`: an attribute the element reflects, and a property. Fro
 `maximized` starts it maximized. `aparte-launcher-toggle` reports it with the rest of the state,
 so a page can save the two together:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 const launcher = document.querySelector('aparte-launcher');
 
@@ -114,6 +118,131 @@ const saved = JSON.parse(sessionStorage.getItem('help') ?? '{}');
 if (launcher && saved.maximized) launcher.maximized = true;
 if (launcher && saved.open) launcher.show();
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { AparteChat, useAparteEvent } from '@aparte/react';
+import type { AparteLauncher } from '@aparte/core';
+
+export function Help() {
+  const launcher = useRef<AparteLauncher>(null);
+
+  useAparteEvent(launcher, 'aparte-launcher-toggle', (event) => {
+    sessionStorage.setItem('help', JSON.stringify({ open: event.detail.open, maximized: event.detail.maximized }));
+  });
+
+  useEffect(() => {
+    const saved = JSON.parse(sessionStorage.getItem('help') ?? '{}');
+    if (saved.maximized) launcher.current!.maximized = true;
+    if (saved.open) launcher.current!.show();
+  }, []);
+
+  return (
+    <aparte-launcher ref={launcher} label="Help" maximizable="">
+      <AparteChat />
+    </aparte-launcher>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { AparteChat } from '@aparte/vue';
+import type { AparteLauncher, AparteLauncherToggleDetail } from '@aparte/core';
+
+const launcher = ref<AparteLauncher>();
+
+const remember = ({ open, maximized }: AparteLauncherToggleDetail) =>
+  sessionStorage.setItem('help', JSON.stringify({ open, maximized }));
+
+onMounted(() => {
+  const saved = JSON.parse(sessionStorage.getItem('help') ?? '{}');
+  if (saved.maximized) launcher.value!.maximized = true;
+  if (saved.open) launcher.value!.show();
+});
+</script>
+
+<template>
+  <aparte-launcher ref="launcher" label="Help" maximizable @aparte-launcher-toggle="(event) => remember(event.detail)">
+    <AparteChat />
+  </aparte-launcher>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { AparteChat } from '@aparte/svelte/runes';
+  import type { AparteLauncher } from '@aparte/core';
+
+  let launcher: AparteLauncher;
+
+  onMount(() => {
+    const saved = JSON.parse(sessionStorage.getItem('help') ?? '{}');
+    if (saved.maximized) launcher.maximized = true;
+    if (saved.open) launcher.show();
+  });
+</script>
+
+<aparte-launcher
+  bind:this={launcher}
+  label="Help"
+  maximizable
+  onaparte-launcher-toggle={({ detail }) =>
+    sessionStorage.setItem('help', JSON.stringify({ open: detail.open, maximized: detail.maximized }))}
+>
+  <AparteChat />
+</aparte-launcher>
+```
+
+On Svelte 4, write the event as `on:aparte-launcher-toggle={(e) => …e.detail…}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { AfterViewInit, Component, ElementRef, viewChild } from '@angular/core';
+import { AparteChatComponent, AparteLauncherDirective } from '@aparte/angular';
+import type { AparteLauncher, AparteLauncherToggleDetail } from '@aparte/core';
+
+@Component({
+  selector: 'app-help',
+  standalone: true,
+  imports: [AparteChatComponent, AparteLauncherDirective],
+  template: `
+    <aparte-launcher #launcher label="Help" maximizable (launcherToggle)="remember($event)">
+      <aparte-chat></aparte-chat>
+    </aparte-launcher>
+  `,
+})
+export class HelpComponent implements AfterViewInit {
+  private readonly launcher = viewChild.required<ElementRef<AparteLauncher>>('launcher');
+
+  remember({ open, maximized }: AparteLauncherToggleDetail) {
+    sessionStorage.setItem('help', JSON.stringify({ open, maximized }));
+  }
+
+  ngAfterViewInit() {
+    const saved = JSON.parse(sessionStorage.getItem('help') ?? '{}');
+    const launcher = this.launcher().nativeElement;
+    if (saved.maximized) launcher.maximized = true;
+    if (saved.open) launcher.show();
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 On a phone the open chat already fills the window, so there is nothing to enlarge: the sheet hides
 every maximize control, the header's and yours.
@@ -324,14 +453,105 @@ aparteGlobalConfig.registerIcons({
   says when — the event fires again when the window crosses the breakpoint with the chat open, or
   when it is maximized, so no media query of yours has to match `breakpoint`:
 
-  ```ts
-  const launcher = document.querySelector('aparte-launcher');
-  const page = document.querySelector('main'); // your page, never an ancestor of the launcher
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
-  launcher?.addEventListener('aparte-launcher-toggle', (event) => {
-    if (page) page.inert = event.detail.covers;
+```ts
+const launcher = document.querySelector('aparte-launcher');
+const page = document.querySelector('main'); // your page, never an ancestor of the launcher
+
+launcher?.addEventListener('aparte-launcher-toggle', (event) => {
+  if (page) page.inert = event.detail.covers;
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { AparteChat, useAparteEvent } from '@aparte/react';
+import type { AparteLauncher } from '@aparte/core';
+
+export function App() {
+  const page = useRef<HTMLElement>(null);
+  const launcher = useRef<AparteLauncher>(null);
+
+  useAparteEvent(launcher, 'aparte-launcher-toggle', (event) => {
+    if (page.current) page.current.inert = event.detail.covers;
   });
-  ```
+
+  return (
+    <>
+      <main ref={page}>your page</main>   {/* never an ancestor of the launcher */}
+      <aparte-launcher ref={launcher} label="Help">
+        <AparteChat />
+      </aparte-launcher>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat } from '@aparte/vue';
+
+const page = ref<HTMLElement>();   // your page, never an ancestor of the launcher
+</script>
+
+<template>
+  <main ref="page">your page</main>
+  <aparte-launcher label="Help" @aparte-launcher-toggle="(event) => page && (page.inert = event.detail.covers)">
+    <AparteChat />
+  </aparte-launcher>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+
+  let page: HTMLElement;   // your page, never an ancestor of the launcher
+</script>
+
+<main bind:this={page}>your page</main>
+<aparte-launcher label="Help" onaparte-launcher-toggle={({ detail }) => (page.inert = detail.covers)}>
+  <AparteChat />
+</aparte-launcher>
+```
+
+On Svelte 4, write the event as `on:aparte-launcher-toggle={(e) => (page.inert = e.detail.covers)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent, AparteLauncherDirective } from '@aparte/angular';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [AparteChatComponent, AparteLauncherDirective],
+  template: `
+    <main #page>your page</main>   <!-- never an ancestor of the launcher -->
+    <aparte-launcher label="Help" (launcherToggle)="page.inert = $event.covers">
+      <aparte-chat></aparte-chat>
+    </aparte-launcher>
+  `,
+})
+export class AppComponent {}
+```
+
+</TabItem>
+</Tabs>
 
 ## Related
 

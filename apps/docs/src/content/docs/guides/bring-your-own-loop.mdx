@@ -219,6 +219,7 @@ or the framework component's root, given an `id`), bubbling: `aparte-message-sta
 [conversation manager](/guides/conversation-persistence/) saves a reply when it ends. The
 [events reference](/reference/events/) types each detail.
 
+{/* doc-check: vanilla-only the plain-HTML loop, which streams with appendToken on the message list; a framework chat streams with injectTokenStream, which sends these events itself */}
 {/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which ends when its signal fires */}
 ```ts
 import { uuid } from '@aparte/core';

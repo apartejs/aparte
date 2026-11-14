@@ -8,6 +8,7 @@ guide:
 ---
 
 import Cards from '../../../components/content/Cards.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 ## `Failed to resolve module specifier "@aparte/core"`
 
@@ -123,12 +124,63 @@ stylesheet did not load: import `@aparte/core/styles.css`
 
 ## What an error tells you
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', (event) => {
   const { error } = event.detail;   // an AparteError
   console.error(error.code, error.message, error.httpStatus);
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+<AparteChat onMessageError={({ error }) => console.error(error.code, error.message, error.httpStatus)} />
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat @message-error="({ error }) => console.error(error.code, error.message, error.httpStatus)" />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat onmessageError={({ error }) => console.error(error.code, error.message, error.httpStatus)} />
+```
+
+From `@aparte/svelte/runes`. The Svelte 4 component sends it as an event, with the payload under
+`detail`: `on:messageError={(e) => console.error(e.detail.error.code)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type { AparteError } from '@aparte/core';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (messageError)="report($event.error)"></aparte-chat>`,
+})
+export class ChatComponent {
+  report(error: AparteError) {
+    console.error(error.code, error.message, error.httpStatus);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 A failure that reaches the chat — a refused key, a rate limit, a dropped connection — is an
 `AparteError`: its `message`, a `code`, the `httpStatus` when there was one, its

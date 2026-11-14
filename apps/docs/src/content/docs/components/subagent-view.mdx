@@ -11,6 +11,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import ViewApi from '../../../generated/api/elements/aparte-subagent-view.api.mdx';
 
 <Variant id="subagent-view" play="Why do quoted fields break?" />
@@ -37,6 +38,9 @@ npm install @aparte/plugin-subagents @aparte/core
 </aparte-split>
 ```
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import { setupSubagents } from '@aparte/plugin-subagents';
 
@@ -50,6 +54,111 @@ document.getElementById('chat')!.addEventListener('aparte-subagent-start', (even
   split.removeAttribute('single');
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useState } from 'react';
+import { AparteChat, useAparteChat, useAparteEvent } from '@aparte/react';
+import { setupSubagents } from '@aparte/plugin-subagents';   // its events join HTMLElementEventMap
+
+setupSubagents();
+
+export function Workspace() {
+  const chat = useAparteChat();
+  const [shown, setShown] = useState<{ messageId: string; agentId: string }>();
+
+  useAparteEvent(chat.ref, 'aparte-subagent-start', (event) =>
+    setShown({ messageId: event.detail.messageId, agentId: event.detail.agentId }));
+
+  return (
+    <aparte-split position="50" single={shown ? undefined : ''}>
+      <AparteChat id="chat" ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />
+      {shown && <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId} />}
+    </aparte-split>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat } from '@aparte/vue';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+const shown = ref<{ messageId: string; agentId: string }>();
+</script>
+
+<template>
+  <aparte-split position="50" :single="shown ? undefined : ''">
+    <AparteChat id="chat" @aparte-subagent-start="(event) => (shown = event.detail)" />
+    <aparte-subagent-view v-if="shown" for="chat" :message-id="shown.messageId" :agent-id="shown.agentId" />
+  </aparte-split>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import { setupSubagents } from '@aparte/plugin-subagents';
+
+  setupSubagents();
+
+  let shown = $state<{ messageId: string; agentId: string }>();
+</script>
+
+<aparte-split position="50" single={shown ? undefined : ''}>
+  <AparteChat id="chat" onaparte-subagent-start={(event) => (shown = event.detail)} />
+  {#if shown}
+    <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId}></aparte-subagent-view>
+  {/if}
+</aparte-split>
+```
+
+On Svelte 4, `bind:this` the chat and listen on `chat.getElement()` in `onMount`
+([Svelte](/frameworks/svelte/#control-it-from-code)).
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
+import { AparteChatComponent, AparteSplitDirective } from '@aparte/angular';
+import { setupSubagents } from '@aparte/plugin-subagents';
+import type { AparteSubagentStartEventDetail } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+@Component({
+  selector: 'app-workspace',
+  standalone: true,
+  imports: [AparteChatComponent, AparteSplitDirective],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <aparte-split position="50" [single]="!shown()">
+      <aparte-chat id="chat" (aparte-subagent-start)="shown.set($any($event).detail)"></aparte-chat>
+      @if (shown(); as agent) {
+        <aparte-subagent-view for="chat" [attr.message-id]="agent.messageId" [attr.agent-id]="agent.agentId"></aparte-subagent-view>
+      }
+    </aparte-split>
+  `,
+})
+export class WorkspaceComponent {
+  readonly shown = signal<AparteSubagentStartEventDetail | null>(null);
+}
+```
+
+</TabItem>
+</Tabs>
 
 Importing the package defines the element. Three attributes say what it shows: `for`, the `id` of
 the chat (`<aparte-chat>`, its viewport, or any element with `getMessages()`); `message-id`, the
@@ -115,6 +224,9 @@ The chat dispatches two events, both bubbling:
 Both carry the chat's `id` as `targetId`, so a page with several chats can tell them apart. Together they
 are enough to keep a list of a reply's sub-agents and open the one a person picks:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import type { AparteSubagentStatus } from '@aparte/plugin-subagents';
 
@@ -130,6 +242,108 @@ chat.addEventListener('aparte-subagent-end', (event) => {
 });
 ```
 
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { useAparteChat, useAparteEvent } from '@aparte/react';
+import type { AparteSubagentStatus } from '@aparte/plugin-subagents';
+
+export function useSubagents() {
+  const chat = useAparteChat();   // with ref={chat.ref} on <AparteChat>
+  const agents = useRef(new Map<string, { name?: string; status: AparteSubagentStatus }>());
+
+  useAparteEvent(chat.ref, 'aparte-subagent-start', (event) => {
+    agents.current.set(event.detail.agentId, { name: event.detail.name, status: 'running' });
+  });
+  useAparteEvent(chat.ref, 'aparte-subagent-end', (event) => {
+    const agent = agents.current.get(event.detail.agentId);
+    if (agent) agent.status = event.detail.status;
+  });
+
+  return { chat, agents };
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { reactive } from 'vue';
+import { AparteChat } from '@aparte/vue';
+import type { AparteSubagentStatus } from '@aparte/plugin-subagents';
+
+const agents = reactive(new Map<string, { name?: string; status: AparteSubagentStatus }>());
+</script>
+
+<template>
+  <AparteChat
+    @aparte-subagent-start="(event) => agents.set(event.detail.agentId, { name: event.detail.name, status: 'running' })"
+    @aparte-subagent-end="(event) => { const agent = agents.get(event.detail.agentId); if (agent) agent.status = event.detail.status; }"
+  />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { SvelteMap } from 'svelte/reactivity';
+  import { AparteChat } from '@aparte/svelte/runes';
+  import type { AparteSubagentStatus } from '@aparte/plugin-subagents';
+
+  const agents = new SvelteMap<string, { name?: string; status: AparteSubagentStatus }>();
+</script>
+
+<AparteChat
+  onaparte-subagent-start={(event) => agents.set(event.detail.agentId, { name: event.detail.name, status: 'running' })}
+  onaparte-subagent-end={(event) => {
+    const agent = agents.get(event.detail.agentId);
+    if (agent) agent.status = event.detail.status;
+  }}
+/>
+```
+
+On Svelte 4, `bind:this` the chat and listen on `chat.getElement()` in `onMount`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type {
+  AparteSubagentEndEventDetail,
+  AparteSubagentStartEventDetail,
+  AparteSubagentStatus,
+} from '@aparte/plugin-subagents';
+
+@Component({
+  selector: 'app-agents',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (aparte-subagent-start)="start($any($event).detail)" (aparte-subagent-end)="end($any($event).detail)"></aparte-chat>`,
+})
+export class AgentsComponent {
+  private readonly agents = new Map<string, { name?: string; status: AparteSubagentStatus }>();
+
+  start(detail: AparteSubagentStartEventDetail) {
+    this.agents.set(detail.agentId, { name: detail.name, status: 'running' });
+  }
+
+  end(detail: AparteSubagentEndEventDetail) {
+    const agent = this.agents.get(detail.agentId);
+    if (agent) agent.status = detail.status;
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
 ### Reading a saved sub-agent
 
 A sub-agent is saved with the conversation, on the segment that stands for it: the call that
@@ -137,7 +351,11 @@ opened it, or a `subagent` segment of the plugin's own (`AparteSubagentSegment`,
 `SUBAGENT_SEGMENT_TYPE`) for one no call opened. `subagentOf(segment)` returns it, an
 `AparteSubagent` (`id`, `name`, `description`, `status`, `result`, `error`, `parentId`, and its
 conversation in `segments`), and `subagentStatus(segment)` its state. Both are exported for Node
-too:
+too. The messages come from the message list in plain HTML, and from the chat's `messages` in a
+framework:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
 ```ts
 import type { AparteChatViewport } from '@aparte/core';
@@ -153,17 +371,117 @@ for (const message of viewport.getMessages()) {
 }
 ```
 
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useAparteChat } from '@aparte/react';
+import { subagentOf, subagentStatus } from '@aparte/plugin-subagents';
+
+const chat = useAparteChat();   // in your component, with messages={chat.messages} on <AparteChat>
+
+for (const message of chat.messages) {
+  for (const segment of message.segments ?? []) {
+    const agent = subagentOf(segment);
+    if (agent) console.info(agent.name, subagentStatus(segment), agent.result ?? agent.error ?? '');
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import { subagentOf, subagentStatus } from '@aparte/plugin-subagents';
+
+const chat = useAparteChat();
+
+function logSubagents() {
+  for (const message of chat.messages.value) {
+    for (const segment of message.segments ?? []) {
+      const agent = subagentOf(segment);
+      if (agent) console.info(agent.name, subagentStatus(segment), agent.result ?? agent.error ?? '');
+    }
+  }
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import type { AparteMessage } from '@aparte/core';
+  import { subagentOf, subagentStatus } from '@aparte/plugin-subagents';
+
+  let messages = $state<AparteMessage[]>([]);
+
+  function logSubagents() {
+    for (const message of messages) {
+      for (const segment of message.segments ?? []) {
+        const agent = subagentOf(segment);
+        if (agent) console.info(agent.name, subagentStatus(segment), agent.result ?? agent.error ?? '');
+      }
+    }
+  }
+</script>
+
+<AparteChat bind:messages />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type { AparteMessage } from '@aparte/core';
+import { subagentOf, subagentStatus } from '@aparte/plugin-subagents';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat [messages]="messages" (messagesChange)="messages = $event"></aparte-chat>`,
+})
+export class ChatComponent {
+  messages: AparteMessage[] = [];
+
+  logSubagents() {
+    for (const message of this.messages) {
+      for (const segment of message.segments ?? []) {
+        const agent = subagentOf(segment);
+        if (agent) console.info(agent.name, subagentStatus(segment), agent.result ?? agent.error ?? '');
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
 `subagentStatus` reads `stopped` for a sub-agent a reload or a Stop left unfinished, where the
 saved `status` still says how it was when the page closed. The sub-agent's conversation is never
 part of what the model reads.
 
 ## In a framework
 
-The plugin ships no framework binding. A Vue or Svelte template accepts the tag as it is; Angular
-needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and `[attr.message-id]` to bind an
-attribute. In a React `.tsx` file the tag is a compile error until you declare it once, which the
-[sub-agents guide](/guides/sub-agents/#show-the-conversation-elsewhere) shows with a component.
-The class is exported as `AparteSubagentView`, for the type of a `ref`.
+The element is a plain tag in every framework, and the plugin's events reach the chat's root like any
+other, so each wrapper hears `aparte-subagent-start` and the rest by the event's own name, as the
+tabs above do (`useAparteEvent`, `@aparte-…`, `onaparte-…`, `(aparte-…)`). A Vue or Svelte template
+accepts the tag as it is; Angular needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and
+`[attr.message-id]` to bind an attribute. In a React `.tsx` file the tag is a compile error until
+you declare it once, which the [sub-agents guide](/guides/sub-agents/#show-the-conversation-elsewhere)
+shows. The class is exported as `AparteSubagentView`, for the type of a `ref`.
 
 ## Customize
 

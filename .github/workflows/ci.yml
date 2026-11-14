@@ -387,6 +387,12 @@ jobs:
       - name: Compile the docs' self-contained snippets
         run: pnpm check:doc-snippets
 
+      # An example that hears an event on an element, or looks up the chat, runs only in the
+      # vanilla element: each one shows the five frameworks or says why it cannot. Reads the
+      # built manifest of core, which is where the wrappers' binding names come from.
+      - name: Check the docs' examples show every framework
+        run: pnpm check:doc-frameworks
+
       - name: Check published READMEs
         run: pnpm check:readmes
 

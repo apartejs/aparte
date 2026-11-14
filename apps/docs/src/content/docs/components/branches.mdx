@@ -8,6 +8,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="branch-picker" />
 
@@ -27,10 +28,105 @@ The picker is drawn from the tree, so markup alone never places it. On a message
 yourself, `setSiblings(count, index)` says how many versions exist and which one is shown, and
 `aparte-branch-navigate` tells you when the reader moves:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```js
 bubble.setSiblings(2, 0);
 bubble.addEventListener('aparte-branch-navigate', (e) => showVersion(e.detail));
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { useAparteEvent } from '@aparte/react';
+import type { AparteChatBubble } from '@aparte/core';
+
+declare function showVersion(navigation: unknown): void;   // yours
+
+export function MyBubble() {
+  const bubble = useRef<AparteChatBubble>(null);
+
+  useEffect(() => {
+    bubble.current?.setSiblings(2, 0);
+  }, []);
+  useAparteEvent(bubble, 'aparte-branch-navigate', (e) => showVersion(e.detail));
+
+  return <aparte-chat-bubble ref={bubble} />;
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import type { AparteChatBubble } from '@aparte/core';
+
+declare function showVersion(navigation: unknown): void;   // yours
+
+const bubble = ref<AparteChatBubble>();
+onMounted(() => bubble.value?.setSiblings(2, 0));
+</script>
+
+<template>
+  <aparte-chat-bubble ref="bubble" @aparte-branch-navigate="(e) => showVersion(e.detail)" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import type { AparteChatBubble } from '@aparte/core';
+
+  declare function showVersion(navigation: unknown): void;   // yours
+
+  let bubble: AparteChatBubble;
+  onMount(() => bubble.setSiblings(2, 0));
+</script>
+
+<aparte-chat-bubble bind:this={bubble} onaparte-branch-navigate={(e) => showVersion(e.detail)}></aparte-chat-bubble>
+```
+
+On Svelte 4, write the event as `on:aparte-branch-navigate={(e) => showVersion(e.detail)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { AfterViewInit, Component, ElementRef, viewChild } from '@angular/core';
+import { AparteChatBubbleDirective } from '@aparte/angular';
+import type { AparteChatBubble } from '@aparte/core';
+
+declare function showVersion(navigation: unknown): void;   // yours
+
+@Component({
+  selector: 'app-my-bubble',
+  standalone: true,
+  imports: [AparteChatBubbleDirective],
+  template: `<aparte-chat-bubble #bubble (branchNavigate)="show($event)"></aparte-chat-bubble>`,
+})
+export class MyBubbleComponent implements AfterViewInit {
+  private readonly bubble = viewChild.required<ElementRef<AparteChatBubble>>('bubble');
+
+  ngAfterViewInit() {
+    this.bubble().nativeElement.setSiblings(2, 0);
+  }
+
+  show(navigation: unknown) {
+    showVersion(navigation);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 On the transcript, `addBranch()`, `addSiblingOf()` and `navigateBranch()` build and walk the
 tree; `exportTree()` and `importTree()` save and restore it with the conversation. The

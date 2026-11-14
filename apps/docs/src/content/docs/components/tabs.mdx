@@ -63,6 +63,7 @@ release();
 
 ```tsx
 import { useEffect, useRef } from 'react';
+import { useAparteEvent } from '@aparte/react';
 import { enhanceTabs } from '@aparte/core';
 
 export function ResultTabs() {
@@ -72,6 +73,10 @@ export function ResultTabs() {
     if (!tablist.current) return;
     return enhanceTabs(tablist.current);
   }, []);
+
+  useAparteEvent(tablist, 'aparte-tab-change', (event) => {
+    console.log('now showing', event.detail.panel?.id);
+  });
 
   return (
     <>
@@ -87,17 +92,77 @@ export function ResultTabs() {
 ```
 
 </TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { enhanceTabs, type AparteTabChangeDetail } from '@aparte/core';
+
+const tablist = ref<HTMLElement>();
+let release: (() => void) | undefined;
+
+onMounted(() => {
+  release = enhanceTabs(tablist.value!);
+});
+onBeforeUnmount(() => release?.());
+
+function changed(event: Event) {
+  console.log('now showing', (event as CustomEvent<AparteTabChangeDetail>).detail.panel?.id);
+}
+</script>
+
+<template>
+  <div ref="tablist" class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view" @aparte-tab-change="changed">
+    <button class="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
+    <button class="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
+  </div>
+  <div class="aparte-tabs__panel" role="tabpanel" id="panel-preview" aria-labelledby="tab-preview">What the preview shows.</div>
+  <div class="aparte-tabs__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>The code.</div>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { enhanceTabs, type AparteTabChangeDetail } from '@aparte/core';
+
+  let tablist: HTMLElement;
+
+  onMount(() => {
+    const release = enhanceTabs(tablist);
+    const changed = (event: CustomEvent<AparteTabChangeDetail>) => console.log('now showing', event.detail.panel?.id);
+    tablist.addEventListener('aparte-tab-change', changed);
+    return () => {
+      tablist.removeEventListener('aparte-tab-change', changed);
+      release();
+    };
+  });
+</script>
+
+<div bind:this={tablist} class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
+  <button class="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
+  <button class="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
+</div>
+<div class="aparte-tabs__panel" role="tabpanel" id="panel-preview" aria-labelledby="tab-preview">What the preview shows.</div>
+<div class="aparte-tabs__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>The code.</div>
+```
+
+</TabItem>
 <TabItem label="Angular">
 
 ```ts
 import { Component, ElementRef, viewChild, type AfterViewInit, type OnDestroy } from '@angular/core';
-import { enhanceTabs } from '@aparte/core';
+import { enhanceTabs, type AparteTabChangeDetail } from '@aparte/core';
 
 @Component({
   selector: 'app-result-tabs',
   standalone: true,
   template: `
-    <div #tablist class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
+    <div #tablist class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view" (aparte-tab-change)="changed($event)">
       <button class="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
       <button class="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
     </div>
@@ -115,6 +180,10 @@ export class ResultTabsComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.release?.();
+  }
+
+  changed(event: Event): void {
+    console.log('now showing', (event as CustomEvent<AparteTabChangeDetail>).detail.panel?.id);
   }
 }
 ```

@@ -100,6 +100,70 @@ export function ActionsMenu({ onAction }: { onAction: (action: string) => void }
 ```
 
 </TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { enhanceMenu, type AparteMenuSelectDetail } from '@aparte/core';
+
+const emit = defineEmits<{ action: [action: string] }>();
+
+const button = ref<HTMLButtonElement>();
+const menu = ref<HTMLElement>();
+let release: (() => void) | undefined;
+
+onMounted(() => {
+  release = enhanceMenu(button.value!, menu.value!, { align: 'end' });
+});
+onBeforeUnmount(() => release?.());
+
+function chosen(event: CustomEvent<AparteMenuSelectDetail>) {
+  emit('action', event.detail.item.dataset.action ?? '');
+}
+</script>
+
+<template>
+  <button ref="button" type="button" class="aparte-btn">Actions</button>
+  <div ref="menu" class="aparte-menu" role="menu" hidden @aparte-menu-select="chosen">
+    <button type="button" class="aparte-menu__item" role="menuitem" data-action="copy">Copy</button>
+    <button type="button" class="aparte-menu__item" role="menuitem" data-action="rename">Rename</button>
+  </div>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { enhanceMenu, type AparteMenuSelectDetail } from '@aparte/core';
+
+  let { onaction }: { onaction: (action: string) => void } = $props();
+
+  let button: HTMLButtonElement;
+  let menu: HTMLElement;
+
+  onMount(() => {
+    const release = enhanceMenu(button, menu, { align: 'end' });
+    const chosen = (event: CustomEvent<AparteMenuSelectDetail>) => onaction(event.detail.item.dataset.action ?? '');
+    menu.addEventListener('aparte-menu-select', chosen);
+    return () => {
+      menu.removeEventListener('aparte-menu-select', chosen);
+      release();
+    };
+  });
+</script>
+
+<button bind:this={button} type="button" class="aparte-btn">Actions</button>
+<div bind:this={menu} class="aparte-menu" role="menu" hidden>
+  <button type="button" class="aparte-menu__item" role="menuitem" data-action="copy">Copy</button>
+  <button type="button" class="aparte-menu__item" role="menuitem" data-action="rename">Rename</button>
+</div>
+```
+
+</TabItem>
 <TabItem label="Angular">
 
 ```ts
@@ -167,6 +231,7 @@ it open.
 A `menuitemcheckbox` or `menuitemradio` is not ticked for you: the state is yours, so set
 `aria-checked` in the same listener.
 
+{/* doc-check: vanilla-only the handler of the example above, on a menu you hold as a DOM node: the tabs there show where each framework attaches it */}
 ```ts
 import { enhanceMenu } from '@aparte/core';
 
@@ -218,6 +283,7 @@ inside a region: at the pointer for a click, under the focused element for a key
 the whole region, and `onOpen` is told which element it was asked about, so you fill it for that
 row. Return `false` where you have nothing to offer, and the browser shows its own menu.
 
+{/* doc-check: vanilla-only the same wiring as the first example, on a list and a menu you hold as DOM nodes: the tabs there show where each framework attaches it */}
 ```ts
 import { enhanceContextMenu } from '@aparte/core';
 

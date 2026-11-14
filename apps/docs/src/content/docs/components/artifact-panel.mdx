@@ -10,6 +10,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import PanelApi from '../../../generated/api/elements/aparte-artifact-panel.api.mdx';
 
 <Variant id="artifact-panel" />
@@ -27,6 +28,9 @@ branch shows its own versions, and a conversation you reload shows what was save
 ```bash
 npm install @aparte/plugin-artifacts @aparte/core
 ```
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
 ```html
 <aparte-split position="40" single>
@@ -47,6 +51,153 @@ const disconnect = connectArtifactPanel({
   split: document.querySelector<ArtifactPanelSplit>('aparte-split')!,
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+In a `.tsx` file the panel's tag is a compile error until you declare it once:
+
+```ts
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'aparte-artifact-panel': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & { for?: string };
+    }
+  }
+}
+```
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { AparteChat, useAparteChat } from '@aparte/react';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+setupArtifacts();
+
+export function Workspace() {
+  const chat = useAparteChat();
+  const panel = useRef<AparteArtifactPanel>(null);
+  const split = useRef<ArtifactPanelSplit>(null);
+
+  useEffect(
+    () => connectArtifactPanel({ chat: chat.getElement()!, panel: panel.current!, split: split.current! }),
+    [],
+  );
+
+  return (
+    <aparte-split ref={split} position="40" single="">
+      <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />
+      <aparte-artifact-panel ref={panel} />
+    </aparte-split>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+setupArtifacts();
+
+const chat = useAparteChat();
+const panel = ref<AparteArtifactPanel>();
+const split = ref<ArtifactPanelSplit>();
+let disconnect: (() => void) | undefined;
+
+onMounted(() => {
+  disconnect = connectArtifactPanel({ chat: chat.getElement()!, panel: panel.value!, split: split.value! });
+});
+onUnmounted(() => disconnect?.());
+</script>
+
+<template>
+  <aparte-split ref="split" position="40" single>
+    <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" />
+    <aparte-artifact-panel ref="panel" />
+  </aparte-split>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import { setupArtifacts } from '@aparte/plugin-artifacts';
+  import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+  setupArtifacts();
+
+  let chat = $state<AparteChatImperativeApi>();
+  let panel: AparteArtifactPanel;
+  let split: ArtifactPanelSplit;
+
+  // onMount hands back what connectArtifactPanel returns, which undoes the wiring
+  onMount(() => connectArtifactPanel({ chat: chat!.getElement()!, panel, split }));
+</script>
+
+<aparte-split bind:this={split} position="40" single>
+  <AparteChat bind:this={chat} />
+  <aparte-artifact-panel bind:this={panel}></aparte-artifact-panel>
+</aparte-split>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, OnDestroy, viewChild } from '@angular/core';
+import { AparteChatComponent, AparteSplitDirective } from '@aparte/angular';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { connectArtifactPanel, type AparteArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
+
+setupArtifacts();
+
+@Component({
+  selector: 'app-workspace',
+  standalone: true,
+  imports: [AparteChatComponent, AparteSplitDirective],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <aparte-split #split position="40" single>
+      <aparte-chat></aparte-chat>
+      <aparte-artifact-panel #panel></aparte-artifact-panel>
+    </aparte-split>
+  `,
+})
+export class WorkspaceComponent implements AfterViewInit, OnDestroy {
+  private readonly chat = viewChild.required(AparteChatComponent);
+  private readonly panel = viewChild.required<ElementRef<AparteArtifactPanel>>('panel');
+  private readonly split = viewChild.required<ElementRef<ArtifactPanelSplit>>('split');
+  private disconnect?: () => void;
+
+  ngAfterViewInit() {
+    this.disconnect = connectArtifactPanel({
+      chat: this.chat().getElement()!,
+      panel: this.panel().nativeElement,
+      split: this.split().nativeElement,
+    });
+  }
+
+  ngOnDestroy() {
+    this.disconnect?.();
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 The panel is a separate entry of the package, `@aparte/plugin-artifacts/panel`, so an app that
 only wants the card does not ship it. Importing it defines the element.
@@ -86,7 +237,11 @@ A document has an id. The plugin gives it: `create_artifact` returns it in its r
 call is a new **version** of that document. Nothing is overwritten: a version is added and the
 earlier ones stay.
 
-`artifactDocuments()` is that reading, for your own code:
+`artifactDocuments()` is that reading, for your own code. It takes the messages: the message list's
+in plain HTML, the chat's `messages` in a framework.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
 ```ts
 import type { AparteChatViewport } from '@aparte/core';
@@ -99,6 +254,81 @@ for (const doc of artifactDocuments(viewport.getMessages())) {
   console.info(doc.latest.content); // what the document is now
 }
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useAparteChat } from '@aparte/react';
+import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+const chat = useAparteChat();   // in your component, with messages={chat.messages} on <AparteChat>
+
+for (const doc of artifactDocuments(chat.messages)) {
+  console.info(doc.id, doc.title, `${doc.versions.length} version(s)`);
+  console.info(doc.latest.content); // what the document is now
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { useAparteChat } from '@aparte/vue';
+import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+const chat = useAparteChat();   // with :messages="chat.messages.value" on <AparteChat>
+
+function logDocuments() {
+  for (const doc of artifactDocuments(chat.messages.value)) {
+    console.info(doc.id, doc.title, `${doc.versions.length} version(s)`);
+    console.info(doc.latest.content); // what the document is now
+  }
+}
+</script>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import type { AparteMessage } from '@aparte/core';
+  import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+  let messages = $state<AparteMessage[]>([]);
+
+  function logDocuments() {
+    for (const doc of artifactDocuments(messages)) {
+      console.info(doc.id, doc.title, `${doc.versions.length} version(s)`);
+      console.info(doc.latest.content); // what the document is now
+    }
+  }
+</script>
+
+<AparteChat bind:messages />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import type { AparteMessage } from '@aparte/core';
+import { artifactDocuments } from '@aparte/plugin-artifacts';
+
+// `messages` is the array bound with [messages] and (messagesChange) on <aparte-chat>
+declare const messages: AparteMessage[];
+
+for (const doc of artifactDocuments(messages)) {
+  console.info(doc.id, doc.title, `${doc.versions.length} version(s)`);
+  console.info(doc.latest.content); // what the document is now
+}
+```
+
+</TabItem>
+</Tabs>
 
 It is a pure function over `getMessages()`, also exported for Node. A call that was refused,
 stopped or failed is not a version. A conversation saved before documents had ids reads as one
@@ -130,6 +360,9 @@ connectArtifactPanel({
 Write one child with `slot="actions"`. It sits in the header before Close, and it is left
 where you wrote it, so a framework that owns it keeps owning it.
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```html
 <aparte-artifact-panel for="chat">
   <div slot="actions">
@@ -155,6 +388,142 @@ panel.addEventListener('aparte-artifact-version-change', (event) => {
   console.info(documentId, `${version} of ${total}`);
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { useAparteEvent } from '@aparte/react';
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare function exportAsPdf(title: string, markdown: string): void; // yours
+
+export function DocumentPanel() {
+  const panel = useRef<AparteArtifactPanel>(null);
+
+  // Whenever what the panel shows changes, the first document included.
+  useAparteEvent(panel, 'aparte-artifact-version-change', (event) => {
+    const { documentId, version, total } = event.detail;
+    console.info(documentId, `${version} of ${total}`);
+  });
+
+  const exportShown = () => {
+    const version = panel.current?.shownVersion; // the version on screen, or null
+    if (version) exportAsPdf(version.title ?? 'Document', version.content);
+  };
+
+  return (
+    <aparte-artifact-panel ref={panel} for="chat">
+      <div slot="actions">
+        <button className="aparte-btn aparte-btn--sm" type="button" onClick={exportShown}>Export</button>
+      </div>
+    </aparte-artifact-panel>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare function exportAsPdf(title: string, markdown: string): void; // yours
+
+const panel = ref<AparteArtifactPanel>();
+
+function exportShown() {
+  const version = panel.value?.shownVersion; // the version on screen, or null
+  if (version) exportAsPdf(version.title ?? 'Document', version.content);
+}
+</script>
+
+<template>
+  <!-- Whenever what the panel shows changes, the first document included. -->
+  <aparte-artifact-panel
+    ref="panel"
+    for="chat"
+    @aparte-artifact-version-change="({ detail }) => console.info(detail.documentId, `${detail.version} of ${detail.total}`)"
+  >
+    <div slot="actions">
+      <button class="aparte-btn aparte-btn--sm" type="button" @click="exportShown">Export</button>
+    </div>
+  </aparte-artifact-panel>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+  declare function exportAsPdf(title: string, markdown: string): void; // yours
+
+  let panel: AparteArtifactPanel;
+
+  function exportShown() {
+    const version = panel.shownVersion; // the version on screen, or null
+    if (version) exportAsPdf(version.title ?? 'Document', version.content);
+  }
+</script>
+
+<!-- Whenever what the panel shows changes, the first document included. -->
+<aparte-artifact-panel
+  bind:this={panel}
+  for="chat"
+  onaparte-artifact-version-change={({ detail }) => console.info(detail.documentId, `${detail.version} of ${detail.total}`)}
+>
+  <div slot="actions">
+    <button class="aparte-btn aparte-btn--sm" type="button" onclick={exportShown}>Export</button>
+  </div>
+</aparte-artifact-panel>
+```
+
+On Svelte 4, write the event as `on:aparte-artifact-version-change={…}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, viewChild } from '@angular/core';
+import type { AparteArtifactPanel } from '@aparte/plugin-artifacts/panel';
+
+declare function exportAsPdf(title: string, markdown: string): void; // yours
+
+@Component({
+  selector: 'app-document-panel',
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <!-- Whenever what the panel shows changes, the first document included. -->
+    <aparte-artifact-panel #panel for="chat" (aparte-artifact-version-change)="changed($any($event).detail)">
+      <div slot="actions">
+        <button class="aparte-btn aparte-btn--sm" type="button" (click)="exportShown()">Export</button>
+      </div>
+    </aparte-artifact-panel>
+  `,
+})
+export class DocumentPanelComponent {
+  private readonly panel = viewChild.required<ElementRef<AparteArtifactPanel>>('panel');
+
+  changed({ documentId, version, total }: { documentId: string; version: number; total: number }) {
+    console.info(documentId, `${version} of ${total}`);
+  }
+
+  exportShown() {
+    const version = this.panel().nativeElement.shownVersion; // the version on screen, or null
+    if (version) exportAsPdf(version.title ?? 'Document', version.content);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 To hide a built-in button, hide it: the panel is light DOM.
 
