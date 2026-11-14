@@ -59,6 +59,7 @@ import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
 import { DELEGATE, delegateLabel, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
+import { DIFF_SCENARIOS, setupDiffReview } from './diff-review';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -188,6 +189,8 @@ async function run(): Promise<SiteSetup> {
                 ...SUBAGENT_SCENARIOS,
                 // An activity the model reports while it reads (activity.ts).
                 ...ACTIVITY_SCENARIOS,
+                // An edit shown as a diff, and a review of it (diff-review.ts).
+                ...DIFF_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,
@@ -213,6 +216,9 @@ async function run(): Promise<SiteSetup> {
         if (!agentUrl && !agUiUrl && !n8nUrl) {
             const { tool, handler } = scenarioSubagentTool(scripted);
             aparteGlobalConfig.registerTool(tool, handler);
+            // The README edit the scripted model makes, its diff in the reply, and the review
+            // sent back from it. A canned edit, so only for the scripted model.
+            setupDiffReview();
         }
         // The showcase's weather turn calls this tool. An app that never registered it
         // would see the call fail — also a scenario, but the round-trip is the point here.
