@@ -35,6 +35,7 @@ import {
     applyImagePolicy, compileImagePolicy, decideImageAddress, forgetShownImages, imageHost, rememberShownImage, sameImagePolicy, shownImagesOf,
     type AparteImageDecision, type AparteImagePolicy, type HeldImageWords, type ImageDecider,
 } from './image-policy.js';
+import { applyLinkTarget, linkDecision, type AparteLinkDecision, type AparteLinkTarget } from './link-target.js';
 
 /**
  * Whether the page has already been told why a picture waits for a click: once per page, not
@@ -361,6 +362,8 @@ export class AparteConfig {
     private _imageDecider: ImageDecider = compileImagePolicy([]);
     /** Whether the app named an image policy, the default included; see `decideImage`. */
     private _imagePolicyNamed = false;
+    // Where the links a reply holds open (`link-target.ts`): by default every one in a new tab.
+    private _linkTarget: AparteLinkTarget = 'new-tab';
     private _systemPromptTemplate?: string;
     private _systemPromptVarsProvider?: AparteSystemPromptVarsProvider;
     private _statusRenderer?: AparteStatusRenderer;
@@ -720,9 +723,11 @@ export class AparteConfig {
      * zero-dependency allowlist sanitizer.
      *
      * The function you pass REPLACES the built-in one, chat rules included: no
-     * `aparte-` classes, no layout styles, no form controls, external links in a new
-     * tab. DOMPurify's defaults hold none of the four, so chain it in front of
-     * `defaultSanitizer` rather than in its place (the example below).
+     * `aparte-` classes, no layout styles, no form controls. DOMPurify's defaults hold
+     * none of the three, so chain it in front of `defaultSanitizer` rather than in its
+     * place (the example below). Where a link opens ({@link AparteConfig.setLinkTarget | setLinkTarget})
+     * and which pictures load ({@link AparteConfig.setImagePolicy | setImagePolicy}) are
+     * applied after it, whichever it is.
      *
      * @param sanitizer A sanitizer function, or `null` to DISABLE sanitization.
      *   Disabling exposes you to XSS from LLM-authored content — only do so for
@@ -754,16 +759,20 @@ export class AparteConfig {
     }
 
     /**
-     * Run the active sanitizer over provider-produced HTML, then the image policy
-     * ({@link AparteConfig.setImagePolicy | setImagePolicy}): a picture the policy does not let
-     * load comes back as a link that loads it on a click. Public so a streaming-markdown
-     * provider (which appends DOM directly, bypassing `renderMarkdown`) can apply the same
-     * rules. The image policy runs whichever sanitizer is set, none included, so replacing it
-     * does not turn a reply's pictures back into requests the reader never made.
+     * Run the active sanitizer over provider-produced HTML, then the link target
+     * ({@link AparteConfig.setLinkTarget | setLinkTarget}): every link gets the `target` and
+     * `rel` it opens with; then the image policy ({@link AparteConfig.setImagePolicy | setImagePolicy}):
+     * a picture the policy does not let load comes back as a link that loads it on a click.
+     * Public so a streaming-markdown provider (which appends DOM directly, bypassing
+     * `renderMarkdown`) can apply the same rules. Both run whichever sanitizer is set, none
+     * included, so replacing it does not send a reply's links back into the chat's own frame,
+     * nor turn its pictures back into requests the reader never made.
      */
     sanitizeHtml(html: string): string {
         const clean = this._sanitizer ? this._sanitizer(html) : html;
-        return applyImagePolicy(clean, (url) => this.decideImage(url), () => this._heldImageWords());
+        // Links before pictures: the link a held picture becomes is core's, not the model's.
+        const linked = applyLinkTarget(clean, this._linkTarget);
+        return applyImagePolicy(linked, (url) => this.decideImage(url), () => this._heldImageWords());
     }
 
     /**
@@ -847,6 +856,49 @@ export class AparteConfig {
             named: (host, alt) => this.t('imageLoadNamed').replace('{host}', () => host).replace('{alt}', () => alt),
             icon: this.getIcon('image'),
         };
+    }
+
+    /**
+     * Where the links a reply holds open — in its Markdown, its sources, a document it wrote.
+     * `'new-tab'`, the default, opens every one in a new tab, same-site ones included;
+     * `'external-only'` opens a link to another site in a new tab and keeps a same-site one in
+     * the page, as before 1.9. Either way a link to `#…`, `mailto:`, `tel:` or `sms:` is left as
+     * written, a new tab goes with `rel="noopener noreferrer"`, and the `target` the model wrote
+     * does not choose. What is on screen is drawn again.
+     *
+     * In a single-page app or an Electron window, a same-site link followed in place replaces
+     * the whole app, the conversation with it. To route a link yourself — your router, a pane,
+     * the system browser — cancel the chat's `aparte-link-click`, whichever mode is set.
+     *
+     * @example aparteGlobalConfig.setLinkTarget('external-only');
+     */
+    setLinkTarget(mode: AparteLinkTarget): void {
+        // The same mode again changes nothing, so it redraws nothing.
+        if (mode === this._linkTarget) return;
+        this._linkTarget = mode;
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** Where the links a reply holds open: {@link AparteConfig.setLinkTarget | setLinkTarget}'s mode, `'new-tab'` by default. */
+    getLinkTarget(): AparteLinkTarget {
+        return this._linkTarget;
+    }
+
+    /**
+     * Where a link to `href` opens under this config's link target: `{ target: '_blank', rel:
+     * 'noopener noreferrer' }` for a new tab, `{}` for the page itself. For a plugin that draws
+     * links itself, as `@aparte/plugin-streaming-markdown` does: set what it returns, and no
+     * `target` of your own. It does not judge whether the address is safe to link —
+     * `isSafeUrl` does.
+     *
+     * @example
+     * const link = document.createElement('a');
+     * link.href = url;
+     * Object.assign(link, aparteGlobalConfig.decideLink(url));
+     */
+    decideLink(href: string): AparteLinkDecision {
+        return linkDecision(this._linkTarget, href);
     }
 
     /**
@@ -2360,6 +2412,7 @@ export class AparteConfig {
         this._imageDecider = compileImagePolicy([]);
         this._imagePolicyNamed = false;
         forgetShownImages(this);
+        this._linkTarget = 'new-tab';
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
         this._fetchedModels.clear();

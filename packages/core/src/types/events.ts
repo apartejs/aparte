@@ -137,10 +137,11 @@ export interface AparteSiblingInfo {
 /**
  * Detail payload for `aparte-link-click`.
  * Dispatched by the bubble, cancelable, when a link in a message body is about to be
- * followed — a link the MODEL wrote. `preventDefault()` on the event keeps the browser
- * from navigating, so a host routes the link itself (an external browser, a
+ * followed — a link the MODEL wrote — and the same way for a source's link in a citation
+ * card, which is drawn outside the message. `preventDefault()` on the event keeps the
+ * browser from navigating, so a host routes the link itself (an external browser, a
  * confirmation, an embedded view) without intercepting the DOM. With no listener the
- * browser follows it; the sanitizer has made an external URL open in a new tab.
+ * browser follows it, in a new tab by default (`AparteConfig.setLinkTarget`).
  *
  * @event aparte-link-click
  */

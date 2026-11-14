@@ -307,6 +307,8 @@ export type {
     AparteSanitizer,
     AparteImageDecision,
     AparteImagePolicy,
+    AparteLinkDecision,
+    AparteLinkTarget,
 } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 

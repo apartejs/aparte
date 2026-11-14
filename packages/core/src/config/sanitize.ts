@@ -17,7 +17,9 @@
  * Registering DOMPurify alone replaces this one, and its defaults keep what a
  * chat must refuse — measured on DOMPurify 3.4: inline layout styles, `aparte-`
  * classes, `--aparte-*` properties, `<form>`/`<button>`, a password `<input>`,
- * `id`, and an external link left to navigate the chat's own frame.
+ * and `id`. Where a link opens is not one of them: `AparteConfig.sanitizeHtml` applies
+ * the link target (`link-target.ts`) and the image policy after whichever sanitizer is
+ * set, since DOMPurify drops `target` and an external link then navigated the chat's frame.
  */
 
 export type AparteSanitizer = (html: string) => string;
@@ -97,9 +99,13 @@ const RELATIVE_URL = /^(?:[#/.?]|[a-z0-9._~%+-]+(?:[/?#]|$))/i;
  * becomes executable. That constraint belongs to whoever re-hosts it.
  */
 const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)[;,]/i;
-/** Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:"). */
+/**
+ * Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:").
+ * Exported for the link target's pass (`link-target.ts`), which reads an address the same way; not
+ * from the package barrel.
+ */
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
-const CONTROL_WS = /[\u0000-\u0020]+/g;
+export const CONTROL_WS = /[\u0000-\u0020]+/g;
 
 /**
  * A URL that leaves this site: `https://host`, `http://host`, the scheme-relative
@@ -353,14 +359,20 @@ function keepAttribute(tag: string, name: string, value: string): string | null 
 /**
  * The `target` and `rel` an `<a>` gets. The model's `target` is read as a WISH and clamped;
  * `rel` is never copied. `href` is the one that was kept ('' when it was dropped).
+ *
+ * This is the floor, and the whole of `setLinkTarget('external-only')`: the config's link pass
+ * (`link-target.ts`) applies it again after whichever sanitizer is set, and under the default,
+ * `'new-tab'`, opens a same-site link in a new tab on top of it. Exported for that pass; not
+ * from the package barrel.
  */
-function linkAttributes(href: string, targetWish: string): Array<[string, string]> {
+export function linkAttributes(href: string, targetWish: string): Array<[string, string]> {
     // An external link opens in its own tab by default. The link was written by
     // the model, and a bare `<a href="https://…">` navigates the frame the chat
     // lives in — in an Electron window, the whole application. `marked`
     // sets no `target`, so without this every reply link would do exactly that. A host that
     // routes links itself listens for the bubble's cancelable `aparte-link-click`.
-    // Same-site and in-page links (relative, `#`, `mailto:`) are left as written.
+    // Same-site and in-page links (relative, `#`, `mailto:`) are left as written here; the
+    // config's default link target then sends a same-site one to a new tab too.
     //
     // What the model does NOT get is the choice. Copying `target` through would let
     // `_top`/`_parent` break out of the frame — no external URL required — and a
@@ -518,8 +530,9 @@ function rebuildTag(tag: string, attrs: Array<[string, string]>): string {
  * entities that can spell a checked character decoded. `end` is the index past its `>`, or `-1`
  * when the text ends inside the tag.
  *
- * Exported for the image policy's DOM-free pass (`image-policy.ts`), which has to find the same
- * tags in the same text this scrub wrote; not from the package barrel.
+ * Exported for the DOM-free passes of the image policy (`image-policy.ts`) and the link target
+ * (`link-target.ts`), which have to find the same tags in the same text this scrub wrote; not
+ * from the package barrel.
  */
 export function readTag(html: string, nameAt: number): { tag: string; attrs: Array<[string, string]>; end: number } {
     const n = html.length;

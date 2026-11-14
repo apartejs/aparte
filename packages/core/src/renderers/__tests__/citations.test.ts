@@ -9,7 +9,7 @@ import { textRenderer } from '../segments/text.js';
 import { renderCitations } from '../citations.js';
 import { populateBubbleFromMessage } from '../../components/bubble/bubble-sync.js';
 import '../../components/bubble/aparte-chat-bubble.js';
-import type { AparteMessage, AparteSegment, AparteSource, AparteTextSegment } from '../../types/index.js';
+import type { AparteLinkClickEventDetail, AparteMessage, AparteSegment, AparteSource, AparteTextSegment } from '../../types/index.js';
 
 /** A small Markdown renderer: paragraphs, **strong**, `code`, [links](url). */
 function markdown(raw: string): string {
@@ -278,6 +278,60 @@ describe('the card a chip opens', () => {
         chips(root)[0]!.click();
         document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
         expect(document.querySelector('.aparte-citation-card')).toBeNull();
+    });
+});
+
+describe('a source\'s link is a link of the reply', () => {
+    /*
+     * The card is mounted beside the transcript, outside the message, so the message never sees
+     * a click in it: an app that routes the links a reply holds (`aparte-link-click`) could not
+     * route these. The card announces its link itself, on its chip — inside the message, so the
+     * event reaches the chat's root wherever the card is mounted.
+     */
+    type Bubble = HTMLElement & { setSegments(s: AparteSegment[]): void };
+    function inChat(): { chat: HTMLElement; el: Bubble } {
+        aparteGlobalConfig.setMarkdownProvider(markdown);
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        const el = document.createElement('aparte-chat-bubble') as Bubble;
+        el.setAttribute('message-id', 'm1');
+        el.setAttribute('data-role', 'assistant');
+        chat.append(el);
+        document.body.append(chat);
+        el.setSegments([{ id: 'a', type: 'text', content: 'The sky is blue.', isStreaming: false, sources: [SKY], citations: [{ end: 16, sources: ['s1'] }] } as AparteSegment]);
+        return { chat, el };
+    }
+
+    it('in the card: announced on the chat, cancelable, with the href, the anchor and the message', () => {
+        const { chat, el } = inChat();
+        chips(el)[0]!.click();
+        const link = document.querySelector<HTMLAnchorElement>('.aparte-citation-card a')!;
+        expect(el.contains(link), 'the card is outside the message').toBe(false);
+        expect(link.getAttribute('target')).toBe('_blank');
+        expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+        const seen: AparteLinkClickEventDetail[] = [];
+        chat.addEventListener('aparte-link-click', (event) => {
+            seen.push((event as CustomEvent<AparteLinkClickEventDetail>).detail);
+            event.preventDefault();
+        });
+
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        link.dispatchEvent(click);
+        expect(seen).toEqual([{ href: SKY.url, anchor: link, messageId: 'm1' }]);
+        expect(click.defaultPrevented, 'the cancelled announcement cancels the click').toBe(true);
+    });
+
+    it('in the list: announced once, by the message it sits in', () => {
+        const { chat, el } = inChat();
+        const link = el.querySelector<HTMLAnchorElement>('.aparte-sources a')!;
+        expect(link.getAttribute('target')).toBe('_blank');
+        expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+        let heard = 0;
+        chat.addEventListener('aparte-link-click', (event) => { heard++; event.preventDefault(); });
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        link.dispatchEvent(click);
+        expect(heard).toBe(1);
+        expect(click.defaultPrevented).toBe(true);
     });
 });
 

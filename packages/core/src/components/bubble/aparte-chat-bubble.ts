@@ -2284,8 +2284,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * A link the MODEL wrote is about to be followed. Announced as a cancelable event
    * before the browser acts, so a host can route it — an external browser, a
    * confirmation, an embedded view — without intercepting the DOM. With
-   * no listener the browser follows it, which the sanitizer has already made open in
-   * a new tab for an external URL; `preventDefault()` on the event cancels the click.
+   * no listener the browser follows it, where the config's link target sent it (a new
+   * tab by default, `setLinkTarget`); `preventDefault()` on the event cancels the click.
    *
    * Only anchors inside the message body: the action bar and the branch picker are
    * buttons, and an attachment tile is its own event.
