@@ -282,6 +282,10 @@ creates, archives and pins saved conversations as signals once `init(adapter)` h
 chat switches between them through `[conversationId]`
 ([Save conversations](/guides/conversation-persistence/)).
 
+`getElement()` returns the host `<aparte-chat>` and `getComposer()` its `<aparte-composer>`. An event
+the chat has no output for — a plugin's, such as `aparte-subagent-open` — is a native
+`(aparte-subagent-open)="onOpen($event)"` on the tag.
+
 ## Any element, typed
 
 ```ts

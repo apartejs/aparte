@@ -147,6 +147,21 @@ drive the chat from a loop of yours ([Your own loop](/guides/bring-your-own-loop
 one — and the chat switches between them through `conversationId`
 ([Save conversations](/guides/conversation-persistence/)).
 
+For an event the chat has no prop for — a plugin's, such as `aparte-subagent-open`, or your own —
+`chat.getElement()` is the chat's root element (every event of the chat reaches it) and
+`chat.getComposer()` its `<aparte-composer>`. `useAparteEvent` listens on it, typed by
+`HTMLElementEventMap`, which each plugin augments, and always calls your latest handler:
+
+```tsx
+import { AparteChat, useAparteChat, useAparteEvent } from '@aparte/react';
+
+function Chat() {
+  const chat = useAparteChat();
+  useAparteEvent(chat.ref, 'aparte-subagent-open', (event) => openPanel(event.detail));
+  return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />;
+}
+```
+
 ## Any element, typed
 
 ```tsx
