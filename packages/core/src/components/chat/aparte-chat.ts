@@ -115,7 +115,8 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was sent from the composer: its
  *   text, its attachments and the chat it is for. An `AparteClient` answers it; with none, your loop
- *   starts here.
+ *   starts here. In a framework wrapper's chat the message is already in the thread when this fires:
+ *   do not append it again.
  * @fires {CustomEvent} aparte-cancel - Stop was pressed in the composer. No detail; the turn it stops
  *   ends with `aparte-message-aborted`.
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - The composer's state
@@ -151,7 +152,7 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   after a retry, an edit or a move in the `‹1/2›` picker — carrying the messages now on the path.
  * @fires {CustomEvent} aparte-reset-done - The transcript was emptied (`clearAll()` finished). No detail.
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom button of a message's action
- *   bar was pressed; `detail.actionId` says which.
+ *   bar, one `registerAction()` placed there, was pressed; `detail.actionId` says which.
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed on a reply; the host
  *   forks the turn.
  * @fires {CustomEvent<AparteEditEventDetail>} aparte-edit - An edit of a message was saved; the host
