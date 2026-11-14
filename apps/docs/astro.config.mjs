@@ -317,6 +317,12 @@ export default defineConfig({
             + 'from an AG-UI agent\'s `SUBAGENT_*` events, from a tool handler calling '
             + '`runSubAgent(context.run, …)` in the page or on the server, or from `agent-start` / '
             + '`agent-end` lines and an `agentId` on the events of a backend of your own.',
+            'A file change is `@aparte/plugin-diff` (/components/diff/): `<aparte-diff>` shows a unified '
+            + 'diff\'s text, a file\'s `{ path, before, after }` or a list of files as hunks with old and new '
+            + 'line numbers, the unchanged runs folded; with `commentable` the reader comments on a line or a '
+            + 'range (`aparte-diff-comment`) and the app hands the comments back through `comments`. '
+            + '`setupDiff({ tool, map })` shows an edit tool\'s result as a diff under its line; `diffTexts`, '
+            + '`parseUnifiedDiff` and `formatUnifiedDiff` compute and read diffs with no DOM.',
             'A tool\'s result can be drawn as a rich card with `@aparte/plugin-cards` (/guides/cards/): '
             + 'weather, items, products, places, key figures, orders, market quotes, an agent\'s plan, '
             + 'matches, media and link previews, one entry per card, each reading the tool\'s own '

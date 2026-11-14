@@ -203,6 +203,39 @@ keeping core's line with a detail of your own. An entry is used whole, so
 `registerToolDisplay('*', { details: false })` keeps the raw JSON off every tool nothing more
 specific describes, and a tool with an entry of its own says its own `details`.
 
+### A file change behind the line
+
+An agent that edits files should show what it changed. `setupDiff` from
+[`@aparte/plugin-diff`](/components/diff/) puts the change behind the edit tool's line, opened:
+the file's path and counts, its hunks with old and new line numbers. The line stays yours, with
+its label, its summary and its states.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupDiff } from '@aparte/plugin-diff';
+
+aparteGlobalConfig.registerToolDisplay('edit_file', {
+  summary: (segment) => String(segment.toolCall.input['path'] ?? ''),
+});
+
+// Your tool returns the file before and after; `map` turns that into a change to show.
+const stop = setupDiff({
+  tool: 'edit_file',
+  map: (result: { before: string; after: string }, input) => ({
+    path: String(input['path']),
+    before: result.before,
+    after: result.after,
+  }),
+});
+```
+
+<Variant id="diff-tool" caption="An edit tool's line, and the change behind it." />
+
+A tool that already returns a unified diff (what `git diff` prints) needs no `map`. Nothing is
+shown behind the line until the call has finished. `commentable: true` lets the reader comment on
+a line there too, and `open: false` keeps the change closed until the reader opens it. The call
+returns the function that takes it off.
+
 ## A developer's view
 
 The reader wants to see what the agent did: every call, open, with the input and output, its

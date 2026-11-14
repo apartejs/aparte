@@ -1,0 +1,208 @@
+---
+title: Diff
+description: A file change as hunks with old and new line numbers, in the reply or beside it — and comments on a line or a range, sent to the agent as a review.
+catalog:
+  group: chat
+  order: 13
+  claims:
+    elements: [aparte-diff]
+    plugin: '@aparte/plugin-diff'
+  demos: [diff, diff-tool]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import DiffApi from '../../../generated/api/elements/aparte-diff.api.mdx';
+
+<Variant id="diff" />
+
+An agent that edits files should show what it changed. `<aparte-diff>` shows a change the way a
+reviewer reads one: each file under a header with its path and its counts (`+3 −1`), each line
+with its old and new numbers and a `+` or `−`, and the unchanged lines between the changes folded.
+With `commentable`, the reader picks a line or a range and writes a comment on it, and your app
+sends the comments to the agent as one review.
+
+It works beside the chat — in the other pane of a [split](/components/split/), a tab, a dialog —
+and in the reply, under an edit tool's line.
+
+## Usage
+
+```bash
+npm install @aparte/plugin-diff @aparte/core
+```
+
+```html
+<aparte-diff></aparte-diff>
+```
+
+```ts
+import '@aparte/plugin-diff';
+
+const view = document.querySelector('aparte-diff')!;
+view.diff = {
+  path: 'src/parse.ts',
+  before: 'let total = 0;\ntotal += parseInt(amount, 10);\n',
+  after: 'let total = 0;\ntotal += Number(amount);\n',
+};
+```
+
+Importing the package defines the element (`AparteDiff`). `diff` takes three shapes
+(`AparteDiffInput`):
+
+- **A file's two texts**, `{ path, before, after }` (`AparteDiffSource`; add `oldPath` for a
+  rename). The element computes the diff, and every unchanged line can be shown: each folded run
+  gets a "Show 24 unchanged lines" button.
+- **A unified diff's text**, as `git diff` prints it or a model returns it: several files, new,
+  deleted, renamed and binary ones included. The folded runs then say how many lines they leave
+  out, since the text does not hold them.
+- **A list of files**, each one either of the above as data (`AparteDiffFile`) or two texts. They
+  are shown one after the other.
+
+Each file's header folds it. The lines wrap rather than scroll sideways, and the code reads left
+to right in a right-to-left page.
+
+## Comments on a line
+
+```html
+<aparte-diff commentable></aparte-diff>
+```
+
+With `commentable`, a click on a line number opens a field under the line, and Shift+click
+stretches the selection to another line. From the keyboard, the numbers of a file are one tab
+stop: the arrows move between them, Shift+arrows stretch the selection, Enter or Space opens the
+field, Ctrl+Enter (⌘+Enter) sends it and Escape lets go. Without `commentable`, nothing in the
+view is clickable.
+
+Sending fires `aparte-diff-comment`. Its detail (`AparteDiffCommentEventDetail`) says where the
+comment is — `path`, `side` (`AparteDiffSide`: `'old'` on a removed line, `'new'` on the rest),
+`startLine`, `endLine` — and holds its `text` and the `code` it is about. The element keeps
+nothing: you keep the comments, and hand them back through `comments` (`AparteDiffComment`) to
+show them under their lines, each with its state, `pending` or `sent`.
+
+```ts
+import type { AparteDiffComment } from '@aparte/plugin-diff';
+
+const view = document.querySelector('aparte-diff')!;
+const review: AparteDiffComment[] = [];
+
+view.addEventListener('aparte-diff-comment', (event) => {
+  review.push({ ...event.detail, id: crypto.randomUUID(), state: 'pending' });
+  view.comments = review;
+});
+
+// A "Send review" button of yours: every comment, as one message to the agent.
+function sendReview(send: (text: string) => void): void {
+  const lines = review
+    .filter((comment) => comment.state === 'pending')
+    .map((comment) => `- ${comment.path}, line ${comment.startLine}: ${comment.text}`);
+  if (!lines.length) return;
+  send(`Review of your changes:\n${lines.join('\n')}`);
+  for (const comment of review) comment.state = 'sent';
+  view.comments = review;
+}
+```
+
+Cancel the event (`event.preventDefault()`) to keep the field open with its text, when the comment
+could not be kept.
+
+## In the reply
+
+`setupDiff` shows an edit tool's result as a diff under the tool's line, opened. The row keeps its
+label, its summary and its states; the change takes the place of the raw input and output.
+
+<Variant id="diff-tool" />
+
+```ts
+import { setupDiff } from '@aparte/plugin-diff';
+
+const stop = setupDiff({
+  tool: 'edit_file',
+  map: (result: { before: string; after: string }, input) => ({
+    path: String(input['path']),
+    before: result.before,
+    after: result.after,
+  }),
+});
+```
+
+`DiffSetupOptions` holds `tool` (a name, a pattern, or a list), `map` (the change, from the tool's
+result and the call's input; without it, the result must already be a diff), `commentable` and
+`open` (`false` keeps the change closed under its line). The config comes second, the page's by
+default. [Tool display](/guides/tool-display/#a-file-change-behind-the-line) has more on what sits
+behind a tool's line.
+
+## On the server
+
+Three functions do the work without a page, so a server can prepare a diff and send it as data or
+as text:
+
+```ts
+import { diffTexts, formatUnifiedDiff, parseUnifiedDiff } from '@aparte/plugin-diff';
+
+const file = diffTexts('a\nb\n', 'a\nc\n', { path: 'notes.txt', context: 3 });
+file.added;                         // 1
+const patch = formatUnifiedDiff(file); // the text `git apply` takes
+const files = parseUnifiedDiff(patch); // back to data
+```
+
+`diffTexts` (`DiffTextsOptions`: `context`, `path`, `oldPath`) finds the fewest added and removed
+lines, with three unchanged lines around each change by default, as `git diff` does. A file saved
+with Windows line endings reads the same as one without; a last line that gains or loses its
+newline shows as changed. Two texts with thousands of changes between them show the changed block
+removed then added: a true account of the change, without searching for the shortest one.
+
+An `AparteDiffFile` is `{ path, oldPath, status, added, removed, hunks, binary }`, its status an
+`AparteDiffFileStatus` (`modified`, `added`, `deleted`, `renamed`). Each `AparteDiffHunk` has its
+`oldStart`, `oldCount`, `newStart` and `newCount`, the `section` it is in when the tool said, and
+its `lines`: each an `AparteDiffLine` with its `kind` (`AparteDiffLineKind`: `context`, `add`,
+`del`), `text`, `oldLine`, `newLine`, and `noNewline` on the last line of a file that ends without
+one.
+
+## Highlighting
+
+With a highlighter installed — [`@aparte/plugin-shiki`](/guides/markdown/), or your own
+`setHighlightProvider` — the lines are coloured in the language the file's extension names, each
+side of the change at once so a line reads in its context. Without one, they are plain text. A
+highlighter installed after the view was drawn colours it then.
+
+## In a framework
+
+The plugin ships no framework binding. A Vue or Svelte template accepts the tag as it is; Angular
+needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and React a ref to set `diff` and
+`comments`, which are properties.
+
+## Customize
+
+The view is light DOM, like the chat: its classes are `aparte-diff-*`, and its buttons and field
+are the kit's. Five tokens set its tints, each falling back to one of core's, so a theme that moves
+the success and error colours moves the diff:
+
+```css
+aparte-diff {
+  --aparte-diff-added-bg: var(--aparte-success-surface);
+  --aparte-diff-removed-bg: var(--aparte-error-surface);
+  --aparte-diff-added-ink: var(--aparte-success-ink);
+  --aparte-diff-removed-ink: var(--aparte-error-ink);
+  --aparte-diff-selected-bg: var(--aparte-surface-hover);
+}
+```
+
+Its words are in the ten languages the [locales](/guides/localization/) ship, in the chat's
+language. Change one with `extendLocale`, under its key (`diffCommentSubmit`, `diffShowUnchanged`…).
+
+## Accessibility
+
+A screen reader hears each `+` and `−` as "added" and "removed", and each file's counts as
+"3 lines added, 1 line removed". Each header is a button that says whether its file is open. With
+`commentable`, each line number is a button named for its line ("Added line 13"), described by the
+line's code and pressed while it is picked for a comment; the field is labelled with the lines it
+is about.
+
+## API
+
+<DiffApi />
+
+## Related
+
+- [Tool display](/guides/tool-display/) — what sits behind a tool's line in the reply.
+- [Split](/components/split/) — the two panes a review view usually sits in.
+- [Code block](/components/code-block/) — code with no change to show.
