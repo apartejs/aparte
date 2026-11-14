@@ -124,4 +124,34 @@ export default {
      * same selector.
      */
     angularSkip: ['aparte-chat'],
+
+    /**
+     * The same for React: no component is generated for these tags.
+     *
+     * `<AparteChat>` is a composite that renders the chat's own parts through `AparteChatHost`;
+     * a component for `<aparte-chat>` would take the name it owns. The generator refuses a
+     * component named like something the React package exports, so removing the entry fails
+     * the build rather than shadowing the composite.
+     */
+    reactSkip: ['aparte-chat'],
+
+    /**
+     * Attributes an element reads ONCE, when it connects, so they must be in its first markup.
+     *
+     * The generated React components apply an attribute after the element is in the document
+     * (`applyElementProps`, in an effect), which is right for every attribute the element
+     * observes or reads when it needs it, and too late for one it reads at connect. The
+     * viewport is the case: it decides at connect whether it builds its own wrapper or leaves its
+     * children to the framework, and `framework-managed` arriving after moves the framework's
+     * bubbles into the wrapper and breaks its reconciliation. These are rendered with the
+     * element instead, as the string they are.
+     *
+     * Not in the manifest as a fact: the attribute's description says "read once at connect",
+     * which is prose. Grep an element's `connectedCallback` for `hasAttribute` before adding one;
+     * the generator refuses an entry for an attribute the element does not declare.
+     */
+    readAtConnect: {
+        // aparte-chat-viewport.ts — `if (this.hasAttribute('framework-managed')) this._frameworkManagedDOM = true;`
+        'aparte-chat-viewport': ['framework-managed'],
+    },
 };
