@@ -54,6 +54,7 @@ export const ru: AparteLocale = {
     checkpointPending: "Сжатие контекста…",
     checkpointFailed: "Не удалось сжать контекст",
     toolRunning: "Выполняется",
+    toolQueued: "В очереди",
     toolFailed: "Не удалось",
     toolCompleted: "Готово",
     toolRejected: "Отклонено",

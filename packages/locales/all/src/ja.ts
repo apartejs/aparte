@@ -54,6 +54,7 @@ export const ja: AparteLocale = {
     checkpointPending: "コンテキストを要約しています…",
     checkpointFailed: "コンテキストを要約できませんでした",
     toolRunning: "実行中",
+    toolQueued: "待機中",
     toolFailed: "失敗",
     toolCompleted: "完了",
     toolRejected: "拒否",

@@ -336,6 +336,11 @@ export type AparteLocale = {
      * affordance.
      */
     toolRunning?: string;
+    /**
+     * The tool row's word for a call that waits its turn: the model made it after a call that
+     * still runs and keeps its place, or that waits for an answer (default: "Queued").
+     */
+    toolQueued?: string;
     toolCompleted?: string;
     toolRejected?: string;
     toolStopped?: string;
@@ -673,6 +678,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     checkpointPending: "Summarising the context…",
     checkpointFailed: "Couldn't summarise the context",
     toolRunning: "Running",
+    toolQueued: "Queued",
     toolCompleted: "Done",
     toolRejected: "Rejected",
     toolStopped: "Stopped",

@@ -1015,8 +1015,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._applySegmentUpdate(segmentId, updated, updates);
       if ('sources' in updates) this._syncSources();
       this._syncCopyAction();
-      // A call that settles is a step that ended: the dots may be due again.
-      if ('status' in updates || 'isStreaming' in updates) {
+      // A call that settles is a step that ended: the dots may be due again. One that leaves
+      // its queue is the step being done now.
+      if ('status' in updates || 'isStreaming' in updates || 'queued' in updates) {
         this._syncTurns();
         this._updateWaiting();
       }
@@ -1528,7 +1529,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const current = turn.querySelector<HTMLElement>(':scope > summary > .aparte-turn__current')!;
     label.classList.toggle('aparte-shimmer', running);
     label.textContent = running ? cfg.t('turnWorking') : this._turnOutcome(steps, calls.length);
-    current.textContent = running && calls.length > 0 ? this._stepName(calls.at(-1)!) : '';
+    // The step being done now: a call waiting its turn behind it is next, not now.
+    const now = calls.filter((call) => !call.queued).at(-1) ?? calls.at(-1);
+    current.textContent = running && now ? this._stepName(now) : '';
     if (openWhileRunning && !('touched' in turn.dataset)) (turn as HTMLDetailsElement).open = running;
   }
 

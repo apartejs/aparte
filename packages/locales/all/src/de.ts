@@ -54,6 +54,7 @@ export const de: AparteLocale = {
     checkpointPending: "Kontext wird zusammengefasst…",
     checkpointFailed: "Kontext konnte nicht zusammengefasst werden",
     toolRunning: "Läuft",
+    toolQueued: "Wartet",
     toolFailed: "Fehlgeschlagen",
     toolCompleted: "Fertig",
     toolRejected: "Abgelehnt",

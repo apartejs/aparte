@@ -92,7 +92,9 @@ new AparteClient().start();
 ```
 
 A reply that calls `read_file` twice, then `edit_file`, then `run_command` reads both files at
-once, then edits, then runs the command. A call that waits for an [approval](#require-approval-human-in-the-loop)
+once, then edits, then runs the command. Every row is there as soon as the model makes the call,
+in the order it wrote them: a call waiting its turn reads **Queued** (`toolQueued` in the locale)
+until it runs. A call that waits for an [approval](#require-approval-human-in-the-loop)
 holds the calls made after it, those of `parallel` tools included, until the person has answered:
 the command does not run while the edit waits, and if the edit is refused the command is not run
 at all (`Not run: an earlier call was refused`). [Several calls in one
@@ -148,6 +150,7 @@ scroll. What a tool is called, and whether its row is drawn at all, is yours to 
 | State | Word | Note after the word | When |
 | --- | --- | --- | --- |
 | `awaiting-approval` | Waiting | | a person has not decided yet |
+| `pending`, with `queued` | Queued | | the call waits its turn behind another call of the same reply: no spinner, no shimmer, the word shown on every row |
 | `pending` | Running | | the handler runs, with a spinner on an agent's row and a shimmer on a quiet one |
 | `resolved` | Done | | the handler answered |
 | `rejected` | Rejected | `You said: “…”`, when the person wrote something instead of choosing | a person refused it |
@@ -175,7 +178,7 @@ and `extendLocale` changes them:
 import { aparteGlobalConfig } from '@aparte/core';
 
 aparteGlobalConfig.extendLocale({
-  toolRunning: 'Working…', toolCompleted: 'Done', toolRejected: 'Refused',
+  toolRunning: 'Working…', toolQueued: 'Next', toolCompleted: 'Done', toolRejected: 'Refused',
   toolStopped: 'Stopped', toolFailed: 'Failed', approvalWaiting: 'Waiting',
   toolInput: 'Arguments', toolOutput: 'Result',
   // the notes after the word

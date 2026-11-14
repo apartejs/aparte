@@ -80,7 +80,8 @@ turns are back to `'auto'`.
 | `run-start`, `turn-start` | the run begins; each streamed reply from the model begins |
 | `text-delta`, `thinking-delta` | the reply's text and reasoning arrive |
 | `text-flush` | a turn's text is complete |
-| `tool-start` | the model calls a tool: `{ toolCallId, name, input }` |
+| `tool-start` | the model calls a tool: `{ toolCallId, name, input, queued }`, `queued: true` when the call [waits its turn](#several-calls-in-one-reply) behind another of its reply |
+| `tool-running` | a queued call goes on: `{ toolCallId }`, then its approval or its result as for any call; never sent for a call that went on at once |
 | `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it; a rejection carries `reason` (the sentence the model reads), `by` and the person's `instruction` |
 | `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either; an abort carries a `cause` |
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
@@ -213,17 +214,35 @@ Some things do not depend on which call finishes first:
   refused one are not run, and the model reads that they were not run because an earlier call was
   refused (`by: 'earlier-refusal'`). The rest of the reply is not read, and the model then answers
   the refusal.
-- **A Stop, the turn limit or a crash stops them all.** The calls still running end as
-  `tool-aborted` with the cause `'stopped'`. A call still waiting its place never starts.
+- **A Stop, the turn limit or a crash stops them all.** The calls still running, and those still
+  waiting their turn, end as `tool-aborted` with the cause `'stopped'`.
 - **With `deferral`**, a call that pauses does not stop the calls already running. The run pauses
   once all of them have finished or paused, and `run-suspended` lists every paused call; the calls
   made after the pause wait with it, and run in order when the run resumes. If one of them stops
   the run instead (a timeout, a missing handler), the run ends as it would one call after another:
   the paused calls end as `tool-aborted` (`'stopped'`) and nothing is suspended.
 
-A call starts, with its `tool-start` event, only when it may run, so its row appears then. To run
-every call one after another, each finished before the next is read, those of `parallel` tools
-too, pass `parallelTools: false`:
+Every call gets its `tool-start` as the model makes it, so its row stands where the model wrote
+it, before the text that follows. A call that cannot run yet carries `queued: true`, and
+`tool-running` says when it goes on; the rest of the reply keeps streaming meanwhile. In
+`@aparte/core` the row reads **Queued** until then (the segment's `queued`, live only, never
+saved).
+
+```ts
+import type { StreamRunEvent } from '@aparte/engine';
+
+// What a reply of edit_file (asked about), then run_command, emits before the answer:
+const events: StreamRunEvent[] = [
+  { type: 'tool-start', toolCallId: 'e', name: 'edit_file', input: { path: 'a.ts' } },
+  { type: 'tool-awaiting-approval', toolCallId: 'e', name: 'edit_file', input: { path: 'a.ts' } },
+  { type: 'tool-start', toolCallId: 'c', name: 'run_command', input: { cmd: 'npm test' }, queued: true },
+  // ...approved, the edit runs and answers, then:
+  { type: 'tool-running', toolCallId: 'c' },
+];
+```
+
+To run every call one after another, each finished before the next is read, those of `parallel`
+tools too, pass `parallelTools: false`:
 
 ```ts
 import { AparteClient } from '@aparte/core';

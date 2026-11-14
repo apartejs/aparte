@@ -51,9 +51,22 @@ function harness(tools: AparteTool[], calls: { id: string; name: string }[]) {
     } as never);
 
     const el = document.createElement('div');
-    for (const m of ['updateMessage', 'addSegment', 'updateSegment', 'typeName', 'setUsage', 'updateLastMessage']) {
+    for (const m of ['updateMessage', 'typeName', 'setUsage', 'updateLastMessage']) {
         (el as unknown as Record<string, unknown>)[m] = () => {};
     }
+    // The reply's tool rows, as the adapter writes them.
+    const rows = new Map<string, Record<string, unknown>>();
+    (el as unknown as Record<string, unknown>)['addSegment'] = (s: { id: string; type: string }) => {
+        if (s.type === 'tool_call') rows.set(s.id, { ...s });
+    };
+    (el as unknown as Record<string, unknown>)['updateSegment'] = (id: string, u: Record<string, unknown>) => {
+        const row = rows.get(id);
+        if (!row) return;
+        for (const [k, v] of Object.entries(u)) {
+            if (v === undefined) delete row[k];
+            else row[k] = v;
+        }
+    };
     const turn = (options: Partial<AparteClientOptions> = {}) => {
         const client = new AparteClient({ config: cfg, autoRegister: false, ...options });
         return (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
@@ -63,7 +76,7 @@ function harness(tools: AparteTool[], calls: { id: string; name: string }[]) {
         releases.get(id)!();
         await settle();
     };
-    return { turn, started, running, release };
+    return { turn, started, running, release, rows };
 }
 
 describe('AparteClient — the order of a step\'s tool calls', () => {
@@ -118,5 +131,30 @@ describe('AparteClient — the order of a step\'s tool calls', () => {
         await h.release('e');
         await h.release('c');
         await done;
+    });
+
+    it('shows both rows as the model wrote them, the command queued until the edit is decided, then running (#202)', async () => {
+        let answer!: (d: { approved: boolean }) => void;
+        const h = harness(
+            [tool('edit_file', { needsApproval: true }), tool('run_command')],
+            [{ id: 'e', name: 'edit_file' }, { id: 'c', name: 'run_command' }],
+        );
+        const done = h.turn({ approvalResolver: () => new Promise((resolve) => { answer = resolve; }) });
+
+        await settle();
+        expect([...h.rows.keys()]).toEqual(['tool-e', 'tool-c']);
+        expect(h.rows.get('tool-e')).toMatchObject({ status: 'awaiting-approval' });
+        expect(h.rows.get('tool-c')).toMatchObject({ status: 'pending', queued: true });
+
+        answer({ approved: true });
+        await settle();
+        // The edit runs; the command keeps its place behind it.
+        expect(h.rows.get('tool-c')).toMatchObject({ queued: true });
+        await h.release('e');
+        expect(h.rows.get('tool-c')).toMatchObject({ status: 'pending' });
+        expect(h.rows.get('tool-c')).not.toHaveProperty('queued');
+        await h.release('c');
+        await done;
+        expect(h.rows.get('tool-c')).toMatchObject({ status: 'resolved' });
     });
 });

@@ -62,23 +62,31 @@ function serve(provider: AparteAIProvider, tools: AparteAgentTool[], extra: Part
     return handler(new Request('http://x/api/agent', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }));
 }
 
-async function drain(res: Response): Promise<string[]> {
-    const types: string[] = [];
-    for await (const line of readNdjson<{ type: string }>(res.body!)) types.push(line.type);
-    return types;
+type Line = { type: string; toolCallId?: string; queued?: true };
+
+async function lines(res: Response): Promise<Line[]> {
+    const out: Line[] = [];
+    for await (const line of readNdjson<Line>(res.body!)) out.push(line);
+    return out;
 }
+const drain = async (res: Response): Promise<string[]> => (await lines(res)).map((l) => l.type);
 
 describe('createAparteAgentHandler — the order of a step\'s tool calls', () => {
     it('runs run_command once edit_file has settled when neither says parallel', async () => {
         const h = heldTools([def('edit_file'), def('run_command')]);
-        const out = drain(await serve(providerCalling([{ id: 'e', name: 'edit_file' }, { id: 'c', name: 'run_command' }]), h.tools));
+        const out = lines(await serve(providerCalling([{ id: 'e', name: 'edit_file' }, { id: 'c', name: 'run_command' }]), h.tools));
 
         await settle();
         expect(h.started).toEqual(['e']);
         await h.release('e');
         expect(h.started).toEqual(['e', 'c']);
         await h.release('c');
-        expect((await out).at(-1)).toBe('run-done');
+        const wire = await out;
+        expect(wire.at(-1)!.type).toBe('run-done');
+        // The command's row went down queued, and the moment it went on after it.
+        const at = (match: (l: Line) => boolean) => wire.findIndex(match);
+        expect(wire.find((l) => l.type === 'tool-start' && l.toolCallId === 'c')).toMatchObject({ queued: true });
+        expect(at((l) => l.type === 'tool-running' && l.toolCallId === 'c')).toBeGreaterThan(at((l) => l.type === 'tool-resolved' && l.toolCallId === 'e'));
     });
 
     it('runs together the calls of tools that say parallel: true', async () => {

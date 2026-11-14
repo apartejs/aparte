@@ -334,6 +334,14 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     width: var(--aparte-tool-spinner-size);
     height: var(--aparte-tool-spinner-size);
 }
+/* A call waiting its turn in its step (`data-queued`): on screen where the model wrote it,
+   not running yet. No motion (the renderer turns the spinner and the shimmer off, so reduced
+   motion has nothing to hold), its word shown on both rows, and its name in the muted ink the
+   state word already wears, so it reads as next rather than now. */
+.aparte-segment-tool-call[data-queued] .aparte-tool-name,
+.aparte-segment-tool-call[data-queued] .aparte-tool-target {
+    color: var(--aparte-text-muted);
+}
 
 /* Pipeline waiting */
 

@@ -54,6 +54,7 @@ export const ptBR: AparteLocale = {
     checkpointPending: "Resumindo o contexto…",
     checkpointFailed: "Não foi possível resumir o contexto",
     toolRunning: "Em execução",
+    toolQueued: "Na fila",
     toolFailed: "Falhou",
     toolCompleted: "Concluído",
     toolRejected: "Recusado",
