@@ -185,10 +185,23 @@ export const POST = createAparteAgentHandler({
 });
 ```
 
-A sub-agent's tools are found among the run's: on the server, the tools the request offers. Several
-sub-agents run side by side when the model delegates several times in one reply: the tool calls of
-one step run at the same time ([`parallelTools`](/guides/engine/#several-calls-in-one-reply)). One
-tool can also open several, with `Promise.all`, each with `detached: true`: one call's line can
+A sub-agent's tools are found among the run's: on the server, the tools the request offers. When
+the model delegates several times in one reply, the sub-agents run side by side only if the
+delegating tool says `parallel: true`; one that says nothing keeps its place, and each delegation
+waits for the one before it ([Several calls in one reply](/guides/engine/#several-calls-in-one-reply)):
+
+```ts
+import type { AparteTool } from '@aparte/core';
+
+const research = {
+  name: 'research',
+  description: 'Hand one question to a researcher, who reads the files it needs and answers it.',
+  inputSchema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+  parallel: true,   // two research calls in one reply run side by side
+} satisfies AparteTool;
+```
+
+One tool can also open several, with `Promise.all`, each with `detached: true`: one call's line can
 stand for only one sub-agent, so each of them gets a line of its own.
 
 #### While the chat goes on

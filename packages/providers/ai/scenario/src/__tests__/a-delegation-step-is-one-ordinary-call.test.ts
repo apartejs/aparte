@@ -43,6 +43,13 @@ describe('a delegation step on the wire', () => {
     });
 });
 
+describe('the delegating tool', () => {
+    it('says parallel: true, so two delegations of one reply run side by side rather than one after another', () => {
+        const provider = createScenarioProvider({ turns: ['Hi.'] });
+        expect(scenarioSubagentTool(provider).tool.parallel).toBe(true);
+    });
+});
+
 describe('two delegations sharing an id in one turn', () => {
     it('each finds its own scripts under the id the loop gave it', async () => {
         const provider = createScenarioProvider({

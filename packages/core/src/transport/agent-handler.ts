@@ -70,6 +70,13 @@ export interface AparteAgentHandlerOptions {
     maxTurns?: number;
     /** How long one tool call may run, in milliseconds, before it is abandoned. @default 300000 (5 minutes) */
     toolTimeoutMs?: number;
+    /**
+     * Run together the calls of one reply whose tools say `parallel: true` (`tool.parallel`).
+     * `false` runs every call one after another, whatever its tool says. A tool that says
+     * nothing keeps its place either way: `edit_file` then `run_command` runs the command on
+     * the edited file. @default true
+     */
+    parallelTools?: boolean;
     /** How long a suspended run can wait for its answer. @default 7 days */
     ticketMaxAgeMs?: number;
     /**
@@ -305,6 +312,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                         if (!t) return undefined;
                         return {
                             ...(t.tool.maxTurns !== undefined ? { maxTurns: t.tool.maxTurns } : {}),
+                            ...(t.tool.parallel !== undefined ? { parallel: t.tool.parallel } : {}),
                             needsApproval: (call) => {
                                 const ruling = rule(call as AparteToolCall);
                                 if (ruling?.verdict === 'allow') return false;
@@ -324,6 +332,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     signal: run.signal,
                     ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
                     ...(options.toolTimeoutMs !== undefined ? { toolTimeoutMs: options.toolTimeoutMs } : {}),
+                    ...(options.parallelTools !== undefined ? { parallelTools: options.parallelTools } : {}),
                     // Ids that cannot repeat from one request to the next, as the browser
                     // client mints them. The engine's default is a counter per run, and every
                     // request is a run: the resume of a paused reply named its first sub-agent

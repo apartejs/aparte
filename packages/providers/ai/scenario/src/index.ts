@@ -574,6 +574,8 @@ export function scenarioSubagentTool(
     const name = options.name ?? DELEGATE;
     const tool: AparteTool = {
         name,
+        // Two delegations of one reply run side by side, as several sub-agents of one call do.
+        parallel: true,
         description: 'Delegate work to sub-agents. Each one gets a single task, works on it on its own with its own tools, '
             + 'and reports back; several run side by side. Use it for independent parts of a larger job.',
         inputSchema: {

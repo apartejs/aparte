@@ -54,12 +54,12 @@ conversation so far, the `tool` messages answering the last calls included, as `
 | `baseRequest` | the first request: its `messages` and `modelId`, the tools, `toolChoice` |
 | `transportCall(request)` | calls the model with the request of each turn |
 | `toolLookup(name)` | the handler of a tool, `(call, signal) => Promise<{ content, structuredContent? }>` |
-| `toolConfigLookup(name)` | a tool's `maxTurns`, `needsApproval` and `external` |
+| `toolConfigLookup(name)` | a tool's `maxTurns`, `needsApproval`, `external` and [`parallel`](#several-calls-in-one-reply) |
 | `approvalResolver(call, signal)` | answers a call that needs approval: `{ approved, payload?, instruction?, reason? }` |
 | `emitter(event)` | receives every event of the run |
 | `signal` | stops the run |
 | `maxTurns`, `toolTimeoutMs` | the turns of one run, ten by default, and a tool's time, five minutes by default |
-| `parallelTools` | run the tool calls of one reply [at the same time](#several-calls-in-one-reply), `true` by default; `false` runs them one after another |
+| `parallelTools` | run together the calls of one reply whose tools say [`parallel: true`](#several-calls-in-one-reply), `true` by default; `false` runs every call one after another |
 | `onHistoryAppend(message)` | each message the loop adds to the history, for [a host that keeps its own](#own-the-history) |
 | `deferral` | [pause on a call](#pause-and-resume) rather than wait for it |
 | `idGen`, `providerId` | the id of the call the loop makes for a forced `toolChoice`, and your provider's id, passed untouched to a runner that sends the run elsewhere |
@@ -157,30 +157,73 @@ them all, and the [engine reference](/reference/engine/) lists every field.
 
 ## Several calls in one reply
 
-When the model calls several tools in one reply, they run at the same time. Each call starts as
-soon as the model asks for it, and the rest of the reply keeps streaming while it runs. The loop
-calls the model again once every call of that reply has finished. Two searches that take three
-seconds each take three seconds together, and two tools that each run a sub-agent run both
-sub-agents at once.
+When the model calls several tools in one reply, each call keeps its place: it starts once the
+calls the model made before it have finished, and the calls made after it wait for it. That is the
+order the model wrote them in, and the one a write or a command needs: `edit_file` then
+`run_command` runs the command on the edited file, and two edits of one file land in order.
+
+A tool whose result does not depend on that order says `parallel: true`. Its calls start as soon
+as the model asks for them, while the rest of the reply keeps streaming, and run together with the
+calls around them that say the same; a call that keeps its place still waits for them. Two
+searches that take three seconds each take three seconds together. Mark the tools that only read:
+read-only tools together, writes and commands one at a time, which is the rule coding agents
+follow. The loop calls the model again once every call of the reply has finished.
+
+```ts
+import { runStreamAgent, type StreamRunOptions, type StreamToolConfig } from '@aparte/engine';
+
+const config: Record<string, StreamToolConfig> = {
+  read_file: { parallel: true },        // reads run together
+  search: { parallel: true },
+  edit_file: { needsApproval: true },   // keeps its place
+  run_command: {},                      // keeps its place
+};
+
+const run = (options: StreamRunOptions) =>
+  runStreamAgent({ ...options, toolConfigLookup: (name) => config[name] });
+```
+
+A reply that calls `read_file`, `search`, `edit_file`, then `run_command` reads and searches at
+once, then edits, then runs the command. A tool from an MCP server says whether it only reads with
+its `readOnlyHint` annotation, and that maps directly:
+
+```ts
+import type { StreamToolConfig } from '@aparte/engine';
+
+// A tool as an MCP server's `tools/list` describes it.
+interface McpTool {
+  name: string;
+  annotations?: { readOnlyHint?: boolean };
+}
+
+const configOf = (tool: McpTool): StreamToolConfig => ({
+  parallel: tool.annotations?.readOnlyHint === true,
+});
+```
 
 Some things do not depend on which call finishes first:
 
 - **The history is in call order.** The assistant message lists the calls in the order the model
   made them, and their `tool` results follow in that same order.
-- **A person is asked about one call at a time**, in call order, sub-agents' calls included. The
-  calls that need no approval run in the meantime.
-- **A refusal ends the reply's calls.** The calls already running finish. A call still waiting
-  for its question is not run, and the model reads that it was not run because an earlier call
-  was refused (`by: 'earlier-refusal'`). The rest of the reply is not read, and the model then
-  answers the refusal.
+- **A call waiting for an approval holds the calls after it.** A person is asked about one call at
+  a time, in call order, sub-agents' calls included. While a call waits for its answer, or for the
+  policy's, the calls the model made after it in the reply do not start, those of `parallel` tools
+  included; the calls made before it keep running. Once it is approved, they start.
+- **A refusal ends the reply's calls.** The calls already running finish. The calls made after the
+  refused one are not run, and the model reads that they were not run because an earlier call was
+  refused (`by: 'earlier-refusal'`). The rest of the reply is not read, and the model then answers
+  the refusal.
 - **A Stop, the turn limit or a crash stops them all.** The calls still running end as
-  `tool-aborted` with the cause `'stopped'`.
+  `tool-aborted` with the cause `'stopped'`. A call still waiting its place never starts.
 - **With `deferral`**, a call that pauses does not stop the calls already running. The run pauses
-  once all of them have finished or paused, and `run-suspended` lists every paused call. If one
-  of them stops the run instead (a timeout, a missing handler), the run ends as it would one call
-  after another: the paused calls end as `tool-aborted` (`'stopped'`) and nothing is suspended.
+  once all of them have finished or paused, and `run-suspended` lists every paused call; the calls
+  made after the pause wait with it, and run in order when the run resumes. If one of them stops
+  the run instead (a timeout, a missing handler), the run ends as it would one call after another:
+  the paused calls end as `tool-aborted` (`'stopped'`) and nothing is suspended.
 
-To run them one after another, each finished before the next is read, pass `parallelTools: false`:
+A call starts, with its `tool-start` event, only when it may run, so its row appears then. To run
+every call one after another, each finished before the next is read, those of `parallel` tools
+too, pass `parallelTools: false`:
 
 ```ts
 import { AparteClient } from '@aparte/core';
@@ -189,11 +232,13 @@ import { runStreamAgent, type StreamRunOptions } from '@aparte/engine';
 const runOneAfterAnother = (options: StreamRunOptions) =>
   runStreamAgent({ ...options, parallelTools: false });
 
-// In a chat, through the client's runner:
-new AparteClient({
-  streamRunner: (opts) => runStreamAgent({ ...opts, parallelTools: false }),
-}).start();
+// In a chat, on the client:
+new AparteClient({ parallelTools: false }).start();
 ```
+
+In `@aparte/core`, a tool says it on its definition, `parallel: true` beside `needsApproval`
+([Tools](/guides/tools/#several-calls-in-one-reply)), and `AparteClient` and
+[`createAparteAgentHandler`](/guides/server-loop/#the-server) take `parallelTools`.
 
 ## The streamRunner seam
 
