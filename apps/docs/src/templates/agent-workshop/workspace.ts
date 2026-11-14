@@ -3,7 +3,8 @@
  *
  * - Files: the file tree, and the file the agent last read or wrote (or the one you picked).
  * - Terminal: every command the agent ran, with its output.
- * - Changes: the diff of every file the agent edited.
+ * - Changes: the diff of every file the agent edited (`<aparte-diff commentable>`). A comment on
+ *   a line is kept here, pending, until Send review sends them all to the agent as one message.
  * - A sub-agent, once its line is opened: its conversation, live (`<aparte-subagent-view>`, wired
  *   in app.ts). While it is the tab on screen, the tools no longer switch tabs as they run: the
  *   reader chose to watch that sub-agent, and its own reads and runs would take them away.
@@ -14,7 +15,12 @@
  * blocks use, so a file in the panel and a snippet in a reply look the same.
  */
 import { aparteGlobalConfig, enhanceTabs } from '@aparte/core';
+import type { AparteDiff, AparteDiffComment } from '@aparte/plugin-diff';
+import '@aparte/plugin-diff';
 import { languageOf, type Files } from './repo';
+
+/** How a review message starts: the scripted agent knows one by it (scenario.ts). */
+export const REVIEW_HEADING = 'Review of your changes';
 
 export type WorkspaceTab = 'files' | 'terminal' | 'changes' | 'agent';
 
@@ -44,7 +50,12 @@ export interface Workspace {
     hideAgent(): void;
 }
 
-export function createWorkspace(root: HTMLElement, files: Files): Workspace {
+export interface WorkspaceOptions {
+    /** Send a review to the agent as the person's message; `false` when it cannot go now (a reply is streaming). */
+    sendReview(text: string): boolean;
+}
+
+export function createWorkspace(root: HTMLElement, files: Files, options: WorkspaceOptions): Workspace {
     const original = new Map(files);
     const tabs = new Map(TABS.map((name) => [name, root.querySelector<HTMLButtonElement>(`[data-tab="${name}"]`)!]));
     const tree = root.querySelector<HTMLElement>('[data-workspace="tree"]')!;
@@ -52,8 +63,15 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
     const note = root.querySelector<HTMLElement>('[data-workspace="note"]')!;
     const code = root.querySelector<HTMLElement>('[data-workspace="code"]')!;
     const terminal = root.querySelector<HTMLElement>('[data-workspace="terminal"]')!;
-    const changes = root.querySelector<HTMLElement>('[data-workspace="changes"]')!;
     const changeCount = root.querySelector<HTMLElement>('[data-workspace="change-count"]')!;
+    const noChanges = root.querySelector<HTMLElement>('[data-workspace="changes-empty"]')!;
+    const diff = root.querySelector<AparteDiff>('[data-workspace="diff"]')!;
+    const review = root.querySelector<HTMLElement>('[data-workspace="review"]')!;
+    const reviewNote = root.querySelector<HTMLElement>('[data-workspace="review-note"]')!;
+    const sendReview = root.querySelector<HTMLButtonElement>('[data-workspace="send-review"]')!;
+
+    /** The reader's comments on the diff, with the lines each is about: pending until the review is sent. */
+    const comments: ReviewComment[] = [];
 
     let current = '';
     // A highlight is async: a file opened while the previous one was still being coloured wins.
@@ -146,58 +164,39 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
         if (mine === generation) code.innerHTML = html;
     }
 
-    async function drawChanges(): Promise<void> {
+    /** Every edited file, before and after: the diff element computes the hunks and can show every line. */
+    function drawChanges(): void {
         const edited = [...files.keys()].filter((file) => files.get(file) !== original.get(file));
         changeCount.hidden = edited.length === 0;
         changeCount.textContent = String(edited.length);
-        if (edited.length === 0) return;
-        const blocks = await Promise.all(
-            edited.map(async (file) => {
-                const diff = unifiedDiff(file, original.get(file) ?? '', files.get(file) ?? '');
-                const block = document.createElement('article');
-                block.className = 'aparte-card agent-workshop__diff';
-                const head = document.createElement('header');
-                head.className = 'aparte-card__header agent-workshop__diff-head';
-                // Not a heading: the panel sits outside the page's outline, and a bare h3 fails heading-order.
-                const name = document.createElement('span');
-                name.className = 'agent-workshop__diff-file';
-                name.textContent = file;
-                const stat = document.createElement('span');
-                stat.className = 'agent-workshop__diff-stat';
-                const added = document.createElement('span');
-                added.className = 'agent-workshop__ok';
-                added.textContent = `+${diff.added}`;
-                const removed = document.createElement('span');
-                removed.className = 'agent-workshop__fail';
-                removed.textContent = `−${diff.removed}`;
-                const spoken = document.createElement('span');
-                spoken.className = 'aparte-sr-only';
-                spoken.textContent = `${diff.added} added, ${diff.removed} removed`;
-                added.setAttribute('aria-hidden', 'true');
-                removed.setAttribute('aria-hidden', 'true');
-                stat.append(added, ' ', removed, spoken);
-                head.append(name, stat);
-                const body = document.createElement('div');
-                body.className = 'agent-workshop__diff-body';
-                // Scrolls sideways, so it takes the focus like the code view does.
-                body.setAttribute('role', 'region');
-                body.tabIndex = 0;
-                body.setAttribute('aria-label', `Diff of ${file}`);
-                body.innerHTML = await aparteGlobalConfig.highlightCode(diff.text, 'diff');
-                // Shiki colours the +/- sign in some themes and the whole line in others; tagging the
-                // line lets the stylesheet paint additions and removals the same way in both.
-                for (const line of body.querySelectorAll<HTMLElement>('.line')) {
-                    const text = line.textContent ?? '';
-                    // The ---/+++ file header is not a change.
-                    const kind = /^(---|\+\+\+|@)/.test(text) ? 'hunk' : ({ '+': 'add', '-': 'del' } as Record<string, string>)[text[0] ?? ''];
-                    if (kind) line.dataset['diff'] = kind;
-                }
-                block.append(head, body);
-                return block;
-            }),
-        );
-        changes.replaceChildren(...blocks);
+        noChanges.hidden = edited.length > 0;
+        diff.hidden = review.hidden = edited.length === 0;
+        diff.diff = edited.map((file) => ({ path: file, before: original.get(file) ?? '', after: files.get(file) ?? '' }));
+        drawReview();
     }
+
+    /** The bar over the diff: how many comments wait, and the button that sends them. */
+    function drawReview(): void {
+        const pending = comments.filter((comment) => comment.state === 'pending').length;
+        sendReview.disabled = pending === 0;
+        reviewNote.textContent = pending === 0
+            ? 'Click a line number to comment on it.'
+            : `${pending} comment${pending === 1 ? '' : 's'} to send.`;
+    }
+
+    diff.addEventListener('aparte-diff-comment', (event) => {
+        comments.push({ ...event.detail, id: `c${comments.length + 1}`, state: 'pending' });
+        diff.comments = comments;
+        drawReview();
+    });
+
+    sendReview.addEventListener('click', () => {
+        const pending = comments.filter((comment) => comment.state === 'pending');
+        if (!pending.length || !options.sendReview(reviewMessage(pending))) return;
+        for (const comment of pending) comment.state = 'sent';
+        diff.comments = comments;
+        drawReview();
+    });
 
     drawTree();
 
@@ -225,7 +224,7 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
         write(file, content) {
             files.set(file, content);
             void show(file, 'edited');
-            void drawChanges();
+            drawChanges();
             follow('changes');
         },
         log(command, output) {
@@ -272,38 +271,21 @@ function toneOf(line: string): 'fail' | 'ok' | 'dim' | undefined {
     return undefined;
 }
 
-interface Diff {
-    text: string;
-    added: number;
-    removed: number;
-}
+/** A comment on the diff, with the lines it is about (the event's `code`), as the review quotes it. */
+export type ReviewComment = AparteDiffComment & { code: string };
 
 /**
- * A unified diff with three lines of context around the one changed region. The agent's edits
- * here are a single replacement, so one hunk is the whole story.
+ * The comments as ONE message to the agent, one line each: where it is, the first line it is
+ * about, and what the reader said. The agent reads the whole review at once, as a reviewer
+ * sends one.
  */
-export function unifiedDiff(file: string, before: string, after: string): Diff {
-    const a = before.split('\n');
-    const b = after.split('\n');
-    let start = 0;
-    while (start < a.length && start < b.length && a[start] === b[start]) start++;
-    let endA = a.length;
-    let endB = b.length;
-    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
-        endA--;
-        endB--;
-    }
-    const from = Math.max(0, start - 3);
-    const toA = Math.min(a.length, endA + 3);
-    const toB = Math.min(b.length, endB + 3);
-    const lines = [
-        `--- a/${file}`,
-        `+++ b/${file}`,
-        `@@ -${from + 1},${toA - from} +${from + 1},${toB - from} @@`,
-        ...a.slice(from, start).map((line) => ` ${line}`),
-        ...a.slice(start, endA).map((line) => `-${line}`),
-        ...b.slice(start, endB).map((line) => `+${line}`),
-        ...a.slice(endA, toA).map((line) => ` ${line}`),
-    ];
-    return { text: lines.join('\n'), added: endB - start, removed: endA - start };
+export function reviewMessage(comments: readonly ReviewComment[]): string {
+    const lines = comments.map((comment) => {
+        const where = comment.startLine === comment.endLine ? `line ${comment.startLine}` : `lines ${comment.startLine}–${comment.endLine}`;
+        const first = comment.code.split('\n')[0]!.trim();
+        const more = comment.code.includes('\n') ? ' …' : '';
+        const quote = first ? `, \`${first.replace(/`/g, "'")}\`${more}` : '';
+        return `- ${comment.path}, ${comment.side === 'old' ? 'removed ' : ''}${where}${quote} — ${comment.text.replace(/\s+/g, ' ')}`;
+    });
+    return `${REVIEW_HEADING}, ${comments.length} comment${comments.length === 1 ? '' : 's'}:\n\n${lines.join('\n')}`;
 }

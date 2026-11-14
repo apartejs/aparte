@@ -97,9 +97,15 @@ import './agent-workshop.css';
                         </div>
                     </div>
 
+                    <!-- The diff of every edited file; a click on a line number comments on it, and the comments go to the agent as one review (workspace.ts). -->
                     <div class="agent-workshop__panel" role="tabpanel" id="aw-panel-changes" aria-labelledby="aw-tab-changes" hidden>
                         <div class="agent-workshop__changes" data-workspace="changes">
-                            <p class="agent-workshop__empty">No changes yet. What the agent edits shows here as a diff.</p>
+                            <p class="agent-workshop__empty" data-workspace="changes-empty">No changes yet. What the agent edits shows here as a diff.</p>
+                            <div class="agent-workshop__review" data-workspace="review" hidden>
+                                <span class="agent-workshop__review-note" data-workspace="review-note" aria-live="polite"></span>
+                                <button class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--sm" type="button" data-workspace="send-review" disabled>Send review</button>
+                            </div>
+                            <aparte-diff commentable data-workspace="diff" hidden></aparte-diff>
                         </div>
                     </div>
 

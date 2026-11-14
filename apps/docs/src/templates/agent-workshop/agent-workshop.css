@@ -330,69 +330,26 @@ aparte-chat:defined:not([data-empty]) .agent-workshop__welcome {
     color: var(--aparte-text-muted);
 }
 
-/* Changes: one card per edited file. */
+/* Changes: the review bar, then the diff of every edited file (`<aparte-diff>`, its own sheet). */
 .agent-workshop__changes {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--aparte-space-4);
+    gap: var(--aparte-space-3);
     overflow: auto;
     padding: var(--aparte-space-4);
 }
 
-.agent-workshop__diff-head {
+.agent-workshop__review {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--aparte-space-3);
-}
-
-.agent-workshop__diff-file {
-    margin: 0;
-    font-family: var(--aparte-code-font-family);
-    font-size: var(--aparte-font-size-sm);
-    font-weight: var(--aparte-font-weight-semibold);
-}
-
-.agent-workshop__diff-stat {
-    font-family: var(--aparte-code-font-family);
-    font-size: var(--aparte-font-size-sm);
     color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-sm);
 }
 
-.agent-workshop__diff-body {
-    overflow-x: auto;
-    font-family: var(--aparte-code-font-family);
-    font-size: var(--aparte-code-block-font-size);
-    line-height: var(--aparte-code-block-line-height);
-}
-
-.agent-workshop__diff-body pre {
-    margin: 0;
-    padding: var(--aparte-space-3) var(--aparte-space-4);
-    font: inherit;
-}
-
-.agent-workshop__diff-body:focus-visible {
-    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
-}
-
-/* A changed line is painted across the whole width, in both themes. */
-.agent-workshop__diff-body .line {
-    display: inline-block;
-    min-width: 100%;
-}
-
-.agent-workshop__diff-body .line[data-diff='add'] {
-    background: var(--aparte-success-surface);
-}
-
-.agent-workshop__diff-body .line[data-diff='del'] {
-    background: var(--aparte-error-surface);
-}
-
-.agent-workshop__diff-body .line[data-diff='hunk'] {
-    color: var(--aparte-text-muted);
+.agent-workshop__review[hidden] {
+    display: none;
 }

@@ -26,7 +26,7 @@ import { createToolbox, PLAN_TOOL, planReceipt, statusOf, summaryOf, TOOLS, type
 import { createWorkspace } from './workspace';
 
 type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void };
-type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
+type Composer = HTMLElement & { value: string; streaming: boolean; panelActive: boolean; setValue(value: string): void; submit(): void };
 
 /** How long each tool takes, so the row and the status line are seen running. */
 const LATENCY: Record<ToolName, number> = { read_file: 350, search: 450, write_file: 400, run_command: 900 };
@@ -49,7 +49,22 @@ async function main(): Promise<void> {
     setupArtifacts();
 
     const root = document.querySelector<HTMLElement>('.agent-workshop')!;
-    const workspace = createWorkspace(root.querySelector('.agent-workshop__workspace')!, initialFiles());
+    // A review from Changes goes to the agent as the person's next message, through the composer;
+    // what the person was writing comes back after it. Not while a reply streams or a question
+    // holds the composer: there, a send would stop the reply or answer the question.
+    const workspace = createWorkspace(root.querySelector('.agent-workshop__workspace')!, initialFiles(), {
+        sendReview(text) {
+            const composer = root.querySelector<Composer>('aparte-composer')!;
+            if (composer.streaming || composer.panelActive) return false;
+            const draft = composer.value;
+            composer.setValue(text);
+            composer.submit();
+            if (draft.trim()) composer.setValue(draft);
+            // On a phone, where one pane shows at a time, the answer is in the chat.
+            root.querySelector<HTMLElement & { pane: 'start' | 'end' }>('aparte-split')!.pane = 'start';
+            return true;
+        },
+    });
     const toolbox = createToolbox(workspace);
     const status = root.querySelector('aparte-chat-status')!;
     // The status line under the reply speaks for the agent's own calls: a sub-agent's say what they

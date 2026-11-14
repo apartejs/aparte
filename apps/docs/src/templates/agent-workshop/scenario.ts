@@ -10,10 +10,11 @@
  */
 import { contentToText, type AparteChatRequest } from '@aparte/core';
 import type { PlanStatus } from '@aparte/plugin-cards/plan';
+import { diffTexts, formatUnifiedDiff } from '@aparte/plugin-diff';
 import type { Scenario, ScenarioStep, ScenarioSubagent, ScenarioTurn } from '@aparte/provider-scenario';
 import { initialFiles } from './repo';
 import { PLAN_TOOL, type PlanStep, type ToolName } from './tools';
-import { unifiedDiff } from './workspace';
+import { REVIEW_HEADING } from './workspace';
 
 /** What the landing's showcase types, and the first suggestion. */
 export const PLAY_QUESTION = "Issue #42: parse('1.5h') returns one hour instead of ninety minutes. Find the cause and fix it.";
@@ -37,8 +38,33 @@ const PARSER_TESTS = 'pnpm test tests/parse.test.ts';
 /** The patch the agent produces once the tests pass: the diff of its own edit. */
 const PATCH = (() => {
     const before = initialFiles().get(FIX_EDIT.path)!;
-    return unifiedDiff(FIX_EDIT.path, before, before.replace(FIX_EDIT.find, FIX_EDIT.replace)).text;
+    return formatUnifiedDiff(diffTexts(before, before.replace(FIX_EDIT.find, FIX_EDIT.replace), { path: FIX_EDIT.path }));
 })();
+
+/**
+ * The answer to a review sent from Changes (workspace.ts writes it, one line per comment): a
+ * word on each comment, in the order they came. Written when the review arrives (`route`), since
+ * what it says depends on what the reader wrote.
+ */
+const REVIEW: Scenario = { turn: '' };
+
+function answerOne(comment: string): string {
+    if (/parseFloat/i.test(comment)) return '`parseFloat` would read `1.5h` too, stopping at the `h`. `Number` takes the amount the pattern captured, which is only digits and one dot, so the two read the same here and `Number` says what is meant.';
+    if (/\btests?\b/i.test(comment)) return "Agreed: I will add *reads a decimal minute* to `tests/parse.test.ts`, with `parse('0.5m')` as 30 000 ms, before the pull request.";
+    if (/\?\s*$/.test(comment)) return 'It is the one place the fraction was lost: no other code in `src/` reads the amount, so the change stays on this line.';
+    return 'Noted. I will take it into account before I open the pull request.';
+}
+
+function answerReview(text: string): ScenarioTurn {
+    const answers = text.split('\n').filter((line) => line.startsWith('- ')).map((line) => {
+        const at = line.lastIndexOf(' — ');
+        const where = (at > 0 ? line.slice(2, at) : line.slice(2)).replace(/, `.*$/, '');
+        const said = at > 0 ? line.slice(at + 3) : '';
+        return `- **${where}**: ${answerOne(said)}`;
+    });
+    const intro = answers.length === 1 ? 'Thanks for the review. On your comment:' : `Thanks for the review. On your ${answers.length} comments:`;
+    return reply(`${intro}\n\n${answers.join('\n')}`, 13400);
+}
 
 /** The fix's task list: each step as an instruction, and as the work while it runs. */
 const FIX_STEPS = [
@@ -273,6 +299,9 @@ export const SCENARIOS: Record<string, Scenario | ScenarioTurn> = {
     },
     greenParser: reply('The parser’s 6 tests pass.', 8700),
     green: reply('All 11 tests pass, in `tests/format.test.ts` and `tests/parse.test.ts`.', 8700),
+
+    // ── A review sent from Changes ───────────────────────────────────────────
+    review: REVIEW,
 };
 
 /**
@@ -295,6 +324,11 @@ export function route(request: AparteChatRequest): string | undefined {
     // investigation's end, unless the Test runner reports that its run was refused.
     if (last?.role === 'user') {
         const report = contentToText(last.content);
+        // A review from Changes: answered comment by comment.
+        if (report.startsWith(REVIEW_HEADING)) {
+            REVIEW.turn = answerReview(report);
+            return 'review';
+        }
         if (!BACK.test(report)) return undefined;
         let asked = '';
         for (let i = messages.length - 2; i >= 0; i--) {
