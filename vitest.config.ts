@@ -224,6 +224,8 @@ const config = defineConfig({
         // plugin-chartjs (2026-10-31): measured 100 / 94.92 / 97.40 on a stand-in Chart.js (jsdom draws nothing).
         'packages/plugins/chartjs/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 93 },
+        // plugin-diff (2026-11-14): measured 98.97 / 91.62 / 97.84 when the package landed.
+        'packages/plugins/diff/src/**': { lines: 98, statements: 98, functions: 96, branches: 90 },
         // plugin-echarts (2026-10-31): measured 99.74 / 95.27 / 97.37 on a stand-in ECharts.
         'packages/plugins/echarts/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.

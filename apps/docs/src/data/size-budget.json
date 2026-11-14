@@ -43,6 +43,10 @@
         "js": 10240,
         "css": 0
     },
+    "@aparte/plugin-diff": {
+        "js": 19712,
+        "css": 0
+    },
     "@aparte/plugin-echarts": {
         "js": 13312,
         "css": 0

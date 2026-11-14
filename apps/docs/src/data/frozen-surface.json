@@ -149,6 +149,12 @@
         "target"
       ]
     },
+    "aparte-diff": {
+      "package": "@aparte/plugin-diff",
+      "attributes": [
+        "commentable"
+      ]
+    },
     "aparte-elicitation": {
       "package": "@aparte/core",
       "attributes": []
@@ -685,6 +691,13 @@
       "setupCompaction",
       "splitHistoryBudget",
       "transcriptForSummary"
+    ],
+    "@aparte/plugin-diff": [
+      "AparteDiff",
+      "diffTexts",
+      "formatUnifiedDiff",
+      "parseUnifiedDiff",
+      "setupDiff"
     ],
     "@aparte/plugin-echarts": [
       "ECHARTS_SERIES_HUES",

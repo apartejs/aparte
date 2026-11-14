@@ -12,6 +12,7 @@
     "@aparte/plugin-artifacts": "workspace:*",
     "@aparte/plugin-ask-user": "workspace:*",
     "@aparte/plugin-compaction": "workspace:*",
+    "@aparte/plugin-diff": "workspace:*",
     "@aparte/plugin-marked": "workspace:*",
     "@aparte/plugin-model-selector": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",

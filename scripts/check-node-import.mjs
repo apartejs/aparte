@@ -312,6 +312,7 @@ const SATELLITES = [
     ['@aparte/plugin-chartjs/core', 'packages/plugins/chartjs'],
     ['@aparte/plugin-streaming-markdown', 'packages/plugins/streaming-markdown'],
     ['@aparte/plugin-subagents', 'packages/plugins/subagents'],
+    ['@aparte/plugin-diff', 'packages/plugins/diff'],
     ['@aparte/provider-ai-sdk','packages/providers/ai/ai-sdk'],
     ['@aparte/provider-scenario', 'packages/providers/ai/scenario'],
     ['@aparte/provider-transformers', 'packages/providers/ai/transformers'],
