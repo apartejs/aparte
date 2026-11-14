@@ -74,11 +74,44 @@ describe('aparte-conversation-list — the row menu', () => {
         expect(el.querySelector('[role="menu"]')).toBeNull();
     });
 
-    it('a scroll anywhere closes it — the placement was measured once', () => {
+    it('a scroll of the page closes it — the placement was measured once', () => {
         const el = mount([{ id: 'c1', title: 'One' }]);
         openMenu(el, 'c1');
         document.dispatchEvent(new Event('scroll'));
         expect(el.querySelector('[role="menu"]')).toBeNull();
+    });
+
+    it('a scroll of the sidebar it is in closes it, the menu being in the row; a reply streaming in beside it does not', () => {
+        const sidebar = document.createElement('aside');
+        const transcript = document.createElement('main');
+        document.body.append(sidebar, transcript);
+        const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }]);
+        sidebar.append(el);
+        openMenu(el, 'c1');
+        transcript.dispatchEvent(new Event('scroll'));
+        expect(el.querySelector('[role="menu"]'), 'still open').not.toBeNull();
+        sidebar.dispatchEvent(new Event('scroll'));
+        expect(el.querySelector('[role="menu"]')).toBeNull();
+
+        // The context menu, opened on a row, the same.
+        rowOf(el, 'c2').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 }));
+        expect(el.querySelector('[role="menu"]')).not.toBeNull();
+        transcript.dispatchEvent(new Event('scroll'));
+        expect(el.querySelector('[role="menu"]'), 'still open').not.toBeNull();
+        sidebar.dispatchEvent(new Event('scroll'));
+        expect(el.querySelector('[role="menu"]')).toBeNull();
+    });
+
+    it('a click on its ⋯ in WebKit closes it: the press blurs the item with nowhere to go first', () => {
+        const el = mount([{ id: 'c1', title: 'One' }]);
+        const menu = openMenu(el, 'c1');
+        const item = menu.querySelector<HTMLElement>('[role="menuitem"]')!;
+        moreOf(el, 'c1').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        item.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+        document.dispatchEvent(new Event('pointerup', { bubbles: true }));
+        moreOf(el, 'c1').click();
+        expect(el.querySelector('[role="menu"]')).toBeNull();
+        expect(moreOf(el, 'c1').getAttribute('aria-expanded')).toBe('false');
     });
 
     it('re-assigning conversations while a menu is open drops it cleanly', () => {

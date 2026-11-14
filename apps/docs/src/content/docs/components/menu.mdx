@@ -149,8 +149,9 @@ What the reader gets, the [menu button pattern](https://www.w3.org/WAI/ARIA/apg/
   is `disabled`, `aria-disabled="true"` or `hidden` is passed over.
 - Escape closes the menu and puts the focus back on the button. Tab closes it and moves on from
   the button.
-- A click outside, the focus going elsewhere, a scroll or a resize close it. One menu is open at a
-  time.
+- A click outside, the focus going elsewhere or a resize close it, and so does a scroll that moves
+  the button: the page, or a list the button is in. A scroll beside it, such as a reply streaming
+  in, leaves it open. One menu is open at a time.
 
 The menu is placed under the button and fixed to the window, so a list that scrolls does not clip
 it; it turns above the button when the window ends first. `align`, `side` and `gap` choose where,

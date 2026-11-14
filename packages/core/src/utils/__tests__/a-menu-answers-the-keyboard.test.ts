@@ -440,7 +440,7 @@ describe('enhanceMenu — closing', () => {
         expect(menu.hidden, 'with no press held, a blur to nowhere is the focus leaving').toBe(true);
     });
 
-    it('closes on a scroll anywhere or a resize: it was placed once', () => {
+    it('closes when the page scrolls, or a list around its button, or on a resize: it was placed once', () => {
         const { trigger, menu } = mount();
         trigger.click();
         document.dispatchEvent(new Event('scroll'));
@@ -448,6 +448,52 @@ describe('enhanceMenu — closing', () => {
         trigger.click();
         window.dispatchEvent(new Event('resize'));
         expect(menu.hidden).toBe(true);
+
+        const list = document.createElement('div');
+        trigger.before(list);
+        list.append(trigger);
+        trigger.click();
+        list.dispatchEvent(new Event('scroll'));
+        expect(menu.hidden, 'the list moved its button').toBe(true);
+    });
+
+    it('stays open when something beside it scrolls: a reply streaming in does not move its button', () => {
+        const { trigger, menu } = mount();
+        const transcript = document.createElement('div');
+        transcript.innerHTML = '<p>The reply so far</p>';
+        document.body.append(transcript);
+        trigger.click();
+        transcript.dispatchEvent(new Event('scroll'));
+        transcript.firstElementChild!.dispatchEvent(new Event('scroll'));
+        expect(menu.hidden).toBe(false);
+    });
+
+    it('closes when a list scrolls around the shadow root its button is in', () => {
+        const list = document.createElement('div');
+        const host = document.createElement('div');
+        list.append(host);
+        document.body.append(list);
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button type="button" id="trigger">More</button><div class="aparte-menu" role="menu" id="menu"><button type="button" role="menuitem">One</button></div>';
+        const menu = root.getElementById('menu')!;
+        releases.push(enhanceMenu(root.getElementById('trigger')!, menu));
+        root.getElementById('trigger')!.click();
+        list.dispatchEvent(new Event('scroll'));
+        expect(menu.hidden).toBe(true);
+    });
+
+    it('closes on a click on its button in WebKit, where the press blurs the item with nowhere to go', () => {
+        const { trigger, menu, items } = mount();
+        trigger.click();
+        expect(menu.hidden).toBe(false);
+        // WebKit's order: the press, the item blurred to nowhere (the button takes no focus), the click.
+        press(trigger);
+        items()[0]!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+        document.dispatchEvent(new Event('pointerup', { bubbles: true }));
+        trigger.click();
+        expect(menu.hidden).toBe(true);
+        expect(trigger.getAttribute('aria-expanded')).toBe('false');
+        expect(focused()).toBe(trigger);
     });
 
     it('a scroll of its own list does not close it', () => {

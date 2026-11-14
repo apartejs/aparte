@@ -53,7 +53,8 @@ let openMenu: Session | null = null;
 
 interface Session {
     readonly isOpen: () => boolean;
-    open(anchor: Anchor, place: AparteFloatingOptions, focus: 'first' | 'last', returnTo: HTMLElement | null): void;
+    /** `from`: the element it was opened from, whose moving out from under it closes it. */
+    open(anchor: Anchor, place: AparteFloatingOptions, focus: 'first' | 'last', returnTo: HTMLElement | null, from: Node): void;
     close(returnFocus: boolean): void;
     release(): void;
     /** Where the focus goes back to when it closes. */
@@ -95,9 +96,24 @@ function isField(el: Element | null): boolean {
 }
 
 /**
+ * Whether `node` is drawn inside `box`, across shadow roots: up through the slot a node is
+ * assigned to, its parent, or the host of its shadow root — the tree a scroll moves.
+ */
+function drawnInside(box: Node, node: Node): boolean {
+    for (let at: Node | null = node; at; ) {
+        if (at === box) return true;
+        const slot: Node | null | undefined = (at as Partial<Element>).assignedSlot;
+        // A shadow root is a fragment with a host; its parent is that host.
+        const host: Node | null = at.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? (at as ShadowRoot).host ?? null : null;
+        at = slot ?? at.parentNode ?? host;
+    }
+    return false;
+}
+
+/**
  * Everything the two kinds of menu share, from the moment it shows to the moment it closes:
  * the keys inside it, the choice, and the four ways it closes on its own (a press outside,
- * the focus leaving, a scroll, a resize).
+ * the focus leaving, a scroll that moves what it was opened from, a resize).
  */
 function menuSession(
     menu: HTMLElement,
@@ -105,10 +121,13 @@ function menuSession(
 ): Session {
     let open = false;
     let returnTo: HTMLElement | null = null;
-    // A press inside the menu, held from `pointerdown` to its release. WebKit does not move
-    // the focus to a button on mousedown: the element that held it is blurred instead —
-    // `focusout` with no `relatedTarget` — before the click reaches the item. Read as the
-    // focus leaving, that closed the menu on the press, and no item could be chosen with a mouse.
+    /** What it was opened from: its button, or the element a context menu was asked about. */
+    let from: Node | null = null;
+    // A press inside the menu or on its button, held from `pointerdown` to its release. WebKit
+    // does not move the focus to a button on mousedown: the element that held it is blurred
+    // instead — `focusout` with no `relatedTarget` — before the click lands. Read as the focus
+    // leaving, that closed the menu on the press: no item could be chosen with a mouse, and a
+    // click on the button closed the menu and then, its own click, opened it again.
     let pressInside = false;
     let typed = '';
     let typedAt = 0;
@@ -126,16 +145,20 @@ function menuSession(
         // `eventOrigin`, not `e.target`: this listens on `document`, and a menu inside a
         // shadow root is seen from there as its host.
         const target = eventOrigin(e) as Node | null;
-        pressInside = !!target && menu.contains(target);
         // A press on the trigger is left to its own click, which toggles.
-        if (pressInside || (target && hooks.owns?.(target))) return;
+        pressInside = !!target && (menu.contains(target) || !!hooks.owns?.(target));
+        if (pressInside) return;
         session.close(false);
     };
     const onRelease = (): void => { pressInside = false; };
     const onScroll = (e: Event): void => {
-        // Its own list scrolling is not the page moving under it.
         const target = eventOrigin(e);
+        // Its own list scrolling is not the page moving under it.
         if (target instanceof Node && menu.contains(target)) return;
+        // It was placed once, against what it was opened from: a scroll that moves that (the
+        // page, a list around the row) closes it. One that cannot — a reply streaming in
+        // beside it, which scrolls the transcript at every chunk — leaves it open.
+        if (target instanceof Node && from?.isConnected && !drawnInside(target, from)) return;
         session.close(false);
     };
     const onResize = (): void => session.close(false);
@@ -232,15 +255,17 @@ function menuSession(
 
     const session: Session = {
         isOpen: () => open,
-        open(anchor, place, focus, back) {
+        open(anchor, place, focus, back, opener) {
             if (openMenu && openMenu !== session) openMenu.close(false);
             open = true;
             openMenu = session;
             returnTo = back;
+            from = opener;
             typed = '';
             menu.hidden = false;
             // Fixed to the window: a menu inside a scrolling list is not clipped by it. It is
-            // measured once, which is why a scroll or a resize closes it.
+            // measured once, which is why a resize, or a scroll that moves what it was opened
+            // from, closes it.
             menu.style.position = 'fixed';
             placeFloating(anchor, menu, place);
             document.addEventListener('pointerdown', onPress, true);
@@ -267,6 +292,7 @@ function menuSession(
             // Before it hides: a hidden element that holds the focus drops it on `<body>`.
             if (returnFocus && returnTo?.isConnected) returnTo.focus();
             returnTo = null;
+            from = null;
             menu.hidden = true;
             hooks.onToggle?.(false);
             hooks.onClose?.();
@@ -309,7 +335,8 @@ function borrowAttribute(el: Element, name: string, value: string, keepExisting 
  * jump to the ends, and a letter moves to the next item that starts with it; an item that is
  * `disabled`, `aria-disabled="true"` or hidden is passed over. Escape closes it and puts the
  * focus back on the button; Tab closes it and moves on from the button. A press outside, the
- * focus leaving, a scroll or a resize close it. One menu is open at a time.
+ * focus leaving or a resize close it, and so does a scroll that moves the button (the page, a
+ * list it is in) — not one beside it, such as a reply streaming in. One menu is open at a time.
  *
  * Choosing an item fires `aparte-menu-select` on the menu with `{ item }`, then closes it and
  * puts the focus back. A `menuitemcheckbox` or `menuitemradio` is not ticked for you: set its
@@ -346,7 +373,7 @@ export function enhanceMenu(trigger: HTMLElement, menu: HTMLElement, options: Ap
             return;
         }
         if (onOpen?.() === false) return;
-        session.open(trigger.getBoundingClientRect(), { ...place, rtl: place.rtl ?? isRtl(trigger) }, focus, trigger);
+        session.open(trigger.getBoundingClientRect(), { ...place, rtl: place.rtl ?? isRtl(trigger) }, focus, trigger, trigger);
     };
     const toggle = (): void => {
         if (session.isOpen()) session.close(true);
@@ -414,7 +441,7 @@ export function enhanceContextMenu(region: HTMLElement, menu: HTMLElement, optio
             side: 'below',
             align: 'start',
             rtl: rtl ?? isRtl(region),
-        }, 'first', back);
+        }, 'first', back, target);
         return true;
     };
 

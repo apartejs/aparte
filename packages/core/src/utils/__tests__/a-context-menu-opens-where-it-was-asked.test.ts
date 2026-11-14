@@ -158,6 +158,17 @@ describe('enhanceContextMenu', () => {
         expect(menu.hidden).toBe(true);
     });
 
+    it('closes when the list holding the row it was asked about scrolls, not when something beside it does', () => {
+        const { region, menu } = mount();
+        const beside = document.createElement('div');
+        document.body.append(beside);
+        rightClick(document.getElementById('row-a')!);
+        beside.dispatchEvent(new Event('scroll'));
+        expect(menu.hidden, 'a reply streaming in beside the list').toBe(false);
+        region.dispatchEvent(new Event('scroll'));
+        expect(menu.hidden).toBe(true);
+    });
+
     it('release takes back its listeners: the region is the browser\'s again', () => {
         document.body.innerHTML = `
             <div id="region"><button type="button" id="row">Row</button></div>
