@@ -259,7 +259,7 @@ const config = defineConfig({
         'packages/wrappers/angular/src/**': { lines: 91, statements: 91, functions: 80, branches: 87 },
         // React functions 53 -> 57 (2026-10-11): the controlled-mode echo tests (#97's
         // sequence) reach the host binding's emit path; measured 58.90%, and the ratchet asked.
-        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 81, branches: 94 },
+        'packages/wrappers/react/src/**': { lines: 98, statements: 98, functions: 84, branches: 96 },
         // Svelte functions 54 -> 56 (2026-10-25): the runes chat's echo and server-render tests.
         'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 56, branches: 90 },
         'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 59, branches: 92 },
