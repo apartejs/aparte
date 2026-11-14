@@ -54,6 +54,12 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * `AparteClient`, or handle `aparte-send` yourself, as with the primitives.
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
+ * Every event listed below reaches a listener on this element: the composer's, the
+ * transcript's and each message's bubble up from the parts, and the turn's lifecycle comes
+ * from the host that drives the chat (an `AparteClient`, or the framework host a wrapper
+ * runs). The page-wide ones go out on `window` instead — `aparte-abort`, `aparte-compact`,
+ * `aparte-config-change` — and a listener here never hears them.
+ *
  * Composing it yourself is the other form, and the container still lays it out and still
  * runs `center-empty`. It is written out here rather than as a second `@example` for a
  * mechanical reason: every element-own example is concatenated into ONE live frame on the
@@ -106,6 +112,58 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   it on this element — its component selector IS `aparte-chat`; React/Vue/Svelte render a
  *   `[data-aparte-chat]` div and never create this element at all.
  * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
+ *
+ * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was sent from the composer: its
+ *   text, its attachments and the chat it is for. An `AparteClient` answers it; with none, your loop
+ *   starts here.
+ * @fires {CustomEvent} aparte-cancel - Stop was pressed in the composer. No detail; the turn it stops
+ *   ends with `aparte-message-aborted`.
+ * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - The composer's state
+ *   changed — its value, streaming, disabled, attachments or panel — folded into one event that carries
+ *   all of it.
+ * @fires {CustomEvent<AparteActionClickEventDetail>} aparte-action-click - A button your app placed in
+ *   the composer (`<aparte-composer-action>`) was clicked; `detail.actionId` says which.
+ * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attachment
+ *   was clicked — in a message, or in the composer's strip before sending — asking the app to open it.
+ *   Sent only once `setHostHandlers` declared `attachmentPreview` (or `filePreview`, for a sent file).
+ * @fires {CustomEvent<AparteMessageStartEventDetail>} aparte-message-start - A reply began, before its
+ *   first token.
+ * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment of the reply
+ *   grew or settled while it streamed.
+ * @fires {CustomEvent<AparteMessageDoneEventDetail>} aparte-message-done - The reply finished: its token
+ *   usage, and why the model stopped when the provider said (`finishReason: 'length'` is a reply cut off).
+ * @fires {CustomEvent<AparteMessageErrorEventDetail>} aparte-message-error - The turn failed;
+ *   `detail.error` is the failure, with its `code`. The event to bind to show it.
+ * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - The turn ended early:
+ *   Stop was pressed, or `abort()` was called.
+ * @fires {CustomEvent<AparteMessagePausedEventDetail>} aparte-message-paused - A server loop paused the
+ *   turn on calls only the page can answer — an approval, a browser tool. Not the end: the reply is worth
+ *   saving now, and `aparte-message-resumed` follows the answer.
+ * @fires {CustomEvent<AparteMessageResumedEventDetail>} aparte-message-resumed - A paused turn goes on,
+ *   into the same reply, once the page answered its calls.
+ * @fires {CustomEvent<AparteToolApprovalRequestDetail>} aparte-tool-approval-request - A tool marked
+ *   `needsApproval` is about to run and waits for a decision. Core's own gate asks in the composer;
+ *   listen to present the decision yourself.
+ * @fires {CustomEvent<AparteConversationLoadedDetail>} aparte-conversation-loaded - A conversation's
+ *   messages are on screen, after a load that succeeded and that nobody left meanwhile: the moment to
+ *   scroll or to measure.
+ * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch changed —
+ *   after a retry, an edit or a move in the `‹1/2›` picker — carrying the messages now on the path.
+ * @fires {CustomEvent} aparte-reset-done - The transcript was emptied (`clearAll()` finished). No detail.
+ * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom button of a message's action
+ *   bar was pressed; `detail.actionId` says which.
+ * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed on a reply; the host
+ *   forks the turn.
+ * @fires {CustomEvent<AparteEditEventDetail>} aparte-edit - An edit of a message was saved; the host
+ *   answers it again from there.
+ * @fires {CustomEvent<AparteFeedbackEventDetail>} aparte-feedback - Thumbs up or down on a reply.
+ * @fires {CustomEvent<AparteFeedbackReasonEventDetail>} aparte-feedback-reason - The reason picked
+ *   after a thumbs-down.
+ * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info button of a reply
+ *   was pressed; `detail.usage` carries its token usage when known.
+ * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link the model wrote is about
+ *   to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so the app can
+ *   route the link itself.
  *
  * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8)] - Space below the
  *   composer, as `padding-block-end` on the shell (the same rule covers a wrapper's

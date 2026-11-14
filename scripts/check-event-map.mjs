@@ -36,6 +36,21 @@
  *      element's page: `<aparte-context>`'s `aparte-compact` was dispatched, typed,
  *      documented in prose — and in no manifest. Block comments are stripped before the
  *      scan so an `@example` fence cannot count as a dispatch.
+ *   5. `<aparte-chat>`'s `@fires` equal, both ways, what reaches the chat's root: what
+ *      its parts dispatch, bubbling, on an element, plus what its host dispatches on it
+ *      (`dispatchLifecycleEvent`, the conversation controller's `binding.host`), minus
+ *      `CHAT_EXEMPT`. Those `@fires` are what every wrapper binding is generated from, so
+ *      an event core adds to a part reaches the five chat components or fails here.
+ *      `scripts/chat-surface.mjs` reads it; an exempt name must not be declared.
+ *   6. `windowDispatched` in `packages/core/element-bindings.config.mjs` equals the events
+ *      each element really sends only on `window`. The Angular generator gives those no
+ *      Output, because a host listener never hears them — and the list was hand-kept:
+ *      `<aparte-context>`'s `aparte-compact` was missing, so its directive offered a
+ *      `(compact)` Output that could never fire. Read by `scripts/dispatch-sites.mjs`.
+ *
+ * `--cem <file>` and `--bindings <file>` read a doctored manifest or bindings config
+ * instead of the real ones; `scripts/__tests__/chat-surface.test.ts` runs this script over
+ * both, so the two rules are proven wired into the gate rather than only into a function.
  *
  * Events dispatched with no detail at all stay out of the map on purpose — an entry
  * would type `e.detail` as `null` and gain nothing — so they are listed as exempt
@@ -48,7 +63,16 @@
  * Run by `pnpm gate`.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { CORE_CEM, checkWindowDispatched, dispatchesIn } from './dispatch-sites.mjs';
+import { CHAT_EXEMPT, CHAT_TAG, checkChatSurface, readChatTree } from './chat-surface.mjs';
+
+/** `--name value`, or `null`. */
+const flag = (name) => {
+    const i = process.argv.indexOf(name);
+    return i === -1 ? null : process.argv[i + 1] ?? null;
+};
 
 const MAP_FILE = 'packages/core/src/types/event-map.ts';
 const PKG_ROOTS = ['packages'];
@@ -114,44 +138,9 @@ for (const file of files.filter((f) => f.startsWith('packages/plugins/'))) {
     }
 }
 
-/**
- * Walk `new CustomEvent…(` / `dispatchLifecycleEvent(` to its matching paren so a
- * nested object or template literal cannot end the match early, and report whether
- * the call carries a detail. A regex cannot do this: several dispatch sites nest
- * three levels of braces inside `detail:`.
- */
-function dispatchesIn(text) {
-    const out = [];
-    const CALL = /(?:new CustomEvent(?:<[^>(]*>)?|dispatchLifecycleEvent|_dispatchLifecycleEvent)\s*\(/g;
-    for (const m of text.matchAll(CALL)) {
-        let depth = 1;
-        let i = m.index + m[0].length;
-        for (; i < text.length && depth > 0; i++) {
-            const c = text[i];
-            if (c === '(') depth++;
-            else if (c === ')') depth--;
-        }
-        const body = text.slice(m.index + m[0].length, i - 1);
-        const name = /['"](aparte-[a-z0-9-]+)['"]/.exec(body);
-        if (!name) continue;
-        // The lifecycle helper always stamps `targetId`, so it always has a detail.
-        const viaHelper = m[0].includes('dispatchLifecycleEvent');
-        // WHERE it goes, for assertion 3. `window.dispatchEvent(new CustomEvent(…))` is a
-        // page-wide broadcast no element listener can hear; everything else — `this`, a
-        // resolved child, the lifecycle helper (whose two callers hand it the host
-        // element) — bubbles past an `<AparteUi>` wrapper node.
-        const before = text.slice(Math.max(0, m.index - 160), m.index);
-        const onWindow = !viaHelper && /window\s*\.dispatchEvent\s*\(\s*$/.test(before);
-        // `detail:` AND `detail` as ES object shorthand. Matching only the colon
-        // exempted the TEN most important events in the library — every dispatch
-        // that builds its detail as a local first, which is the idiomatic way to
-        // write one. Deleting a real map entry then made the event MIGRATE into the
-        // guard's own "correctly unmapped" line, so the count stayed plausible.
-        const hasDetail = viaHelper || /\bdetail\s*[:,}]/.test(body);
-        out.push({ name: name[1], hasDetail, onWindow });
-    }
-    return out;
-}
+// `dispatchesIn` — the walk from `new CustomEvent…(` / `dispatchLifecycleEvent(` to its
+// matching paren, and what the call says — lives in `scripts/dispatch-sites.mjs` now, where
+// `chat-surface.mjs` reads the same sites for rule 5.
 
 /** name → { withDetail, bare, files } */
 const dispatched = new Map();
@@ -265,7 +254,7 @@ for (const [name, where] of [...coreOnElement].sort()) {
 // editor reads it, and `apps/docs` generates every element page from it. So an event
 // with no `@fires` is an event that exists, is typed, may even be described in prose —
 // and appears on no page and in no autocomplete.
-const CEM_FILE = 'packages/core/dist/custom-elements.json';
+const CEM_FILE = flag('--cem') ?? CORE_CEM;
 const DECLARATION_FLOOR = 22;
 let cemDeclarations = 0;
 // Counted apart from the declarations on purpose. A declaration is read out of the JSON;
@@ -316,6 +305,33 @@ if (!existsSync(CEM_FILE)) {
     }
 }
 
+// ── 5 and 6, over one tree: the chat's @fires, and windowDispatched ─────────────
+//
+//   5. <aparte-chat>'s @fires ↔ what reaches the chat's root. The rule, its corpus and its
+//      messages are `scripts/chat-surface.mjs`'s; this runs it.
+//   6. `windowDispatched` ↔ the events each element really sends only on `window`
+//      (`checkWindowDispatched` in `scripts/dispatch-sites.mjs`).
+//
+// Without a manifest, assertion 4 has already said so, and there is nothing to compare.
+const BINDINGS_FILE = flag('--bindings') ?? 'packages/core/element-bindings.config.mjs';
+let chat = null;
+let windowRule = null;
+if (existsSync(CEM_FILE)) {
+    const tree = readChatTree({ cemFile: CEM_FILE });
+    chat = checkChatSurface(tree);
+    problems.push(...chat.problems);
+    const bindings = (await import(pathToFileURL(resolve(BINDINGS_FILE)).href)).default ?? {};
+    if (!bindings.windowDispatched) {
+        problems.push(
+            `${BINDINGS_FILE} has no \`windowDispatched\` — the Angular generator reads it to give a\n`
+            + '      window-only event no Output, so its absence is not "none".',
+        );
+    } else {
+        windowRule = checkWindowDispatched(tree, bindings.windowDispatched);
+        problems.push(...windowRule.problems);
+    }
+}
+
 const seen = new Set([...dispatched.keys(), ...mapped]).size;
 if (seen < SEEN_FLOOR) {
     problems.push(
@@ -328,10 +344,12 @@ if (problems.length) {
     console.error(`\n[event-map] ${problems.length} problem(s):\n`);
     for (const p of problems) console.error(`  - ${p}\n`);
     console.error(
-        `Four rules, four places. A detail-carrying dispatch belongs in ${MAP_FILE}\n`
+        `Six rules, five places. A detail-carrying dispatch belongs in ${MAP_FILE}\n`
         + `(one without a detail does not); an element dispatch belongs in ${UI_EVENTS_FILE};\n`
         + 'an element\'s own dispatch needs an @fires on the element itself, which is what puts\n'
-        + `it in ${CEM_FILE}.\n`,
+        + `it in ${CEM_FILE}; an event that reaches the chat's root needs an @fires on <${CHAT_TAG}>\n`
+        + '(or a CHAT_EXEMPT line in scripts/chat-surface.mjs); and a window-only one belongs in\n'
+        + `\`windowDispatched\` in ${BINDINGS_FILE}.\n`,
     );
     process.exit(1);
 }
@@ -341,5 +359,8 @@ console.log(
     + `${exemptNoDetail.length} dispatched with no detail and correctly unmapped `
     + `(${exemptNoDetail.sort().join(', ')}); `
     + `${coreOnElement.size} element dispatches in core, all forwarded by <AparteUi>; `
-    + `${cemSourcesRead} element declarations read from source, each declaring every event it sends.`,
+    + `${cemSourcesRead} element declarations read from source, each declaring every event it sends; `
+    + `<${CHAT_TAG}> declares ${chat.surface.length} events, exactly the ones its root hears from `
+    + `${chat.parts.length} parts and its host (${CHAT_EXEMPT.size} exempt: ${[...CHAT_EXEMPT.keys()].join(', ')}); `
+    + `windowDispatched lists ${windowRule.events} window-only events on ${windowRule.elements} elements, all of them and only them.`,
 );

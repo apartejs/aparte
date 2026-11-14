@@ -1,10 +1,12 @@
 /*
- * The judgment calls no metadata carries, for `scripts/gen-element-bindings.mjs`.
+ * What no metadata carries, for `scripts/gen-element-bindings.mjs`.
  *
  * Everything else about a binding is derived: the tag, the attributes and their types,
  * the events and their detail types, every description. What cannot be derived is a
- * NAME that would collide and an OWNERSHIP that the manifest does not record. Three
- * cases, each one found by hand-writing the directives first and hitting it.
+ * NAME that would collide, an OWNERSHIP that the manifest does not record, and WHERE an
+ * event goes out — each one found by hand-writing the directives first and hitting it.
+ * The first two are judgment calls; the third is a fact, and `check-event-map` (rule 6)
+ * holds it equal to the source.
  */
 export default {
     /**
@@ -42,18 +44,26 @@ export default {
     },
 
     /**
-     * Events that must not become an Angular `@Output()`.
+     * Events an element declares and sends only on `window` — so none becomes an Angular
+     * `@Output()`.
      *
      * The manifest records that the element fires them; it cannot record that they go
      * out on `window` rather than on the element, so a host listener would never hear
      * them and the Output would be a promise nothing keeps. They concern the whole page.
+     *
+     * A fact, not a choice: `check-event-map` (rule 6) reads every element's dispatch
+     * sites and fails when this list and the source disagree, either way. It used to be
+     * called `angularOutputOmit` and kept by hand, and it fell behind — `<aparte-context>`
+     * was missing, so its directive offered a `(compact)` Output that could never fire.
      */
-    angularOutputOmit: {
+    windowDispatched: {
         'aparte-composer': ['aparte-abort', 'aparte-message-aborted'],
         // A compaction is a request for the whole page, answered on `window`: the bubble
         // dispatches both from its Retry and Restore buttons, so a host listener on the
         // bubble would never hear them.
         'aparte-chat-bubble': ['aparte-compact', 'aparte-compact-done'],
+        // The gauge's Retry, when no compactor is registered: the same page-wide request.
+        'aparte-context': ['aparte-compact'],
     },
 
     /**

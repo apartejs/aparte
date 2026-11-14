@@ -222,7 +222,7 @@ function renderAngular(elements, config) {
     /** Every detail or member type actually referenced, so the import list is exact. */
     const details = new Set();
     for (const el of kept) {
-        const omit = new Set(config.angularOutputOmit?.[el.tagName] ?? []);
+        const omit = new Set(config.windowDispatched?.[el.tagName] ?? []);
         for (const ev of el.events ?? []) {
             if (omit.has(ev.name)) continue;
             const m = /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
@@ -251,7 +251,7 @@ function renderAngular(elements, config) {
     // build. Generated code has to satisfy the same lint the rest of the source does.
     const anyAttrs = kept.some((el) => (el.attributes ?? []).some((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name))
         || propertyOnlyMembers(el, config).length > 0);
-    const anyEvents = kept.some((el) => (el.events ?? []).some((e) => !(config.angularOutputOmit?.[el.tagName] ?? []).includes(e.name)));
+    const anyEvents = kept.some((el) => (el.events ?? []).some((e) => !(config.windowDispatched?.[el.tagName] ?? []).includes(e.name)));
     const usedTypes = new Set(kept.flatMap((el) =>
         (el.attributes ?? [])
             .filter((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name))
@@ -297,7 +297,8 @@ abstract class AparteElementBase {
         classes.push(cls);
         const inputOmit = new Set(config.angularInputOmit?.[el.tagName] ?? []);
         const rename = config.angularInputRename?.[el.tagName] ?? {};
-        const outputOmit = new Set(config.angularOutputOmit?.[el.tagName] ?? []);
+        // A window-only event gets no Output: a host listener would never hear it.
+        const outputOmit = new Set(config.windowDispatched?.[el.tagName] ?? []);
         const attrs = (el.attributes ?? []).filter((a) => !inputOmit.has(a.name));
         const props = propertyOnlyMembers(el, config);
         const events = (el.events ?? []).filter((e) => !outputOmit.has(e.name));

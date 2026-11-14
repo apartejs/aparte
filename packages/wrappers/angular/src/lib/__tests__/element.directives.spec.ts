@@ -12,6 +12,7 @@ import {
     AparteComposerSendDirective,
     AparteComposerCancelDirective,
     AparteComposerToolbarDirective,
+    AparteContextDirective,
     AparteElicitationDirective,
 } from '../../generated/element.directives';
 
@@ -300,7 +301,7 @@ describe('the element directives', () => {
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
 
         <aparte-context [window]="1000" [warn]="0.7" [danger]="0.95" target="t" variant="ring" [used]="10"
-            (contextThreshold)="seen['contextThreshold'] = true" (compact)="seen['compact'] = true"></aparte-context>
+            (contextThreshold)="seen['contextThreshold'] = true"></aparte-context>
 
         <aparte-launcher [open]="true" label="Help" breakpoint="40rem" [header]="false"
             heading="Kilnhouse support" subheading="Usually answers in a minute" maximizable="panel" [maximized]="true"
@@ -442,7 +443,6 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-conversation-pin', 'conversationPin'],
         ['aparte-conversation-list', 'aparte-conversation-unpin', 'conversationUnpin'],
         ['aparte-context', 'aparte-context-threshold', 'contextThreshold'],
-        ['aparte-context', 'aparte-compact', 'compact'],
         ['aparte-launcher', 'aparte-launcher-toggle', 'launcherToggle'],
         ['aparte-scroll-rail', 'aparte-scroll-rail-jump', 'scrollRailJump'],
         ['aparte-sidebar', 'aparte-sidebar-toggle', 'sidebarToggle'],
@@ -453,6 +453,27 @@ describe('the element directives, across the whole surface', () => {
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {
         at(tag).dispatchEvent(new CustomEvent(event, { detail: { id: 'x', value: 'x', modelId: 'm' } }));
         expect(fixture.componentInstance.seen[key]).toBe(true);
+    });
+
+    /*
+     * An event the element sends on `window` gets no Output: a host listener would never
+     * hear it, so the Output would be a binding that never fires. `<aparte-context>`'s
+     * `(compact)` was one — its Retry sends `aparte-compact` on `window` — and this row
+     * table used to "prove" it by dispatching on the element, which core never does.
+     * `windowDispatched` in core's bindings config names these, and `check-event-map` holds
+     * it equal to the source; the live Output beside each one keeps the check from passing
+     * on a directive that has none at all.
+     */
+    it.each([
+        ['aparte-context', 'compact', 'contextThreshold', AparteContextDirective],
+        ['aparte-chat-bubble', 'compact', 'retry', AparteChatBubbleDirective],
+        ['aparte-chat-bubble', 'compactDone', 'retry', AparteChatBubbleDirective],
+        ['aparte-composer', 'abort', 'send', AparteComposerDirective],
+        ['aparte-composer', 'messageAborted', 'send', AparteComposerDirective],
+    ] as const)('%s has no (%s) Output: the event goes out on window', (tag, windowOnly, live, Directive) => {
+        const directive = fixture.debugElement.query((d) => d.name === tag).injector.get<object>(Directive);
+        expect(live in directive).toBe(true);
+        expect(windowOnly in directive).toBe(false);
     });
 
     /*

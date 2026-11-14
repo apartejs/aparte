@@ -374,11 +374,21 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
 
   const ngSymbol = plugin ? plugin.angular : ANGULAR.get(tag);
   const ngKind = ngSymbol?.endsWith('Component') ? 'component' : 'directive';
+  // A generated directive names its Output after the event (`aparte-select-change` →
+  // `(selectChange)`), and emits the detail. A hand-written component names its own, so the
+  // derived name can be one it does not have: `<aparte-chat>` printed `(send)`, which binds a
+  // DOM `send` event nothing dispatches. Its host IS the element, so the DOM event itself is
+  // the binding sure to reach it — and `$event` is then the event, not its detail.
+  const ngEvent = !ev
+    ? ''
+    : ngKind === 'component'
+      ? `(${ev.name})="${detail ? 'use($event.detail)' : 'onIt()'}"`
+      : `(${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"`;
   md += `<TabItem label="Angular">\n\n${
     ngSymbol
       ? `\`\`\`ts\nimport { ${ngSymbol} } from '${plugin ? `${plugin.pkg}/angular` : '@aparte/angular'}';\n\`\`\`\n\n`
       : `${plugin ? noBinding('Angular') : '`@aparte/angular` declares nothing for this tag'}, so an Angular template needs \`CUSTOM_ELEMENTS_SCHEMA\` to accept it — and \`[x]="v"\` will write a PROPERTY, which is a silent no-op on a read-only accessor.\n\n`
-  }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\n${
+  }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ngEvent ? `\n  ${ngEvent}` : ''}></${tag}>\n\`\`\`\n\n${
     ngSymbol
       ? `A standalone ${ngKind} whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.`
       : `Written as a plain custom element.`

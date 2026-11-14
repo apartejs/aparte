@@ -31,6 +31,7 @@ import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { referenceOrder } from './reference-order.mjs';
+import { CHAT_TAG } from '../../../scripts/chat-surface.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE = resolve(here, '../../../packages/core');
@@ -120,6 +121,14 @@ for (const file of manifests) {
     for (const mod of JSON.parse(readFileSync(file, 'utf8')).modules ?? []) {
         for (const decl of mod.declarations ?? []) {
             if (!decl.customElement || !decl.tagName) continue;
+            /*
+             * `<aparte-chat>` declares every event its ROOT HEARS — its parts' and its host's —
+             * and sends none of them itself. Read as a declarer, it put itself under "Fired by"
+             * for the whole turn lifecycle, and its wording (written for a listener on the chat)
+             * replaced the viewport's and the conversation controller's, because it comes before
+             * them in the manifest. Its own page lists them; this one credits who sends each.
+             */
+            if (decl.tagName === CHAT_TAG) continue;
             for (const event of decl.events ?? []) {
                 const entry = declared.get(event.name) ?? { tags: [], doc: '' };
                 entry.tags.push(decl.tagName);
