@@ -126,13 +126,8 @@ html {
 .site-theme__glyph {
   display: inline-flex;
 }
-.site-theme {
-  position: relative;
-}
+/* Placed by `enhanceMenu`, fixed under the button's end edge. */
 .site-theme__menu {
-  position: absolute;
-  inset-block-start: calc(100% + var(--aparte-space-2));
-  inset-inline-end: 0;
   --aparte-menu-min-width: 10rem;
 }
 

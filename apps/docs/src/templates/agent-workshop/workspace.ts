@@ -13,7 +13,7 @@
  * the library's own highlighter (`aparteGlobalConfig.highlightCode`), the one the chat's code
  * blocks use, so a file in the panel and a snippet in a reply look the same.
  */
-import { aparteGlobalConfig } from '@aparte/core';
+import { aparteGlobalConfig, enhanceTabs } from '@aparte/core';
 import { languageOf, type Files } from './repo';
 
 export type WorkspaceTab = 'files' | 'terminal' | 'changes' | 'agent';
@@ -59,14 +59,9 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
     // A highlight is async: a file opened while the previous one was still being coloured wins.
     let generation = 0;
 
-    function select(tab: WorkspaceTab, focus = false): void {
-        for (const [name, button] of tabs) {
-            const selected = name === tab;
-            button.setAttribute('aria-selected', String(selected));
-            button.tabIndex = selected ? 0 : -1;
-            root.querySelector<HTMLElement>(`#${button.getAttribute('aria-controls')}`)!.hidden = !selected;
-        }
-        if (focus) tabs.get(tab)!.focus();
+    /** A tab chosen by the agent's tools rather than the reader: the same path as a click. */
+    function select(tab: WorkspaceTab): void {
+        tabs.get(tab)!.click();
     }
 
     /** A tool's turn to show what it did, unless the reader is watching a sub-agent. */
@@ -212,21 +207,10 @@ export function createWorkspace(root: HTMLElement, files: Files): Workspace {
         terminal.scrollTop = terminal.scrollHeight;
     }).observe(terminal);
 
-    // Arrow keys, Home and End move between the tabs: the tab pattern's keyboard half.
-    const list = root.querySelector<HTMLElement>('[role="tablist"]')!;
-    list.addEventListener('click', (event) => {
-        const tab = (event.target as Element).closest<HTMLElement>('[data-tab]')?.dataset['tab'] as WorkspaceTab | undefined;
-        if (tab) select(tab);
-    });
-    list.addEventListener('keydown', (event) => {
-        // The tabs on screen: the sub-agent's only once one was opened.
-        const shown = TABS.filter((name) => !tabs.get(name)!.hidden);
-        const at = shown.findIndex((name) => tabs.get(name)!.getAttribute('aria-selected') === 'true');
-        const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: shown.length - 1 }[event.key];
-        if (next === undefined) return;
-        event.preventDefault();
-        select(shown[(next + shown.length) % shown.length]!, true);
-    });
+    // The tab pattern's keyboard half is the kit's: one tab stop, the arrows (the other way in
+    // a right-to-left page), Home and End, the panel shown and the others hidden. The
+    // sub-agent's tab is skipped while it is hidden. The panel lives as long as the page.
+    enhanceTabs(root.querySelector<HTMLElement>('[role="tablist"]')!);
     tree.addEventListener('click', (event) => {
         const file = (event.target as Element).closest<HTMLElement>('[data-path]')?.dataset['path'];
         if (file) void show(file, 'opened');

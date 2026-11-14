@@ -209,6 +209,9 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
      * them does not demonstrate them. And the view, Preview or Code, where the bar has one.
      */
     import './frame-skeleton';
+    // The headless entry: the same function, without the custom elements the browser entry
+    // defines on import — the frame's document runs the chat, not this page.
+    import { enhanceTabs } from '@aparte/core/headless';
 
     const MIN_HEIGHT = 96;
     const MAX_HEIGHT = 640;
@@ -253,31 +256,20 @@ const id = `preview-${Math.random().toString(36).slice(2, 8)}`;
             });
         }
 
-        const views = [...figure.querySelectorAll<HTMLButtonElement>('[data-view]')];
+        // Preview / Code: the kit's tabs, keys and all. The change is read before the panels
+        // switch, while the preview still has a height to measure.
+        const views = figure.querySelector<HTMLElement>('.aparte-preview-bar [role="tablist"]');
         const code = figure.querySelector<HTMLElement>('.aparte-preview-code');
-        const show = (view: HTMLButtonElement) => {
-            // The code takes the preview's height and scrolls inside it, so switching views never
-            // moves what is under the figure (nor the column beside it).
-            if (code && box && view.dataset.view === 'code' && box.offsetHeight) code.style.height = `${box.offsetHeight}px`;
-            for (const tab of views) {
-                const on = tab === view;
-                tab.setAttribute('aria-selected', String(on));
-                tab.tabIndex = on ? 0 : -1;
-                const panel = document.getElementById(tab.getAttribute('aria-controls') ?? '');
-                if (panel) panel.hidden = !on;
-            }
-            // Widths only mean something on the preview.
-            figure.querySelector<HTMLElement>('.aparte-preview-widths')?.toggleAttribute('hidden', view.dataset.view !== 'preview');
-        };
-        for (const tab of views) {
-            tab.addEventListener('click', () => show(tab));
-            tab.addEventListener('keydown', (event) => {
-                if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-                event.preventDefault();
-                const next = views[(views.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1) + views.length) % views.length]!;
-                next.focus();
-                show(next);
+        if (views) {
+            views.addEventListener('aparte-tab-change', (event) => {
+                const view = event.detail.tab.dataset.view;
+                // The code takes the preview's height and scrolls inside it, so switching views never
+                // moves what is under the figure (nor the column beside it).
+                if (code && box && view === 'code' && box.offsetHeight) code.style.height = `${box.offsetHeight}px`;
+                // Widths only mean something on the preview.
+                figure.querySelector<HTMLElement>('.aparte-preview-widths')?.toggleAttribute('hidden', view !== 'preview');
             });
+            enhanceTabs(views);
         }
     }
 </script>
