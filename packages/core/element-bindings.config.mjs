@@ -33,6 +33,30 @@ export default {
         'aparte-launcher': ['data-sheet'],
     },
 
+    /**
+     * Event → the name it binds under, per element, where `aparte-x-y` → `xY` is not enough.
+     *
+     * One map for every binding the generator writes: the chat's (`aparte-chat`: React's
+     * `on…` prop, Vue's emit, Svelte's event and `on…` callback, Angular's output) and each
+     * Angular element directive's outputs. The generator refuses a name that is a native DOM
+     * event, a name the chat components give a host callback, and two events on one name,
+     * and its message names the entry to add here.
+     */
+    bindingRenames: {
+        'aparte-chat': {
+            // The name all four wrappers published long before the bindings were generated.
+            'aparte-send': 'messageSent',
+            // `cancel` is a DOM event, and it bubbles: a file input fires it when its picker
+            // closes with no choice. Angular's `(cancel)` would bind it AND the output.
+            'aparte-cancel': 'stop',
+        },
+        // The same clash on the composer's own directive: `(cancel)` ran for the Stop button
+        // and for every native `cancel` beneath it. Its `(send)` is no DOM event, and stays.
+        'aparte-composer': {
+            'aparte-cancel': 'stop',
+        },
+    },
+
     /** Attribute → the Angular Input name, where camelCasing it is not enough. */
     angularInputRename: {
         'aparte-chat-bubble': {

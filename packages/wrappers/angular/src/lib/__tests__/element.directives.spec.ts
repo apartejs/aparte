@@ -261,7 +261,7 @@ describe('the element directives', () => {
         <aparte-chat-status [visible]="true" text="Working"></aparte-chat-status>
 
         <aparte-composer placeholder="Ask" target="t" [disabled]="true" [submitOnEnter]="false"
-            (send)="seen['send'] = true" (cancel)="seen['cancel'] = true"
+            (send)="seen['send'] = true" (stop)="seen['stop'] = true"
             (composerChange)="seen['composerChange'] = true"></aparte-composer>
 
         <aparte-composer-input placeholder="Ask" [disabled]="true" [maxHeight]="200" [minHeight]="44"
@@ -426,7 +426,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-chat-bubble', 'aparte-branch-navigate', 'branchNavigate'],
         ['aparte-chat-bubble', 'aparte-attachment-preview', 'bubblePreview'],
         ['aparte-composer', 'aparte-send', 'send'],
-        ['aparte-composer', 'aparte-cancel', 'cancel'],
+        ['aparte-composer', 'aparte-cancel', 'stop'],
         ['aparte-composer', 'aparte-composer-change', 'composerChange'],
         ['aparte-composer-input', 'aparte-composer-submit', 'composerSubmit'],
 
@@ -474,6 +474,23 @@ describe('the element directives, across the whole surface', () => {
         const directive = fixture.debugElement.query((d) => d.name === tag).injector.get<object>(Directive);
         expect(live in directive).toBe(true);
         expect(windowOnly in directive).toBe(false);
+    });
+
+    /*
+     * `(x)` in an Angular template listens to the DOM event `x` AND subscribes to the output
+     * `x`. The composer's Stop output used to be `cancel`, a native event that bubbles — a
+     * file input fires it when its picker closes with no choice — so `(cancel)` ran for the
+     * Stop button and for every native `cancel` beneath it. The generator now refuses an
+     * output named like a DOM event, and the composer's is `(stop)`.
+     */
+    it('does not run (stop) for a native cancel bubbling out of the composer', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        at('aparte-composer').appendChild(input);
+        input.dispatchEvent(new Event('cancel', { bubbles: true }));
+        expect(fixture.componentInstance.seen['stop']).toBeUndefined();
+        at('aparte-composer').dispatchEvent(new CustomEvent('aparte-cancel', { bubbles: true }));
+        expect(fixture.componentInstance.seen['stop']).toBe(true);
     });
 
     /*
