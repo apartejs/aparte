@@ -192,9 +192,12 @@ describe('AparteChat.svelte', () => {
         (component as any).$on('messageSent', (e: any) => viaEvent(e.detail));
 
         const detail = { content: 'Both routes', timestamp: Date.now() };
-        container.querySelector('aparte-composer')?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+        const event = new CustomEvent('aparte-send', { detail, bubbles: true, composed: true });
+        container.querySelector('aparte-composer')?.dispatchEvent(event);
 
-        expect(onmessageSent).toHaveBeenCalledWith(detail);
+        // The payload first, so a callback written for it alone still fits; then the DOM event.
+        expect(onmessageSent).toHaveBeenCalledTimes(1);
+        expect(onmessageSent).toHaveBeenCalledWith(detail, event);
         expect(viaEvent, 'the event still fires for a Svelte 4 consumer').toHaveBeenCalledWith(detail);
     });
 
@@ -206,9 +209,10 @@ describe('AparteChat.svelte', () => {
         const detail = { actionId: 'custom:bookmark', messageId: 'm1' };
         // A bubble's action BUBBLES to the root, where the listener is attached on mount:
         // dispatched from a descendant (the composer, always present), like `aparte-send` above.
-        container.querySelector('aparte-composer')!.dispatchEvent(new CustomEvent('aparte-action', { detail, bubbles: true, composed: true }));
+        const event = new CustomEvent('aparte-action', { detail, bubbles: true, composed: true });
+        container.querySelector('aparte-composer')!.dispatchEvent(event);
 
-        expect(onaction).toHaveBeenCalledWith(detail);
+        expect(onaction).toHaveBeenCalledWith(detail, event);
     });
 
     it('renders custom composer slot content in place of the default shell', () => {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
-import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
+import type { AparteMessage, AparteSegment } from '../types.js';
+import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventEmits } from '../generated/chat-events.js';
 
 interface Props {
   /**
@@ -86,16 +87,12 @@ const props = withDefaults(defineProps<Props>(), {
   conversationId: null,
 });
 
-const emit = defineEmits<{
-  /**
-   * User submitted a message from the composer. The message is **appended to
-   * the thread automatically** (optimistic UI) before this fires — do NOT add
-   * it again in the handler (uncontrolled → duplicates; controlled → mirror it
-   * into your own `messages`). For side-effects: scroll, analytics, send.
-   */
-  messageSent: [event: AparteSendEventDetail];
-  /** A custom bubble action (registerBubbleAction) was clicked — typed aparte-action. */
-  action: [detail: AparteActionEventDetail];
+/**
+ * What the host reports back to Vue, which no DOM event carries. Every event of the chat —
+ * `@message-sent`, `@link-click`, `@retry`… — is an emit of `AparteChatEventEmits`, generated
+ * from `<aparte-chat>`'s own list: a listener receives the event's detail, then the event.
+ */
+interface HostEmits {
   /** Active path changed (branch nav/edit/retry/streaming) — bind back to `messages`. */
   messagesChange: [messages: AparteMessage[]];
   /** Same payload as `messagesChange`, enabling `v-model:messages`. */
@@ -104,7 +101,9 @@ const emit = defineEmits<{
   /** The typing/"thinking" indicator toggled (the host flips it off on the first streamed token). */
   typingChange: [isTyping: boolean];
   conversationCreated: [id: string];
-}>();
+}
+
+const emit = defineEmits<AparteChatEventEmits & HostEmits>();
 
 // useId() (Vue 3.5+) is SSR-stable — server and client agree, no hydration mismatch.
 // A caller-supplied `id` wins, so `scopeToTargetId` has something to match; the
@@ -131,15 +130,22 @@ const typingActive = ref(props.isTyping);
 let host: AparteChatHost | null = null;
 let teardown: (() => void) | null = null;
 
-function onSend(e: Event) {
+// A send from the composer makes the next auto-scroll, the one that brings the user's bubble
+// in, a smooth one. `messageSent` is emitted below, with every other event.
+function onSend() {
   (viewportRef.value as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-  emit('messageSent', (e as CustomEvent<AparteSendEventDetail>).detail);
 }
 
-// Custom bubble actions bubble to the root as `aparte-action` — surface them typed.
-function onAction(e: Event) {
-  emit('action', (e as CustomEvent<AparteActionEventDetail>).detail);
-}
+// Every event of the chat, from the table generated out of `<aparte-chat>`'s own list: one
+// listener per event on the root, where they all arrive (the parts' bubble up to it, the turn's
+// lifecycle is sent on it), each emitting the detail and then the event — the event is what
+// puts `preventDefault()` in reach. Added once the host is bound, so the host's own listeners on
+// the root run first and a listener reads the chat as the event left it.
+const emitEvent = emit as (name: string, detail: unknown, event: Event) => void;
+const forwarded = APARTE_CHAT_EVENT_BINDINGS.map(({ type, emit: name }) => ({
+  type,
+  listener: (event: Event) => emitEvent(name, (event as CustomEvent).detail, event),
+}));
 
 // The controller's wait (a conversation fetched through the adapter) OR the consumer's.
 const hostLoading = ref(false);
@@ -186,14 +192,14 @@ onMounted(() => {
   teardown = host.bind();
   host.syncBubbles();
   composerRef.value?.addEventListener('aparte-send', onSend);
-  rootRef.value?.addEventListener('aparte-action', onAction);
+  for (const { type, listener } of forwarded) rootRef.value?.addEventListener(type, listener);
 });
 
 onBeforeUnmount(() => {
   unsubscribeLocale?.();
   unsubscribeLocale = null;
   composerRef.value?.removeEventListener('aparte-send', onSend);
-  rootRef.value?.removeEventListener('aparte-action', onAction);
+  for (const { type, listener } of forwarded) rootRef.value?.removeEventListener(type, listener);
   teardown?.();
   teardown = null;
   host = null;

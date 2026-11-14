@@ -1,13 +1,17 @@
 import type { Snippet } from 'svelte';
 import type { AparteConfig, AparteTypeToFocus } from '@aparte/core';
-import type { AparteActionEventDetail, AparteMessage, AparteSendEventDetail } from '../types.js';
+import type { AparteMessage } from '../types.js';
+import type { AparteChatEventCallbacks } from '../generated/chat-events.js';
 
 /**
  * The props of the Svelte 5 `<AparteChat>`: the same surface as the other three wrappers,
  * in runes — `messages` is bindable, the five places for your own markup are snippets, and
- * every event is a callback prop.
+ * every event is a callback prop. The chat's events — `onmessageSent`, `onlinkClick`,
+ * `onretry`… — are generated from `<aparte-chat>`'s own list ({@link AparteChatEventCallbacks}):
+ * each receives the event's detail, then the event. Declared here are the data, the snippets
+ * and what the host reports back (`onmessagesChange` and the three after it).
  */
-export interface AparteChatProps {
+export interface AparteChatProps extends AparteChatEventCallbacks {
     /** The host element's `id`, and therefore the `targetId` every event this chat carries. Generated when omitted. */
     id?: string;
     /** The messages on the active path. Bindable: `bind:messages` keeps yours in step with what the chat does. */
@@ -53,10 +57,6 @@ export interface AparteChatProps {
     /** Each message, drawn by you. */
     bubble?: Snippet<[AparteMessage]>;
 
-    /** The person sent a message. It is already in the thread: do not add it again. */
-    onmessageSent?: (detail: AparteSendEventDetail) => void;
-    /** A custom bubble action was clicked. */
-    onaction?: (detail: AparteActionEventDetail) => void;
     /**
      * The active path changed. With `bind:messages` you rarely need it. Without `bind:`, a parent
      * that keeps the list writes it back here — `onmessagesChange={(m) => (msgs = m)}` — in the

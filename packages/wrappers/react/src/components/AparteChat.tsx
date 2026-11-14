@@ -12,9 +12,17 @@ import React, {
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus } from '@aparte/core';
-import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
+import type { AparteMessage } from '../types.js';
+import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventProps } from '../generated/chat-events.js';
 
-export interface AparteChatProps {
+/**
+ * The props of `<AparteChat>`. Every event of the chat is one of them — `onMessageSent`,
+ * `onLinkClick`, `onRetry`… — generated from `<aparte-chat>`'s own list
+ * ({@link AparteChatEventProps}): each callback receives the event's detail, then the event.
+ * Declared here are the data, the slots and what the host reports back (`onMessagesChange`
+ * and the three after it), which no DOM event carries.
+ */
+export interface AparteChatProps extends AparteChatEventProps {
     /**
      * The host element's `id`, and therefore the `targetId` every event this chat
      * dispatches carries.
@@ -153,20 +161,6 @@ export interface AparteChatProps {
     toolbar?: React.ReactNode;
 
     /**
-     * Notification that the user submitted a message from the composer. The
-     * user's message is **appended to the thread automatically** (optimistic UI)
-     * before this fires — do NOT add it again here. In an uncontrolled chat,
-     * appending it duplicates it; in a controlled chat, mirror it into your own
-     * `messages`. Use this for side-effects: scroll, analytics, backend send.
-     */
-    onMessageSent?: (event: AparteSendEventDetail) => void;
-    /**
-     * Fired when a custom bubble action (registered via
-     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
-     * wrapper over the bubbling `aparte-action` DOM event. Dispatch on `detail.actionId`.
-     */
-    onAction?: (detail: AparteActionEventDetail) => void;
-    /**
      * Fired when the active message path changes (branch navigation / edit /
      * retry / streaming). Set the result back as the `messages` prop.
      */
@@ -226,13 +220,13 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         aboveComposer,
         toolbar,
         config,
-        onMessageSent,
-        onAction,
         onMessagesChange,
         onMessageAppended,
         onTypingChange,
         onConversationCreated,
         id: providedId,
+        // What is left is the chat's event callbacks (`AparteChatEventProps`), read by name.
+        ...eventProps
     },
     ref,
 ) {
@@ -270,10 +264,10 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     const hostRef = useRef<AparteChatHost | null>(null);
     const lastConvRef = useRef<string | null>(conversationId);
 
-    // Keep the latest prop callbacks in a ref so the host's stable binding always
-    // calls the current handlers without recreating the host.
-    const cbRef = useRef({ onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated });
-    cbRef.current = { onMessageSent, onAction, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated };
+    // Keep the latest prop callbacks in a ref so the host's stable binding — and the
+    // listeners below — always call the current handlers without recreating either.
+    const cbRef = useRef({ ...eventProps, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated });
+    cbRef.current = { ...eventProps, onMessagesChange, onMessageAppended, onTypingChange, onConversationCreated };
 
     const applyMessages = (m: AparteMessage[]) => {
         messagesRef.current = m;
@@ -342,18 +336,36 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         void hostRef.current?.setConversationId(conversationId ?? null);
     }, [conversationId]);
 
-    // Surface composer sends to the consumer (the controller handles the
-    // conversation side separately via its own host listener).
+    // A send from the composer makes the next auto-scroll, the one that brings the user's
+    // bubble in, a smooth one. `onMessageSent` is called below, with every other event.
     useEffect(() => {
         const composer = composerRef.current;
         if (!composer) return;
-        const onSend = (e: Event) => {
-            (viewportRef.current as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-            cbRef.current.onMessageSent?.((e as CustomEvent<AparteSendEventDetail>).detail);
-        };
+        const onSend = () => (viewportRef.current as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
         composer.addEventListener('aparte-send', onSend);
         return () => composer.removeEventListener('aparte-send', onSend);
     }, []);
+
+    // Every event of the chat, from the table generated out of `<aparte-chat>`'s own list: one
+    // listener per event on the root, where they all arrive (the parts' bubble up to it, the
+    // turn's lifecycle is sent on it). Each calls the prop as it is NOW, through `cbRef`, so a
+    // new handler takes no new subscription; it hands over the detail, then the event, which
+    // is what puts `preventDefault()` in reach. Declared after the host's effect, and keyed the
+    // same, so the host's own listeners on the root always run first — a new id rebinds both,
+    // in this order — and a handler reads the chat as the event left it.
+    useEffect(() => {
+        const root = hostElRef.current;
+        if (!root) return;
+        const offs = APARTE_CHAT_EVENT_BINDINGS.map(({ type, prop }) => {
+            const listener = (event: Event): void => {
+                const handler = cbRef.current[prop] as ((detail: unknown, event: Event) => void) | undefined;
+                handler?.((event as CustomEvent).detail, event);
+            };
+            root.addEventListener(type, listener);
+            return () => root.removeEventListener(type, listener);
+        });
+        return () => { for (const off of offs) off(); };
+    }, [hostId]);
 
     // Set as ATTRIBUTES, because the attribute IS the state core's composer parts
     // read. React 19 assigns a matching prop as a PROPERTY on a custom element; core
@@ -373,16 +385,6 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     useEffect(() => {
         viewportRef.current?.toggleAttribute('loading', waiting);
     }, [waiting]);
-
-    // Custom bubble actions bubble to the host root as `aparte-action`; surface them
-    // as a typed prop.
-    useEffect(() => {
-        const host = hostElRef.current;
-        if (!host) return;
-        const onAct = (e: Event) => cbRef.current.onAction?.((e as CustomEvent<AparteActionEventDetail>).detail);
-        host.addEventListener('aparte-action', onAct);
-        return () => host.removeEventListener('aparte-action', onAct);
-    }, []);
 
     useImperativeHandle(ref, (): AparteChatImperativeApi => ({
         appendMessage: (m, o) => hostRef.current?.appendMessage(m, o),

@@ -301,20 +301,22 @@ describe('AparteChat React Wrapper', () => {
         expect(status?.getAttribute('text')).toBe('Typing');
     });
 
-    it('calls onMessageSent when the composer dispatches aparte-send', () => {
+    it('calls onMessageSent with the detail and the event when the composer dispatches aparte-send', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,
         );
 
         const composer = container.querySelector('aparte-composer');
         const detail = { content: 'New message', timestamp: Date.now() };
+        const event = new CustomEvent('aparte-send', { detail, bubbles: true, composed: true });
 
         // In `act`: the send appends the user's message, a state update React wants batched.
         act(() => {
-            composer?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+            composer?.dispatchEvent(event);
         });
 
-        expect(mockOnMessageSent).toHaveBeenCalledWith(detail);
+        expect(mockOnMessageSent).toHaveBeenCalledTimes(1);
+        expect(mockOnMessageSent).toHaveBeenCalledWith(detail, event);
     });
 
     it('forwards the bubbling aparte-action DOM event as the typed onAction prop', () => {
@@ -329,7 +331,7 @@ describe('AparteChat React Wrapper', () => {
             detail: { actionId: 'share', messageId: '1', role: 'user', zone: 'bubble' },
             bubbles: true, composed: true,
         }));
-        expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ actionId: 'share' }));
+        expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ actionId: 'share' }), expect.any(CustomEvent));
     });
 
     it('renders custom composer content in place of the default shell', () => {

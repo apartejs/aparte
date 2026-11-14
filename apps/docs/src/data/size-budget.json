@@ -1,6 +1,6 @@
 {
     "@aparte/angular": {
-        "js": 34304,
+        "js": 36864,
         "css": 0
     },
     "@aparte/core": {
@@ -108,7 +108,7 @@
         "css": 0
     },
     "@aparte/react": {
-        "js": 5120,
+        "js": 5632,
         "css": 0
     },
     "@aparte/runner-ag-ui": {
@@ -124,7 +124,7 @@
         "css": 0
     },
     "@aparte/vue": {
-        "js": 5888,
+        "js": 6400,
         "css": 0
     }
 }

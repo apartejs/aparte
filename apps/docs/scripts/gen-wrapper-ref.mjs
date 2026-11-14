@@ -19,13 +19,22 @@ import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { IMPLEMENTATIONS, readWrapperSlots, readWrapperCallbacks } from '../../../scripts/wrapper-surface.mjs';
+import { IMPLEMENTATIONS, readWrapperSlots, readWrapperCallbacks, readChatCallbacks } from '../../../scripts/wrapper-surface.mjs';
+import { CHAT_TAG, readChatEvents } from '../../../scripts/chat-surface.mjs';
+import { bindingName } from '../../../scripts/gen-element-bindings.mjs';
+import bindings from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../src/content/docs/reference/wrappers.md');
 
 const slots = readWrapperSlots();
-const callbacks = readWrapperCallbacks();
+/*
+ * The chat's events are generated into each wrapper from `<aparte-chat>`'s `@fires`, so the ones
+ * every component also takes as a callback (`messageSent`, `action`) are read from core's
+ * manifest, under the name the generator gives them; the host's own callbacks from React's props.
+ */
+const chatEvents = readChatEvents().map((ev) => ({ ...ev, binding: bindingName(CHAT_TAG, ev.name, bindings) }));
+const callbacks = [...readChatCallbacks(chatEvents), ...readWrapperCallbacks()];
 const frameworks = Object.values(IMPLEMENTATIONS);
 const esc = (s) => String(s ?? '').replace(/\|/g, '\\|');
 
@@ -114,6 +123,14 @@ The same events on all four wrappers, each in its own idiom. React, Vue and Angu
 the payload directly. Svelte has a callback prop, with the payload, and a component event as well —
 \`on:messageSent\` and the rest — with it under \`event.detail\`. The runes component has the
 callback prop only, under the same name: Svelte 5 has no component events.
+
+\`messageSent\` and \`action\` are events of the chat, and so is every other event \`<aparte-chat>\`
+declares: each reaches the component the same way, under the event's name without \`aparte-\`, in
+camelCase — \`onLinkClick\`, \`@link-click\`, \`on:linkClick\`, \`(linkClick)\`, \`onlinkClick\` — save
+\`aparte-send\`, which is \`messageSent\`, and \`aparte-cancel\`, which is \`stop\`. A callback for an
+event of the chat receives the payload, then the DOM event, so \`event.preventDefault()\` is in
+reach; in Angular the output carries the payload, and \`(aparte-link-click)\` on \`<aparte-chat>\`
+binds the DOM event itself.
 
 `;
 

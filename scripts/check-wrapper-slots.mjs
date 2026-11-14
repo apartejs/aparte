@@ -50,6 +50,11 @@ for (const slot of slots) {
  * only the slot half — so six callback spellings were published on the wrapper reference,
  * derived from the React name, and verified against nothing. Parity happened to hold; the
  * claim did not, which is worse, because a stated check stops anyone looking.
+ *
+ * These are the HOST callbacks (`messagesChange` and three more). The chat's events —
+ * `messageSent` and `action` among them — are generated from core's manifest into every
+ * wrapper, and each wrapper's coverage test (`chat-events-coverage`) proves them event by
+ * event, from that manifest; this check runs before any build, so it cannot read one.
  */
 const callbacks = readWrapperCallbacks();
 for (const callback of callbacks) {
@@ -136,7 +141,7 @@ if (idGaps.length) {
 }
 
 console.log(
-    `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} callbacks on all ${Object.keys(SOURCES).length} components (four wrappers, two Svelte entries) — ${names}; `
+    `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} host callbacks on all ${Object.keys(SOURCES).length} components (four wrappers, two Svelte entries) — ${names}; `
     + `${dataProps.length} data props/render hooks parity-checked (plus \`id\`, separately); `
     + `and all ${Object.keys(SOURCES).length} accept a caller-supplied host id.`,
 );

@@ -25,10 +25,14 @@ import {
     DATA_PROP_ALIASES,
     IMPLEMENTATIONS,
     SOURCES,
+    readChatCallbacks,
     readWrapperCallbacks,
     readWrapperDataProps,
     readWrapperSlots,
 } from '../wrapper-surface.mjs';
+import { CHAT_TAG, readChatEvents } from '../chat-surface.mjs';
+import { bindingName } from '../gen-element-bindings.mjs';
+import bindings from '../../packages/core/element-bindings.config.mjs';
 
 const CALLBACKS = readWrapperCallbacks();
 
@@ -54,12 +58,28 @@ function withoutDispatch(src: string, key: string, name: string): string {
 }
 
 describe('the wrapper callback proofs', () => {
-    it('reads all six callbacks off the React interface', () => {
-        // The floor: a parser that found nothing would make every row below vacuous.
+    it('reads the four host callbacks off the React interface', () => {
+        // The floor: a parser that found nothing would make every row below vacuous. The
+        // chat's events — `onMessageSent` and `onAction` among them — are generated into
+        // `AparteChatEventProps`, which the interface extends, and proven per wrapper by its
+        // coverage test, from core's manifest.
         expect(CALLBACKS.map((c) => c.name)).toEqual([
-            'messageSent', 'action', 'messagesChange',
-            'messageAppended', 'typingChange', 'conversationCreated',
+            'messagesChange', 'messageAppended', 'typingChange', 'conversationCreated',
         ]);
+    });
+
+    it('keeps `messageSent` and `action` on the reference page, read from the manifest', () => {
+        // The two chat events every component also takes as a callback: the Svelte-4-syntax
+        // one declares a callback prop for them alone, and dispatches the rest.
+        const events = readChatEvents().map((ev: { name: string }) => ({ ...ev, binding: bindingName(CHAT_TAG, ev.name, bindings) }));
+        const rows = readChatCallbacks(events);
+        expect(rows.map((r: { react: string }) => r.react)).toEqual(['onMessageSent', 'onAction']);
+        expect(rows[0]).toMatchObject({
+            vue: '@message-sent', svelte: 'on:messageSent', angular: '(messageSent)', svelteRunes: 'onmessageSent',
+            payload: 'AparteSendEventDetail',
+        });
+        expect(rows[1]).toMatchObject({ payload: 'AparteActionEventDetail' });
+        for (const row of rows) expect(row.summary.length).toBeGreaterThan(0);
     });
 
     for (const key of Object.keys(DISPATCH_LINE)) {

@@ -112,6 +112,13 @@ export function readWrapperSlots() {
  * That sentence used to be here and be FALSE — the guard imported only the slot half. A
  * cold audit caught it. Parity held at the time, so nothing shipped was wrong; the claim
  * was, which is the more dangerous of the two because it stops anyone looking.
+ *
+ * What it reads now is the HOST callbacks — what the host reports back to the framework,
+ * which no DOM event carries (`onMessagesChange` and three more). The chat's events,
+ * `onMessageSent` and `onAction` among them, are generated into `AparteChatEventProps`,
+ * which `AparteChatProps` extends, so this regex no longer sees them. Each wrapper's
+ * coverage test proves those from core's manifest instead, event by event; the reference
+ * page reads the manifest's for its rows ({@link readChatCallbacks}).
  */
 export function readWrapperCallbacks() {
     const src = readFileSync(SOURCES.react, 'utf8');
@@ -121,18 +128,11 @@ export function readWrapperCallbacks() {
     const callbacks = [];
     const re = /(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)?\s*(on[A-Z]\w*)\?:\s*\(([^)]*)\)\s*=>\s*void\s*;/g;
     for (const [, doc, name, params] of iface[1].matchAll(re)) {
-        const base = name.slice(2, 3).toLowerCase() + name.slice(3);
-        callbacks.push({
-            react: name,
-            name: base,
-            vue: `@${kebab(base)}`,
-            svelte: `on:${base}`,
-            angular: `(${base})`,
-            // The name Svelte's own migration gives `dispatch('messageSent')`: `on` + the event.
-            svelteRunes: `on${base}`,
+        callbacks.push(callbackRow({
+            name: name.slice(2, 3).toLowerCase() + name.slice(3),
             payload: params.trim() ? params.split(':').slice(1).join(':').trim() : 'nothing',
             summary: doc ? summarise(doc) : '',
-        });
+        }));
     }
 
     if (!callbacks.length) {
@@ -142,6 +142,44 @@ export function readWrapperCallbacks() {
         );
     }
     return callbacks;
+}
+
+/**
+ * One row of the callbacks table: every framework's spelling, from the binding name. The
+ * per-framework spelling is mechanical: `messageSent` → `onMessageSent` in React,
+ * `@message-sent` in a Vue template, `on:messageSent` in Svelte, `(messageSent)` in Angular.
+ */
+export function callbackRow({ name, payload, summary }) {
+    return {
+        react: `on${name.charAt(0).toUpperCase()}${name.slice(1)}`,
+        name,
+        vue: `@${kebab(name)}`,
+        svelte: `on:${name}`,
+        angular: `(${name})`,
+        // The name Svelte's own migration gives `dispatch('messageSent')`: `on` + the event.
+        svelteRunes: `on${name}`,
+        payload,
+        summary,
+    };
+}
+
+/**
+ * The chat's events that are a callback on all five components, as rows of the same table as
+ * {@link readWrapperCallbacks}: every event of the chat is a prop, an emit, an output and a
+ * runes callback, and the Svelte-4-syntax component takes as a callback prop only the ones it
+ * declares (`export let onmessageSent`) — the rest it dispatches, `on:linkClick`.
+ *
+ * `events` is core's manifest read by `readChatEvents()` (scripts/chat-surface.mjs), each with
+ * the `binding` it is published under: the reference page reads them after the build. The
+ * parity guard does not — it runs on the tree before any build — and needs not: each wrapper's
+ * coverage test proves every event from the manifest.
+ */
+export function readChatCallbacks(events) {
+    const svelte = stripComments(readFileSync(SOURCES.svelte, 'utf8'));
+    const callbackProps = new Set([...svelte.matchAll(/export let (on\w+)/g)].map((m) => m[1]));
+    return events
+        .filter((ev) => callbackProps.has(`on${ev.binding}`))
+        .map((ev) => callbackRow({ name: ev.binding, payload: ev.detail ?? 'nothing', summary: summarise(ev.description ?? '') }));
 }
 
 /**

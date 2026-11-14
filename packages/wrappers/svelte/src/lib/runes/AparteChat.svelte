@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi } from '@aparte/core';
-  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
+  import type { AparteMessage, AparteSegment } from '../types.js';
   import type { AparteChatProps } from './types.js';
+  import { APARTE_CHAT_EVENT_BINDINGS } from '../generated/chat-events.js';
 
   /*
    * The Svelte 5 chat: the same host, the same markup and the same rules as the
@@ -35,12 +36,12 @@
     composer,
     toolbar,
     bubble,
-    onmessageSent,
-    onaction,
     onmessagesChange,
     onmessageAppended,
     ontypingChange,
     onconversationCreated,
+    // What is left is the chat's event callbacks (`AparteChatEventCallbacks`), read by name.
+    ...rest
   }: AparteChatProps = $props();
 
   // A caller-supplied id wins, so `scopeToTargetId` has something to match; otherwise one
@@ -146,15 +147,23 @@
     toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
   });
 
-  function handleSend(event: Event) {
+  // A send from the composer makes the next auto-scroll, the one that brings the user's bubble
+  // in, a smooth one. `onmessageSent` is called below, with every other event.
+  function handleSend() {
     (viewportRef as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-    onmessageSent?.((event as CustomEvent<AparteSendEventDetail>).detail);
   }
 
-  // Custom bubble actions bubble to the root as `aparte-action`.
-  function handleAction(event: Event) {
-    onaction?.((event as CustomEvent<AparteActionEventDetail>).detail);
-  }
+  // Every event of the chat, from the table generated out of `<aparte-chat>`'s own list: one
+  // listener per event on the root, where they all arrive (the parts' bubble up to it, the
+  // turn's lifecycle is sent on it). Each reads its callback off the props as they are NOW and
+  // hands it the detail, then the event, which is what puts `preventDefault()` in reach. Added
+  // once the host is bound, so the host's own listeners on the root run first and a callback
+  // reads the chat as the event left it.
+  type Callback = ((detail: unknown, event: Event) => void) | undefined;
+  const forwarded = APARTE_CHAT_EVENT_BINDINGS.map(({ type, callback }) => ({
+    type,
+    listener: (event: Event) => (rest[callback] as Callback)?.((event as CustomEvent).detail, event),
+  }));
 
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
@@ -195,10 +204,11 @@
     });
     const unbind = host.bind();
     host.syncBubbles();
-    rootRef?.addEventListener('aparte-action', handleAction);
+    const root = rootRef;
+    for (const { type, listener } of forwarded) root?.addEventListener(type, listener);
     return () => {
       unsubscribeLocale();
-      rootRef?.removeEventListener('aparte-action', handleAction);
+      for (const { type, listener } of forwarded) root?.removeEventListener(type, listener);
       unbind();
       host = null;
     };
