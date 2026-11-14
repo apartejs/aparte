@@ -61,10 +61,13 @@ body {
    `[data-aparte-chat]` div), and Angular's — whose host IS an `<aparte-chat>` tag,
    `framework-managed`, with the wrapper's own flag on its inner `.aparte-chat-container`.
    Hence the `:not([framework-managed])`: Angular's welcome follows that one flag, the
-   same one the other wrappers raise, rather than two. */
+   same one the other wrappers raise, rather than two.
+   `[data-aparte-chat]` is on the element too since core writes it on every `<aparte-chat>`
+   (the testing contract's root), and neither the element nor Angular's host has the
+   wrapper's flag: the third line says `:not(aparte-chat)` so it still means the div. */
 aparte-chat:not([framework-managed]):not([data-empty]) .welcome,
 .aparte-chat-container:not([data-aparte-empty]) .welcome,
-[data-aparte-chat]:not([data-aparte-empty]) .welcome {
+[data-aparte-chat]:not(aparte-chat):not([data-aparte-empty]) .welcome {
     grid-template-rows: 0fr;
     padding-block: 0;
     opacity: 0;

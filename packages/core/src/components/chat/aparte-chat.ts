@@ -81,6 +81,11 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * ```
  *
  * @element aparte-chat
+ * @attr {boolean} data-aparte-chat - Reflected BY the element once it is connected: the marker the
+ *   React, Vue and Svelte wrappers put on the `<div>` they render in its place, and Angular's
+ *   component on its host. `[data-aparte-chat]` finds the chat whatever the framework, which is
+ *   the root a test starts from. Every rule core ships for `[data-aparte-chat]` names
+ *   `aparte-chat` too, so the attribute restyles nothing. Read-only.
  * @attr {string} placeholder - Placeholder for the composer input (default composition)
  * @attr {boolean} disabled - Disables the composer
  * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
@@ -211,6 +216,9 @@ export class AparteChat extends HTMLElement {
   private _ownsShell = false;
 
   connectedCallback(): void {
+    // The marker the framework wrappers' roots carry, so one selector finds the chat in all
+    // five. Not observed and never taken off: it says what this element is, not a state.
+    this.setAttribute('data-aparte-chat', '');
     this._render();
     this._forwardAttr('placeholder');
     this._forwardAttr('disabled');

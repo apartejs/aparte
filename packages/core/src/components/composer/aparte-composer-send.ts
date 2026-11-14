@@ -35,6 +35,11 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *
  * @element aparte-composer-send
  *
+ * @attr {string} data-act - Reflected BY the element, from the button inside it: what a press does
+ *   now. `send` at rest, `stop` while a reply streams, `submit` while a panel asks a question. A test
+ *   reads it here and presses the `button` inside: `aparte-composer-send[data-act="stop"] button`.
+ *   Read-only.
+ *
  * @cssprop [--aparte-composer-control-size=var(--aparte-btn-size-lg)] - Width/height of the button inside the
  *          `.aparte-composer-row` layout helper, shared with the input's single-line
  *          height so the row stays aligned. It wins over `--aparte-send-btn-size` there.
@@ -119,7 +124,7 @@ export class AparteComposerSend extends HTMLElement {
             data-act="send"
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
-
+        this.setAttribute('data-act', 'send');
     }
 
     private _connectToRoot(): void {
@@ -196,7 +201,7 @@ export class AparteComposerSend extends HTMLElement {
         }
         this._button.disabled = !panel.submitEnabled;
         this._button.innerHTML = this._getSubmitIcon();
-        this._button.setAttribute('data-act', 'submit');
+        this._setAct('submit');
         const label = cfg.t('submitButton') || 'Submit';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
@@ -208,6 +213,16 @@ export class AparteComposerSend extends HTMLElement {
         this._getRoot()?.submit();
     }
 
+    /**
+     * What a press does now, said on the button (where the stylesheet reads it) and on this
+     * element (where a test does: it asks for the act, then presses the button inside).
+     * One writer, so the two can never say different things.
+     */
+    private _setAct(act: 'send' | 'stop' | 'submit'): void {
+        this._button?.setAttribute('data-act', act);
+        this.setAttribute('data-act', act);
+    }
+
     private _syncState(): void {
         const root = this._getRoot();
         if (!root || !this._button) return;
@@ -216,7 +231,7 @@ export class AparteComposerSend extends HTMLElement {
         const isEmpty = root.value.trim() === '' && root.attachments.length === 0;
         this._button.disabled = root.disabled || isEmpty;
         this._button.innerHTML = this._getSendIcon();
-        this._button.setAttribute('data-act', 'send');
+        this._setAct('send');
         const label = resolveConfig(this).t('sendButton') || 'Send';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
@@ -228,7 +243,7 @@ export class AparteComposerSend extends HTMLElement {
         if (streaming) {
             this._button.disabled = false;
             this._button.innerHTML = this._getStopIcon();
-            this._button.setAttribute('data-act', 'stop');
+            this._setAct('stop');
             // Was the bare literal 'Stop', so no locale could reach it — the same
             // gap `aparte-composer-cancel` had, on a second element. The key is
             // declared now.

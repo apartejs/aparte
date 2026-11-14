@@ -29,6 +29,9 @@ export default {
         // The same: reflected by the element (the first key, pointer or send; a search that
         // matches nothing), never the template's to set.
         'aparte-chat': ['data-glide'],
+        // What a press of the button does now (`send`, `stop`, `submit`): written by the element
+        // from the button inside it, for a test to read. A binding would only fight it.
+        'aparte-composer-send': ['data-act'],
         'aparte-conversation-list': ['data-no-match'],
         'aparte-launcher': ['data-sheet'],
     },
