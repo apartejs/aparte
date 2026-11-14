@@ -108,6 +108,62 @@ on that chat's manager:
 The rows come from the array, so the element takes no children: put the new-chat button and the
 search field around it, in the [sidebar](/components/sidebar/).
 
+### In React
+
+`<AparteConversationList>` is this element as a React component: `conversations` is a prop, the
+attributes are props by the names above, and each event is an `onXxx` callback — no ref, no
+effect, and the same under React 18 and 19. Bound to `useConversationManager()`, the list needs
+the manager's rows and its active id, and `manage` has the manager carry out the menu's gestures:
+
+```tsx
+import { useEffect } from 'react';
+import { AparteChat, AparteConversationList, useConversationManager } from '@aparte/react';
+import { createIdbStorage } from '@aparte/plugin-storage-idb';
+
+export function ChatWithHistory() {
+  const manager = useConversationManager();
+  useEffect(() => { void manager.init(createIdbStorage()); }, []);
+
+  return (
+    <div style={{ display: 'flex', height: '100dvh' }}>
+      <AparteConversationList
+        conversations={manager.activeConversations}
+        active-id={manager.activeId}
+        manage
+      />
+      <AparteChat />
+    </div>
+  );
+}
+```
+
+A click on a row needs no code: the chat bound to the manager hears it and opens that
+conversation, and `manager.activeId` follows. To do a gesture yourself — ask before deleting, say —
+leave `manage` out and take the callbacks, each called with the event's detail and then the event.
+With `manage` on, `event.preventDefault()` in a callback takes that one gesture back from it.
+
+The callbacks, without `manage`:
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+<AparteConversationList
+  conversations={manager.activeConversations}
+  active-id={manager.activeId}
+  onConversationSelect={() => setDrawerOpen(false)}
+  onConversationRename={(detail) => void manager.updateTitle(detail.id, detail.title)}
+  onConversationPin={(detail) => void manager.pin(detail.id)}
+  onConversationUnpin={(detail) => void manager.unpin(detail.id)}
+  onConversationArchive={(detail) => void manager.archive(detail.id)}
+  onConversationUnarchive={(detail) => void manager.unarchive(detail.id)}
+  onConversationDelete={(detail) => void manager.delete(detail.id)}
+/>
+```
+
+`conversations` is written when the array is a new one, and `activeConversations` is the same array
+until the manager changes: pass that one, or a `useMemo` of your own, and not an array built in the
+render, which would draw every row again each time. `active-id` takes the hook's `string | null` as
+it is.
+
 ## API
 
 <ListApi />

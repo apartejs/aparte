@@ -21,11 +21,14 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IMPLEMENTATIONS, callbackRow, readWrapperSlots, readWrapperCallbacks, readChatCallbacks } from '../../../scripts/wrapper-surface.mjs';
 import { CHAT_TAG, readChatEvents } from '../../../scripts/chat-surface.mjs';
-import { bindingName } from '../../../scripts/gen-element-bindings.mjs';
+import { bindingName, readElements, readNativeEventNames, readReactComponents } from '../../../scripts/gen-element-bindings.mjs';
 import bindings from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../src/content/docs/reference/wrappers.md');
+
+const CORE = resolve(here, '../../../packages/core');
+const REACT_BARREL = resolve(here, '../../../packages/wrappers/react/src/index.ts');
 
 const slots = readWrapperSlots();
 /*
@@ -224,6 +227,7 @@ Angular, the DOM binding on \`<aparte-chat>\`:
 <aparte-chat (aparte-subagent-open)="openPanel($any($event).detail.runId)"></aparte-chat>
 \`\`\`
 
+@@COMPONENTS@@
 ## Two things this table does not cover
 
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
@@ -275,6 +279,39 @@ The day a second wrapper needs that theme listener with a disposer of its own,
 \`applyThemeMode\` moves into \`@aparte/core\` and all four call it — one implementation, four
 idioms. Until then it lives where its one caller is.
 `;
+
+/*
+ * Every element of core as a React component, from the manifest and the naming function the
+ * components are generated from: a row here is the component, the props type and the callback the
+ * package really exports, a rename included. Written as HTML for the reason the callbacks' table is.
+ */
+const components = readReactComponents(CORE, readElements(CORE), bindings, {
+    native: readNativeEventNames(),
+    configPath: 'packages/core/element-bindings.config.mjs',
+    barrelArg: REACT_BARREL,
+});
+const cell = (items) => (items.length ? items.map((i) => `<code>${html(i)}</code>`).join(', ') : '—');
+let table = `
+## A React component for every element
+
+\`@aparte/react\` exports one component per element of core, the chat apart: its component is
+\`<AparteChat>\`. A component is the element with its props bound for React: the tag's attributes by
+the names the tag has, its properties (\`conversations\`) as props, and an \`on…\` callback for each
+event, called with the payload and then the DOM event, like the chat's. They are generated from the
+manifest, so an element or an event added to core reaches them with no edit. Each element's page,
+under [Components](/components/), shows its component beside the other frameworks' tags, and
+[Any element, typed](/frameworks/react/#any-element-typed) says how they behave under React 18 and 19.
+
+<table tabindex="0" aria-label="The React component of each element of core">
+<thead><tr><th>Component</th><th>Element</th><th>Props type</th><th>Properties</th><th>Callbacks</th></tr></thead>
+<tbody>
+`;
+for (const c of components) {
+    table += `<tr><td><code>${c.component}</code></td><td><code>&lt;${c.tag}&gt;</code></td><td><code>${c.props}</code></td>`
+        + `<td>${cell(c.properties.map((p) => p.name))}</td><td>${cell(c.events.map((e) => e.prop))}</td></tr>\n`;
+}
+table += '</tbody>\n</table>\n';
+md = md.replace('@@COMPONENTS@@\n', table);
 
 mkdirSync(dirname(OUT), { recursive: true });
 const wrote = writeIfChanged(OUT, md);

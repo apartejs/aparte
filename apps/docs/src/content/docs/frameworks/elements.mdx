@@ -17,18 +17,14 @@ import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
 
 {/* doc-check: skip excerpt — a fragment of your component */}
 ```tsx
-<aparte-select ref={select} searchable="" placeholder="Pick a model">
-  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
-</aparte-select>
-
-// events are read by ref, typed through the DOM
-useEffect(() => {
-  const el = select.current;
-  const onChange = (e: HTMLElementEventMap['aparte-select-change']) => pick(e.detail.value);
-  el?.addEventListener('aparte-select-change', onChange);
-  return () => el?.removeEventListener('aparte-select-change', onChange);
-}, []);
+<AparteSelect searchable placeholder="Pick a model" onSelectChange={(detail) => pick(detail.value)}>
+  <AparteOption value="gpt-4o-mini">GPT-4o mini</AparteOption>
+</AparteSelect>
 ```
+
+Every element of core is a component in React, with its properties as props and its events as
+`onXxx` callbacks ([Any element, typed](/frameworks/react/#any-element-typed)). The raw tag is typed
+too, and its events are read by ref.
 
 </TabItem>
 <TabItem label="Vue">
@@ -81,11 +77,13 @@ export class PickerComponent {
 </TabItem>
 </Tabs>
 
-Importing a wrapper types every element of core in that framework: JSX intrinsics in React,
-`GlobalComponents` in Vue, `SvelteHTMLElements` in Svelte. The attribute names are the HTML ones and
-a wrong value is a compile error; the events are typed through the DOM, since `@aparte/core`
-augments `HTMLElementEventMap`, so a handler's `e.detail` has the event's own type where the
-framework reads that map.
+Importing a wrapper types every element of core in that framework: JSX intrinsics in React (and a
+component for each, above), `GlobalComponents` in Vue, `SvelteHTMLElements` in Svelte. The attribute
+names are the HTML ones and a wrong value is a compile error, `null` removing any of them; a
+property the element has only as a property (the list's `conversations`) is typed in Vue and Svelte,
+where a template sets it, and is a prop of the component in React. An event's `e.detail` has the
+event's own type: in Vue the tag declares the events it sends, in Svelte the `on:` handler is typed
+from `HTMLElementEventMap`, which `@aparte/core` augments, and in React a component's callback is.
 
 In Angular, each element has a standalone directive whose selector is its tag —
 `Aparte<Element>Directive`, all of them in `APARTE_ELEMENT_DIRECTIVES` — so the template is checked
@@ -104,9 +102,11 @@ type InATemplate = AparteTemplateAttrs<AparteSelectAttributes>;
 type Presence = AparteAttrValue<boolean>;   // '' | null | undefined
 ```
 
-An aparté element reacts to an attribute being there, not to a property's value. In React, Vue
-and Svelte a presence attribute is typed `'' | null | undefined`: write `''` to set it and `null`
-or `undefined` to remove it, never `false`. A few are on unless told otherwise —
+An aparté element reacts to an attribute being there, not to a property's value. On a raw tag in
+React, Vue and Svelte a presence attribute is typed `'' | null | undefined`: write `''` to set it and
+`null` or `undefined` to remove it, never `false`. A Vue template can also write it bare,
+`<aparte-select searchable>`, as it writes any. React's components write the attribute themselves,
+so they take a `boolean` as well. A few are on unless told otherwise —
 `submit-on-enter`, `multiple` — and take `'false'` as well, the one value that turns them off.
 Angular's directives take a `boolean`, and write or remove the attribute for you.
 `AparteTemplateAttrs` turns any attribute interface into that template spelling, for an
