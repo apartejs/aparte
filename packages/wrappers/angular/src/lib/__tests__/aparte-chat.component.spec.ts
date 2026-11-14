@@ -252,6 +252,18 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(fixture.nativeElement.querySelector('aparte-composer-attachments')).toBeNull();
     });
 
+    // The testing contract's root: `[data-aparte-chat]` finds the chat in every framework. React, Vue
+    // and Svelte render it on their root div; Angular's root is this host, the <aparte-chat> tag.
+    it('is [data-aparte-chat], the root a test starts from', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.matches('[data-aparte-chat]')).toBe(true);
+        expect(host.querySelector('[role="textbox"]'), 'and the field is inside it').not.toBeNull();
+    });
+
     // Parity with core's <aparte-chat>, whose default composition ships the presenter.
     it('renders the elicitation presenter inside the host by default, before the composer', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
