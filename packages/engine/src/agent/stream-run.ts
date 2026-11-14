@@ -178,6 +178,18 @@ export interface StreamRunOptions {
      */
     providerId?: string;
     /**
+     * The id of the conversation this turn belongs to: the one open in the chat when the
+     * person sent the message, read at that moment. Left out when the chat has none (no
+     * conversation manager, nothing open). Opaque to the loop, like `messageId`: a runner
+     * that sends the turn elsewhere needs it to put the turn in the right conversation
+     * there — a server that keeps a journal per conversation, an agent that keeps a thread.
+     * The resume of a paused run carries the same id as the run it continues.
+     *
+     * The id comes from the page. A server that opens something by it checks, first, that
+     * whoever is asking may.
+     */
+    conversationId?: string;
+    /**
      * The files the person attached to the message this run answers, as they were
      * picked. Opaque to the loop, like `providerId`: a runner that sends the turn
      * elsewhere and uploads files itself needs them (n8n's Chat Trigger takes them as

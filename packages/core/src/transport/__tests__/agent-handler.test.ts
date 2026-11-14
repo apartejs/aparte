@@ -358,6 +358,59 @@ describe('createAparteAgentHandler', () => {
         expect(seen?.headers.get('x-user')).toBe('paul');
     });
 
+    describe('the conversation of the turn', () => {
+        // The tool records the context it is handed: what a server that keeps a journal per
+        // conversation reads to know which journal the call belongs to.
+        type Context = { conversationId?: string; request?: Request };
+        const contexts: Context[] = [];
+        const record = async (call: { id: string }, _signal: AbortSignal, context?: Context) => {
+            contexts.push({ ...context });
+            return { toolCallId: call.id, content: 'ok' };
+        };
+        const readFile = { tool: { name: 'read_file', description: 'Read.', inputSchema: { type: 'object' } }, handler: record };
+        const callsReadFile = [{ type: 'tool_use', id: 'r1', name: 'read_file', input: {} }, { type: 'done' }];
+
+        it('hands a server tool the conversation id the page sent, beside the request', async () => {
+            contexts.length = 0;
+            const { provider } = scriptedProvider(callsReadFile);
+            await lines(await handlerWith(provider, { tools: [readFile] })(post(firstBody({ conversationId: 'c-42' }))));
+            expect(contexts[0]?.conversationId).toBe('c-42');
+            expect(contexts[0]?.request).toBeInstanceOf(Request);
+        });
+
+        it('hands none when the page sent none, or an empty one', async () => {
+            contexts.length = 0;
+            for (const extra of [{}, { conversationId: '' }]) {
+                const { provider } = scriptedProvider(callsReadFile);
+                await lines(await handlerWith(provider, { tools: [readFile] })(post(firstBody(extra))));
+            }
+            expect(contexts).toHaveLength(2);
+            expect(contexts.map((c) => 'conversationId' in c)).toEqual([false, false]);
+        });
+
+        it('hands a call answered after a pause the conversation of the request that resumed it', async () => {
+            contexts.length = 0;
+            const gated = { tool: { ...readFile.tool, needsApproval: true }, handler: record };
+            const { provider } = scriptedProvider(callsReadFile, [{ type: 'text', delta: 'Read.' }, { type: 'done' }]);
+            const handler = handlerWith(provider, { tools: [gated] });
+            const paused = await lines(await handler(post(firstBody({ conversationId: 'c-42' }))));
+            expect(paused.at(-1)!.type).toBe('run-suspended');
+            expect(contexts).toEqual([]);
+
+            const resume = resumeBody(paused.at(-1)!['ticket'] as string, { r1: { kind: 'decision', approved: true } }, { conversationId: 'c-42' });
+            (resume.request.messages[1] as { toolCalls: unknown[] }).toolCalls = [{ id: 'r1', name: 'read_file', input: {} }];
+            await lines(await handler(post(resume)));
+            expect(contexts.map((c) => c.conversationId)).toEqual(['c-42']);
+        });
+
+        it('400 when the conversation id is not a string', async () => {
+            const { provider, requests } = scriptedProvider();
+            const res = await handlerWith(provider, { tools: [readFile] })(post(firstBody({ conversationId: 7 })));
+            expect(res.status).toBe(400);
+            expect(requests).toHaveLength(0);
+        });
+    });
+
     it('refuses by the server policy without asking anyone', async () => {
         const { provider } = scriptedProvider(turnCallingDelete, [{ type: 'text', delta: 'OK.' }, { type: 'done' }]);
         const out = await lines(await handlerWith(provider, {

@@ -116,6 +116,17 @@ put down on purpose, so a future session does not re-derive the answer from scra
   and one rule in the history serializer (an unknown type contributes its `content`,
   else its `fallback`). Paul's second correction set the line — "la reconnaissance doit
   être plugin": not even the tag is core's.
+- **The conversation id on the model request — not done, 2026-11-14.** Each turn carries
+  `conversationId` on the RUN's options (`StreamRunOptions`, beside `messageId`; the issue's own
+  proposal), which every runner receives — `createAgentStreamRunner` routes by it,
+  `createAgUiRunner` runs the agent's thread in it — and on a tool's context. `AparteChatRequest`
+  does not carry it: `requestInterceptor` and the handler's `prepareRequest` rebuild the request
+  (an id there could vanish before a runner's `endpoint(...)` needs it), `AparteBackendTransport`
+  serialises it whole to every existing backend, and no provider in this repo reads it — decision
+  #7's test. *Trigger: a provider that keys something on the conversation, a prompt-cache key
+  for one, which gives the field a consumer; then it goes on the request as well.* The chat
+  tells the client through a reader its conversation controller leaves on the host
+  (`conversations/open-conversation.ts`), read BEFORE the turn's first await.
 
 ---
 

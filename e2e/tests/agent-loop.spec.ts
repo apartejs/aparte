@@ -125,6 +125,38 @@ test('leaving during the wait keeps the question: it comes back with the convers
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
+test('each turn names the conversation it was sent in, and the resume names it again', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    // What the server is told, request by request: a server that keeps a journal per
+    // conversation reads the id from here.
+    const posted: { conversationId?: unknown; resume?: unknown }[] = [];
+    page.on('request', (request) => {
+        if (request.method() === 'POST' && request.url() === AGENT) posted.push(request.postDataJSON());
+    });
+    const chat = await openSite(page);
+
+    await chat.send('what is the weather?');
+    const panel = page.locator(APPROVAL_PANEL);
+    await expect(panel).toBeVisible();
+    // The first message made its conversation, and the turn says which.
+    expect(posted).toHaveLength(1);
+    const conversationId = posted[0]!.conversationId;
+    expect(conversationId).toEqual(expect.any(String));
+
+    // Another conversation instead of an answer, and back: the resume goes to the one it paused in.
+    await page.locator(LIST).getByText('Weather in Lille').click();
+    await expect(panel).toHaveCount(0);
+    await expect(page.locator('aparte-chat-bubble[data-role="user"]').first()).toContainText('weather in Lille');
+    await page.locator(LIST).getByText('what is the weather?').click();
+    await expect(panel).toBeVisible();
+    await panel.locator(APPROVE).click();
+    await expect(chat.lastReply).toContainText('Cloudy');
+
+    expect(posted).toHaveLength(2);
+    expect(posted[1]).toMatchObject({ resume: expect.anything(), conversationId });
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
 /*
  * The same three round trips against an AG-UI agent (`?agui=`, `@aparte/runner-ag-ui`), twice.
  * `POST /agui` is a scripted AG-UI agent: the approval is an AG-UI INTERRUPT answered by one

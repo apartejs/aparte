@@ -24,6 +24,7 @@ import { describeToolInput } from '../utils/tool-input.js';
 import { toolNameOf, toolTargetOf } from '../utils/tool-line.js';
 import { requestUserInput } from '../elicitation/index.js';
 import { errorSentence } from '../utils/error-sentence.js';
+import { openConversationOf } from '../conversations/open-conversation.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -788,6 +789,12 @@ export class AparteClient {
             files?: readonly File[];
             /** What goes in the request's `_meta` from the message that started this turn. */
             meta?: AparteRequestMeta;
+            /**
+             * The conversation open in the chat when the person acted, read by the caller
+             * before its first await. Handed to the runner on every run of the turn, the
+             * resume of a pause included.
+             */
+            conversationId?: string;
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
@@ -901,7 +908,7 @@ export class AparteClient {
         const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
-                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files);
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files, opts?.conversationId);
             // A server loop paused on calls only the page can answer: ask here — the
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
@@ -954,6 +961,7 @@ export class AparteClient {
                     targetElement, messageId, provider,
                     { ...baseRequest, messages },
                     authConfig, streamController, deferral,
+                    undefined, opts?.conversationId,
                 );
             }
             const usage = result.usage;
@@ -1108,6 +1116,8 @@ export class AparteClient {
             console.warn('[AparteClient] aparte-retry — no target found');
             return;
         }
+        // Read now, before the first await — see `_handleSend`.
+        const conversationId = openConversationOf(targetElement) ?? undefined;
 
         // Build history BEFORE calling addSiblingOf (getMessages() returns active path)
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
@@ -1154,6 +1164,7 @@ export class AparteClient {
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
                 ...this._turnMeta([...historyMessages].reverse().find((m) => m.role === 'user')),
+                ...(conversationId ? { conversationId } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1196,6 +1207,8 @@ export class AparteClient {
             console.warn('[AparteClient] aparte-edit — no target found');
             return;
         }
+        // Read now, before the first await — see `_handleSend`.
+        const conversationId = openConversationOf(targetElement) ?? undefined;
 
         // 1. Update the user message content, and the tokens it still holds
         const before = targetElement.getMessages?.().find((m) => m.id === messageId);
@@ -1250,6 +1263,7 @@ export class AparteClient {
             [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
+                ...(conversationId ? { conversationId } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1533,6 +1547,12 @@ export class AparteClient {
             return;
         }
 
+        // The conversation the message is sent in, read NOW and not once the turn starts:
+        // it begins with a key to resolve and files to read, and a person who opens another
+        // conversation in that time has not moved this message — it was written, and is
+        // saved, in this one. Absent when the chat has none.
+        const conversationId = openConversationOf(targetElement) ?? undefined;
+
         // The optimistic USER bubble, before anything below can fail — a send the
         // person cannot see is a broken chat even when the failure card explains
         // the rest. Opt-out via `echoUserMessage: false` (see the option's JSDoc).
@@ -1635,6 +1655,7 @@ export class AparteClient {
                 rebuild: async () => this._buildMessages(content, targetElement, fileParts),
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
                 ...this._turnMeta(event.detail),
+                ...(conversationId ? { conversationId } : {}),
             },
         );
     }
@@ -1788,6 +1809,8 @@ export class AparteClient {
         // A paused server run's answers, when this call resumes it (see `_streamTurn`).
         deferral?: StreamDeferral,
         files?: readonly File[],
+        // The conversation the turn belongs to — on a resume as on the first run.
+        conversationId?: string,
     ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1827,7 +1850,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files, conversationId);
     }
 
     /**
@@ -1849,6 +1872,7 @@ export class AparteClient {
         streamController: AbortController,
         deferral?: StreamDeferral,
         files?: readonly File[],
+        conversationId?: string,
     ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
@@ -1908,7 +1932,13 @@ export class AparteClient {
         const toolLookup = (name: string) => {
             const handler = this._config.getToolHandler(name);
             if (!handler) return undefined;
-            const context = { target: targetElement as unknown as HTMLElement, config: this._config };
+            const context = {
+                target: targetElement as unknown as HTMLElement,
+                config: this._config,
+                // The same id a server tool is handed (`createAparteAgentHandler`), so a
+                // handler behaves the same whichever loop runs it.
+                ...(conversationId ? { conversationId } : {}),
+            };
             // The engine's third argument, the run, becomes `context.run`: what a handler
             // opens a sub-agent from.
             return (call: AparteToolCall, sig: AbortSignal, run?: AparteToolRun) => handler(call, sig, run ? { ...context, run } : context);
@@ -1965,6 +1995,7 @@ export class AparteClient {
             ...(provider.id ? { providerId: provider.id } : {}),
             ...(deferral ? { deferral } : {}),
             ...(files && files.length > 0 ? { files } : {}),
+            ...(conversationId ? { conversationId } : {}),
             baseRequest,
             transportCall,
             toolLookup,
@@ -2281,6 +2312,9 @@ export class AparteClient {
         }
         // A fresh turn, like a send: a Stop pressed on an earlier one does not cancel it.
         this._beginUserTurn();
+        // The conversation open now (the one just loaded, when a load started this), read
+        // before the first await — see `_handleSend`.
+        const conversationId = openConversationOf(targetElement) ?? undefined;
         this._resuming.add(last.id);
         try {
             const authConfig = provider.id ? await this._resolveAuth(provider.id) : undefined;
@@ -2296,6 +2330,7 @@ export class AparteClient {
                     return at >= 0 ? this._resumeBase(now, at) : base;
                 },
                 ...(recorded?.temperature !== undefined ? { temperature: recorded.temperature } : {}),
+                ...(conversationId ? { conversationId } : {}),
             });
         } finally {
             this._resuming.delete(last.id);

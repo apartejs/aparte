@@ -105,6 +105,12 @@ export interface AparteAgentRequestBody {
     /** Absent when the page registered no provider: the handler runs its only one. */
     providerId?: string;
     messageId: string;
+    /**
+     * The conversation the turn belongs to, as the page says it. Absent when the chat has
+     * none open. It comes from the browser: it names a conversation and proves nothing about
+     * who owns it, so check it against who is calling before opening anything by it.
+     */
+    conversationId?: string;
     request: AparteChatRequest;
     /** Definitions of the tools the browser runs; the server marks them external. */
     clientTools?: AparteTool[];
@@ -171,9 +177,16 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             return jsonError(400, 'Invalid JSON body.');
         }
         if (body?.v !== 1) return jsonError(400, 'Unsupported agent wire version: expected v 1.');
-        if ((body.providerId !== undefined && typeof body.providerId !== 'string') || typeof body.messageId !== 'string' || !Array.isArray(body.request?.messages)) {
-            return jsonError(400, 'Body must be { v: 1, providerId?, messageId, request: { messages } }.');
+        if (
+            (body.providerId !== undefined && typeof body.providerId !== 'string')
+            || (body.conversationId !== undefined && typeof body.conversationId !== 'string')
+            || typeof body.messageId !== 'string'
+            || !Array.isArray(body.request?.messages)
+        ) {
+            return jsonError(400, 'Body must be { v: 1, providerId?, messageId, conversationId?, request: { messages } }.');
         }
+        // An empty id names no conversation: the same as none.
+        const conversationId = body.conversationId || undefined;
         // A forced call (`toolChoice: { name, input }`) runs its handler before the model
         // speaks, with no gate and no policy — from a browser, that is a direct call to a
         // server tool. The string forms (`auto`, `none`, `required`) stay allowed.
@@ -300,10 +313,18 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     toolLookup: (name) => {
                         const t = offered.has(name) ? tools.get(name) : undefined;
                         // The request rides along: a tool checks the caller's rights itself,
-                        // since the model — not the caller — chose the arguments. The run too,
+                        // since the model — not the caller — chose the arguments. So does the
+                        // conversation the page says the turn is in: it is the page's word, not
+                        // proof, and the request is what to check it against. The run too,
                         // for a tool that opens a sub-agent; its events go out on this stream
                         // like the run's own.
-                        return t ? (call, signal, run) => t.handler(call as AparteToolCall, signal, run ? { request: req, run } : { request: req }) : undefined;
+                        return t
+                            ? (call, signal, run) => t.handler(call as AparteToolCall, signal, {
+                                request: req,
+                                ...(conversationId ? { conversationId } : {}),
+                                ...(run ? { run } : {}),
+                            })
+                            : undefined;
                     },
                     toolConfigLookup: (name) => {
                         if (!offered.has(name)) return undefined;

@@ -3,11 +3,16 @@ import type { AparteChatRequest } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { readNdjson } from '../utils/ndjson.js';
 import { jsonHeaders } from '../transport/json-headers.js';
-import type { AparteStreamRunner } from './stream-adapter.js';
+import type { AparteStreamRunner, AparteStreamRunOptions } from './stream-adapter.js';
 
 export interface AgentStreamRunnerOptions {
-    /** The route that serves `createAparteAgentHandler`, e.g. `/api/agent`. */
-    endpoint: string;
+    /**
+     * The route that serves `createAparteAgentHandler`, e.g. `/api/agent`. A function picks
+     * it per turn from the run's options, for a server that routes by conversation:
+     * `({ conversationId }) => '/api/agent/c/' + conversationId`. It is called for every
+     * request, a resume included, so it should answer the same for the same turn.
+     */
+    endpoint: string | ((turn: AparteStreamRunOptions) => string);
     /** Sent with every request; a function is called per request (a fresh token each time). */
     headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
     /** @default the global `fetch` */
@@ -42,23 +47,27 @@ export function createAgentStreamRunner(options: AgentStreamRunnerOptions): Apar
     // Said once per runner: a backend that sends one such line sends it every turn.
     let warnedAttributedEnd = false;
     return async (opts) => {
+        // First, so a route that cannot be worked out does not cost a fresh token.
+        const endpoint = typeof options.endpoint === 'function' ? options.endpoint(opts) : options.endpoint;
         const doFetch = options.fetch ?? fetch;
         const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
         // The browser's registered tools travel as definitions: the server marks them
         // external and hands their calls back here.
         const { tools, ...request } = opts.baseRequest as AparteChatRequest;
-        // No provider id when the page registered none: the handler runs its own.
+        // No provider id when the page registered none: the handler runs its own. No
+        // conversation id when the chat has none open.
         const body = {
             v: 1,
             ...(opts.providerId ? { providerId: opts.providerId } : {}),
             messageId: opts.messageId,
+            ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
             request,
             clientTools: tools ?? [],
             ...(opts.deferral?.token
                 ? { resume: { ticket: opts.deferral.token, outcomes: opts.deferral.outcomes ?? {} } }
                 : {}),
         };
-        const response = await doFetch(options.endpoint, {
+        const response = await doFetch(endpoint, {
             method: 'POST',
             headers: jsonHeaders(headers),
             body: JSON.stringify(body),
