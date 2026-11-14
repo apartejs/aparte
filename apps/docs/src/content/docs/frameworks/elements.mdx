@@ -13,6 +13,19 @@ import { TESTED_FRAMEWORKS as T } from '../../../data/tested-frameworks';
 ## Place an element
 
 <Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```html
+<aparte-select searchable placeholder="Pick a model">
+  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+</aparte-select>
+```
+
+```ts
+document.querySelector('aparte-select')?.addEventListener('aparte-select-change', (e) => pick(e.detail.value));
+```
+
+</TabItem>
 <TabItem label="React">
 
 {/* doc-check: skip excerpt — a fragment of your component */}
