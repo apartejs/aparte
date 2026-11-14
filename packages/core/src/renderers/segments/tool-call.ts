@@ -119,7 +119,7 @@ function outcomeOf(segment: AparteToolCallSegment): { key: 'toolOutput'; text: s
  */
 type Behind = { kind: 'parts' } | { kind: 'none' } | { kind: 'body'; body: HTMLElement | string };
 
-function behindOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): Behind {
+function behindOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined, row?: Element): Behind {
     // The app's display first, by its KEY: a display that says `details` says it for good;
     // the tool-line provider's is read only when the display has none.
     const display = contextConfig().getToolDisplay(segment.toolCall?.name ?? '');
@@ -127,7 +127,9 @@ function behindOf(segment: AparteToolCallSegment, line: AparteToolLine | undefin
     if (details === false) return { kind: 'none' };
     if (typeof details !== 'function') return { kind: 'parts' };
     try {
-        const out = details(segment);
+        // The element this row already shows, for the function to keep: asked of THIS row,
+        // so two rows of the same call never share one.
+        const out = details(segment, row ? heldBy(row) : undefined);
         if (!out) return { kind: 'none' };
         // A string goes through the HTML sanitizer, as Markdown does: this is the simple API,
         // and what it shows comes straight from a tool's result — a page title, a snippet —
@@ -164,9 +166,24 @@ function setBody(element: Element, body: HTMLElement | string): void {
     const detail = element.querySelector('.aparte-tool-detail');
     if (!detail) return;
     if (typeof body !== 'string' && body.parentNode === detail) return;
-    if (typeof body === 'string') detail.innerHTML = body;
-    else detail.replaceChildren(body);
+    if (typeof body === 'string') {
+        detail.innerHTML = body;
+        heldBodies.delete(detail);
+    } else {
+        detail.replaceChildren(body);
+        heldBodies.set(detail, body);
+    }
     drawnBodies.set(detail, serialized(body));
+}
+
+/** The element an app's function returned for a detail, while that detail still shows it. */
+const heldBodies = new WeakMap<Element, HTMLElement>();
+
+/** What a row shows behind its line from the app's function, when that is an element. */
+function heldBy(row: Element): HTMLElement | undefined {
+    const detail = appDetailOf(row);
+    const body = detail ? heldBodies.get(detail) : undefined;
+    return body && body.parentNode === detail ? body : undefined;
 }
 
 /**
@@ -205,7 +222,11 @@ function relabelBody(detail: Element, body: HTMLElement | string): void {
     const prev = document.createElement('div');
     if (before !== undefined) prev.innerHTML = before;
     if (before !== undefined && sameShape(prev, next) && sameShape(prev, detail)) patchChanges(detail, prev, next);
-    else detail.replaceChildren(...Array.from(next.childNodes));
+    else {
+        detail.replaceChildren(...Array.from(next.childNodes));
+        if (typeof body === 'string') heldBodies.delete(detail);
+        else heldBodies.set(detail, body);
+    }
     drawnBodies.set(detail, now);
 }
 
@@ -843,7 +864,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // asked again, and what it draws now is written into the nodes already there.
         const appDetail = appDetailOf(element);
         if (appDetail) {
-            const behind = behindOf(segment, line);
+            const behind = behindOf(segment, line, element);
             if (behind.kind === 'body') relabelBody(appDetail, behind.body);
         }
         // Through `stateBadge`, which is the whole point of it existing.
@@ -941,7 +962,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         // Asked here, past the hide and the renderer, so an app's `details` is never asked
         // for a call it cannot draw — and once: a rebuild draws with this same answer.
         const line = toolLineOf(segment, contextConfig());
-        const behind = behindOf(segment, line);
+        const behind = behindOf(segment, line, element);
         const input = behind.kind === 'parts' ? describeInput(segment) : '';
         const outcome = behind.kind === 'parts' ? outcomeOf(segment) : null;
         const wantsDetail = behind.kind === 'body' || !!input || !!outcome;

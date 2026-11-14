@@ -83,6 +83,39 @@ describe('a detail already in place is not redrawn', () => {
         expect(first.isConnected).toBe(false);
     });
 
+    it('hands the function the element its row holds, so two rows of one call each keep their own', () => {
+        const asked: Array<HTMLElement | undefined> = [];
+        aparteGlobalConfig.registerToolDisplay('delegate', {
+            details: (_segment, held) => {
+                asked.push(held);
+                return held ?? document.createElement('section');
+            },
+        });
+        // The same call drawn twice: the inline row and the one of a pane opened beside it.
+        const inline = draw(call());
+        const pane = draw(call());
+        expect(asked).toEqual([undefined, undefined]);
+        const ownOf = (el: HTMLElement) => el.querySelector('.aparte-tool-detail[data-details="app"] > section');
+        const first = ownOf(inline)!;
+        const second = ownOf(pane)!;
+        expect(first).not.toBe(second);
+
+        renderer().update!(inline, call({ result: 'a token' }));
+        renderer().update!(pane, call({ result: 'a token' }));
+        renderer().relabel!(inline, call({ result: 'a token' }));
+        expect(asked.slice(2)).toEqual([first, second, first]);
+        expect(ownOf(inline)).toBe(first);
+        expect(ownOf(pane)).toBe(second);
+    });
+
+    it('hands nothing back for a detail that was a string', () => {
+        const asked: Array<HTMLElement | undefined> = [];
+        aparteGlobalConfig.registerToolDisplay('delegate', { details: (_segment, held) => { asked.push(held); return '<p>text</p>'; } });
+        draw(call());
+        renderer().update!(row(), call({ result: 'x' }));
+        expect(asked).toEqual([undefined, undefined]);
+    });
+
     it('a string is written again on every update', () => {
         let text = '<p>one</p>';
         aparteGlobalConfig.registerToolDisplay('delegate', { details: () => text });

@@ -188,6 +188,21 @@ The function:
   one once the function returns something.
 - costs the row its detail if it throws. The line stays, and the raw Input and Output never come
   back in its place.
+- gets, as its second argument, the element the row shows now when it returned one for that row
+  before. Return it to keep it, and what the reader did in it (a fold opened, a field half
+  written). It is not there on a row's first drawing, so two rows drawing the same call (a reply
+  and a pane beside it) each get their own element, and nothing needs keeping once a row is gone.
+
+```ts
+import type { AparteToolCallSegment } from '@aparte/core';
+
+// One note per row, its words updated as the call goes on.
+function progress(segment: AparteToolCallSegment, held?: HTMLElement): HTMLElement {
+  const note = held ?? document.createElement('p');
+  note.textContent = segment.status === 'resolved' ? 'Saved.' : 'Saving…';
+  return note;
+}
+```
 
 A language switch asks the function again, so a detail written with
 [`t()`](/guides/localization/) follows the reader's language like the line does. What it draws
