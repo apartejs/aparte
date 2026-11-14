@@ -6,7 +6,7 @@ catalog:
   order: 1
   claims:
     classes: [button]
-  demos: [kit-button, kit-button-styles, kit-button-sizes]
+  demos: [kit-button, kit-button-styles, kit-button-sizes, kit-button-busy]
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
@@ -37,6 +37,19 @@ and the site's own Preview/Code switch are drawn.
 `--icon` makes a square button for a lone glyph, `--circle` a round one, `--pill` rounds the
 ends, `--block` takes the full width.
 
+### Busy
+
+<Variant id="kit-button-busy" />
+
+While a button's action runs, set `aria-busy="true"` and put an `.aparte-spinner` where the icon
+was. The spinner takes the icon's size, at every button size, and the button's ink, on every
+fill, and the cursor turns to `progress`. Swapping an icon for it does not move the button.
+
+A busy button stays enabled. Add `disabled` when a second click must do nothing: the disabled
+look then applies, and the spinner follows its ink. The width still follows the label, so a button
+that goes from "Load model" to "Loading…" resizes: give it a minimum width of your own when the row
+must not move.
+
 ## Customize
 
 <Vars />
@@ -54,6 +67,8 @@ composer's row declares `--aparte-btn-size` and every button in it follows.
   the keyboard and the role.
 - An icon-only button needs an `aria-label`; the glyph inside is hidden from screen readers.
 - A group of buttons that acts as one control takes `role="group"` and a label.
+- A busy button is `aria-busy="true"`, which a screen reader often ignores on its own: let the
+  label say what is happening ("Loading…") and keep the spinner `aria-hidden="true"`, as above.
 
 ## Related
 
