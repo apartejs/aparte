@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { runStreamAgent, type StreamRunOptions } from '../stream-run';
 import { runSubAgent } from '../sub-agent';
-import type { StreamAgentMessage, StreamChatEvent, StreamRunEvent, StreamToolHandler } from '../stream-events';
+import type { StreamAgentMessage, StreamChatEvent, StreamChatRequest, StreamRunEvent, StreamToolHandler } from '../stream-events';
 import { agentIdOf, ask, done, indexOf, recorder, scripted, text, toolUse } from './sub-agent-script';
 
 /** A promise the test settles by hand. */
@@ -213,6 +213,76 @@ describe('the calls of one step run at the same time', () => {
         expect(r.history).toEqual([]);
     });
 
+    it('ends a call still waiting its turn to be asked when a Stop lands, and nobody is asked about it', async () => {
+        const asked: string[] = [];
+        const { transportCall } = scripted({ parent: [[toolUse('g1', 'gated'), toolUse('g2', 'gated'), done]] });
+        const r = run({
+            transportCall,
+            toolLookup: () => async () => ({ content: 'ran' }),
+            toolConfigLookup: () => ({ needsApproval: true }),
+            // As core's own channel does: a Stop answers the open question with a no.
+            approvalResolver: (call, signal) => {
+                asked.push(call.id);
+                return new Promise((resolve) => signal.addEventListener('abort', () => resolve({ approved: false }), { once: true }));
+            },
+        });
+
+        await settle();
+        expect(asked).toEqual(['g1']);
+        r.abort.abort();
+        await r.done;
+
+        // `g2` was next in line: once `g1` gives its turn back, the Stop is what it finds.
+        expect(asked).toEqual(['g1']);
+        expect(of(r.events, 'tool-awaiting-approval').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['g1']);
+        expect(of(r.events, 'tool-aborted').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { cause?: string }).cause]))
+            .toEqual([['g1', 'stopped'], ['g2', 'stopped']]);
+        expect(of(r.events, 'tool-rejected')).toHaveLength(0);
+        expect(r.events.slice(-2).map((e) => e.type)).toEqual(['run-aborted', 'run-done']);
+        expect(r.history).toEqual([]);
+    });
+
+    it('stops reading the reply the moment a call is refused, without waiting for the model to write again', async () => {
+        const refusal = deferred<{ approved: boolean }>();
+        // After its call the model goes quiet, and what it would say next never comes.
+        let goesAway!: (error: Error) => void;
+        const quiet = new Promise<never>((_, reject) => { goesAway = reject; });
+        const requests: StreamChatRequest[] = [];
+        const transportCall = async (request: StreamChatRequest): Promise<AsyncIterable<StreamChatEvent>> => {
+            requests.push(request);
+            if (requests.length > 1) return (async function* () { yield text('Understood.'); yield done; })();
+            return (async function* () {
+                yield toolUse('g', 'gated');
+                await quiet;
+                yield toolUse('late', 'gated');
+            })();
+        };
+        const r = run({
+            transportCall,
+            toolLookup: () => async () => ({ content: 'ran' }),
+            toolConfigLookup: () => ({ needsApproval: true }),
+            approvalResolver: () => refusal.promise,
+        });
+
+        await settle();
+        refusal.resolve({ approved: false });
+        // Waiting on the model's next word, the run would never end.
+        await r.done;
+
+        expect(of(r.events, 'tool-rejected', 'g')).toHaveLength(1);
+        expect(ids(r.history)).toEqual(['assistant:g', 'tool:g']);
+        // The model is asked again at once, and reads the refusal.
+        expect(requests).toHaveLength(2);
+        expect(ids(requests[1]!.messages.slice(1))).toEqual(['assistant:g', 'tool:g']);
+        expect(r.events.at(-1)?.type).toBe('run-done');
+
+        // The read nobody waits for any more fails afterwards: nothing of it reaches the run.
+        const seen = r.events.length;
+        goesAway(new Error('connection reset'));
+        await settle();
+        expect(r.events).toHaveLength(seen);
+    });
+
     it('stops the calls already running when another call of the step stops the run', async () => {
         const { transportCall, requests } = scripted({ parent: [[toolUse('a', 'x'), toolUse('b', 'missing'), toolUse('c', 'x'), done]] });
         const r = run({ transportCall, toolLookup: (n) => (n === 'x' ? hangs : undefined) });
@@ -274,6 +344,59 @@ describe('the questions of sub-agents running at the same time', () => {
         open[1]!.answer({ approved: true });
         await r.done;
         expect(r.history.slice(1).map((m) => m.content)).toEqual(['a done', 'b done']);
+    });
+});
+
+describe('a question a tool asks through its run', () => {
+    /** A tool that asks the person itself, through its run, before it charges anything. */
+    const charges: StreamToolHandler = async (_call, signal, runCtx) => {
+        try {
+            const decision = await runCtx!.approvalResolver!({ id: 'charge', name: 'charge_card', input: { amount: 5 } }, signal);
+            return { content: decision.approved ? 'charged' : 'not charged' };
+        } catch {
+            return { content: 'could not ask' };
+        }
+    };
+    const lookups = {
+        toolLookup: (n: string): StreamToolHandler => (n === 'charges' ? charges : async () => ({ content: 'ran' })),
+        toolConfigLookup: (n: string) => (n === 'gated' ? { needsApproval: true } : undefined),
+    };
+
+    it('waits for the question already open, and is asked once it is answered', async () => {
+        const asked: string[] = [];
+        const decisions: Record<string, ReturnType<typeof deferred<{ approved: boolean }>>> = { g: deferred(), charge: deferred() };
+        const { transportCall } = scripted({ parent: [[toolUse('g', 'gated'), toolUse('t', 'charges'), done], [text('Done.'), done]] });
+        const r = run({
+            transportCall, ...lookups,
+            approvalResolver: (call) => { asked.push(call.id); return decisions[call.id]!.promise; },
+        });
+
+        await settle();
+        expect(asked).toEqual(['g']);
+        decisions['g']!.resolve({ approved: true });
+        await settle();
+        expect(asked).toEqual(['g', 'charge']);
+        decisions['charge']!.resolve({ approved: true });
+        await r.done;
+        expect(r.history.slice(1).map((m) => m.content)).toEqual(['ran', 'charged']);
+    });
+
+    it('gives its turn back when the asking fails, so the next question is still asked', async () => {
+        const asked: string[] = [];
+        const { transportCall } = scripted({ parent: [[toolUse('t', 'charges'), toolUse('g', 'gated'), done], [text('Done.'), done]] });
+        const r = run({
+            transportCall, ...lookups,
+            approvalResolver: async (call) => {
+                asked.push(call.id);
+                if (call.id === 'charge') throw new Error('the channel closed');
+                return { approved: true };
+            },
+        });
+
+        await r.done;
+        expect(asked).toEqual(['charge', 'g']);
+        expect(r.history.slice(1).map((m) => m.content)).toEqual(['could not ask', 'ran']);
+        expect(r.events.at(-1)?.type).toBe('run-done');
     });
 });
 

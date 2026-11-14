@@ -42,9 +42,11 @@ const startOf = (events: StreamRunEvent[], name: string) =>
     events.find((e): e is Extract<StreamRunEvent, { type: 'agent-start' }> => e.type === 'agent-start' && e.name === name)!;
 
 describe("a sub-agent's call says who asks", () => {
-    it("hands the resolver the sub-agent's id and name, the innermost one, and none for the run's own call", async () => {
+    // One call after another, nothing waits for a turn, and the resolver a sub-agent asks
+    // through is the run's own: it must still say whose call it is.
+    it.each([true, false])("hands the resolver the sub-agent's id and name, the innermost one, and none for the run's own call (parallelTools: %s)", async (parallelTools) => {
         const { approvalResolver, events, options } = setup();
-        await runStreamAgent(options);
+        await runStreamAgent({ ...options, parallelTools });
 
         const asked = Object.fromEntries(approvalResolver.mock.calls.map(([call]) => [call.id, call]));
         expect(Object.keys(asked).sort()).toEqual(['g1', 'p1', 'w1']);
