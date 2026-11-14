@@ -24,13 +24,12 @@ import { applyElementProps, releaseDeferredHydration, type AparteAttrValue } fro
  * Why a component applies its props itself instead of handing them to React:
  *
  *   • React 18 stringifies every prop of a custom element into an attribute and listens to no
- *     event, so a property (`conversations`) is `[object Object]` and an `onXxx` is an unknown
- *     attribute.
+ *     event, so a property (`conversations`) is `[object Object]`, an `onXxx` is an unknown
+ *     attribute, and `disabled={false}` is `disabled="false"` — which an element that tests
+ *     `hasAttribute` reads as ON.
  *   • React 19 sets a prop as a property when the element has one of that name and as an
  *     attribute when it does not, and listens for `on` + the exact event name. Which of the two
- *     a prop becomes depends on the element's class, not on what the prop means — and for a
- *     presence attribute the two disagree (`disabled={false}` removes it as a property, and
- *     writes `"false"`, which the element reads as ON, as an attribute).
+ *     a prop becomes depends on the element's class, not on what the prop means.
  *
  * So the component is the same under both: it renders the element with the props that are
  * React's (`className`, `style`, `children`, `id`, `aria-*`, `data-*`, `onClick`…) and, after
