@@ -186,6 +186,14 @@ function spellingsOf(label, event, { chat, elements }) {
     if (label === 'Angular') {
         for (const output of elements.get(event) ?? []) named.push(form(`(${output})`, `\\(${escape(output)}\\)`));
     }
+    // A standalone element's own React component (`<AparteSelect onSelectChange>`), generated with
+    // the same name as the Angular output, behind `on`.
+    if (label === 'React') {
+        for (const name of elements.get(event) ?? []) {
+            const prop = `on${name[0].toUpperCase()}${name.slice(1)}`;
+            named.push(form(prop, whole(prop)));
+        }
+    }
     const generic = {
         React: [form(`useAparteEvent(ref, '${event}', …)`, `useAparteEvent\\s*\\([\\s\\S]{0,200}?${quoted}`), listener],
         Vue: [form(`@${event}`, `(?:@|v-on:)${E}(?![\\w-])`)],

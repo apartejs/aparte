@@ -36,8 +36,9 @@ const spellings = {
         ['aparte-cancel', 'stop'],
         ['aparte-message-error', 'messageError'],
     ]),
-    // A standalone element's event → the Angular output its generated directive gives it.
-    elements: new Map([['aparte-launcher-toggle', ['launcherToggle']]]),
+    // A standalone element's event → the name its generated Angular directive and React
+    // component give it (`(selectChange)`, `onSelectChange`).
+    elements: new Map([['aparte-launcher-toggle', ['launcherToggle']], ['aparte-select-change', ['selectChange']]]),
 };
 
 const TICKS = '```';
@@ -305,6 +306,19 @@ describe('the names in the framework tabs', () => {
             .replace('(messageSent)', '(stop)');
         expect(check(stopPage).problems).toEqual([]);
         expect(check(stopPage.replace('onStop', 'onCancel')).problems.join()).toMatch(/onStop/);
+    });
+
+    it("takes an element's own React component, with the callback the generator names", () => {
+        const selectPage = page(tabs([
+            item('Vanilla', fence('ts', "select.addEventListener('aparte-select-change', (e) => pick(e.detail.value));")),
+            item('React', fence('tsx', '<AparteSelect onSelectChange={(detail) => pick(detail.value)} />')),
+            item('Vue', fence('vue', '<aparte-select @aparte-select-change="(e) => pick(e.detail.value)"></aparte-select>')),
+            item('Svelte', fence('svelte', '<aparte-select onaparte-select-change={(e) => pick(e.detail.value)}></aparte-select>')),
+            item('Angular', fence('html', '<aparte-select (selectChange)="pick($event.value)"></aparte-select>')),
+        ]));
+        expect(check(selectPage).problems).toEqual([]);
+        // A misspelt callback is not the component's: the guard names the one that exists.
+        expect(check(selectPage.replace('onSelectChange', 'onSelectChang')).problems.join()).toMatch(/onSelectChange/);
     });
 
     it('asks of every event the vanilla tab listens to, not only the first', () => {
