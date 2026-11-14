@@ -10,6 +10,7 @@ guide:
 
 import Cards from '../../../components/content/Cards.astro';
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="response-streaming" caption="Markdown formatted as it streams: the list grows item by item." />
 
@@ -148,16 +149,17 @@ aparteGlobalConfig.setHtmlSanitizer((html) => defaultSanitizer(DOMPurify.sanitiz
 
 What marked and a highlighter return goes through the chat's HTML sanitizer before it reaches the
 page, and so does a streamed reply once it finishes, so the Markdown a model writes cannot run
-script. While a reply streams, a link or an image with an unsafe address is dropped, and a link to
-another site opens in a new tab. The built-in sanitizer needs no dependency.
+script. While a reply streams, a link or an image with an unsafe address is dropped, and a link
+opens where it will once the reply is done ([below](#route-the-links-a-model-writes)). The built-in
+sanitizer needs no dependency.
 
 To add DOMPurify, chain it in front of the built-in sanitizer, as above, rather than in its place.
 [`setHtmlSanitizer`](/reference/core/config/#sethtmlsanitizer) replaces the sanitizer, and
 DOMPurify's defaults are written for any page, not for a chat: on their own they keep inline layout
 styles (a reply can cover the screen), core's `aparte-` classes (a reply can draw a button that looks
-like an approval), form controls, `id`s, `role`s that make text a control, the `data-aparte-*`
-attributes core reads as commands (a reply can open a dialog), and they leave a link to another site opening in the
-chat's own frame.
+like an approval), form controls, `id`s, `role`s that make text a control, and the `data-aparte-*`
+attributes core reads as commands (a reply can open a dialog). Where a link opens and which pictures
+load are applied after whichever sanitizer is set.
 
 ## Pictures a reply can load
 
@@ -289,6 +291,9 @@ segment renderer's output — code you installed — so escape anything from the
 
 ## Route the links a model writes
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 declare const router: { push(path: string): void };   // your app's router
 
@@ -296,16 +301,134 @@ const chat = document.querySelector('aparte-chat');
 
 chat?.addEventListener('aparte-link-click', (event) => {
   const url = new URL(event.detail.href, location.href);
-  if (url.origin !== location.origin) return;   // another site: let the browser open it
+  if (url.origin !== location.origin) return;   // another site: its new tab
   event.preventDefault();                       // this one is yours
   router.push(url.pathname + url.search);
 });
 ```
 
-Before the browser follows a link in a reply, the message fires `aparte-link-click`. It bubbles, so
-one listener on the chat covers every message, and it can be cancelled: call `preventDefault()` and
-the navigation is yours — your router, a webview, a question first. The detail is
-`{ href, anchor, messageId }`.
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { AparteChat } from '@aparte/react';
+
+declare const router: { push(path: string): void };   // your app's router
+
+export function Chat() {
+  return (
+    <AparteChat
+      onLinkClick={(detail, event) => {
+        const url = new URL(detail.href, location.href);
+        if (url.origin !== location.origin) return;   // another site: its new tab
+        event.preventDefault();                       // this one is yours
+        router.push(url.pathname + url.search);
+      }}
+    />
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat } from '@aparte/vue';
+import type { AparteLinkClickEventDetail } from '@aparte/core';
+
+declare const router: { push(path: string): void };   // your app's router
+
+function onLinkClick(detail: AparteLinkClickEventDetail, event: CustomEvent<AparteLinkClickEventDetail>) {
+  const url = new URL(detail.href, location.href);
+  if (url.origin !== location.origin) return;   // another site: its new tab
+  event.preventDefault();                       // this one is yours
+  router.push(url.pathname + url.search);
+}
+</script>
+
+<template>
+  <AparteChat @link-click="onLinkClick" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import type { AparteLinkClickEventDetail } from '@aparte/core';
+
+  declare const router: { push(path: string): void };   // your app's router
+
+  function onLinkClick(detail: AparteLinkClickEventDetail, event: CustomEvent<AparteLinkClickEventDetail>) {
+    const url = new URL(detail.href, location.href);
+    if (url.origin !== location.origin) return;   // another site: its new tab
+    event.preventDefault();                       // this one is yours
+    router.push(url.pathname + url.search);
+  }
+</script>
+
+<AparteChat onlinkClick={onLinkClick} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type { AparteLinkClickEventDetail } from '@aparte/core';
+
+declare const router: { push(path: string): void };   // your app's router
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (aparte-link-click)="onLinkClick($event)"></aparte-chat>`,
+})
+export class ChatComponent {
+  onLinkClick(event: CustomEvent<AparteLinkClickEventDetail>): void {
+    const url = new URL(event.detail.href, location.href);
+    if (url.origin !== location.origin) return;   // another site: its new tab
+    event.preventDefault();                       // this one is yours
+    router.push(url.pathname + url.search);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Every link a reply holds opens in a new tab, same-site ones included, with
+`rel="noopener noreferrer"`. A link to a place in the page (`#…`) and a `mailto:`, `tel:` or `sms:`
+one stay as written, and a `target` the model writes does not choose. Followed in place, a
+same-site link would replace the page the chat lives in — in a single-page app or an Electron
+window, the whole app and the conversation with it — and a coding agent's reply is full of them:
+`[package.json](package.json)`.
+
+Before the browser follows a link, the chat fires `aparte-link-click`, and one listener on the chat
+covers every message, the sources' card, and a document or a sub-agent's conversation shown in a
+pane beside it. Cancel it with `preventDefault()` and the navigation is yours: your router, a pane
+that opens the file, the system browser in an Electron app, a question first. The detail is
+`{ href, anchor, messageId }`. Svelte 4's `<AparteChat>` (`@aparte/svelte`) takes
+`on:linkClick`, which hands you the event, so read `e.detail.href` and call `e.preventDefault()` on
+it. In Angular, `(aparte-link-click)` binds the DOM event on the chat's host, which is the one that
+cancels; the `(linkClick)` output hands you the detail alone, for a link you only watch.
+
+To keep same-site links in the page, as before 1.9:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setLinkTarget('external-only');
+```
+
+A link to another site still opens in a new tab, and what is on screen is drawn again. A plugin
+that draws links of its own asks the same rule, `aparteGlobalConfig.decideLink(href)`, which
+answers the `target` and `rel` to set: `{}` for a link that stays in the page.
 
 ## Two chats, two setups
 
