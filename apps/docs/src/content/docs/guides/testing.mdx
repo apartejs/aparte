@@ -72,6 +72,7 @@ now: `send` at rest, `stop` while a reply is being written, `submit` while a que
 waits for an answer that the button sends. The element has no box of its own, so press the `button`
 inside it:
 
+{/* doc-check: skip excerpt — lines of e2e/tests/testing-guide.spec.ts, compiled and run there; `chat` is a Playwright locator here, not the element the checker calls `chat` */}
 ```ts
 await chat.locator('aparte-composer-send[data-act="send"] button').click();
 await expect(chat.locator('aparte-composer-send[data-act="stop"]')).toBeVisible();
@@ -90,6 +91,7 @@ last word. The mark goes when the turn ends, however it ended: finished, failed 
 inside the message. The transcript is `aria-busy` while a conversation loads, and a card or a chart in
 the reply is `aria-busy` while it loads, which is what you want to wait for before you read the reply.
 
+{/* doc-check: skip excerpt — lines of e2e/tests/testing-guide.spec.ts, compiled and run there; `chat` is a Playwright locator here, not the element the checker calls `chat` */}
 ```ts
 const reply = chat.locator('aparte-chat-bubble[data-role="assistant"]').last();
 await expect(reply).toBeVisible();
@@ -106,6 +108,7 @@ failure: `PROVIDER_ERROR` for a 5xx from the model, `NET_ERROR` when it cannot b
 others [Error](/components/error/) lists. The person reads a sentence chosen by that code. A test can
 ask for the code itself:
 
+{/* doc-check: skip excerpt — a line of e2e/tests/testing-guide.spec.ts, compiled and run there; `chat` is a Playwright locator here, not the element the checker calls `chat` */}
 ```ts
 await expect(chat.locator('[data-error-code]')).toHaveAttribute('data-error-code', 'PROVIDER_ERROR');
 ```
