@@ -13,8 +13,9 @@
    */
   import { onMount } from 'svelte';
   import { AparteChat, createAparteChat } from '@aparte/svelte';
-  import type { AparteConversationList, AparteConversationListItem, AparteMessage } from '@aparte/core';
+  import type { AparteConversationList, AparteConversationListItem, AparteLinkClickEventDetail, AparteMessage } from '@aparte/core';
   import { mountModelSelector } from '../../_shared/site-setup';
+  import { routeLink } from '../../_shared/links';
   import {
     WELCOME_SUGGESTIONS,
     createSiteManager,
@@ -115,6 +116,14 @@
     void comp?.setConversationId(null);
     comp?.focusInput();
   }
+
+  // A link the model wrote, before the browser follows it: under `?links=route` a same-site
+  // one is the app's to open (the shared `routeLink`), so the event is cancelled — Svelte 4
+  // hands the component's event, whose cancellation the chat passes on; another site keeps its
+  // new tab.
+  function handleLinkClick(e: CustomEvent<AparteLinkClickEventDetail>) {
+    if (routeLink(e.detail.href)) e.preventDefault();
+  }
 </script>
 
 <div class="aparte-app-shell" id="chat-view">
@@ -165,6 +174,7 @@
       bind:this={comp}
       messages={$messages}
       on:messagesChange={handleMessagesChange}
+      on:linkClick={handleLinkClick}
       centerWhenEmpty
       overlayComposer={overlay}
       attachments

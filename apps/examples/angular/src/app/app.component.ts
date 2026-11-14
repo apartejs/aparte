@@ -1,8 +1,9 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
-import type { AparteConversationListItem } from '@aparte/core';
+import type { AparteConversationListItem, AparteLinkClickEventDetail } from '@aparte/core';
 import { APARTE_ELEMENT_DIRECTIVES, AparteChatComponent } from '@aparte/angular';
 import { AparteApprovalModeElement } from './plugin-elements';
 import { mountModelSelector } from '../../../_shared/site-setup';
+import { routeLink } from '../../../_shared/links';
 import {
     WELCOME_SUGGESTIONS,
     createSiteManager,
@@ -109,7 +110,10 @@ function resolveOverlayComposer(): boolean {
 
             <main class="aparte-app-shell__main">
                 @if (frameworkCard) { <app-framework-weather-card /> }
-                <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay">
+                <!-- (aparte-link-click): the DOM event itself, on the chat's host, because the
+                     handler cancels it; the (linkClick) output hands the detail alone. -->
+                <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay"
+                             (aparte-link-click)="onLinkClick($event)">
                     <div slot="empty-state" class="welcome" id="welcome">
                         <div class="welcome__body">
                             <h2>Where should we begin?</h2>
@@ -259,6 +263,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     protected newChat(): void {
         void this.chat().setConversationId(null);
         this.chat().focusInput();
+    }
+
+    // A link the model wrote, before the browser follows it: under `?links=route` a same-site
+    // one is the app's to open (the shared `routeLink`), so the event is cancelled; another site
+    // keeps its new tab.
+    protected onLinkClick(event: CustomEvent<AparteLinkClickEventDetail>): void {
+        if (routeLink(event.detail.href)) event.preventDefault();
     }
 
 }

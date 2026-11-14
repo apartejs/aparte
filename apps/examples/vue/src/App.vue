@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { AparteChat, useAparteChat } from '@aparte/vue';
-import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
+import type { AparteConversationList, AparteConversationListItem, AparteLinkClickEventDetail } from '@aparte/core';
 import { mountModelSelector } from '../../_shared/site-setup';
+import { routeLink } from '../../_shared/links';
 import {
     WELCOME_SUGGESTIONS,
     createSiteManager,
@@ -88,6 +89,13 @@ function newChat(): void {
     void chat.chatRef.value?.setConversationId(null);
     chat.chatRef.value?.focusInput();
 }
+
+// A link the model wrote, before the browser follows it: under `?links=route` a same-site one
+// is the app's to open (the shared `routeLink`), so the event is cancelled; another site keeps
+// its new tab.
+function onLinkClick(detail: AparteLinkClickEventDetail, event: CustomEvent<AparteLinkClickEventDetail>): void {
+    if (routeLink(detail.href)) event.preventDefault();
+}
 </script>
 
 <template>
@@ -150,6 +158,7 @@ function newChat(): void {
                 :overlay-composer="overlay"
                 attachments
                 placeholder="Ask ChatClone"
+                @link-click="onLinkClick"
             >
                 <!-- The toolbar row under the composer: the approval switch, and the
                      model selector too under `?selector=toolbar`. -->
