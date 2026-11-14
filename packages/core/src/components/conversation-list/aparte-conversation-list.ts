@@ -3,9 +3,10 @@ import { APARTE_DEFAULT_LOCALE } from '../../config/locale.js';
 import type { AparteConversationManager } from '../../conversations/conversation-manager.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { cssEscape } from '../../utils/css-escape.js';
-import { activeElementIn, eventOrigin } from '../../utils/event-target.js';
+import { activeElementIn } from '../../utils/event-target.js';
 import { presenceOn } from '../../utils/presence.js';
 import { placeFloating } from '../../utils/place-floating.js';
+import { enhanceContextMenu, enhanceMenu, type AparteMenuSelectDetail } from '../../utils/menu.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 import {
     conversationStatusOf,
@@ -78,14 +79,6 @@ interface ConversationGroup {
     items: AparteConversationListItem[];
 }
 
-/** The one open menu, if any. */
-interface OpenMenu {
-    id: string;
-    row: HTMLElement;
-    button: HTMLElement;
-    menu: HTMLElement;
-}
-
 /** Locale keys this element reads; each falls back to the English default. */
 type ListLocaleKey =
     | 'newChat' | 'loadingConversations' | 'conversationList' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
@@ -111,7 +104,8 @@ const VIEWPORT_MARGIN = 8;
  * the row menu's writes to the registered conversation manager.
  *
  * A row is two real buttons: the title, which selects, and a `⋯` that opens the row's
- * menu — rename, pin or unpin, archive or unarchive, delete. Every item fires an event
+ * menu — rename, pin or unpin, archive or unarchive, delete. A right click on a row,
+ * Shift+F10 or the Menu key opens the same menu there. Every item fires an event
  * and stops; the one exception is delete, which asks first, inline in the menu,
  * because it is the one action the host cannot undo. Rename swaps the title for an
  * input: Enter or leaving the field commits, Escape cancels, and an unchanged or
@@ -219,7 +213,14 @@ const VIEWPORT_MARGIN = 8;
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
     private _activeId: string | null = null;
-    private _open: OpenMenu | null = null;
+    /**
+     * What stops the menus of the rows on screen: one `enhanceMenu` per `⋯`, and the
+     * context menu over the whole list. A render replaces the rows, so it releases them
+     * all and wires the new ones.
+     */
+    private _menus: Array<() => void> = [];
+    /** The context menu's element: one for the list, filled for the row it was asked about. */
+    private _contextMenu: HTMLElement | null = null;
     private _renaming: { id: string; input: HTMLInputElement; done: boolean } | null = null;
     private _warnedNoManager = false;
 
@@ -272,7 +273,7 @@ export class AparteConversationList extends HTMLElement {
         }
         this.addEventListener('click', this._onClick);
         this.addEventListener('keydown', this._onKeydown);
-        this.addEventListener('focusout', this._onFocusOut);
+        this.addEventListener('aparte-menu-select', this._onMenuSelect);
         this.addEventListener('pointerdown', this._onPress);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
@@ -280,10 +281,10 @@ export class AparteConversationList extends HTMLElement {
     }
 
     disconnectedCallback(): void {
-        this._closeMenu();
+        this._releaseMenus();
         this.removeEventListener('click', this._onClick);
         this.removeEventListener('keydown', this._onKeydown);
-        this.removeEventListener('focusout', this._onFocusOut);
+        this.removeEventListener('aparte-menu-select', this._onMenuSelect);
         this.removeEventListener('pointerdown', this._onPress);
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
@@ -428,8 +429,8 @@ export class AparteConversationList extends HTMLElement {
             this._renderAfterPress = true;
             return;
         }
-        // The menu and the rename input live inside the rows; a render replaces them.
-        this._closeMenu();
+        // The menus and the rename input live inside the rows; a render replaces them.
+        this._releaseMenus();
         this._renaming = null;
         // Where the keyboard was, so it can be put back: `innerHTML` below replaces every
         // row, and Enter on a row is followed by exactly this render (the host marks the
@@ -493,6 +494,7 @@ export class AparteConversationList extends HTMLElement {
             this.innerHTML = groups;
         }
         this._applyFilter();
+        this._wireMenus();
         if (!restore) return;
         // The same row, by id — not the same element, which no longer exists — when the
         // search still shows it: a focus() inside `hidden` lands on <body>.
@@ -705,100 +707,99 @@ export class AparteConversationList extends HTMLElement {
 </div>`;
     }
 
-    private _openMenu(row: HTMLElement, button: HTMLElement): void {
-        this._closeMenu();
-        const id = row.dataset['convId']!;
-        const conv = this._conversations.find(c => c.id === id);
-        if (!conv) return;
+    /** A row menu's element, empty: `_fillMenu` gives it its items as it opens. */
+    private _newMenu(): HTMLElement {
         const menu = document.createElement('div');
         menu.className = 'aparte-menu aparte-conv-menu';
+        menu.setAttribute('role', 'menu');
+        return menu;
+    }
+
+    /**
+     * Fills `menu` for the row's conversation and puts it in the row, as it opens; it leaves
+     * the row when it closes, so a list with no menu open holds none. `enhanceMenu` places it
+     * fixed to the window, because a sidebar scrolls and an absolute menu on the last rows
+     * would be clipped by the list's own overflow. False — stay closed — when the
+     * conversation is gone.
+     */
+    private _fillMenu(row: HTMLElement, menu: HTMLElement): boolean {
+        const id = row.dataset['convId'];
+        const conv = id ? this._conversations.find(c => c.id === id) : undefined;
+        if (!conv) return false;
+        menu.dataset['menuFor'] = conv.id;
+        // A menu again, if the delete question made it a dialog the last time it was open.
         menu.setAttribute('role', 'menu');
         menu.setAttribute('aria-label', conv.title || this._t('newChat'));
         menu.innerHTML = this._menuMarkup(conv);  // safe-text: _menuMarkup escapes every locale string and only interpolates provider glyphs.
         row.appendChild(menu);
-        button.setAttribute('aria-expanded', 'true');
-        this._open = { id, row, button, menu };
-        this._placeMenu(button, menu);
-        menu.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-        document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
-        document.addEventListener('pointerup', this._onDocumentPointerUp, true);
-        document.addEventListener('pointercancel', this._onDocumentPointerUp, true);
-        window.addEventListener('scroll', this._onWindowScroll, true);
-        window.addEventListener('resize', this._onWindowScroll);
+        return true;
     }
 
     /**
-     * Fixed, below the button's end edge, flipped above it when the viewport ends
-     * first. Fixed rather than absolute because a sidebar scrolls: an absolute menu on
-     * the last rows would be clipped by the list's own overflow. No anchoring library —
-     * the menu closes on any scroll or resize, which is what makes the arithmetic
-     * safe to do once.
+     * The keyboard, the closing and the placing are `enhanceMenu`'s, the same code the kit
+     * gives a host for its own menus: each row's `⋯` drives its own menu, and a right
+     * click, Shift+F10 or the Menu key on a row opens one shared menu there
+     * (`enhanceContextMenu`). Both fill as they open.
      */
-    private _placeMenu(button: HTMLElement, menu: HTMLElement): void {
-        placeFloating(button.getBoundingClientRect(), menu, {
+    private _wireMenus(): void {
+        for (const button of this.querySelectorAll<HTMLElement>('[data-more-id]')) {
+            const row = button.closest<HTMLElement>('[data-conv-id]');
+            if (!row) continue;
+            const menu = this._newMenu();
+            this._menus.push(enhanceMenu(button, menu, {
+                gap: MENU_GAP,
+                margin: VIEWPORT_MARGIN,
+                align: 'end',
+                onOpen: () => this._fillMenu(row, menu),
+                onClose: () => menu.remove(),
+            }));
+        }
+        const context = this._contextMenu ??= this._newMenu();
+        this._menus.push(enhanceContextMenu(this, context, {
             gap: MENU_GAP,
             margin: VIEWPORT_MARGIN,
-            align: 'end',
-            rtl: getComputedStyle(this).direction === 'rtl',
+            onOpen: (target) => {
+                const row = target.closest<HTMLElement>('[data-conv-id]');
+                // Off a row, or in a title being renamed: the browser keeps its own menu there.
+                // Inside a row's open menu: that menu is already the answer.
+                if (!row || !this.contains(row) || target.closest('[data-rename-id], [data-menu-for]')) return false;
+                return this._fillMenu(row, context);
+            },
+            onClose: () => context.remove(),
+        }));
+    }
+
+    /** Closes whichever menu is open, without moving the focus, and stops them all. */
+    private _releaseMenus(): void {
+        for (const release of this._menus.splice(0)) release();
+    }
+
+    /**
+     * Placed again once the question has taken the items' place, since it is not their
+     * size: the `⋯` menu against its button, the context menu on the corner it opened at.
+     */
+    private _placeQuestion(menu: HTMLElement, id: string): void {
+        const rtl = getComputedStyle(this).direction === 'rtl';
+        const button = menu === this._contextMenu ? null : this.querySelector<HTMLElement>(rowSelector('data-more-id', id));  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+        const box = menu.getBoundingClientRect();
+        const corner = rtl ? box.right : box.left;
+        placeFloating(button?.getBoundingClientRect() ?? { top: box.top, bottom: box.top, left: corner, right: corner }, menu, {
+            gap: button ? MENU_GAP : 0,
+            margin: VIEWPORT_MARGIN,
+            align: button ? 'end' : 'start',
+            rtl,
         });
     }
 
-    private _closeMenu(returnFocus = false): void {
-        const open = this._open;
-        if (!open) return;
-        this._open = null;
-        open.menu.remove();
-        open.button.setAttribute('aria-expanded', 'false');
-        document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
-        document.removeEventListener('pointerup', this._onDocumentPointerUp, true);
-        document.removeEventListener('pointercancel', this._onDocumentPointerUp, true);
-        this._pressInMenu = false;
-        window.removeEventListener('scroll', this._onWindowScroll, true);
-        window.removeEventListener('resize', this._onWindowScroll);
-        if (returnFocus && open.button.isConnected) open.button.focus();
-    }
-
     /**
-     * A pointer is down inside the open menu. WebKit does not move the focus to a
-     * button on mousedown: the element that held it is blurred instead — `focusout`
-     * with no `relatedTarget` — before the click reaches the item. `_onFocusOut` used
-     * to read that as the focus leaving the menu and close it on the press, so with a
-     * mouse no item could be chosen at all. Held from the press to its release.
+     * An item chosen in a row's menu: `enhanceMenu` asks before it closes. Delete keeps it
+     * open, since the question takes the items' place. The event stops here: the menu is
+     * this element's own, and what the list tells the page is `aparte-conversation-*`.
      */
-    private _pressInMenu = false;
-
-    private _onDocumentPointerUp = (): void => {
-        this._pressInMenu = false;
-    };
-
-    private _onDocumentPointerDown = (e: Event): void => {
-        const open = this._open;
-        if (!open) return;
-        // `eventOrigin`, not `e.target`: this listens on `document`, and a chat mounted
-        // inside a consumer's shadow root retargets the event to the shadow host on its
-        // way out — every question below would be asked of the wrong element.
-        const target = eventOrigin(e) as Node | null;
-        this._pressInMenu = !!target && open.menu.contains(target);
-        // The button's own click toggles; closing here too would reopen on the click.
-        if (open.menu.contains(target) || open.button.contains(target)) return;
-        this._closeMenu();
-    };
-
-    private _onWindowScroll = (): void => {
-        this._closeMenu();
-    };
-
-    private _onFocusOut = (e: FocusEvent): void => {
-        const open = this._open;
-        if (!open) return;
-        const next = e.relatedTarget as Node | null;
-        // A blur with nowhere to go, during a press inside the menu: the browser is
-        // clearing the focus for a button it will not focus (WebKit), not leaving.
-        if (!next && this._pressInMenu) return;
-        if (next && (open.menu.contains(next) || open.button.contains(next))) return;
-        // Focus left the menu for somewhere else (a Tab, a programmatic move): close
-        // without pulling it back.
-        if (open.menu.contains(e.target as Node)) this._closeMenu();
+    private _onMenuSelect = (e: CustomEvent<AparteMenuSelectDetail>): void => {
+        if ((e.target as HTMLElement).dataset['menuFor'] === undefined) return;
+        e.stopPropagation();
+        if (e.detail.item.dataset['menuAction'] === 'delete') e.preventDefault();
     };
 
     /**
@@ -837,23 +838,25 @@ export class AparteConversationList extends HTMLElement {
         });
     }
 
-    private _onMenuAction(action: string): void {
-        const open = this._open;
-        if (!open) return;
-        const conv = this._conversations.find(c => c.id === open.id);
-        if (!conv) { this._closeMenu(); return; }
+    /**
+     * What the item does, once the menu has done its part: by now it has closed and put the
+     * focus back on the `⋯` (or the row) — except for delete, kept open to ask.
+     */
+    private _onMenuAction(action: string, menu: HTMLElement): void {
+        const conv = this._conversations.find(c => c.id === menu.dataset['menuFor']);
+        if (!conv) return;
         const id = conv.id;
         switch (action) {
-            case 'rename':
-                this._closeMenu();
-                this._startRename(open.row, conv);
+            case 'rename': {
+                const row = this.querySelector<HTMLElement>(rowSelector('data-conv-id', id));  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
+                if (row) this._startRename(row, conv);
                 return;
+            }
             // The two toggles dispatch each name as a LITERAL, in its own branch: the
             // manifest analyzer records a dispatch whose name is a ternary as an event
             // with no name (the Angular generator then crashes on it), and one whose
             // name is a local as an event called after the local.
             case 'pin':
-                this._closeMenu(true);
                 if (conv.pinnedAt) {
                     const unpin = new CustomEvent<AparteConversationPinDetail>(
                         'aparte-conversation-unpin',
@@ -871,7 +874,6 @@ export class AparteConversationList extends HTMLElement {
                 }
                 return;
             case 'archive':
-                this._closeMenu(true);
                 if (conv.archivedAt) {
                     const unarchive = new CustomEvent<AparteConversationArchiveDetail>(
                         'aparte-conversation-unarchive',
@@ -895,39 +897,38 @@ export class AparteConversationList extends HTMLElement {
                 // `menu.innerHTML = …` destroyed the item the reader had just activated
                 // while it still held the focus, and a browser blurs a node it is about to
                 // remove: `focusout`, no `relatedTarget`, dispatched while the node is
-                // still in the tree. `_onFocusOut` reads that as "the focus left the menu"
-                // and closes it — so the question never appeared and there was no way at
+                // still in the tree. The menu reads that as "the focus left the menu"
+                // and closes — so the question never appeared and there was no way at
                 // all to delete a conversation. jsdom runs no such fixup, which is why the
                 // unit tests were green; see `the-keyboard-keeps-its-place.test.ts`.
                 //
                 // Adding the question, moving the focus into it, and only then removing the
                 // old items means nothing focused is ever removed.
-                const previous = [...open.menu.childNodes];
+                const previous = [...menu.childNodes];
                 const holder = document.createElement('div');
                 holder.innerHTML = this._confirmMarkup(conv);  // safe-text: _confirmMarkup escapes the title and every locale string.
-                open.menu.append(...holder.childNodes);
+                menu.append(...holder.childNodes);
                 // While it asks, the popover IS the question: a `role="menu"` may hold
                 // menu items and nothing else, and the two answers are buttons — axe reads
                 // that as a critical `aria-required-children` violation, on a state one
                 // click away, in the element the accessibility guide offers as the pattern
                 // to copy. `role="menuitem"` on a destructive confirm would be the cheap
-                // lie; a question with two answers is a dialog. `_openMenu` builds the
-                // menu afresh, so the role comes back with the items. The row's more
+                // lie; a question with two answers is a dialog. `_fillMenu` sets the role
+                // back with the items the next time it opens. The row's more
                 // button keeps `aria-haspopup="menu"` on purpose: what it opens IS a
                 // menu, and the question is one step inside it, not what the button
                 // announces.
-                open.menu.setAttribute('role', 'dialog');
-                open.menu.setAttribute('aria-label', this._confirmQuestion(conv));
-                open.menu.querySelector<HTMLElement>('[data-menu-action="cancel"]')?.focus();
+                menu.setAttribute('role', 'dialog');
+                menu.setAttribute('aria-label', this._confirmQuestion(conv));
+                menu.querySelector<HTMLElement>('[data-menu-action="cancel"]')?.focus();
                 for (const node of previous) node.remove();
-                this._placeMenu(open.button, open.menu);
+                this._placeQuestion(menu, id);
                 return;
             }
             case 'cancel':
-                this._closeMenu(true);
+                // Its press closed the menu and put the focus back: nothing left to do.
                 return;
             case 'confirm-delete': {
-                this._closeMenu(true);
                 const remove = new CustomEvent<AparteConversationDeleteDetail>(
                     'aparte-conversation-delete',
                     { detail: { id }, bubbles: true, composed: true, cancelable: true }
@@ -939,36 +940,26 @@ export class AparteConversationList extends HTMLElement {
         }
     }
 
-    private _menuFocusables(): HTMLElement[] {
-        const open = this._open;
-        if (!open) return [];
-        return Array.from(open.menu.querySelectorAll<HTMLElement>('[role="menuitem"], [data-menu-action]'));
-    }
-
-    private _onMenuKeydown(e: KeyboardEvent): void {
-        const items = this._menuFocusables();
+    /**
+     * The delete question's own keys: the arrows, Home and End between its two answers.
+     * A menu holds no item while it asks, so the menu's own arrows have nothing to move
+     * to; Escape and Tab are still the menu's, and close it.
+     */
+    private _onQuestionKeydown(e: KeyboardEvent, menu: HTMLElement): void {
+        if (e.defaultPrevented) return;
+        const answers = Array.from(menu.querySelectorAll<HTMLElement>('[data-menu-action]'));
         // The focus as this element's own tree reports it — retargeted to the shadow host
-        // in `document`, which made the index -1 and every arrow jump from the first item.
-        const index = items.indexOf(activeElementIn(this) as HTMLElement);
+        // in `document`, which made the index -1 and every arrow jump from the first answer.
+        const index = answers.indexOf(activeElementIn(this) as HTMLElement);
         const focusAt = (i: number): void => {
             e.preventDefault();
-            items[(i + items.length) % items.length]?.focus();
+            answers[(i + answers.length) % answers.length]?.focus();
         };
         switch (e.key) {
-            case 'Escape':
-                e.preventDefault();
-                this._closeMenu(true);
-                return;
-            case 'Tab':
-                // APG: Tab leaves the menu. Land on the button rather than on whatever
-                // follows a node that no longer exists.
-                e.preventDefault();
-                this._closeMenu(true);
-                return;
             case 'ArrowDown': focusAt(index + 1); return;
             case 'ArrowUp': focusAt(index - 1); return;
             case 'Home': focusAt(0); return;
-            case 'End': focusAt(items.length - 1); return;
+            case 'End': focusAt(answers.length - 1); return;
         }
     }
 
@@ -989,7 +980,7 @@ export class AparteConversationList extends HTMLElement {
             const next = (e as FocusEvent).relatedTarget as Node | null;
             // Restore when the focus is going nowhere (`<body>`) or into the list this
             // render is about to destroy. Not when it is heading for a live element
-            // outside — pulling it back from there is the theft `_onFocusOut` avoids.
+            // outside — pulling it back from there is the theft a menu losing the focus avoids too.
             this._finishRename(true, !next || this.contains(next));
         });
         input.focus();
@@ -1033,26 +1024,24 @@ export class AparteConversationList extends HTMLElement {
 
     private _onClick = (e: Event): void => {
         const target = e.target as HTMLElement;
+        // The menu may have left the row by now (it closes before this runs), but the
+        // pressed item is still inside it, and the menu still says which row it was for.
         const menuAction = target.closest<HTMLElement>('[data-menu-action]');
-        if (menuAction && this._open?.menu.contains(menuAction)) {
+        const menu = menuAction?.closest<HTMLElement>('[data-menu-for]');
+        if (menuAction && menu) {
             e.stopPropagation();
-            this._onMenuAction(menuAction.dataset['menuAction']!);
+            this._onMenuAction(menuAction.dataset['menuAction']!, menu);
             return;
         }
-        const more = target.closest<HTMLElement>('[data-more-id]');
-        if (more) {
+        // The `⋯` opens and closes its menu itself (`enhanceMenu`).
+        if (target.closest('[data-more-id]')) {
             e.stopPropagation();
-            if (this._open?.button === more) {
-                this._closeMenu(true);
-            } else {
-                this._openMenu(more.closest<HTMLElement>('[data-conv-id]')!, more);
-            }
             return;
         }
         if (target.closest('[data-rename-id]')) return;
         const select = target.closest<HTMLElement>('[data-select-id]');
         if (select) {
-            this._closeMenu();
+            // An open menu was closed by the press that made this click.
             const targetId = this.getAttribute('target');
             this.dispatchEvent(new CustomEvent<AparteConversationSelectDetail>(
                 'aparte-conversation-select',
@@ -1063,8 +1052,10 @@ export class AparteConversationList extends HTMLElement {
 
     private _onKeydown = (e: KeyboardEvent): void => {
         const target = e.target as HTMLElement;
-        if (this._open?.menu.contains(target)) {
-            this._onMenuKeydown(e);
+        // A menu's keys are its own (`enhanceMenu`); the delete question adds its arrows.
+        const menu = target.closest<HTMLElement>('[data-menu-for]');
+        if (menu) {
+            if (menu.getAttribute('role') === 'dialog') this._onQuestionKeydown(e, menu);
             return;
         }
         if (target.matches('[data-rename-id]')) {

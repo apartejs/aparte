@@ -13,6 +13,7 @@ import type {
     AparteElicitationStringField,
 } from './types.js';
 import { uuid } from '../utils/uuid.js';
+import { enhanceTabs } from '../utils/tabs.js';
 import { contextConfig } from '../config/config-context.js';
 
 /**
@@ -726,11 +727,6 @@ function buildPanel(
             // truncates a sentence into nonsense.
             chip.textContent = f.header?.trim() || String(i + 1);
             chip.dir = 'auto';
-            // A chip is how you go BACK. Free navigation rather than a Previous
-            // button: an answer you have already given is the thing you most want to
-            // revisit, and hunting for a Back button to do it is the frustrating
-            // half of every stepped form.
-            chip.addEventListener('click', () => { show(i); f.field.focus(); });
             /*
              * The pattern's obligations, which this had announced and not kept: a tab
              * POINTS at its panel, the panel names the tab back, and a tablist is ONE tab
@@ -743,26 +739,28 @@ function buildPanel(
             f.field.el.setAttribute('role', 'tabpanel');
             f.field.el.setAttribute('aria-labelledby', chip.id);
             chip.setAttribute('aria-controls', f.field.el.id);
-            chip.addEventListener('keydown', (e: KeyboardEvent) => {
-                // The next step is to the left in a right-to-left row: the row's direction,
-                // not the chip's, which reads its own label (`dir="auto"`).
-                const forward = getComputedStyle(steps).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
-                const back = forward === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
-                const step = e.key === forward ? 1 : e.key === back ? -1 : 0;
-                let next = -1;
-                if (step) next = (i + step + fields.length) % fields.length;
-                else if (e.key === 'Home') next = 0;
-                else if (e.key === 'End') next = fields.length - 1;
-                if (next < 0) return;
-                e.preventDefault();
-                show(next);
-                chips[next]?.focus();
-            });
             steps.appendChild(chip);
             return chip;
         });
         // Above the scroll region rather than inside it: the chips are navigation.
         panel.insertBefore(steps, body);
+        // The keyboard and the selection are `enhanceTabs`'s, the kit's tabs: one tab stop,
+        // the arrows (the next step is to the left in a right-to-left row — the row's
+        // direction, not a chip's, which reads its own label with `dir="auto"`), Home and
+        // End, and the question shown with the others hidden. Nothing outlives the panel,
+        // so nothing releases it.
+        steps.addEventListener('aparte-tab-change', (e) => {
+            current = chips.indexOf(e.detail.tab as HTMLButtonElement);
+        });
+        enhanceTabs(steps);
+        // A chip is how you go BACK. Free navigation rather than a Previous button: an
+        // answer you have already given is the thing you most want to revisit, and hunting
+        // for a Back button to do it is the frustrating half of every stepped form. A click
+        // goes on into the question, once `enhanceTabs` has shown it.
+        steps.addEventListener('click', (e) => {
+            const at = chips.indexOf((e.target as Element).closest('.aparte-elic-step') as HTMLButtonElement);
+            if (at >= 0 && at === current) fields[at]!.field.focus();
+        });
 
         /*
          * There is no "Next", and that is the point.
@@ -778,17 +776,8 @@ function buildPanel(
          * and the only button is the submit. Removing it deleted every one of those
          * four rules with it.
          */
-        function show(index: number): void {
-            current = index;
-            fields.forEach((f, i) => { f.field.el.hidden = i !== index; });
-            syncNav();
-        }
-
         syncNav = (): void => {
             chips.forEach((chip, i) => {
-                chip.setAttribute('aria-selected', String(i === current));
-                // The roving tab stop: Tab reaches the tablist once, arrows move within it.
-                chip.tabIndex = i === current ? 0 : -1;
                 // Answered, so a reader sees at a glance what is left — and with no
                 // Next button this is the ONLY progress signal, along with the send
                 // button staying disabled until every question has an answer. A check
@@ -807,7 +796,7 @@ function buildPanel(
             });
         };
 
-        show(0);
+        syncNav();
         // Same contract as the stacked form: the button means submit throughout and
         // needs every question answered. The chips are the only navigation — a
         // "next" on the composer's button was a second way to do what a chip does,
