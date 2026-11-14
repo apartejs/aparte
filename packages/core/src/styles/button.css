@@ -277,8 +277,27 @@
 }
 
 /* Busy is NOT disabled: it stays focusable, and the app is what swaps the icon for a
-   spinner. Only the cursor changes here. */
+   spinner (next rule). Add `disabled` and the recipe's disabled look follows; this cursor
+   comes after that one at the same weight, so a button that is both reads "working", not
+   "forbidden". A busy button draws nothing else of its own: no fade, no ground. */
 .aparte-btn[aria-busy='true'] { cursor: progress; }
+
+/* The spinner that stands where the icon stood takes what an icon takes from the button:
+   its size and its ink. Both are declared ON the spinner, as the values it reads.
+   - `--aparte-spinner-size` is the spinner's own token. `.aparte-spinner--sm` and `--lg`
+     declare it on the same element and lose to this rule by selector weight, not by which
+     sheet loads last, so a hand-written `--sm` stops guessing the size.
+   - The ring is stroked in `currentColor`, but `.aparte-spinner` sets `color` itself (muted:
+     the right calm for a ring on a page). On a solid fill that measured 1.55:1 on primary
+     and 1:1 on neutral, the fill's own colour. `inherit` hands it the button's ink instead,
+     on every fill and in the disabled look.
+   A child, not a descendant: a spinner further down (a popover mounted inside the button)
+   is not where an icon sits. And the click belongs to the button, as it does for an icon. */
+.aparte-btn[aria-busy='true'] > .aparte-spinner {
+  --aparte-spinner-size: var(--aparte-btn-icon-size);
+  color: inherit;
+  pointer-events: none;
+}
 
 /* ── Shape and size ──────────────────────────────────────────────────────────── */
 
