@@ -80,13 +80,28 @@
       ]
     },
     "gen": {
+      "//": "The generator and the readers it imports are inputs: they live outside every project, so without them a change to the generator alone hit the cache and restored the old output.",
       "dependsOn": [
         "^gen",
         "^build"
       ],
       "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/scripts/gen-element-bindings.mjs",
+        "{workspaceRoot}/scripts/chat-surface.mjs",
+        "{workspaceRoot}/scripts/dispatch-sites.mjs",
+        "{workspaceRoot}/scripts/wrapper-surface.mjs"
+      ],
       "outputs": [
         "{projectRoot}/src/generated"
+      ]
+    },
+    "test": {
+      "//": "A wrapper's tests load its generated bindings, as its build and typecheck do.",
+      "dependsOn": [
+        "gen"
       ]
     },
     "typecheck": {

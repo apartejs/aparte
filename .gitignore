@@ -102,6 +102,8 @@ apps/docs/.typedoc/
 # build, so there is no committed artifact that can fall behind the elements.
 packages/*/src/generated/
 packages/wrappers/*/src/generated/
+# Svelte's sources live under src/lib, the directory svelte-package ships.
+packages/wrappers/*/src/lib/generated/
 # Plugins are one level deeper, and the first two patterns did not reach them — so the
 # model-selector's generated bindings were COMMITTED, which is the drifting artifact this
 # whole approach exists to avoid.
