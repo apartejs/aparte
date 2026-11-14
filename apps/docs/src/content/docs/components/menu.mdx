@@ -10,6 +10,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import Classes from '../../../generated/api/kit/menu.classes.mdx';
 import Vars from '../../../generated/api/kit/menu.vars.mdx';
 
@@ -24,7 +25,221 @@ The check mark is drawn for you: an item with `aria-checked` (a `menuitemradio` 
 `menuitemcheckbox`) gets a gutter, and the mark shows when the value is `"true"`. Do not add a
 check of your own.
 
-Where the menu sits, and opening and closing it, are yours: there is no positioning here.
+The classes only draw it. `enhanceMenu()` from `@aparte/core` opens it from its button, places it,
+and gives it the keyboard; `enhanceContextMenu()` does the same for a right click.
+
+## Open it from a button
+
+Draw the button and the menu, the menu `hidden`:
+
+```html
+<button type="button" class="aparte-btn" id="actions">Actions</button>
+<div class="aparte-menu" role="menu" id="actions-menu" hidden>
+  <button type="button" class="aparte-menu__item" role="menuitem" data-action="copy">Copy</button>
+  <button type="button" class="aparte-menu__item" role="menuitem" data-action="rename">Rename</button>
+  <div class="aparte-menu__separator" role="separator"></div>
+  <button type="button" class="aparte-menu__item" role="menuitem" data-action="delete">Delete</button>
+</div>
+```
+
+Then hand both to `enhanceMenu()`. It returns a function that undoes it: call it when the menu
+goes away.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import { enhanceMenu } from '@aparte/core';
+
+const button = document.querySelector<HTMLButtonElement>('#actions')!;
+const menu = document.querySelector<HTMLElement>('#actions-menu')!;
+
+const release = enhanceMenu(button, menu, { align: 'end' });
+
+menu.addEventListener('aparte-menu-select', (event) => {
+  console.log('chosen:', event.detail.item.dataset.action);
+});
+
+// When the menu goes away for good:
+release();
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { enhanceMenu, type AparteMenuSelectDetail } from '@aparte/core';
+
+export function ActionsMenu({ onAction }: { onAction: (action: string) => void }) {
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list = menu.current;
+    if (!button.current || !list) return;
+    const release = enhanceMenu(button.current, list, { align: 'end' });
+    const chosen = (event: CustomEvent<AparteMenuSelectDetail>) => onAction(event.detail.item.dataset.action ?? '');
+    list.addEventListener('aparte-menu-select', chosen);
+    return () => {
+      list.removeEventListener('aparte-menu-select', chosen);
+      release();
+    };
+  }, [onAction]);
+
+  return (
+    <>
+      <button ref={button} type="button" className="aparte-btn">Actions</button>
+      <div ref={menu} className="aparte-menu" role="menu" hidden>
+        <button type="button" className="aparte-menu__item" role="menuitem" data-action="copy">Copy</button>
+        <button type="button" className="aparte-menu__item" role="menuitem" data-action="rename">Rename</button>
+      </div>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, ElementRef, viewChild, type AfterViewInit, type OnDestroy } from '@angular/core';
+import { enhanceMenu, type AparteMenuSelectDetail } from '@aparte/core';
+
+@Component({
+  selector: 'app-actions-menu',
+  standalone: true,
+  template: `
+    <button #trigger type="button" class="aparte-btn">Actions</button>
+    <div #menu class="aparte-menu" role="menu" hidden (aparte-menu-select)="chosen($event)">
+      <button type="button" class="aparte-menu__item" role="menuitem" data-action="copy">Copy</button>
+      <button type="button" class="aparte-menu__item" role="menuitem" data-action="rename">Rename</button>
+    </div>
+  `,
+})
+export class ActionsMenuComponent implements AfterViewInit, OnDestroy {
+  private trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
+  private menu = viewChild.required<ElementRef<HTMLElement>>('menu');
+  private release?: () => void;
+
+  ngAfterViewInit(): void {
+    this.release = enhanceMenu(this.trigger().nativeElement, this.menu().nativeElement, { align: 'end' });
+  }
+
+  ngOnDestroy(): void {
+    this.release?.();
+  }
+
+  chosen(event: Event): void {
+    const { item } = (event as CustomEvent<AparteMenuSelectDetail>).detail;
+    console.log('chosen:', item.dataset['action']);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+What the reader gets, the [menu button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/):
+
+- The button opens the menu on a click, Enter or Space, and ArrowDown, with the focus on the first
+  item; ArrowUp opens it on the last. A menu of radio items opens on the checked one.
+- Inside, ArrowDown and ArrowUp move from item to item and wrap round, Home and End go to the
+  first and the last, and typing a letter goes to the next item that starts with it. An item that
+  is `disabled`, `aria-disabled="true"` or `hidden` is passed over.
+- Escape closes the menu and puts the focus back on the button. Tab closes it and moves on from
+  the button.
+- A click outside, the focus going elsewhere, a scroll or a resize close it. One menu is open at a
+  time.
+
+The menu is placed under the button and fixed to the window, so a list that scrolls does not clip
+it; it turns above the button when the window ends first. `align`, `side` and `gap` choose where,
+as for [`placeFloating()`](#place-a-box-yourself); the options are typed `AparteMenuOptions`. To
+open or close it from your own code, call `button.click()`.
+
+### When an item is chosen
+
+Choosing an item fires `aparte-menu-select` on the menu, with the item in `event.detail.item`, and
+then closes the menu and puts the focus back on the button. Call `event.preventDefault()` to keep
+it open.
+
+A `menuitemcheckbox` or `menuitemradio` is not ticked for you: the state is yours, so set
+`aria-checked` in the same listener.
+
+```ts
+import { enhanceMenu } from '@aparte/core';
+
+const button = document.querySelector<HTMLButtonElement>('#view')!;
+const menu = document.querySelector<HTMLElement>('#view-menu')!;
+enhanceMenu(button, menu);
+
+menu.addEventListener('aparte-menu-select', (event) => {
+  const { item } = event.detail;
+  if (item.getAttribute('role') === 'menuitemcheckbox') {
+    item.setAttribute('aria-checked', String(item.getAttribute('aria-checked') !== 'true'));
+    event.preventDefault(); // keep the menu open to tick another
+  }
+});
+```
+
+### Fill it as it opens
+
+When the items depend on the moment, `onOpen` runs just before the menu shows; return `false` to
+keep it shut. `onClose` runs once it has closed, whatever closed it.
+
+```ts
+import { enhanceMenu } from '@aparte/core';
+
+const button = document.querySelector<HTMLButtonElement>('#recent')!;
+const menu = document.querySelector<HTMLElement>('#recent-menu')!;
+const recent = ['notes.md', 'plan.md'];
+
+enhanceMenu(button, menu, {
+  onOpen: () => {
+    if (recent.length === 0) return false;
+    menu.replaceChildren(...recent.map((name) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'aparte-menu__item';
+      item.setAttribute('role', 'menuitem');
+      item.textContent = name;
+      return item;
+    }));
+    return true;
+  },
+});
+```
+
+## A context menu
+
+`enhanceContextMenu()` opens the same menu with a right click, Shift+F10 or the Menu key anywhere
+inside a region: at the pointer for a click, under the focused element for a key. One menu serves
+the whole region, and `onOpen` is told which element it was asked about, so you fill it for that
+row. Return `false` where you have nothing to offer, and the browser shows its own menu.
+
+```ts
+import { enhanceContextMenu } from '@aparte/core';
+
+const list = document.querySelector<HTMLElement>('#files')!;
+const menu = document.querySelector<HTMLElement>('#file-menu')!;
+
+const release = enhanceContextMenu(list, menu, {
+  onOpen: (target) => {
+    const row = target.closest<HTMLElement>('[data-file]');
+    if (!row) return false;
+    menu.dataset.file = row.dataset.file;
+    return true;
+  },
+});
+
+menu.addEventListener('aparte-menu-select', (event) => {
+  console.log(event.detail.item.dataset.action, 'on', menu.dataset.file);
+});
+```
+
+Inside, it answers the keys above, and Escape puts the focus back on the element that had it. Its
+options are typed `AparteContextMenuOptions`, and the event's detail `AparteMenuSelectDetail`. The
+[conversation list](/components/conversation-list/) opens its row menu this way.
 
 ## Customize
 
@@ -38,13 +253,15 @@ Where the menu sits, and opening and closing it, are yours: there is no position
 
 - Use `role="menu"` and `role="menuitem"` (or `menuitemradio` / `menuitemcheckbox` with
   `aria-checked`) on real buttons, and `role="separator"` between groups.
-- The button that opens the menu takes `aria-haspopup="menu"` and `aria-expanded`; the arrow keys
-  between items and Escape to close are your script's.
+- `enhanceMenu()` gives the button `aria-haspopup="menu"` and keeps its `aria-expanded` true while
+  the menu is open. The keys, the focus going back to the button and the closing are its too.
+- A menu drawn without it is only a look: the keyboard is then yours to write.
 
 ## A submenu, and a list with a keyboard
 
 A row that opens a submenu wears `.aparte-menu__chevron` at its far edge, which points the way the
-writing runs, and `aria-expanded="true"` while the submenu is open:
+writing runs, and `aria-expanded="true"` while the submenu is open. `enhanceMenu()` drives one level:
+opening a submenu is yours.
 
 ```html
 <button class="aparte-menu__item" role="menuitem" aria-haspopup="menu" aria-expanded="false">
@@ -57,7 +274,10 @@ Where the focus stays in a field, the way a mention list works, the row the keyb
 with `aria-selected="true"` in a `role="listbox"`. A listbox scrolls past `--aparte-menu-max-height`
 (320px). `.aparte-menu__status` is a line that is not a row: loading, or nothing found.
 
-Placing the box is yours, and `placeFloating()` from `@aparte/core` does it: below or above an
+### Place a box yourself
+
+`enhanceMenu()` places its menu for you. To place any other floating box — a list that keeps the
+focus in a field, a popover — `placeFloating()` from `@aparte/core` puts it below or above an
 anchor or beside it, turning when the window ends first.
 
 ```ts

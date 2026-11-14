@@ -361,6 +361,11 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 export { cssEscape } from './utils/css-escape.js';
 export { placeFloating } from './utils/place-floating.js';
 export type { AparteFloatingOptions } from './utils/place-floating.js';
+// They touch the DOM only when called, so a server can import them beside the markup it renders.
+export { enhanceMenu, enhanceContextMenu } from './utils/menu.js';
+export type { AparteMenuOptions, AparteContextMenuOptions, AparteMenuSelectDetail } from './utils/menu.js';
+export { enhanceTabs } from './utils/tabs.js';
+export type { AparteTabsOptions, AparteTabChangeDetail } from './utils/tabs.js';
 export { uuid } from './utils/uuid.js';
 export { copyText } from './utils/copy-text.js';
 // Pure and DOM-free, so the SSR barrel carries it too — and that is the point: a

@@ -10,6 +10,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import Classes from '../../../generated/api/kit/tabs.classes.mdx';
 import Vars from '../../../generated/api/kit/tabs.vars.mdx';
 
@@ -20,14 +21,125 @@ of the two, for switching views; `--segmented` puts the row in a track and fills
 which reads as a control. The artifact card's Code and Preview are underlined tabs; this site's
 theme switch is segmented.
 
-The recipe draws the state; `aria-selected` says which tab is current, and your code sets it.
+The recipe draws the state: `aria-selected` says which tab is current. `enhanceTabs()` from
+`@aparte/core` keeps that state and gives the row its keyboard.
 
 ## Usage
 
-The markup of the tab pattern is the whole contract: one tab stop for the row (`tabindex="0"` on
-the selected tab, `-1` on the others), `aria-controls` from each tab to its `role="tabpanel"`, and
-`aria-labelledby` back. Moving between tabs with the arrow keys is your script's; the
-[artifact plugin's card](/components/artifact/) does it in a few lines.
+The markup of the [tab pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/): `aria-controls`
+from each tab to its `role="tabpanel"`, and `aria-labelledby` back.
+
+```html
+<div class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view" id="result-tabs">
+  <button class="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
+  <button class="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
+</div>
+<div class="aparte-tabs__panel" role="tabpanel" id="panel-preview" aria-labelledby="tab-preview">What the preview shows.</div>
+<div class="aparte-tabs__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>The code.</div>
+```
+
+Then hand the tablist to `enhanceTabs()`. It returns a function that undoes it: call it when the
+tabs go away.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import { enhanceTabs } from '@aparte/core';
+
+const tablist = document.querySelector<HTMLElement>('#result-tabs')!;
+const release = enhanceTabs(tablist);
+
+tablist.addEventListener('aparte-tab-change', (event) => {
+  console.log('now showing', event.detail.panel?.id);
+});
+
+// When the tabs go away for good:
+release();
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { enhanceTabs } from '@aparte/core';
+
+export function ResultTabs() {
+  const tablist = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!tablist.current) return;
+    return enhanceTabs(tablist.current);
+  }, []);
+
+  return (
+    <>
+      <div ref={tablist} className="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
+        <button className="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
+        <button className="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
+      </div>
+      <div className="aparte-tabs__panel" role="tabpanel" id="panel-preview" aria-labelledby="tab-preview">What the preview shows.</div>
+      <div className="aparte-tabs__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>The code.</div>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, ElementRef, viewChild, type AfterViewInit, type OnDestroy } from '@angular/core';
+import { enhanceTabs } from '@aparte/core';
+
+@Component({
+  selector: 'app-result-tabs',
+  standalone: true,
+  template: `
+    <div #tablist class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
+      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-preview" aria-controls="panel-preview" aria-selected="true">Preview</button>
+      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-code" aria-controls="panel-code">Code</button>
+    </div>
+    <div class="aparte-tabs__panel" role="tabpanel" id="panel-preview" aria-labelledby="tab-preview">What the preview shows.</div>
+    <div class="aparte-tabs__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>The code.</div>
+  `,
+})
+export class ResultTabsComponent implements AfterViewInit, OnDestroy {
+  private tablist = viewChild.required<ElementRef<HTMLElement>>('tablist');
+  private release?: () => void;
+
+  ngAfterViewInit(): void {
+    this.release = enhanceTabs(this.tablist().nativeElement);
+  }
+
+  ngOnDestroy(): void {
+    this.release?.();
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+What the reader gets:
+
+- The row is one tab stop: the selected tab has `tabindex="0"`, the others `-1`, so Tab reaches the
+  row once and leaves it on the next press.
+- ArrowRight and ArrowLeft move to the next and the previous tab and wrap round; in a
+  right-to-left page ArrowLeft is the next one. Home and End go to the first and the last. A tab
+  that is `disabled`, `aria-disabled="true"` or `hidden` is passed over.
+- The tab the arrows land on is selected at once, and its panel shows; the other panels get
+  `hidden`. With nothing marked `aria-selected="true"`, the first tab is selected.
+
+A list down the side of its panel says `aria-orientation="vertical"`, and then ArrowDown and
+ArrowUp move instead. Where showing a panel is slow, `{ activation: 'manual' }` lets the arrows
+move the focus only, and Enter or Space selects.
+
+`aparte-tab-change` fires on the tablist just before a tab is selected, with `tab`, its `panel`
+(still hidden) and the `previous` tab in `event.detail` (`AparteTabChangeDetail`): fill or
+measure the panel there, or call `event.preventDefault()` to stay on the current tab. To select a
+tab from your own code, call its `click()`. The options are typed `AparteTabsOptions`.
 
 ## Customize
 
@@ -46,9 +158,11 @@ A panel holding a code view, a preview frame or anything that brings its own edg
 
 ## Accessibility
 
-- Use `role="tablist"`, `role="tab"` and `role="tabpanel"` with the attributes above, and the
-  arrow keys between tabs: that is what a screen reader announces and expects.
-- Hide the panels that are not selected with `hidden`.
+- Use `role="tablist"`, `role="tab"` and `role="tabpanel"` with the attributes above: that is
+  what a screen reader announces.
+- It also expects the arrow keys between tabs and one tab stop for the row, which `enhanceTabs()`
+  gives it. Tabs drawn without it are only a look: the keyboard and `hidden` on the other panels
+  are then yours to write.
 
 ## Related
 

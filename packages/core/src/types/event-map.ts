@@ -67,6 +67,8 @@ import type { AparteToolApprovalRequestDetail } from './tools.js';
 import type { AparteSegmentUpdateEventDetail } from './segments.js';
 import type { AparteConversationLoadedDetail } from '../conversations/types.js';
 import type { AparteSelectChangeDetail } from '../primitives/select/aparte-select.js';
+import type { AparteMenuSelectDetail } from '../utils/menu.js';
+import type { AparteTabChangeDetail } from '../utils/tabs.js';
 import type {
     AparteConversationSelectDetail,
     AparteConversationDeleteDetail,
@@ -178,6 +180,9 @@ interface AparteEventMap {
     'aparte-launcher-toggle': CustomEvent<AparteLauncherToggleDetail>;
     'aparte-optgroup-toggle': CustomEvent<AparteOptgroupToggleEventDetail>;
     'aparte-config-change': CustomEvent<AparteConfigChangeEventDetail>;
+    // The kit's menu and tabs, once `enhanceMenu` / `enhanceContextMenu` / `enhanceTabs` drive them.
+    'aparte-menu-select': CustomEvent<AparteMenuSelectDetail>;
+    'aparte-tab-change': CustomEvent<AparteTabChangeDetail>;
 }
 
 declare global {

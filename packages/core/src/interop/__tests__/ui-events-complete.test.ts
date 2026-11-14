@@ -80,6 +80,14 @@ function elementDispatchedEvents(src: string): Set<string> {
 const dispatched = elementDispatchedEvents(coreSrc());
 const declared = new Set<string>(APARTE_DEFAULT_UI_EVENTS);
 
+/**
+ * Left out on purpose, the same two `UI_EVENTS_EXEMPT` names in `scripts/check-event-map.mjs`:
+ * `enhanceMenu` / `enhanceContextMenu` / `enhanceTabs` dispatch them on markup the APP drew
+ * and handed in, so the app already holds the element to listen on. No aparté element
+ * dispatches them on itself, which is what this list forwards.
+ */
+const EXEMPT = new Set(['aparte-menu-select', 'aparte-tab-change']);
+
 /** 37 element-dispatched names the day this was written; a collapsed scan is the failure. */
 const FLOOR = 30;
 
@@ -89,7 +97,7 @@ describe('APARTE_DEFAULT_UI_EVENTS', () => {
     });
 
     it('names every event core dispatches on an element', () => {
-        expect([...dispatched].filter((n) => !declared.has(n)).sort()).toEqual([]);
+        expect([...dispatched].filter((n) => !declared.has(n) && !EXEMPT.has(n)).sort()).toEqual([]);
     });
 
     it('names no event core only dispatches on window', () => {
