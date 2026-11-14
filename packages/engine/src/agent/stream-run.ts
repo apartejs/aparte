@@ -669,7 +669,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     step.start(call);
                     continue;
                 }
-                emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input });
+                // Past the pause point the call cannot run where it is read: queued, as in a step.
+                emitter({ type: 'tool-start', toolCallId: callId, name: event.name, input: event.input, ...(pending.length > 0 ? { queued: true as const } : {}) });
                 if (pending.length > 0) {
                     // Past the pause point nothing runs. The call is declared, and says what
                     // it waits for, so the client answers every call of the reply in ONE
@@ -1290,7 +1291,8 @@ function createStep(turn: CallContext) {
     /** Past the pause point nothing runs, as one call after another: declared, and says what it waits for. */
     const queue = (entry: StepCall): void => {
         const { call } = entry;
-        announce(entry);
+        // It cannot run where it is read: its row says so, as any call that waits.
+        announce(entry, true);
         const reason = queuedReason(call, turn.toolConfigLookup);
         if (reason === 'approval') {
             turn.emitter({ type: 'tool-awaiting-approval', toolCallId: call.id, name: call.name, input: call.input });
@@ -1302,7 +1304,7 @@ function createStep(turn: CallContext) {
 
     /** After a refusal nothing more of the step runs: the call is answered as not run. */
     const skip = (entry: StepCall): void => {
-        announce(entry);
+        announce(entry, true);
         refuse(contextOf(entry), entry.call, { by: 'earlier-refusal' });
         entry.settled = true;
     };

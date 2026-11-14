@@ -269,6 +269,53 @@ describe('a call that pauses the run (deferral)', () => {
         expect(ids(again.requests[0]!.messages.slice(1))).toEqual(['assistant:w1,d,w2', 'tool:w1', 'tool:d', 'tool:w2']);
     });
 
+    it('announces queued every call read after the pause, before the text that follows it (#202 on a server)', async () => {
+        const held = heldCalls();
+        const { transportCall } = scripted({ parent: [[...editThenCommand.slice(0, 2), text('Running the tests now.'), done]] });
+        const r = run({
+            transportCall, toolLookup: () => held.handler, deferral: {},
+            toolConfigLookup: (n) => (n === 'edit_file' ? { needsApproval: true } : undefined),
+        });
+        await r.done;
+
+        expect(of(r.events, 'tool-start').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { queued?: true }).queued])).toEqual([['e', undefined], ['c', true]]);
+        const said = r.events.findIndex((e) => e.type === 'text-delta');
+        expect(said).toBeGreaterThan(r.events.indexOf(of(r.events, 'tool-start', 'c')[0]!));
+        const suspended = r.events.at(-1) as Extract<StreamRunEvent, { type: 'run-suspended' }>;
+        expect(suspended.pending.map((p) => [p.toolCallId, p.reason])).toEqual([['e', 'approval'], ['c', 'queued']]);
+        expect(held.started).toEqual([]);
+    });
+
+    it('announces queued the calls behind a pause that waits for a slow call before it', async () => {
+        const held = heldCalls();
+        const { transportCall } = scripted({ parent: [[toolUse('p1', 'read'), toolUse('e2', 'ext'), toolUse('p3', 'read'), toolUse('b4', 'write'), done]] });
+        const r = run({
+            transportCall, toolLookup: () => held.handler, deferral: {},
+            toolConfigLookup: (n): StreamToolConfig | undefined => (n === 'ext' ? { external: true, parallel: true } : n === 'read' ? { parallel: true } : undefined),
+        });
+
+        await settle();
+        // `p1` runs; `e2` paused; what came after it waits with the pause.
+        expect(held.started).toEqual(['p1']);
+        expect(of(r.events, 'tool-start').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { queued?: true }).queued]))
+            .toEqual([['p1', undefined], ['e2', undefined], ['p3', true], ['b4', true]]);
+        await held.release('p1');
+        await r.done;
+        const suspended = r.events.at(-1) as Extract<StreamRunEvent, { type: 'run-suspended' }>;
+        expect(suspended.pending.map((p) => [p.toolCallId, p.reason])).toEqual([['e2', 'external'], ['p3', 'queued'], ['b4', 'queued']]);
+    });
+
+    it('announces queued a call read after the pause one call after another too (parallelTools: false)', async () => {
+        const held = heldCalls();
+        const { transportCall } = scripted({ parent: [editThenCommand] });
+        const r = run({
+            transportCall, toolLookup: () => held.handler, deferral: {}, parallelTools: false,
+            toolConfigLookup: (n) => (n === 'edit_file' ? { needsApproval: true } : undefined),
+        });
+        await r.done;
+        expect(of(r.events, 'tool-start').map((e) => [(e as { toolCallId: string }).toolCallId, (e as { queued?: true }).queued])).toEqual([['e', undefined], ['c', true]]);
+    });
+
     it('lets a parallel call made before it finish, and runs nothing made after it', async () => {
         const held = heldCalls();
         const { transportCall } = scripted({ parent: [[toolUse('r', 'read_file'), toolUse('d', 'delete_file'), toolUse('f', 'read_file'), done]] });

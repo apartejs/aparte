@@ -425,10 +425,12 @@ export type StreamRunEvent =
     | { type: 'sources'; sources: StreamSource[]; citations?: StreamCitation[]; agentId?: string }
     | { type: 'thinking-delta'; delta: string; agentId?: string }
     /**
-     * The model called a tool: its row, where the model wrote it. `queued` when the call cannot
-     * run yet — it waits its place in the step (see `StreamRunOptions.parallelTools`): a call
-     * before it still runs and keeps its place, or waits for a decision. `tool-running` follows
-     * once it goes on, unless the step ends first (a refusal, a stop, a pause).
+     * The model called a tool: its row, where the model wrote it, sent as the call is read and
+     * before it runs. `queued` when the call cannot run yet: it waits until the calls before it
+     * in the step let it start (see `StreamRunOptions.parallelTools`) — a call before it that
+     * keeps its place, any call still running when this one keeps its place, or a call waiting
+     * for a decision — or it comes after a pause point. `tool-running` follows once it goes on,
+     * unless the step ends first (a refusal, a stop, a pause).
      */
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown; queued?: true; agentId?: string }
     /**
