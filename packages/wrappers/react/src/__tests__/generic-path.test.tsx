@@ -82,6 +82,25 @@ describe('useAparteEvent', () => {
         expect(handler).not.toHaveBeenCalled();
     });
 
+    it('hears a chat that appears after the first render, and the new one when it is mounted again', () => {
+        function Later({ handler, show }: { handler: (e: CustomEvent<{ x: number }>) => void; show: boolean }) {
+            const ref = useRef<AparteChatImperativeApi>(null);
+            useAparteEvent(ref, 'aparte-test-plugin-event', handler);
+            return show ? <AparteChat ref={ref} messages={MESSAGES} /> : null;
+        }
+        const handler = vi.fn();
+        const { container, rerender } = render(<Later handler={handler} show={false} />);
+        rerender(<Later handler={handler} show />);
+        sendPluginEvent(container.querySelector('aparte-chat-bubble')!, 1);
+        expect(handler).toHaveBeenCalledTimes(1);
+        // Hidden then shown again: a new root, heard once, the old one forgotten.
+        rerender(<Later handler={handler} show={false} />);
+        rerender(<Later handler={handler} show />);
+        sendPluginEvent(container.querySelector('aparte-chat-bubble')!, 2);
+        expect(handler).toHaveBeenCalledTimes(2);
+        expect((handler.mock.calls[1][0] as CustomEvent).detail).toEqual({ x: 2 });
+    });
+
     it('takes an element as the target too', () => {
         const handler = vi.fn();
         const el = document.createElement('div');

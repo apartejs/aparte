@@ -11,8 +11,9 @@ type AparteEventTarget ={ getElement(): HTMLElement | null } | HTMLElement | nul
  * Pass the chat's ref (or an element) and the event's name. The handler is typed by
  * `HTMLElementEventMap`, which every plugin package augments, so `event.detail` is typed
  * with no cast. The latest handler is always the one called: it can close over state and
- * take no new subscription. Call it in the component that renders the chat, so the ref is
- * set by the time its effect runs.
+ * take no new subscription. Call it in the component that renders the chat: after each of
+ * its renders the hook looks at the element the ref points to, so a chat shown later, or
+ * mounted again, is heard, and one that went away is let go.
  *
  * @example
  * const chat = useAparteChat();
@@ -26,13 +27,28 @@ export function useAparteEvent<K extends keyof HTMLElementEventMap>(
 ): void {
     const latest = useRef(handler);
     latest.current = handler;
+    const heard = useRef<{ element: HTMLElement; type: string; stop: () => void } | null>(null);
 
+    // After every render, not once: a ref changing does not render, so the element is read
+    // again each time the calling component renders — which it does to show or remove the
+    // chat. A dependency list would keep the first answer, and a chat shown on the second
+    // render was never heard. The check is an identity test; the listener moves only when
+    // the element or the type changed.
     useEffect(() => {
         const current = target.current;
         const element = current == null ? null : 'getElement' in current ? current.getElement() : current;
+        const was = heard.current;
+        if (was && was.element === element && was.type === type) return;
+        was?.stop();
+        heard.current = null;
         if (!element) return;
         const listener = (event: Event): void => latest.current(event as HTMLElementEventMap[K]);
         element.addEventListener(type, listener);
-        return () => element.removeEventListener(type, listener);
-    }, [target, type]);
+        heard.current = { element, type, stop: () => element.removeEventListener(type, listener) };
+    });
+
+    useEffect(() => () => {
+        heard.current?.stop();
+        heard.current = null;
+    }, []);
 }
