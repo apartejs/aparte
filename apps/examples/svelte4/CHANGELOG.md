@@ -1,5 +1,24 @@
 # @aparte-workspace/playground-svelte
 
+## 0.0.75
+
+### Patch Changes
+
+- Updated dependencies [b85cd5e]
+  - @aparte/engine@1.8.0
+  - @aparte/core@1.8.0
+  - @aparte/provider-scenario@1.8.0
+  - @aparte/plugin-subagents@1.8.0
+  - @aparte/plugin-approval@1.8.0
+  - @aparte/plugin-artifacts@1.8.0
+  - @aparte/plugin-ask-user@1.8.0
+  - @aparte/plugin-compaction@1.8.0
+  - @aparte/plugin-marked@1.8.0
+  - @aparte/plugin-model-selector@1.8.0
+  - @aparte/plugin-shiki@1.8.0
+  - @aparte/provider-openai-compat@1.8.0
+  - @aparte/svelte@1.8.0
+
 ## 0.0.74
 
 ### Patch Changes

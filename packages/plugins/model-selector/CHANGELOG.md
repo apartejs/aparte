@@ -1,5 +1,7 @@
 # @aparte/plugin-model-selector
 
+## 1.8.0
+
 ## 1.7.0
 
 ## 1.6.0
