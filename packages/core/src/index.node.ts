@@ -155,6 +155,7 @@ export type {
     AparteComposerInputAttributes,
     AparteComposerActionAttributes,
     AparteComposerAddAttachmentAttributes,
+    AparteComposerSendAttributes,
     AparteComposerToolbarAttributes,
     AparteConversationListAttributes,
     AparteSelectAttributes,

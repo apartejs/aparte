@@ -168,19 +168,50 @@ function Chat() {
 
 ## Any element, typed
 
+Every element of core is a component: `<AparteConversationList>`, `<AparteSelect>`, `<AparteSplit>`,
+`<AparteLauncher>`… The tag's attributes are its props, by the names the tag has; a property such as
+the list's `conversations` is a prop too; and each event is an `onXxx` callback, called with the
+event's detail and then the event itself. The ref is the element.
+
 ```tsx
-<aparte-select searchable="" placeholder="Pick a model">
-  <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
-</aparte-select>
+import { useState } from 'react';
+import { AparteOption, AparteSelect } from '@aparte/react';
+
+export function ModelPicker() {
+  const [model, setModel] = useState('gpt-4o-mini');
+  return (
+    <AparteSelect value={model} searchable placeholder="Pick a model" onSelectChange={(detail) => setModel(detail.value)}>
+      <AparteOption value="gpt-4o-mini">GPT-4o mini</AparteOption>
+      <AparteOption value="gpt-4o">GPT-4o</AparteOption>
+    </AparteSelect>
+  );
+}
 ```
 
-Importing from `@aparte/react` types every element of core as JSX: the attribute names are the
-HTML ones, a presence attribute takes `''` to be on and `null` or `undefined` to be off, and events
-are read by ref, typed through the DOM ([Elements, typed](/frameworks/elements/)). A plugin's
-element is typed by the plugin, and one of yours by you
-([your own element](/frameworks/elements/#your-own-element-or-a-plugins)). `<AparteUi>` mounts any
-tag and sets its props; it forwards core's events, so name your element's own in `events`. A ref to
-it gives `getElement()` and `callMethod(name, ...args)`:
+A presence attribute (`searchable`) is `true` or `''` to set it and `false`, `null` or `undefined` to
+remove it; every other attribute takes `null` too, so `active-id={history.activeId}` is a
+`string | null` as it stands. `className`, `style`, `children`, `id`, `aria-*` and `data-*` go on the
+element as React writes them. `event.preventDefault()` cancels an event that can be cancelled — the
+conversation list's rename, pin and delete, say ([the list, bound to `useConversationManager()`](/components/conversation-list/#in-react)).
+Every component, with its props type and callbacks, is in the
+[reference](/reference/wrappers/#a-react-component-for-every-element); `<AparteChat>` is the chat's.
+
+They are components, not the raw tag, because React 18 and 19 disagree about a custom element's
+props. React 18 writes a property as the text `[object Object]` and listens to no event; React 19
+assigns a prop as a property when the element has one of that name and as an attribute when it does
+not, so the same prop takes a different path in each. A component writes its props itself, after the
+render and the same way under both: attributes through core's `applyElementProps`, properties by
+assignment, events with `addEventListener`. It writes a prop when its value changed, a callback that
+changes takes no new listener, and on a server render the element carries `defer-hydration` until
+React has hydrated it, as `<AparteChat>`'s root does.
+
+The raw tag is typed too — importing from `@aparte/react` types every element of core as JSX — for
+what you already have: `<aparte-select searchable="" placeholder="Pick a model">`, with `''` to be on
+and `null` or `undefined` to be off, and an event read by ref
+([Elements, typed](/frameworks/elements/)). A plugin's element is typed by the plugin, and one of
+yours by you ([your own element](/frameworks/elements/#your-own-element-or-a-plugins)). `<AparteUi>`
+mounts any tag by its name and sets its props; it forwards core's events, so name your element's own
+in `events`. A ref to it gives `getElement()` and `callMethod(name, ...args)`:
 
 {/* doc-check: skip excerpt — a JSX line inside your component */}
 ```tsx
