@@ -75,7 +75,8 @@ export class AparteTriggers extends HTMLElement {
         // A wrapper hands them again on every render of the app around it, the same array or an
         // equal one, while the person types. The list on screen stays open, on the row they were
         // on, when the trigger it shows is still declared at the same place; it is listed again
-        // from the new declaration, which may have been mutated in place.
+        // from the new declaration, which may have been mutated in place. A child list stays
+        // open while the row that opened it is still listed (see `_show`).
         const caret = this._input?.getCaret() ?? null;
         const again = caret ? detectTrigger(caret.text, caret.offset, this._triggers) : null;
         if (!again || again.start !== hit.start || again.trigger.char !== hit.trigger.char) {
@@ -85,12 +86,14 @@ export class AparteTriggers extends HTMLElement {
         this._hit = again;
         this._collectCommands(again);
         this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
-        this._truncate(1);
+        this._keepChildren = true;
         this._loadRoot(again);
     }
 
     /** The row to stay on when the root list is drawn again for new triggers: its item's id. */
     private _keepActive: string | null = null;
+    /** The root list is drawn again for new triggers: the child lists open under it may stay. */
+    private _keepChildren = false;
 
     /** A menu is open. */
     get isOpen(): boolean { return this._levels.length > 0; }
@@ -293,6 +296,11 @@ export class AparteTriggers extends HTMLElement {
     private _show(index: number, rows: TriggerRow[], status: Status): void {
         const level = this._levels[index];
         if (!level) return;
+        // The root drawn again for new triggers: the child lists stay when the row that opened
+        // them is still listed, by its item's id. Read before the old rows are replaced.
+        const keep = index === 0 && this._keepChildren ? this._levels.splice(1) : [];
+        if (index === 0) this._keepChildren = false;
+        const opener = keep[0] ? this._itemOf(level, keep[0].owner) : null;
         // What was opened from the old rows goes with them.
         this._truncate(index + 1);
         const back = index > 0 && this._compact
@@ -309,9 +317,29 @@ export class AparteTriggers extends HTMLElement {
             : -1;
         if (index === 0) this._keepActive = null;
         if (kept >= 0) level.active = kept;
+        const reopen = opener
+            ? level.rows.findIndex((row) => row.item.id === opener && row.item.children && !row.item.disabled)
+            : -1;
+        if (reopen >= 0) level.active = reopen;
         this._paint(level, index);
+        if (reopen >= 0) {
+            const el = this._drawnRow(level, reopen)!;
+            el.setAttribute('aria-expanded', 'true');
+            keep[0]!.owner = el;
+            this._levels.push(...keep);
+        } else {
+            this._levels.push(...keep);
+            this._truncate(index + 1);
+        }
         this._place();
         this._syncEditor();
+    }
+
+    /** The id of the item a drawn row of `level` shows. */
+    private _itemOf(level: Level, el: HTMLElement | null): string | null {
+        if (!el) return null;
+        const at = [...level.panel.querySelectorAll<HTMLElement>('[role="option"]')].indexOf(el);
+        return at >= 0 ? level.rows[at]?.item.id ?? null : null;
     }
 
     // ── Drawing ─────────────────────────────────────────────────────────

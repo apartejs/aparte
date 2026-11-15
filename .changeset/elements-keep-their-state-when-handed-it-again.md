@@ -9,7 +9,7 @@
 
 An element handed a value it already holds no longer closes, unfocuses or resets what the person was doing in it — re-rendering a framework wrapper with the same props is now harmless.
 
-- `<aparte-triggers>`: re-setting `triggers` keeps the open list open, on the row the keyboard was on, when the trigger it shows is still declared. The commands-and-mentions recipe re-set it on every React render, so the list opened on `@` and closed at once.
+- `<aparte-triggers>`: re-setting `triggers` keeps the open list open, on the row the keyboard was on, when the trigger it shows is still declared at the same place; a child list opened from a row stays open, on its own row, while that row is still listed, and closes with it otherwise. The commands-and-mentions recipe re-set it on every React render, so the list opened on `@` and closed at once.
 - `<aparte-approval-mode>`: re-setting `labels` renames the options in place, so an open list stays open.
 - `<aparte-diff>`: re-setting `diff` with the change it shows — the same text or object, or an equal one, such as an inline `{ path, before, after }` — keeps the lines picked, the comment field and its text, the folds and the focus.
 - `<aparte-artifact-panel>`: re-setting `render` with the same function keeps the tab and the preview the reader chose.
