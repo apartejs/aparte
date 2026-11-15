@@ -1,5 +1,13 @@
 # @aparte-workspace/ssr-angular
 
+## 0.0.38
+
+### Patch Changes
+
+- @aparte/core@1.10.2
+- @aparte/provider-scenario@1.10.2
+- @aparte/angular@1.10.2
+
 ## 0.0.37
 
 ### Patch Changes
