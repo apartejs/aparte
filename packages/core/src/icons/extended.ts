@@ -24,7 +24,7 @@
  *     aparteGlobalConfig.setIconProvider({ retry: () => historyIcon });
  */
 
-import { prevBranchIcon, nextBranchIcon, moreIcon, trashIcon, messageSquareIcon } from './glyphs.js';
+import { prevBranchIcon, nextBranchIcon, expandIcon, collapseIcon, moreIcon, trashIcon, messageSquareIcon } from './glyphs.js';
 
 /** Add */
 export const plusIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v15M4.5 12h15"/></svg>`;
@@ -51,6 +51,15 @@ export const chevronLeftIcon = prevBranchIcon;
 
 /** Next. Alias of the branch picker glyph — see chevronLeftIcon. */
 export const chevronRightIcon = nextBranchIcon;
+
+/** Down. Alias of the expand glyph, named by direction rather than state. */
+export const chevronDownIcon = expandIcon;
+
+/** Up. Alias of the collapse glyph, named by direction rather than state. */
+export const chevronUpIcon = collapseIcon;
+
+/** Sidebar panel: toggles a desktop sidebar. */
+export const panelLeftIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>`;
 
 /** Send upward / move up */
 export const arrowUpIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19.5v-15M5.5 11 12 4.5l6.5 6.5"/></svg>`;
@@ -160,6 +169,9 @@ export const APARTE_EXTENDED_ICON_GLYPHS = {
     moreVertical: moreVerticalIcon,
     chevronLeft: chevronLeftIcon,
     chevronRight: chevronRightIcon,
+    chevronDown: chevronDownIcon,
+    chevronUp: chevronUpIcon,
+    panelLeft: panelLeftIcon,
     arrowUp: arrowUpIcon,
     arrowRight: arrowRightIcon,
     externalLink: externalLinkIcon,

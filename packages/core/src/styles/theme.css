@@ -1089,6 +1089,8 @@
   --aparte-success-surface: color-mix(in oklch, var(--aparte-success) 12%, transparent);
   --aparte-error-border-soft: var(--aparte-error);
   --aparte-error-surface:   color-mix(in oklch, var(--aparte-error) 12%, transparent);
+  --aparte-warning-surface: color-mix(in oklch, var(--aparte-warning) 12%, transparent);
+  --aparte-info-surface:    color-mix(in oklch, var(--aparte-info) 12%, transparent);
 
   /* Attachments */
   --aparte-attachment-chip-bg: var(--aparte-surface-2);
