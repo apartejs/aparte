@@ -259,8 +259,16 @@ export class AparteDiff extends ElementBase {
         // Handed the change it shows: the same text or object (perhaps mutated in place), or an
         // equal one — an inline `{ path, before, after }` is a new object on every render of the
         // app around it. It is drawn again from it, and what the reader was doing is kept: the
-        // folds, the lines picked, the field and its text, the focus.
-        const again = next !== null && this._input !== null && (next === this._input || sameFiles(shown, before));
+        // folds, the lines picked, the field and its text, the focus. The same object mutated
+        // into another change keeps the folds and the lines picked that it still holds; its
+        // colours are the old text's, so it is coloured again from scratch.
+        const same = sameFiles(shown, before);
+        const again = next !== null && this._input !== null && (next === this._input || same);
+        // The keys of the lines picked, read from the rows on screen before they are replaced.
+        const picked = again && !same && this._selection && this.isConnected
+            ? this._selectedRows().map((row) => row.dataset['key']!)
+            : null;
+        const forward = !!picked && picked[0] === this._selection?.anchor;
         this._input = next;
         this._shown = shown;
         this._generation++;
@@ -269,20 +277,47 @@ export class AparteDiff extends ElementBase {
                 const was = before[i];
                 if (!was || was.file.path !== file.file.path) return;
                 file.collapsed = was.collapsed;
-                file.expanded = was.expanded;
                 file.roving = was.roving;
+                if (!same) return;
+                file.expanded = was.expanded;
                 file.html = was.html;
             });
         }
-        if (!again || (this._selection && !shown[this._selection.file])) {
-            this._selection = null;
-            this._writing = false;
-            this._form?.node.remove();
-        }
+        if (!again || (this._selection && (!shown[this._selection.file] || (!same && !picked)))) this._dropSelection();
         if (this.isConnected) {
             this._render();
+            if (picked) this._clampSelection(picked, forward);
             void this._highlight(again);
         }
+    }
+
+    /** No line picked, no field (drawn by the next render). */
+    private _dropSelection(): void {
+        this._selection = null;
+        this._writing = false;
+        this._form?.node.remove();
+    }
+
+    /**
+     * The lines picked before the change was mutated in place, kept to those it still holds;
+     * nothing picked when none is left. `forward`: the selection ran down from its anchor.
+     */
+    private _clampSelection(picked: readonly string[], forward: boolean): void {
+        const selection = this._selection;
+        const lines = selection && this._linesOf(selection.file);
+        const there = new Set(lines ? [...lines.querySelectorAll<HTMLElement>(':scope > .aparte-diff-line')].map((r) => r.dataset['key']) : []);
+        const left = picked.filter((key) => there.has(key));
+        if (!selection || !left.length) {
+            this._letGo(false);
+            return;
+        }
+        const first = left[0]!;
+        const last = left[left.length - 1]!;
+        if (selection.anchor === (forward ? first : last) && selection.focus === (forward ? last : first)) return;
+        selection.anchor = forward ? first : last;
+        selection.focus = forward ? last : first;
+        this._paintSelection();
+        if (this._writing) this._placeForm(false);
     }
 
     /** The comments to show under their lines, with their state. The element only shows them. */

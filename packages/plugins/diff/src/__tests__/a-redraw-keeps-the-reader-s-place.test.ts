@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig } from '@aparte/core';
-import { click, FORTY, gutter, mount } from './harness.js';
+import { click, flush, FORTY, gutter, mount } from './harness.js';
 
 afterEach(() => {
     document.body.replaceChildren();
@@ -97,6 +97,47 @@ describe('a redraw', () => {
         el.diff = change;
         expect(el.querySelector('textarea')).toBe(input);
         expect(el.textContent).toContain('21000');
+    });
+
+    it('colours a change mutated in place from its new text, never with the old colours', async () => {
+        // A highlighter that colours only the first change it is given: the second pass yields nothing.
+        let calls = 0;
+        aparteGlobalConfig.setHighlightProvider((code) => (++calls <= 2
+            ? `<pre><code>${code.split('\n').map((l) => `<span class="line"><b>${l}</b></span>`).join('\n')}</code></pre>`
+            : ''));
+        const change = { path: 'a.ts', before: 'one\ntwo\n', after: 'one\nTWO\n' };
+        const el = mount(change);
+        await flush();
+        await flush();
+        expect(el.querySelector('.aparte-diff-line__code b')?.textContent).toBe('one');
+        change.before = 'uno\ntwo\n';
+        change.after = 'uno\nTWO\n';
+        el.diff = change;
+        await flush();
+        await flush();
+        const codes = [...el.querySelectorAll('.aparte-diff-line__code')].map((c) => c.textContent);
+        expect(codes).toContain('uno');
+        expect(codes).not.toContain('one');
+    });
+
+    it('clamps the lines picked to what a change mutated in place still holds, and lets go when none is left', () => {
+        const change = { ...FORTY };
+        const el = mount(change, { commentable: '' });
+        click(gutter(el, 'del', 20));
+        click(gutter(el, 'add', 20), { shiftKey: true });
+        expect(el.querySelectorAll('[data-selected]')).toHaveLength(2);
+        // Line 20 is no longer changed: the removed line goes, the added one stays as context.
+        change.before = change.before.replace('const line20 = 20;', 'const line20 = 2000;');
+        change.after = change.after.replace('const line20 = 2000;', 'const line20 = 2000;\nconst extra = 0;');
+        el.diff = change;
+        expect(el.querySelectorAll('[data-selected]')).toHaveLength(1);
+        expect(el.querySelector('textarea')).not.toBeNull();
+
+        change.before = 'a\n';
+        change.after = 'b\n';
+        el.diff = change;
+        expect(el.querySelectorAll('[data-selected]')).toHaveLength(0);
+        expect(el.querySelector('textarea')).toBeNull();
     });
 
     it('keeps the field when handed the same diff text again', () => {
