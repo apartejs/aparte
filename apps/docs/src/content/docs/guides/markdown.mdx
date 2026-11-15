@@ -418,15 +418,21 @@ that opens the file, the system browser in an Electron app, a question first. Th
 it. In Angular, `(aparte-link-click)` binds the DOM event on the chat's host, which is the one that
 cancels; the `(linkClick)` output hands you the detail alone, for a link you only watch.
 
-To keep same-site links in the page, as before 1.9:
+Two settings, one line each:
+
+| `setLinkTarget(…)` | A link to your own site | A link to another site | Pick it when |
+|---|---|---|---|
+| `'new-tab'` (the default) | a new tab | a new tab | the chat lives in a single-page app, an Electron window or a widget, where following a link in place would replace the app and the conversation |
+| `'external-only'` | the current tab | a new tab | the chat sits in a classic website or a server-rendered app (Laravel, Rails, Django), where a link to one of its pages is expected to follow in place |
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
+// Same site in the current tab, every other site in a new tab.
 aparteGlobalConfig.setLinkTarget('external-only');
 ```
 
-A link to another site still opens in a new tab, and what is on screen is drawn again. A plugin
+On a chat with a config of its own, call it on that config (`config.setLinkTarget('external-only')`). What is on screen is drawn again with the new rule. A plugin
 that draws links of its own asks the same rule, `aparteGlobalConfig.decideLink(href)`, which
 answers the `target` and `rel` to set: `{}` for a link that stays in the page.
 
