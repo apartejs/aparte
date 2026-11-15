@@ -341,6 +341,29 @@ textarea.aparte-elic-text {
   border-radius: var(--aparte-radius-sm);
 }
 
+/* The number that presses an option (1-9), drawn from `data-shortcut` as generated content
+   so it is not part of the option's text or its accessible name — `aria-keyshortcuts` says
+   it to a screen reader. The chip is the library's key recipe's tokens. */
+.aparte-approval-option[data-shortcut]::before,
+.aparte-elic-option--command[data-shortcut]::before {
+  content: attr(data-shortcut);
+  content: attr(data-shortcut) / "";
+  flex: none;
+  align-self: flex-start;
+  box-sizing: border-box;
+  min-width: var(--aparte-kbd-min-width);
+  padding: var(--aparte-kbd-padding);
+  margin-inline-end: var(--aparte-space-2);
+  text-align: center;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-kbd-radius);
+  background: var(--aparte-kbd-bg);
+  color: var(--aparte-text-secondary);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-kbd-font-size);
+  line-height: var(--aparte-line-height-none);
+}
+
 /* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
    the exception, not the expected act, and a box sized for a paragraph invites one. */
 .aparte-approval-instruction {
