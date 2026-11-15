@@ -125,6 +125,31 @@ describe('<aparte-approval-mode>', () => {
         expect(text).toEqual(['Planifier', 'Ask', 'Auto-edit', 'Automatique']);
     });
 
+    it('labels handed again, the same or new, leave the open list open and the focus where it was', async () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const el = mount();
+        const labels = { plan: 'Planifier' };
+        el.labels = labels;
+        const sel = el.querySelector('aparte-select') as HTMLElement & { open: boolean };
+        const trigger = sel.querySelector<HTMLElement>('.aparte-select-trigger')!;
+        trigger.focus();
+        sel.open = true;
+        expect(sel.open).toBe(true);
+
+        el.labels = labels;
+        expect(select(el)).toBe(sel);
+        expect(sel.open).toBe(true);
+        expect(document.activeElement).toBe(trigger);
+
+        el.labels = { plan: 'Planifier', ask: 'Demander' };
+        await Promise.resolve();
+        expect(select(el)).toBe(sel);
+        expect(sel.open).toBe(true);
+        expect([...el.querySelectorAll('aparte-option')].map((o) => o.textContent?.trim())).toEqual(['Planifier', 'Demander', 'Auto-edit', 'Auto']);
+        // The trigger shows the current mode's new name.
+        expect(trigger.textContent).toContain('Demander');
+    });
+
     it('resolves the scoped config it sits in, not the global one', () => {
         const scoped = new AparteConfig();
         const approval = setupApproval({ classify, mode: 'plan' }, scoped);

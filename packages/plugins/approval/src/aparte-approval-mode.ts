@@ -60,7 +60,7 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
     get labels(): Partial<Record<ApprovalMode, string>> { return this._labels; }
     set labels(next: Partial<Record<ApprovalMode, string>>) {
         this._labels = next ?? {};
-        if (this.isConnected) this._render();
+        if (this.isConnected) this._relabel();
     }
 
     /** The current mode, or `null` with no setup. */
@@ -125,6 +125,29 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         const aria = String(this._cfg?.getLocale()['approvalModeLabel'] || 'Approval mode');
         this.innerHTML = `<aparte-select${current ? ` value="${escapeAttr(current)}"` : ''}${controller ? '' : ' disabled'} aria-label="${escapeAttr(aria)}">${options}</aparte-select>`;
         this.querySelector('aparte-select')?.addEventListener('aparte-select-change', this._onChange);
+    }
+
+    /**
+     * The new names written into the options already drawn. A wrapper hands `labels` again on
+     * every render of the app around it, and drawing the select again would close its list under
+     * the person's pointer and drop the focus. A text node replaced is a `childList` change the
+     * select watches, so its trigger follows.
+     */
+    private _relabel(): void {
+        const select = this.querySelector('aparte-select');
+        if (!select) {
+            this._render();
+            return;
+        }
+        for (const mode of APPROVAL_MODES) {
+            const option = select.querySelector(`aparte-option[value="${mode}"]`);
+            if (!option) {
+                this._render();
+                return;
+            }
+            const label = this._labels[mode] ?? DEFAULT_LABELS[mode];
+            if (option.textContent !== label) option.replaceChildren(label);
+        }
     }
 
     private _syncValue(): void {
