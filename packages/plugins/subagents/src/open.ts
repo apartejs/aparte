@@ -8,7 +8,7 @@
  * conversation goes. Which sub-agent is shown is kept here, by whoever shows it, so a line
  * drawn again — a reload, a row rebuilt — still says it is the one open.
  */
-import type { AparteToolCallSegment } from '@aparte/core';
+import { chatIdOf, type AparteToolCallSegment } from '@aparte/core';
 import type { AparteSubagent, AparteSubagentOpenEventDetail } from './types.js';
 
 /** The sub-agent each view shows now, by the view's wiring. */
@@ -55,12 +55,12 @@ export function unmarkAll(root: ParentNode): void {
 }
 
 /**
- * The chat the row is in: the `<aparte-chat>` around it, else the chat a standalone
+ * The chat the row is in (`chatIdOf`: the `<aparte-chat>` or a wrapper's `[data-aparte-chat]` root around it), else the chat a standalone
  * `<aparte-subagent-view>` reads (its own sub-agents' lines).
  */
 function targetIdOf(row: Element): string | undefined {
-    const chat = row.closest('aparte-chat');
-    if (chat) return chat.id || undefined;
+    const inChat = chatIdOf(row);
+    if (inChat) return inChat;
     const view = row.closest('aparte-subagent-view:not([data-inline])') as (Element & { chat?: { id?: unknown } | null }) | null;
     if (!view) return undefined;
     const id = view.getAttribute('for') || (typeof view.chat?.id === 'string' ? view.chat.id : '');

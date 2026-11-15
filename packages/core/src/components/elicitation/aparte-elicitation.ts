@@ -27,6 +27,7 @@ import type { AparteComposer, AparteComposerPanelMode } from '../composer/aparte
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import { bindOptionKeys, numberOptions } from '../../elicitation/option-keys.js';
+import { chatIdOf } from '../../interop/chat-events.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 import { AparteElicitationAbortError } from '../../elicitation/types.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -578,14 +579,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * resolves `undefined` on three wrappers out of four.
      */
     private _pendingTargetId(): string | undefined {
-        let el: HTMLElement | null = this._pending?.composer ?? null;
-        while (el) {
-            const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
-            if (isHost && el.id) return el.id;
-            el = el.parentElement;
-        }
-        return undefined;
+        return chatIdOf(this._pending?.composer ?? null);
     }
 
     /**

@@ -85,6 +85,14 @@ describe("a sub-agent's line, with `open: 'event'`", () => {
         expect(bubbled).toBe(true);
     });
 
+    it("names the chat a wrapper's [data-aparte-chat] root stands for, as it does for <aparte-chat>", async () => {
+        const c = await working({ open: 'event' });
+        c.host.setAttribute('data-aparte-chat', '');
+        const events = heard();
+        openButton(c.row('tool-c1'))!.click();
+        expect(events[0]?.targetId).toBe('chat-1');
+    });
+
     it('opens on a click anywhere on a line with nothing behind it', async () => {
         const c = await working({ open: 'event' });
         const events = heard();
