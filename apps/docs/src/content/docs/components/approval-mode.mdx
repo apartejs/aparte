@@ -74,8 +74,10 @@ returns an `ApprovalController` (`getMode`, `setMode`, `subscribe`), which
 `getApprovalController(config)` finds again from anywhere.
 
 The element also dispatches `aparte-approval-mode-change` with `{ mode, previousMode }`
-(`AparteApprovalModeChangeEventDetail`), bubbling, so an ancestor can save the choice. The
-`/approval` command does the same, from the composer. Nothing is
+(`ApprovalModeChangeDetail`, both typed `ApprovalMode`), bubbling, so an ancestor can save the
+choice. The `/approval` command does the same, from the composer. Core's own
+`AparteApprovalModeChangeEventDetail` types the modes as strings, for a host that registers modes
+of its own. Nothing is
 remembered across a reload: keep `getMode()` wherever you keep preferences.
 
 The plugin exports `approvalModeElement`, its element's spec, and every framework binds it as

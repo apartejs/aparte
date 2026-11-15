@@ -31,6 +31,19 @@ export interface ApprovalSetupOptions {
     onModeChange?: (mode: ApprovalMode, previous: ApprovalMode) => void;
 }
 
+/**
+ * The detail of `aparte-approval-mode-change` as this plugin sends it, from the switch or the
+ * `/approval` command: core's `AparteApprovalModeChangeEventDetail` with the modes narrowed to
+ * the four this plugin knows. Core types them as strings so it names none of them; a framework
+ * wrapper's callback (`onApprovalModeChange` in React) receives this one.
+ */
+export interface ApprovalModeChangeDetail extends AparteApprovalModeChangeEventDetail {
+    /** The mode just switched to. */
+    mode: ApprovalMode;
+    /** The mode it replaced. */
+    previousMode: ApprovalMode;
+}
+
 /** What `setupApproval` returns: the mode, readable and switchable, and the way out. */
 export interface ApprovalController {
     /** The four modes, in the order a switch presents them. */
@@ -127,7 +140,7 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
                     controller.setMode(candidate);
                     if (mode === previousMode) return;
                     // As the switch does: an app saves the choice from this event.
-                    dispatchChatEvent<AparteApprovalModeChangeEventDetail>(context.composer, 'aparte-approval-mode-change', { mode: candidate, previousMode });
+                    dispatchChatEvent<ApprovalModeChangeDetail>(context.composer, 'aparte-approval-mode-change', { mode: candidate, previousMode });
                 },
             })),
         });
