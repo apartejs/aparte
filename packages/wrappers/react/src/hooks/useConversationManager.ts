@@ -21,6 +21,8 @@ export interface UseConversationManager {
      * Initialise with a storage adapter (call once). `config` is the one you gave
      * `<AparteChat config={…}>`; it defaults to the global — the implementation always
      * took it, the interface hid it, so the documented two-argument call did not type.
+     * `options` are read when it runs: a `titleProvider` that reads state reads it
+     * through a ref, or is replaced later with `manager.setTitleProvider()`.
      */
     init: (adapter: AparteStorageAdapter, config?: AparteConfig, options?: ConversationManagerOptions) => Promise<void>;
     /**
@@ -61,10 +63,13 @@ export function useConversationManager(): UseConversationManager {
      * host element, so a manager registered on the global is invisible to a chat
      * with its own — persistence silently does nothing while the optimistic UI
      * keeps working.
+     *
+     * Called again, it replaces the manager, and stops following the one before.
      */
     const init = useCallback(async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions) => {
         const m = new AparteConversationManager(adapter, options);
         managerRef.current = m;
+        unsubRef.current?.();
         unsubRef.current = m.subscribe((convs) => {
             setConversations([...convs]);
             setActiveId(m.activeId);

@@ -62,6 +62,8 @@ export class ConversationManagerService implements OnDestroy {
      */
     async init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions): Promise<void> {
         this._manager = new AparteConversationManager(adapter, options);
+        // Called again, it replaces the manager: the one before is followed no more.
+        this._unsubscribe?.();
         this._unsubscribe = this._manager.subscribe(convs => {
             this.conversations.set([...convs]);
             this.activeId.set(this._manager!.activeId);
