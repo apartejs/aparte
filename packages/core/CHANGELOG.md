@@ -1,5 +1,152 @@
 # @aparte/core
 
+## 1.9.0
+
+### Minor Changes
+
+- dfa6f62: A busy `.aparte-btn` (`aria-busy="true"`) now shows an `.aparte-spinner` child at its icon's size and in its ink colour.
+
+  ```html
+  <button
+    class="aparte-btn aparte-btn--primary aparte-btn--solid"
+    type="button"
+    aria-busy="true"
+  >
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Loading…
+  </button>
+  ```
+
+  Do you have to touch your code? No. A spinner you already put in a busy button keeps working: it is now drawn at the button's icon size and in the button's colour, whatever `--sm` or `--lg` it carries. A spinner anywhere else, in a button that is not `aria-busy`, or not a direct child of the button, is unchanged.
+
+  - **Colour.** The ring was the spinner's own muted grey on every fill. Measured against the fill in the light theme: 1.55:1 on a solid primary button, 1:1 on a solid neutral one (the ring was the fill's own colour, so it was invisible), 1.49:1 on danger and 2.61:1 on warning. It is the button's ink now, so it reads like the label does: 5.27, 5.5, 5.05 and 8.84:1. In the dark theme a solid primary ring went from 1.15:1 to 8.3:1. A `disabled` busy button keeps the recipe's disabled look, and its ring is muted with it.
+  - **Size.** The spinner takes `--aparte-btn-icon-size`, the size an icon gets in a button: 19.4px on the default button, 13px on `--sm`, 21.6px on `--lg` and `--xl` at the default type scale, where it was 16px on all of them. Replacing an icon with it no longer moves the button, which was 3 to 5.6px wider or narrower. The rule declares `--aparte-spinner-size` on the spinner, so `.aparte-spinner--sm` and `--lg` lose to it by selector, not by which sheet loads last; to size one yourself, set `--aparte-spinner-size` in its `style`.
+  - **Pointer.** The spinner takes no pointer events, like an icon in a button, so a click on it is a click on the button.
+  - **As before.** The cursor is `progress`, also on a `disabled` button. Reduced motion stops the ring, as it does every `.aparte-spinner`. `aria-busy` does not dim or disable the button: add `disabled` when a second click must do nothing.
+  - **Not done.** The button keeps no width of its own: it follows its label, so a button that changes its label while busy ("Load model", then "Loading…") still resizes. Give it a minimum width. CSS cannot know the width of a label it has not been given.
+  - **Docs.** The button page gains a Busy section with this markup, and an accessibility note: a screen reader often ignores `aria-busy` alone, so the label should say what is happening.
+
+- b2a427c: The chat's imperative API gains `getElement()`, the chat's root element, and `getComposer()`, its `<aparte-composer>`; every wrapper's chat implements both.
+
+  Do you have to touch your code? Only if a class of yours implements `AparteChatImperativeApi`: add `getElement()` and `getComposer()`.
+
+  - **Why.** An event core has no prop for — a plugin's (`aparte-subagent-open`, `aparte-artifact-open`) or your own — reaches the chat's root, because every part sends its events up to it. `getElement()` is that root, so each framework has one way to listen: `useAparteEvent(chat.ref, …)` in React, `@aparte-…` in Vue, `onaparte-…` in Svelte 5, `(aparte-…)` in Angular, `getElement()` in Svelte 4.
+  - **Same name as the proxy.** `AparteUiHandle` already calls its accessor `getElement()`.
+
+- bec5c92: Links in a reply now open in a new tab, same-site ones included; `setLinkTarget('external-only')` keeps same-site links in the page.
+
+  ```ts
+  import { aparteGlobalConfig } from "@aparte/core";
+
+  // As before: only a link to another site opens a new tab.
+  aparteGlobalConfig.setLinkTarget("external-only");
+  ```
+
+  Do you have to touch your code? Only to keep a same-site link in the page. A relative link the model writes — `[package.json](package.json)`, `/docs` — used to be followed in place, which replaces the page the chat lives in: in a single-page app or an Electron window, the whole app and the conversation with it. It now opens in a new tab, with `rel="noopener noreferrer"`. To route a link yourself, cancel `aparte-link-click`, as before.
+
+  - **What stays as written.** A link to a place in the page (`#…`), and `mailto:`, `tel:` and `sms:`, for which a new tab is left empty. A `target` the model writes still chooses nothing.
+  - **Whichever sanitizer.** The rule runs in `sanitizeHtml` after the sanitizer, beside the image policy, so one set with `setHtmlSanitizer` keeps it — DOMPurify alone drops `target`, and every external link then navigated the chat's own frame. Under `'external-only'` the built-in sanitizer's own clamp is applied on top of yours. A server render gets the same links.
+  - **Your `rel` is kept.** A link that opens in a new tab keeps the `rel` tokens your sanitizer wrote (`nofollow ugc`) and gains `noopener noreferrer`; an `opener` token is dropped, as it would contradict `noopener`. A link that stays in the page keeps its `rel` untouched.
+  - **For a plugin that draws links**, `decideLink(href)` answers what to set: `{ target: '_blank', rel: 'noopener noreferrer' }`, or `{}` for a link that stays in the page. `getLinkTarget()` reads the mode, and setting it draws what is on screen again.
+  - **Sources.** A source's link in a citation card now fires the chat's cancelable `aparte-link-click`, as a link in the text does: the card is drawn beside the transcript, outside the message, which never heard its clicks, so an app could not route it. It is announced on the chip, inside the message, with the same `{ href, anchor, messageId }`. A source's link, in the card or the list, follows the link target too.
+  - **Weight.** About 1.7 KB gzip: the pass over a reply's links, and its twin for a runtime with no DOM. With the rest of this release, core's JavaScript is 269.4 KB gzip.
+
+- d1b38ad: Each turn now carries the id of the conversation open in the chat: `conversationId` on the run's options, beside `messageId`, and `createAgentStreamRunner` takes an `endpoint` function that routes by it.
+
+  ```ts
+  createAgentStreamRunner({
+    endpoint: ({ conversationId }) => `/api/agent/c/${conversationId}`,
+  });
+  ```
+
+  Do you have to touch your code? No. A chat with no conversation sends nothing new, and a `streamRunner` that does not read the field behaves as before. Your server does receive a new field, `conversationId` in the body `createAgentStreamRunner` posts, whenever a conversation is open.
+
+  - **What it is.** The conversation open in the chat when the person sent the message, read at that moment and not after the turn's awaits (a key to resolve, a file to read), so a person who opens another conversation a moment later does not move the turn. The same on a retry, an edit, and the resume of a paused run, which goes out with the id of the run it continues. A first message carries the id of the conversation it creates. A chat with no conversation, no manager or none open, leaves the field out.
+  - **Route by it.** `endpoint` is a string or a function of the run's options, called for every request, so each conversation can have its own route. The runner also puts the id in the body, and `AparteAgentRequestBody` gains `conversationId?`.
+  - **On the server.** `createAparteAgentHandler` gives a server tool the id as `context.conversationId`, beside `context.request`; a tool that runs in the page gets the same field in its context. A body whose `conversationId` is not a string is a 400, and an empty one is none. The id comes from the browser: it names a conversation and proves nothing about who owns it, so check it against the caller before opening a journal by it.
+  - **Where it is read.** The conversation controller leaves a reader on the chat's element, and `AparteClient`, which sits beside the chat, climbs to it. Every wrapper and the vanilla controller are covered, and no prop changed. A provider reads the request, which does not carry the id: only a runner gets it. A provider that wants it, to key a prompt cache, is the trigger to put it on the request as well.
+
+- 2e9e776: Show a step in the page's language: `config.registerStepLabel('reread', ({ locale }) => …)` maps the key a server sends in `step-start` to the words the page shows.
+
+  ```ts
+  aparteGlobalConfig.registerStepLabel("slot-wait", "Waiting for a free slot…");
+  aparteGlobalConfig.registerStepLabel("reread", ({ locale }) =>
+    locale.tag?.startsWith("fr")
+      ? "Relecture de la conversation…"
+      : "Re-reading the conversation…",
+  );
+  ```
+
+  Do you have to touch your code? No: a step nobody labelled is shown as its name, as before. If you rewrite every `step-start` name in a stream runner to reach the page's language, you can stop: the name then stays the key in the run, for a screen reader's text and for what you store.
+
+  - **Where it shows.** The waiting indicator beside the dots, the words a screen reader hears in place of "Typing", and a sub-agent's line (`@aparte/plugin-subagents` reads the same label).
+  - **Live.** A function label is asked again at every change of the locale, and registering a label, or taking it off with the function `registerStepLabel` returns, relabels a step that is already open.
+  - **Only what is shown is labelled.** The `step-start` and `step-end` events, `observeRunEvents`, the target's `setStep` and anything an app stores keep the key; a step was never saved with the reply.
+  - **Per config.** One label per name, as the tool displays are: a chat with a config of its own reads that config's labels, not the page's. `getStepLabel(name)` answers what is registered for a name, or `undefined`.
+  - **Typed.** `AparteStepLabel` and `AparteStepLabelContext` (`{ name, locale }`) are exported. No key is added to `AparteLocale`: the labels are the app's.
+
+- d9ca871: End-to-end tests have a stable contract: `[data-aparte-chat]`, the field's role and name, `aparte-composer-send[data-act]`, `[data-role]`, `[aria-busy]`, `[data-error-code]` — see [Testing your chat](https://apartejs.dev/guides/testing/).
+
+  Do you have to touch your code? Only if a CSS rule or a query of yours uses `[data-aparte-chat]` to mean the `<div>` a React, Vue or Svelte chat renders: it now matches `<aparte-chat>` and Angular's host as well, so write `div[data-aparte-chat]` to keep the old meaning. Core's own stylesheets name `aparte-chat` beside `[data-aparte-chat]` in every rule, so nothing in the chat restyles.
+
+  - **The root, in every framework.** `<aparte-chat>` now carries `data-aparte-chat` when it connects, and Angular's component declares it on its host, so the server render has it too. React, Vue and Svelte already rendered it on their root.
+  - **Send, Stop and Submit.** `<aparte-composer-send>` says what a press does now, `send`, `stop` or `submit`, in `data-act` on itself. The button inside keeps its own `data-act`, which the stylesheet reads. Press the button: `aparte-composer-send[data-act="stop"] button`.
+  - **A reply that ended no longer says it is streaming.** The viewport writes `streaming` on the bubble it appends for a reply on its way, and nothing took it off, so after a turn every reply of a vanilla chat still matched `aparte-chat-bubble[streaming]`. The bubble takes it off when the reply ends, however it ended: finished, failed or stopped. The reply's `aria-busy` was always right; that is the hook for a test.
+  - **Frozen.** `data-aparte-chat` and `data-act` are declared read-only on their elements, so the frozen surface lists them next to `data-role`, and removing one needs a notice release first. The field's role and name, `aria-busy` and `data-error-code` sit on parts inside an element and are not on that list; a test plays a real turn and reads all three, and the guide's Playwright example runs on the six example apps.
+  - **The field's name.** Its placeholder is its accessible name, so `getByRole('textbox', { name })` finds it. `getByPlaceholder` does not, because the field has no `placeholder` attribute. The composer page and the input's reference say so.
+
+### Patch Changes
+
+- 76a073e: `<aparte-chat>` lists, in the shipped custom-elements manifest and on its reference page, the 23 events a listener on it hears, each with its detail type.
+
+  Do you have to touch your code? No: nothing dispatches differently. The events reached the chat before; the manifest now says which, so an editor's tooltip and the element's page show them, and the wrapper bindings can be generated from them.
+
+  - **What is listed.** What the chat's parts send, bubbling — the composer's (`aparte-send`, `aparte-cancel`, `aparte-composer-change`, and `aparte-action-click` from a composer button the app wrote), the transcript's (`aparte-segment-update`, `aparte-path-changed`, `aparte-reset-done`), each message's (`aparte-action`, `aparte-retry`, `aparte-edit`, `aparte-feedback`, `aparte-feedback-reason`, `aparte-message-info`, `aparte-link-click`, `aparte-attachment-preview`) — and what the host that drives the chat sends on it: the turn (`aparte-message-start`, `-done`, `-error`, `-aborted`, `-paused`, `-resumed`, `aparte-tool-approval-request`) and `aparte-conversation-loaded`. Each description is written for a listener on the chat.
+  - **What is not, and why.** The page-wide events go out on `window` (`aparte-abort`, `aparte-compact`, `aparte-config-change`, …) and no listener on the chat hears them. Three reach the chat and stay off its list: `aparte-branch-navigate`, which the viewport stops and answers with `aparte-path-changed`; `aparte-composer-submit`, the bubble's inline editor's Enter, which the bubble turns into `aparte-edit`; and `aparte-tab-change`, a stepped elicitation moving between its questions.
+  - **Kept true.** The list is checked against the source in both directions: an event a part starts sending that the chat does not declare, or a declared one nothing sends, fails the build.
+
+- e443f95: `hidden` now hides a kit element whatever whitespace separates its classes, and `hidden="until-found"` keeps its find-in-page reveal.
+
+  ```html
+  <!-- The newline before the kit's class used to leave this footer painted. -->
+  <footer
+    class="my-footer
+    aparte-card__footer"
+    hidden
+  >
+    …
+  </footer>
+  ```
+
+  Do you have to touch your code? No. An element that carries `hidden` and a kit class is now hidden in the cases below, where it used to stay visible. One that carries `hidden="until-found"` is no longer forced to `display: none`: see the second point.
+
+  - **Any whitespace.** HTML separates class names with any ASCII whitespace: space, tab, line feed, form feed, carriage return. The kit's rule knew only the space, so `hidden` did nothing on an element whose kit class came after a tab or a newline (a multi-line `className` template string in JSX writes one), or started a value that began with one: `class="my-footer\naparte-card__footer" hidden` kept the `display: flex` of `.aparte-card__footer`. Measured in Chromium on the published stylesheet: a tab and a line feed gave `flex` before; the tab, the line feed, the form feed and the carriage return, in either position, give `none` now.
+  - **`hidden="until-found"`.** The kit forced `display: none` on it, which defeats the browser's find-in-page: the browser hides that state with `content-visibility: hidden`, so that a match inside can reveal it. The kit now leaves it alone, and the element keeps its own box while its content is hidden, as any element with that state does: a `.aparte-card__footer` measured 17px (its padding and its border), where it was 0. An engine that does not know `until-found` reads it as plain `hidden`, whose `display: none` the recipe's `display` outranks, so there such an element is shown. Only an element you wrote `until-found` on is concerned.
+  - **Still the kit's classes only.** No bare `[hidden]`: a host element is untouched, and so is a class that merely contains the prefix (`my-aparte-card`).
+  - **Tests.** The stylesheet test reads what the selectors mean, decoding their CSS escapes: a tab needle written `\9aparte-` would be U+009A followed by `parte-`, because `a` is a hex digit, and fails there as it does in a browser. A Playwright spec builds the elements on the published stylesheet and reads what the engine paints.
+
+- df764c4: Every element of core now has a React component — `<AparteConversationList>`, `<AparteLauncher>`, `<AparteSplit>`… — with its properties as props and its events as `onXxx` callbacks, the same under React 18 and 19.
+
+  ```tsx
+  <AparteConversationList
+    conversations={history.activeConversations}
+    active-id={history.activeId}
+    onConversationDelete={(detail) => void history.delete(detail.id)}
+  />
+  ```
+
+  Do you have to touch your code? No. The raw tags keep working, typed as they were. Two typing changes can show an error in code that was already wrong: **Vue now checks a multi-word attribute** (`:active-id="5"` passed unchecked, because Vue looks a kebab-case attribute up by its camelCase name) **and types the events** a tag sends, and **every attribute now accepts `null`** to remove it, in React, Vue and Svelte, so `active-id={history.activeId}`, a `string | null`, compiles as written.
+
+  - **24 components.** One per element but the chat, whose component stays `<AparteChat>`, named `Aparte` and the tag in Pascal case, each with an `Aparte…Props` type. Generated from the manifest like the Angular directives: an element, an attribute or an event added to core reaches React with no edit. A table of them is in the [wrapper reference](https://apartejs.dev/reference/wrappers/).
+  - **A callback is `(detail, event)`**, as `<AparteChat>`'s are: the detail first, so a handler written for it alone still fits, and the event second, where `event.preventDefault()` is. The conversation list's rename, pin, archive and delete are cancelable, and `manage` stands down when one is cancelled. A callback that changes takes no new listener.
+  - **Why not the raw tag.** React 18 writes a property as the text `[object Object]` and listens to no event; React 19 sets a prop as a property when the element has one of that name and as an attribute when it does not. A component writes its props itself after the render — attributes through `applyElementProps`, properties by assignment, events with `addEventListener` — and only the ones whose value changed. A presence attribute takes a `boolean` there (`flat`, `manage={false}`), where the raw tag has to write `''`.
+  - **Server rendering.** An element carries `defer-hydration` until React has hydrated it, as `<AparteChat>`'s root does, and an attribute an element reads once, at connect (`framework-managed` on the viewport), is in its first markup, not applied after.
+  - **Vue and Svelte.** Both already set a property an element has and listen to its events at runtime (a test mounts the raw list in each); what they lacked was the types. A property such as the list's `conversations` is now typed in both, and Vue declares each tag's events as emits, from a file generated from the manifest (`--element-members`). A presence attribute written bare in a Vue template, `<aparte-select searchable>`, is accepted as it is, and `false` is not. `@aparte/core` widens `AparteAttrValue` to accept `null`.
+  - **Weight.** `@aparte/react` goes from 5.4 KB to 7.3 KB gzip (+1.9 KB): a table row for each of the 24 components, and the one function behind them. An app pays for the ones it imports, and `<AparteChat>` is one of them: its definition has no side effect, so `useAparteEvent` alone bundles to 0.6 KB gzip and `<AparteConversationList>` alone to 1.1 KB (esbuild over the published file). A bundle of `<AparteConversationList>` alone holds one `createAparteElement` call and none of the other 23 components' names, and a bundle of all of them holds 24 (esbuild, `sideEffects: false` and a `/* @__PURE__ */` on each). The package's budget in `size-budget.json` rises from 5.5 to 7.75 KB.
+
+- Updated dependencies [893b450]
+  - @aparte/engine@1.9.0
+
 ## 1.8.0
 
 ### Minor Changes

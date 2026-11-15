@@ -1,5 +1,70 @@
 # @aparte/angular
 
+## 1.9.0
+
+### Minor Changes
+
+- d4a7249: `<aparte-chat>` now has an output for every event of the chat — `(linkClick)`, `(retry)`, `(feedback)`, `(messageDone)`… — each emitting the event's detail; to cancel one, bind the DOM event itself on the same tag, `(aparte-link-click)`.
+
+  ```html
+  <aparte-chat
+    (linkClick)="open($event.href)"
+    (aparte-link-click)="$event.preventDefault()"
+  ></aparte-chat>
+  ```
+
+  Do you have to touch your code? No. `(messageSent)` and `(action)` keep their names and their payload.
+
+  - **Every event.** The outputs come from a base class generated from the events `<aparte-chat>` declares, 23 today: the composer's (`messageSent`, `stop`, `composerChange`, `actionClick`), the transcript's and each message's (`pathChanged`, `retry`, `edit`, `feedback`, `linkClick`…) and the turn's (`messageStart`, `messageDone`, `messageError`…). An output is the event's name without `aparte-`, in camelCase — save `aparte-send`, which is `messageSent`, and `aparte-cancel`, which is `stop`, since `cancel` is a DOM event and `(cancel)` would also catch every native one. An event the chat gains becomes an output with no change to this package.
+  - **Cancelling.** The component's host IS `<aparte-chat>`, so `(aparte-link-click)` on it binds the DOM event, and `$event.preventDefault()` keeps the browser from following the link. Both bindings run once per click.
+  - **Change detection.** The listeners sit outside the zone, and an event enters it only for an output a template binds: `aparte-segment-update` comes once per streamed token and costs nothing unless you listen to it. Measured on the Angular example, a streamed chunk is on screen at a p95 of 17.9 to 19.4 ms over three runs, against 17.5 ms before the change, under a 50 ms budget.
+  - **Why.** The component had two of the chat's events as outputs.
+  - **Weight.** 34.1 KB gzip, up 2.5 KB: the 23 outputs and the listener that feeds them.
+
+- b2a427c: `AparteChatComponent` gains `getElement()`, the host `<aparte-chat>`, and `getComposer()`, its `<aparte-composer>`.
+
+  ```html
+  <aparte-chat (aparte-subagent-open)="openPanel($event.detail)"></aparte-chat>
+  ```
+
+  Do you have to touch your code? No. A plugin's event is already a native `(aparte-…)` binding on the tag, since the host IS the core element; a test pins that it fires once, beside `(linkClick)`.
+
+- 4b8cfa4: On the `aparte-composer` directive, bind `(stop)` instead of `(cancel)`: `(cancel)` also caught a file input's native `cancel` event.
+
+  ```html
+  <aparte-composer (send)="send($event)" (stop)="stopped()"></aparte-composer>
+  ```
+
+  Do you have to touch your code? Yes, if a template binds `(cancel)` on `<aparte-composer>`: rename it to `(stop)`. Left as it is, it still compiles, because Angular reads it as a DOM listener, but it no longer runs when Stop is pressed, only when a native `cancel` bubbles out of the composer.
+
+  In an Angular template, `(x)` listens to the DOM event `x` and subscribes to the output `x`. The Stop output was named `cancel`, a DOM event that bubbles: a file input fires it when its picker closes with no file chosen, so `(cancel)` ran for the Stop button and for every such picker inside the composer. The generated directives now refuse an output named like a DOM event, the names read from TypeScript's own DOM typings, and no other output was one.
+
+  The directives' output names were not yet on [What will not change under you](https://apartejs.dev/reference/stability/), which is why this one could move without a notice release.
+
+### Patch Changes
+
+- 76a073e: The `<aparte-context>` directive no longer has a `(compact)` output: it never fired. The gauge sends `aparte-compact` on `window`, so listen there.
+
+  ```ts
+  window.addEventListener("aparte-compact", (event) =>
+    console.log(event.detail.targetId),
+  );
+  ```
+
+  Do you have to touch your code? Only if a template binds `(compact)` on `<aparte-context>`: that handler never ran, and still compiles (Angular reads it as a DOM listener). Move it to a `window` listener as above.
+
+  The generated directives give no Output to an event the element sends on `window`, because a listener on the element can never hear it. The list of those events was kept by hand and had fallen behind the gauge's Retry, which sends `aparte-compact` when no compactor is registered. It is checked against the source now, both ways, so a window-only event cannot become an Output again — and an event the element sends on itself cannot lose one.
+
+- d9ca871: End-to-end tests have a stable contract: `[data-aparte-chat]`, the field's role and name, `aparte-composer-send[data-act]`, `[data-role]`, `[aria-busy]`, `[data-error-code]` — see [Testing your chat](https://apartejs.dev/guides/testing/).
+
+  Do you have to touch your code? Only if a CSS rule or a query of yours uses `[data-aparte-chat]` to mean the `<div>` a React, Vue or Svelte chat renders: it now matches `<aparte-chat>` and Angular's host as well, so write `div[data-aparte-chat]` to keep the old meaning. Core's own stylesheets name `aparte-chat` beside `[data-aparte-chat]` in every rule, so nothing in the chat restyles.
+
+  - **The root, in every framework.** `<aparte-chat>` now carries `data-aparte-chat` when it connects, and Angular's component declares it on its host, so the server render has it too. React, Vue and Svelte already rendered it on their root.
+  - **Send, Stop and Submit.** `<aparte-composer-send>` says what a press does now, `send`, `stop` or `submit`, in `data-act` on itself. The button inside keeps its own `data-act`, which the stylesheet reads. Press the button: `aparte-composer-send[data-act="stop"] button`.
+  - **A reply that ended no longer says it is streaming.** The viewport writes `streaming` on the bubble it appends for a reply on its way, and nothing took it off, so after a turn every reply of a vanilla chat still matched `aparte-chat-bubble[streaming]`. The bubble takes it off when the reply ends, however it ended: finished, failed or stopped. The reply's `aria-busy` was always right; that is the hook for a test.
+  - **Frozen.** `data-aparte-chat` and `data-act` are declared read-only on their elements, so the frozen surface lists them next to `data-role`, and removing one needs a notice release first. The field's role and name, `aria-busy` and `data-error-code` sit on parts inside an element and are not on that list; a test plays a real turn and reads all three, and the guide's Playwright example runs on the six example apps.
+  - **The field's name.** Its placeholder is its accessible name, so `getByRole('textbox', { name })` finds it. `getByPlaceholder` does not, because the field has no `placeholder` attribute. The composer page and the input's reference say so.
+
 ## 1.8.0
 
 ## 1.7.0
