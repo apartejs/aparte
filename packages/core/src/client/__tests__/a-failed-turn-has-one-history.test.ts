@@ -24,6 +24,7 @@ import { estimateWireTokens } from '../../context/measure.js';
 import type { AparteChatMessage } from '../../types/chat.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 import type { AparteStreamRunOptions } from '../stream-adapter.js';
+import { withoutAbandonedTurns } from '../wire-history.js';
 
 beforeAll(() => {
     // jsdom has no object URLs; the echoed bubble of a send with files makes one.
@@ -177,5 +178,18 @@ describe('after a failed turn, every later request tells the same past', () => {
             const asked = messages.slice(0, 3);
             expect(estimateWireTokens(messages), code).toBe(estimateWireTokens(kept ? asked : answered));
         }
+    });
+});
+
+describe('a compaction summary message is part of no turn', () => {
+    it('stays when the turn after it fails for good, the one failure a compaction answers', () => {
+        const summary: AparteMessage = { id: 's', role: 'user', content: 'Summary of before.', compaction: true, timestamp: 1 };
+        const asked: AparteMessage = { id: 'u1', role: 'user', content: 'And now?', timestamp: 2 };
+        const failed: AparteMessage = {
+            id: 'a1', role: 'assistant', content: '', status: 'error', timestamp: 3,
+            segments: [{ id: 'e', type: 'error', code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED, content: 'too long' } as AparteSegment],
+        };
+        const next: AparteMessage = { id: 'u2', role: 'user', content: 'Shorter.', timestamp: 4 };
+        expect(withoutAbandonedTurns([summary, asked, failed, next]).map((m) => m.id)).toEqual(['s', 'u2']);
     });
 });

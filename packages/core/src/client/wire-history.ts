@@ -280,6 +280,8 @@ function failedForGood(reply: AparteMessage, asked: readonly AparteMessage[]): b
  * good and the messages that asked it — every user message since the last reply that did
  * not fail, since a failure the request got past sends its message again with the next one.
  *
+ * A compaction summary message is part of no turn and always stays.
+ *
  * Every other message stays, a failure the request can get past included: its message goes
  * with the next one (`mergeAdjacentUserMessages` joins the two), from the very next request
  * on, as a retry or an edit sends it, and its reply is sent as nothing (`wireMessages`).
@@ -296,7 +298,9 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
     let asked: AparteMessage[] = [];
     for (const m of messages) {
         if (m.role === 'user') {
-            asked.push(m);
+            // A compaction summary (`compaction: true`) asks nothing: it stands for the turns
+            // before it, and dropping it with a failed turn would lose them for good.
+            if (!m.compaction) asked.push(m);
         } else if (m.role === 'assistant') {
             if (m.status !== 'error') {
                 asked = [];
