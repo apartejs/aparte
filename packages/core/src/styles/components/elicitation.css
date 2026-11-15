@@ -331,6 +331,16 @@ textarea.aparte-elic-text {
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
+/* What the call would do, drawn by the tool's display (`approvalPreview`): a diff for an
+   edit. It scrolls like the arguments do, for the same reason: the Approve button must
+   not leave the surface. The element it holds brings its own look. */
+.aparte-approval-preview {
+  margin: var(--aparte-space-3) var(--aparte-space-3) 0;
+  max-height: var(--aparte-approval-preview-max-height, 14rem);
+  overflow: auto;
+  border-radius: var(--aparte-radius-sm);
+}
+
 /* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
    the exception, not the expected act, and a box sized for a paragraph invites one. */
 .aparte-approval-instruction {

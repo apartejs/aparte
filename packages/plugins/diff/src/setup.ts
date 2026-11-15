@@ -9,7 +9,7 @@
  * DOM-free at import: the element is created only when a chat draws a resolved call, in a
  * browser. On a server the setup registers the same display and draws nothing.
  */
-import { aparteGlobalConfig, type AparteConfig, type AparteToolCallSegment, type AparteToolDisplay, type AparteToolMatcher } from '@aparte/core';
+import { aparteGlobalConfig, type AparteConfig, type AparteToolCall, type AparteToolCallSegment, type AparteToolDisplay, type AparteToolMatcher } from '@aparte/core';
 import { parseUnifiedDiff } from './parse.js';
 import type { AparteDiffInput } from './types.js';
 
@@ -26,10 +26,27 @@ export interface DiffSetupOptions {
     // `any`: the result's shape is your tool's, and `map` is where you read it.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     map?: (result: any, input: Record<string, unknown>, segment: AparteToolCallSegment) => AparteDiffInput | null | undefined;
+    /**
+     * The change a call WOULD make, from its input, for the approval question: drawn between
+     * the question and its buttons before the call has run. Left out, it is read from the input
+     * when that holds two texts: `before` and `after`, or `old_string` and `new_string`, with
+     * the file's name in `path` or `file_path`. Return `null` for a call with nothing to show;
+     * `false` asks for no preview.
+     */
+    preview?: false | ((input: Record<string, unknown>, call: AparteToolCall) => AparteDiffInput | null | undefined);
     /** Let the reader comment on its lines: `aparte-diff-comment` bubbles out of the chat. Off by default. */
     commentable?: boolean;
     /** Show the diff opened under the line (the default), or `false` for closed until the reader opens it. */
     open?: boolean;
+}
+
+/** The change an input holds as two texts, or `null`: `before`/`after`, or `old_string`/`new_string`. */
+function previewFromInput(input: Record<string, unknown>): AparteDiffInput | null {
+    const before = input['before'] ?? input['old_string'];
+    const after = input['after'] ?? input['new_string'];
+    if (typeof before !== 'string' || typeof after !== 'string') return null;
+    const path = input['path'] ?? input['file_path'];
+    return { path: typeof path === 'string' ? path : '', before, after };
 }
 
 function parseResult(segment: AparteToolCallSegment): unknown {
@@ -117,7 +134,23 @@ export function setupDiff(options: DiffSetupOptions, config: AparteConfig = apar
         return element;
     };
 
-    const own: Pick<AparteToolDisplay, 'details' | 'open'> = { details, open: options.open ?? true };
+    const approvalPreview = (call: AparteToolCall): HTMLElement | null => {
+        if (options.preview === false || typeof document === 'undefined') return null;
+        const input = (call.input ?? {}) as Record<string, unknown>;
+        let source: AparteDiffInput | null | undefined;
+        try {
+            source = options.preview ? options.preview(input, call) : previewFromInput(input);
+        } catch (error) {
+            console.warn('[aparte-diff] the preview of setupDiff threw:', error);
+            return null;
+        }
+        if (source === null || source === undefined || !drawable(source)) return null;
+        const element = document.createElement('aparte-diff') as HTMLElement & { diff: AparteDiffInput | null };
+        element.diff = source;
+        return element;
+    };
+
+    const own: Pick<AparteToolDisplay, 'details' | 'open' | 'approvalPreview'> = { details, open: options.open ?? true, approvalPreview };
     const restores = matchers.map((match) => {
         // What applies to the tool now. A tool with no entry of its own would get one here and
         // lose what a broader entry (`'*'`) said of it, so that is carried into it.
@@ -125,7 +158,7 @@ export function setupDiff(options: DiffSetupOptions, config: AparteConfig = apar
         config.registerToolDisplay(match, { ...before, ...own });
         return () => {
             if (typeof match === 'string' && config.getToolDisplay(match)?.details !== details) return;
-            if (before) config.registerToolDisplay(match, { details: before.details, open: before.open });
+            if (before) config.registerToolDisplay(match, { details: before.details, open: before.open, approvalPreview: before.approvalPreview });
             else config.unregisterToolDisplay(match);
         };
     });

@@ -120,6 +120,13 @@ export interface AparteElicitationRequest {
      * Ignored on `kind: 'question'` — a question's body is its schema.
      */
     details?: string;
+    /**
+     * What the call would do, drawn — mounted between the question and the options of an
+     * approval. An element is mounted as it is; a string goes through the config's HTML
+     * sanitizer. For a tool it is what its display's `approvalPreview` returns. Ignored on
+     * `kind: 'question'`.
+     */
+    preview?: HTMLElement | string;
     /** What to ask for. */
     /**
      * What value to collect. Required on a `'question'`, absent on an `'approval'` —
