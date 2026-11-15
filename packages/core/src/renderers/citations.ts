@@ -17,6 +17,7 @@
  */
 import { contextConfig } from '../config/index.js';
 import { isSafeUrl } from '../config/sanitize.js';
+import { dispatchChatEvent } from '../interop/chat-events.js';
 import type { AparteConfig } from '../config/aparte-config.js';
 import type { AparteCitation, AparteLinkClickEventDetail, AparteSource, AparteTextSegment } from '../types/index.js';
 
@@ -615,12 +616,7 @@ function announceLink(event: MouseEvent): void {
         anchor,
         messageId: chip.closest('aparte-chat-bubble')?.getAttribute('message-id') ?? null,
     };
-    const announced = chip.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
-        bubbles: true,
-        composed: true,
-        cancelable: true,
-        detail,
-    }));
+    const announced = dispatchChatEvent(chip, 'aparte-link-click', detail, { cancelable: true });
     if (!announced) event.preventDefault();
 }
 

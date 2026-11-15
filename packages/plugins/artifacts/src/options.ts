@@ -7,7 +7,7 @@
  * called `setupArtifacts` reads the global settings, which is what its renderers do
  * too.
  */
-import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig, type AparteChatScoped, type AparteConfig } from '@aparte/core';
 import type { ArtifactSegment } from './segment.js';
 import type { ArtifactToolOptions } from './tool.js';
 
@@ -62,7 +62,7 @@ export interface ArtifactRenderOptions {
  *
  * @event aparte-artifact-open
  */
-export interface ArtifactOpenEventDetail {
+export interface ArtifactOpenEventDetail extends AparteChatScoped {
     artifact: ArtifactSegment;
     /** The document the card is a version of (see `artifactDocuments`). */
     documentId: string;

@@ -114,12 +114,15 @@ describe('aparte-conversation-list — the row menu', () => {
         expect(moreOf(el, 'c1').getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('re-assigning conversations while a menu is open drops it cleanly', () => {
+    it('re-assigning conversations while a menu is open keeps it, and draws the rows cleanly once it closes', () => {
         const el = mount([{ id: 'c1', title: 'One' }]);
         openMenu(el, 'c1');
         el.conversations = [{ id: 'c1', title: 'One again' }];
+        expect(el.querySelector('[role="menu"]'), 'the menu is the reader\'s: it is not closed under them').not.toBeNull();
+        key(el.querySelector('[role="menu"]')!, 'Escape');
         expect(el.querySelector('[role="menu"]')).toBeNull();
         expect(moreOf(el, 'c1').getAttribute('aria-expanded')).toBe('false');
+        expect(el.textContent).toContain('One again');
     });
 
     it('pin fires aparte-conversation-pin; on a pinned row the same item fires unpin', () => {

@@ -96,6 +96,23 @@ export const APARTE_DEFAULT_UI_EVENTS = [
  */
 export type AparteUiEventName = typeof APARTE_DEFAULT_UI_EVENTS[number];
 
+/** What `applyElementProps` last wrote on an element, by key: an attribute's string, or `null` for removed. */
+const written = new WeakMap<HTMLElement, Map<string, string | null>>();
+
+/**
+ * Write `value` under `key` unless it is the value this function last wrote there, and remember it.
+ * The comparison is with what was WRITTEN, not with what the element holds now: an element that
+ * changes its own attribute (a select's `value`) keeps what it did until the prop next changes,
+ * which is the rule the generated React components follow — a prop is a write, not a watch.
+ */
+function writeOnce(el: HTMLElement, key: string, value: string | null, write: () => void): void {
+    let last = written.get(el);
+    if (!last) written.set(el, (last = new Map()));
+    if (last.has(key) && last.get(key) === value) return;
+    last.set(key, value);
+    write();
+}
+
 /**
  * Apply props to an aparté custom element. aparté elements are
  * **attribute-driven** (`observedAttributes`): assigning a property is either a
@@ -109,6 +126,12 @@ export type AparteUiEventName = typeof APARTE_DEFAULT_UI_EVENTS[number];
  * `transformValue` is applied to object/function values before they're set as
  * properties — Vue passes `toRaw` to unwrap its reactive proxy (a deep proxy
  * breaks Maps/class internals on a plain custom element); it defaults to identity.
+ *
+ * A wrapper calls this with the whole bag whenever the bag changes, so an attribute or a CSS
+ * variable is written only when its value differs from the one this function last wrote on that
+ * element: re-writing the same string still runs `attributeChangedCallback`. An object or a
+ * function is assigned every time, even the same one, because it may have been mutated in place;
+ * the element's setter keeps its state when it is handed what it already holds.
  */
 export function applyElementProps(
     el: HTMLElement,
@@ -131,9 +154,9 @@ export function applyElementProps(
              * Every other branch of this function removes on null/undefined/false too, and
              * consumers spread arbitrary prop bags in here.
              */
-            if (value === null || value === undefined) el.style.removeProperty(key);
-            else if (typeof value === 'object' || typeof value === 'function') el.style.removeProperty(key);
-            else el.style.setProperty(key, String(value));
+            if (value === null || value === undefined) writeOnce(el, key, null, () => el.style.removeProperty(key));
+            else if (typeof value === 'object' || typeof value === 'function') writeOnce(el, key, null, () => el.style.removeProperty(key));
+            else writeOnce(el, key, String(value), () => el.style.setProperty(key, String(value)));
         } else if (key.toLowerCase().startsWith('on')) {
             // `toLowerCase()` and not `startsWith('on')`, because an attribute NAME is
             // case-insensitive: `setAttribute('ONCLICK', …)` writes the same `onclick`
@@ -159,9 +182,9 @@ export function applyElementProps(
         } else if (value === false && isDefaultOn(el, key)) {
             // ON by default (`<aparte-launcher>`'s `header`, the composer's `submit-on-enter`):
             // the element reads an absent attribute as ON, so removing it would turn it on.
-            el.setAttribute(key, 'false');
+            writeOnce(el, key, 'false', () => el.setAttribute(key, 'false'));
         } else if (value === null || value === undefined || value === false) {
-            el.removeAttribute(key);
+            writeOnce(el, key, null, () => el.removeAttribute(key));
         } else if (typeof value === 'number' && Number.isNaN(value)) {
             /*
              * `NaN` removes the attribute rather than writing the string "NaN".
@@ -179,13 +202,16 @@ export function applyElementProps(
              * what the binding meant. Nothing in the type system can catch this: the
              * generated directive emits `ngAcceptInputType_*: unknown`.
              */
-            el.removeAttribute(key);
+            writeOnce(el, key, null, () => el.removeAttribute(key));
         } else if (value === true) {
-            el.setAttribute(key, '');
+            writeOnce(el, key, '', () => el.setAttribute(key, ''));
         } else if (typeof value === 'object' || typeof value === 'function') {
+            // Always, even the same object or function: it may have been mutated in place (a Vue
+            // `push` behind a deep watch, a Svelte 5 proxy, Svelte 4's `arr = arr`), and the element
+            // keeps what the person was doing in it when given its own value again.
             (el as unknown as Record<string, unknown>)[key] = transformValue(value);
         } else {
-            el.setAttribute(key, String(value));
+            writeOnce(el, key, String(value), () => el.setAttribute(key, String(value)));
         }
     }
 }

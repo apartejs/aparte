@@ -1,4 +1,8 @@
 /**
+ * @deprecated Since 1.10.0. Every plugin's element is bound the same way now, from the spec its
+ * package exports (`modelSelectorElement`): use `AparteSvelteElement<typeof modelSelectorElement>` from `@aparte/svelte`.
+ * This entry keeps working until the next major.
+ *
  * `<aparte-model-selector>` typed for Svelte markup. Import once, anywhere:
  *
  * ```ts

@@ -353,9 +353,10 @@ highlighter installed or replaced after the view was drawn colours it then, and 
 
 ## In a framework
 
-The plugin ships no framework binding. A Vue or Svelte template accepts the tag as it is; Angular
-needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and React a ref to set `diff` and
-`comments`, which are properties.
+The plugin exports `diffElement`, the element's spec, and every framework binds it as it binds
+[any plugin's element](/frameworks/elements/#your-own-element-or-a-plugins): `createAparteElement(diffElement)` in React, whose props then
+include `diff` and `comments`, which are properties, and `onDiffComment`; the tag typed from the
+spec in Vue and Svelte; `CUSTOM_ELEMENTS_SCHEMA` in Angular.
 
 ## Customize
 

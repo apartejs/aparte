@@ -23,17 +23,19 @@ import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 
 ## Typed in your framework
 
-The element is typed by this package rather than by the framework wrappers, through one
-subpath per framework — so you get the binding exactly when you have the plugin:
+The package exports `modelSelectorElement`, the element's spec, and every framework wrapper binds
+it the way it binds any plugin's element:
 
-```ts
-import '@aparte/plugin-model-selector/react';   // or /vue, or /svelte — types only, no runtime
+```tsx
+import { createAparteElement } from '@aparte/react';
+import { modelSelectorElement } from '@aparte/plugin-model-selector';
+
+const ModelSelector = createAparteElement(modelSelectorElement);
 ```
 
-```ts
-// Angular needs a class claiming the selector, so it gets a directive:
-import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
-```
+Vue and Svelte type the tag with `AparteVueElement<typeof modelSelectorElement>` and
+`AparteSvelteElement<typeof modelSelectorElement>`; Angular takes `CUSTOM_ELEMENTS_SCHEMA`. The
+`/react`, `/vue`, `/svelte` and `/angular` entries still work, and are deprecated.
 
 `react`, `vue`, `svelte` and `@angular/core` are **optional** peers.
 

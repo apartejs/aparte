@@ -25,9 +25,11 @@
 import {
     aparteGlobalConfig,
     cssEscape,
+    dispatchChatEvent,
     overrideSegmentRenderer,
     type AparteActivityRenderer,
     type AparteActivitySegment,
+    type AparteChatScoped,
     type AparteConfig,
     type AparteSegmentBase,
     type AparteSegmentRenderer,
@@ -95,7 +97,7 @@ export interface CardAction {
  *
  * @event aparte-card-action
  */
-export interface CardActionEventDetail {
+export interface CardActionEventDetail extends AparteChatScoped {
     card: string;
     action: CardAction;
     data: unknown;
@@ -110,7 +112,7 @@ export interface CardActionEventDetail {
  *
  * @event aparte-card-change
  */
-export interface CardChangeEventDetail {
+export interface CardChangeEventDetail extends AparteChatScoped {
     card: string;
     /** The control's name, as the card gave it (`range`, `power`, `brightness`…). */
     name: string;
@@ -527,9 +529,8 @@ function actionButton(card: string, action: CardAction, data: unknown, origin: C
 
 function runAction(card: string, button: HTMLElement, action: CardAction, url: string | null | undefined, data: unknown, origin: CardOrigin): void {
     const detail: CardActionEventDetail = { card, action, data, origin };
-    const proceed = button.dispatchEvent(new CustomEvent<CardActionEventDetail>('aparte-card-action', {
-        detail, bubbles: true, composed: true, cancelable: true,
-    }));
+    // Stamped with the chat it came from: a page with several acts on the right one.
+    const proceed = dispatchChatEvent(button, 'aparte-card-action', detail, { cancelable: true });
     if (!proceed) return;
     if (url) {
         // `mailto:` and `tel:` hand over to the mail or phone app: a new tab for them is left
@@ -798,9 +799,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         const element = node;
         const waiting = queues.get(element) as Queue<D> | undefined;
         const detail: CardChangeEventDetail = { card: definition.name, name, value, data: waiting?.data ?? data };
-        const proceed = element.dispatchEvent(new CustomEvent<CardChangeEventDetail>('aparte-card-change', {
-            detail, bubbles: true, composed: true, cancelable: true,
-        }));
+        const proceed = dispatchChatEvent(element, 'aparte-card-change', detail, { cancelable: true });
         if (!proceed || !options.onChange) return;
         /*
          * One change at a time, in order, each from the data the one before it left. Run side

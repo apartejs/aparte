@@ -76,7 +76,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "analyze": "cem analyze",
-    "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/model-selector --registry packages/plugins/model-selector/src/generated --angular packages/plugins/model-selector/src/generated"
+    "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/model-selector --registry packages/plugins/model-selector/src/generated --specs packages/plugins/model-selector/src/generated --angular packages/plugins/model-selector/src/generated"
   },
   "peerDependencies": {
     "@angular/core": "^19.2.0 || ^20.0.0 || ^21.0.0",

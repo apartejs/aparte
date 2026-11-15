@@ -3,6 +3,8 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { isTranscriptEmpty } from '../../utils/transcript.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
+import type { AparteChatScoped } from '../../interop/chat-events.js';
 import { visibleReply } from './suggestion-blocks.js';
 
 /**
@@ -14,7 +16,7 @@ import { visibleReply } from './suggestion-blocks.js';
 export type AparteSuggestion = string | { label: string; prompt?: string };
 
 /** Detail of `aparte-suggestion`: what was shown and what will be sent. */
-export interface AparteSuggestionEventDetail {
+export interface AparteSuggestionEventDetail extends AparteChatScoped {
     label: string;
     prompt: string;
 }
@@ -189,7 +191,8 @@ export class AparteSuggestions extends HTMLElement {
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this.isConnected) return;
         if (name === 'suggestions') {
             this._readAttribute();
@@ -328,6 +331,14 @@ export class AparteSuggestions extends HTMLElement {
     }
 
     private _render(): void {
+        // Drawn again on every assignment, and a wrapper assigns on every render of the app around
+        // it: the chip the keyboard was on keeps the focus (the chip with the same text, else the
+        // one at its place), and the row its scroll.
+        const was = this.querySelector<HTMLElement>('.aparte-suggestions');
+        const chips = was ? [...was.querySelectorAll<HTMLElement>('.aparte-suggestion')] : [];
+        const focused = chips.findIndex((chip) => chip === document.activeElement);
+        const focusedText = focused >= 0 ? chips[focused]!.textContent : null;
+        const scroll = was?.scrollLeft ?? 0;
         this.replaceChildren();
         if (this._suggestions.length === 0) {
             this.setAttribute('data-empty', '');
@@ -350,6 +361,10 @@ export class AparteSuggestions extends HTMLElement {
             row.appendChild(button);
         }
         this.appendChild(row);
+        row.scrollLeft = scroll;
+        if (focused < 0) return;
+        const next = [...row.children] as HTMLElement[];
+        (next.find((chip) => chip.textContent === focusedText) ?? next[Math.min(focused, next.length - 1)])?.focus();
     }
 
     private _sending = false;
@@ -372,13 +387,7 @@ export class AparteSuggestions extends HTMLElement {
 
     /** The chat the sending composer belongs to: its `target`, else the id of the chat host above it. */
     private _ownChatId(): string | undefined {
-        const composer = this._composer;
-        const attr = composer?.getAttribute('target');
-        if (attr) return attr;
-        for (let el = composer?.parentElement ?? null; el; el = el.parentElement) {
-            if ((el.tagName.toLowerCase() === 'aparte-chat' || el.hasAttribute('data-aparte-chat')) && el.id) return el.id;
-        }
-        return undefined;
+        return chatIdOf(this._composer);
     }
 
     /** A chip sent: no other chip sends until the turn has started, or a second has passed without one. */
@@ -391,9 +400,7 @@ export class AparteSuggestions extends HTMLElement {
 
     private _activate(suggestion: AparteSuggestion): void {
         const detail: AparteSuggestionEventDetail = { label: labelOf(suggestion), prompt: promptOf(suggestion) };
-        const proceed = this.dispatchEvent(new CustomEvent<AparteSuggestionEventDetail>('aparte-suggestion', {
-            detail, bubbles: true, composed: true, cancelable: true,
-        }));
+        const proceed = dispatchChatEvent(this, 'aparte-suggestion', detail, { cancelable: true });
         if (!proceed) return;
         // Resolved again at click time: on a page that builds its composer after this
         // element, the one found at connection may have been nothing.

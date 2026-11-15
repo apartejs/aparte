@@ -9,6 +9,7 @@ import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
 import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
+import { chatIdOf } from '../interop/chat-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
@@ -1457,14 +1458,7 @@ export class AparteClient {
      * through to the next one up rather than answer "no id".
      */
     private _targetIdOf(el: HTMLElement | null | undefined): string | undefined {
-        let node: HTMLElement | null = el ?? null;
-        while (node) {
-            const tag = node.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || node.hasAttribute?.('data-aparte-chat');
-            if (isHost && node.id) return node.id;
-            node = node.parentElement;
-        }
-        return el?.id || undefined;
+        return chatIdOf(el) ?? (el?.id || undefined);
     }
 
     /**

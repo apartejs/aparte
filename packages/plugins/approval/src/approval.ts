@@ -8,7 +8,7 @@
  * `getMode()` / `onModeChange` and writes wherever it keeps its preferences.
  */
 import {
-    aparteGlobalConfig, type AparteApprovalModeChangeEventDetail, type AparteCollectCommandsEventDetail,
+    aparteGlobalConfig, dispatchChatEvent, type AparteApprovalModeChangeEventDetail, type AparteCollectCommandsEventDetail,
     type AparteConfig, type AparteApprovalPolicy,
 } from '@aparte/core';
 import type { AparteApprovalMode } from './aparte-approval-mode.js';
@@ -127,9 +127,7 @@ export function setupApproval(options: ApprovalSetupOptions, config: AparteConfi
                     controller.setMode(candidate);
                     if (mode === previousMode) return;
                     // As the switch does: an app saves the choice from this event.
-                    context.composer.dispatchEvent(new CustomEvent<AparteApprovalModeChangeEventDetail>('aparte-approval-mode-change', {
-                        bubbles: true, composed: true, detail: { mode: candidate, previousMode },
-                    }));
+                    dispatchChatEvent<AparteApprovalModeChangeEventDetail>(context.composer, 'aparte-approval-mode-change', { mode: candidate, previousMode });
                 },
             })),
         });

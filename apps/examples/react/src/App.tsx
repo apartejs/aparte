@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AparteChat, AparteUi, useAparteChat } from '@aparte/react';
+import { AparteChat, createAparteElement, useAparteChat } from '@aparte/react';
+import { approvalModeElement } from '@aparte/plugin-approval';
 import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
 import { mountModelSelector } from '../../_shared/site-setup';
 import { routeLink } from '../../_shared/links';
@@ -15,6 +16,13 @@ import {
 import { FrameworkWeatherCard } from './FrameworkWeatherCard';
 
 const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
+
+// The approval switch is a plugin's element: the plugin exports its spec, and the wrapper makes a
+// component of it — typed props, `labels` set as the property it is, an `onApprovalModeChange`.
+// At module level, so it is one component for the life of the page.
+const ApprovalMode = createAparteElement(approvalModeElement);
+// The site's own names for the modes; the ones it leaves out keep the plugin's.
+const APPROVAL_LABELS = { ask: 'Ask first' };
 
 /**
  * The chat site, in React: the same page as the vanilla example — the sidebar with
@@ -160,11 +168,9 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                         // `routeLink`), so the event is cancelled; another site keeps its new tab.
                         onLinkClick={(detail, event) => { if (routeLink(detail.href)) event.preventDefault(); }}
                         // The toolbar row under the composer: the approval switch, and the
-                        // model selector too under `?selector=toolbar`. `<AparteUi>` rather
-                        // than a raw `<aparte-approval-mode>` tag — the plugin ships no
-                        // React subpath, and this is the documented way to mount any
-                        // aparté element from React without one.
-                        toolbar={<AparteUi name="aparte-approval-mode" />}
+                        // model selector too under `?selector=toolbar`. The switch is the
+                        // component made from the plugin's spec, above.
+                        toolbar={<ApprovalMode labels={APPROVAL_LABELS} />}
                         emptyState={
                             <div className="welcome" id="welcome">
                                 <div className="welcome__body">

@@ -60,6 +60,7 @@
         "dev": "vite",
         "build": "vite build && tsc -b --emitDeclarationOnly --force && pnpm run analyze && node ../../../scripts/stamp-dist.mjs",
         "analyze": "cem analyze",
+        "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/subagents --registry packages/plugins/subagents/src/generated --specs packages/plugins/subagents/src/generated",
         "preview": "vite preview",
         "test": "vitest",
         "test:run": "vitest run",

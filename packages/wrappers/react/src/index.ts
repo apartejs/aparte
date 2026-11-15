@@ -29,6 +29,10 @@ export type { AparteUiProps } from './components/AparteUi.js';
 // React 18 and 19 alike. Generated from the manifest (`scripts/gen-element-bindings.mjs`), so an
 // element or an event added to core reaches here with no edit; `<AparteChat>` stays the chat's.
 export * from './generated/element-components.js';
+// The same kind of component for an element a plugin — or you — describes with an
+// `AparteElementSpec`: `createAparteElement(approvalModeElement)`.
+export { createAparteElement } from './components/create-aparte-element.js';
+export type { AparteSpecElementProps } from './components/create-aparte-element.js';
 // Your components in tool calls and segments, through portals.
 export { AparteToolUI, AparteSegmentUI } from './components/AparteToolUI.js';
 export type { AparteToolUIProps, AparteSegmentUIProps } from './components/AparteToolUI.js';

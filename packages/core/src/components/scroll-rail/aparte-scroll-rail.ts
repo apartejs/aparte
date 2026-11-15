@@ -173,7 +173,8 @@ export class AparteScrollRail extends HTMLElement {
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this.isConnected) return;
         if (name === 'target') this._attach();
         else this._rebuild();

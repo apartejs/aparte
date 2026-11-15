@@ -209,8 +209,8 @@ describe('rule 5 — the chat\'s @fires against what reaches its root', () => {
 
     it('refuses an event cancelable at one site and not at another — no listener could know', () => {
         const tree = withSource(ATTACHMENTS, (src) => src.replace(
-            "new CustomEvent('aparte-attachment-preview', {",
-            "new CustomEvent('aparte-attachment-preview', {\n                    cancelable: true,",
+            "type: images[i]?.type ?? '' });",
+            "type: images[i]?.type ?? '' }, { cancelable: true });",
         ));
         const problems = onlyAbout(problemsOf(tree), 'aparte-attachment-preview');
         expect(problems).toHaveLength(1);
@@ -296,6 +296,13 @@ describe('dispatchesIn — the one reader of a dispatch site', () => {
         expect(host).toMatchObject({ receiver: 'this._binding.host', bubbles: true });
         const [helper] = dispatchesIn("dispatchLifecycleEvent(target, 'aparte-v', { messageId }, id);");
         expect(helper).toMatchObject({ name: 'aparte-v', viaHelper: true, bubbles: true, cancelable: false, hasDetail: true, receiver: 'target' });
+    });
+
+    it('reads `dispatchChatEvent` as a bubbling dispatch on the element it is handed, never the host', () => {
+        const [chat] = dispatchesIn("dispatchChatEvent(this, 'aparte-t', { value });");
+        expect(chat).toMatchObject({ name: 'aparte-t', viaHelper: false, onWindow: false, bubbles: true, cancelable: false, hasDetail: true, receiver: 'this' });
+        const [cancel] = dispatchesIn("const go = dispatchChatEvent(button, 'aparte-s', { a: { b: 1 } }, { cancelable: true });");
+        expect(cancel).toMatchObject({ name: 'aparte-s', cancelable: true, receiver: 'button' });
     });
 
     it('cannot tell from an init it does not see, and says so rather than guessing "no"', () => {

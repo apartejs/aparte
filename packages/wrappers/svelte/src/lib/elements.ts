@@ -24,7 +24,10 @@
 // compile.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { HTMLAttributes } from 'svelte/elements';
-import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs, AparteUiEventName } from '@aparte/core';
+import type {
+    AparteElementAttributes, AparteElementTagName, AparteSpecAttributes, AparteSpecEvents, AparteSpecProperties,
+    AparteTemplateAttrs, AparteUiEventName,
+} from '@aparte/core';
 import type { AparteElementProperties } from './generated/element-members.js';
 
 /**
@@ -73,3 +76,28 @@ export type AparteSvelteElements = {
 declare module 'svelte/elements' {
     interface SvelteHTMLElements extends AparteSvelteElements {}
 }
+
+/** The detail an event of a spec carries. */
+type SpecDetail<E> = E extends { readonly detail: infer D } ? D : never;
+
+/**
+ * The `SvelteHTMLElements` entry for an element a plugin — or you — describes with an
+ * `AparteElementSpec`: its attributes in the template spelling, its properties, and its events as
+ * `on:` handlers (and Svelte 5's `on<event>` attributes), typed the way core's own elements are.
+ *
+ * @example
+ * ```ts
+ * import type { AparteSvelteElement } from '@aparte/svelte';
+ * import type { approvalModeElement } from '@aparte/plugin-approval';
+ *
+ * declare module 'svelte/elements' {
+ *   interface SvelteHTMLElements { 'aparte-approval-mode': AparteSvelteElement<typeof approvalModeElement> }
+ * }
+ * ```
+ */
+export type AparteSvelteElement<S> =
+    HTMLAttributes<HTMLElement>
+    & AparteTemplateAttrs<AparteSpecAttributes<S>>
+    & Partial<AparteSpecProperties<S>>
+    & { [K in keyof AparteSpecEvents<S> & string as `on:${K}`]?: (event: CustomEvent<SpecDetail<AparteSpecEvents<S>[K]>>) => void }
+    & { [K in keyof AparteSpecEvents<S> & string as `on${K}`]?: (event: CustomEvent<SpecDetail<AparteSpecEvents<S>[K]>>) => void };

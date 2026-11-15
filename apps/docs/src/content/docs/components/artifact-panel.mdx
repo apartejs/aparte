@@ -653,11 +653,10 @@ not declare `create_artifact` on the server: the same tool on both sides is refu
 
 ### In a framework
 
-The plugin ships no framework binding. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
-component that hosts the tag; Vue and Svelte accept it as it is. In a React `.tsx` file,
-declare the tag once, as for
-[any plugin's element](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package).
-Set `render`, `read` and `documents` as properties, through a `ref`. The class is exported as
+`@aparte/plugin-artifacts/panel` exports `artifactPanelElement`, the element's spec, and every
+framework binds it as it binds [any plugin's element](/frameworks/elements/#your-own-element-or-a-plugins): `createAparteElement(artifactPanelElement)`
+in React, whose props then include `render`, `read` and `documents`; the tag typed from the spec in
+Vue and Svelte; `CUSTOM_ELEMENTS_SCHEMA` in Angular, where `[render]` sets the property. The class is exported as
 `AparteArtifactPanel`.
 
 ## API

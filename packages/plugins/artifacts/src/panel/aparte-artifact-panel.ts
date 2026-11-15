@@ -14,8 +14,8 @@
  * ones the app wrote, so a framework that owns those children keeps owning them.
  */
 import {
-    resolveConfig, runWithConfig, subscribeConfigChange,
-    type AparteConfig, type AparteLinkClickEventDetail, type AparteMessage,
+    dispatchChatEvent, resolveConfig, runWithConfig, subscribeConfigChange,
+    type AparteChatScoped, type AparteConfig, type AparteLinkClickEventDetail, type AparteMessage,
 } from '@aparte/core';
 import { artifactCard } from '../card.js';
 import { artifactDocuments, type ArtifactDocument, type ArtifactDocumentsOptions, type ArtifactVersion } from '../documents.js';
@@ -36,7 +36,7 @@ export type ArtifactPanelSource = (Element | object) & { getMessages?: () => Apa
 export type ArtifactPanelRender = (version: ArtifactVersion, container: HTMLElement) => boolean | (() => void);
 
 /** `aparte-artifact-version-change`: what the panel shows changed, by the arrows, by `show()`, or because a document or a version arrived. */
-export interface ArtifactVersionChangeEventDetail {
+export interface ArtifactVersionChangeEventDetail extends AparteChatScoped {
     documentId: string;
     /** 1, 2, 3… */
     version: number;
@@ -189,8 +189,11 @@ export class AparteArtifactPanel extends ElementBase {
     /** Draw a version yourself: see {@link ArtifactPanelRender}. `null` goes back to the built-in rendering. */
     get render(): ArtifactPanelRender | null { return this._render; }
     set render(value: ArtifactPanelRender | null) {
+        // Handed the one it has (a wrapper assigns its props again on every render of the app
+        // around it): a refresh, which keeps the tab and the preview the reader chose. Another
+        // one starts the body over.
+        if (value !== this._render) this._clearBody();
         this._render = value;
-        this._clearBody();
         this.refresh();
     }
 
@@ -378,9 +381,7 @@ export class AparteArtifactPanel extends ElementBase {
         const announced = `${document.id}\u0000${version.index}\u0000${total}`;
         // The first document shown is announced too: an app hangs its own header details on it.
         if (this._announced !== announced) {
-            this.dispatchEvent(new CustomEvent<ArtifactVersionChangeEventDetail>('aparte-artifact-version-change', {
-                bubbles: true, composed: true, detail: { documentId: document.id, version: version.index, total },
-            }));
+            dispatchChatEvent<ArtifactVersionChangeEventDetail>(this, 'aparte-artifact-version-change', { documentId: document.id, version: version.index, total });
         }
         this._announced = announced;
     }

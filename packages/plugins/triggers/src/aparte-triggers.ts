@@ -1,5 +1,5 @@
 import {
-    deferHydrationOf, placeFloating, resolveConfig,
+    chatIdOf, deferHydrationOf, dispatchChatEvent, placeFloating, resolveConfig,
     type AparteComposer, type AparteComposerInput, type AparteComposerToken,
 } from '@aparte/core';
 import { collectCommands, commandItems } from './collect.js';
@@ -70,8 +70,27 @@ export class AparteTriggers extends HTMLElement {
     get triggers(): readonly AparteTrigger[] { return this._triggers; }
     set triggers(next: readonly AparteTrigger[]) {
         this._triggers = next ?? [];
-        this.close();
+        const hit = this._hit;
+        if (!hit) return;
+        // A wrapper hands them again on every render of the app around it, the same array or an
+        // equal one, while the person types. The list on screen stays open, on the row they were
+        // on, when the trigger it shows is still declared at the same place; it is listed again
+        // from the new declaration, which may have been mutated in place.
+        const caret = this._input?.getCaret() ?? null;
+        const again = caret ? detectTrigger(caret.text, caret.offset, this._triggers) : null;
+        if (!again || again.start !== hit.start || again.trigger.char !== hit.trigger.char) {
+            this.close();
+            return;
+        }
+        this._hit = again;
+        this._collectCommands(again);
+        this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
+        this._truncate(1);
+        this._loadRoot(again);
     }
+
+    /** The row to stay on when the root list is drawn again for new triggers: its item's id. */
+    private _keepActive: string | null = null;
 
     /** A menu is open. */
     get isOpen(): boolean { return this._levels.length > 0; }
@@ -145,7 +164,7 @@ export class AparteTriggers extends HTMLElement {
             config: resolveConfig(this),
             composer,
             chat,
-            targetId: composer.getAttribute('target') || chat?.id || undefined,
+            targetId: chatIdOf(composer),
         };
     }
 
@@ -192,6 +211,13 @@ export class AparteTriggers extends HTMLElement {
     private _open(): void {
         const hit = this._hit!;
         this._truncate(0);
+        this._collectCommands(hit);
+        window.addEventListener('resize', this._place);
+        window.addEventListener('scroll', this._place, true);
+    }
+
+    /** The commands plugins add, for a trigger that lists them. */
+    private _collectCommands(hit: TriggerHit): void {
         const { commands } = hit.trigger;
         if (commands) {
             const scope = this._scope();
@@ -199,8 +225,6 @@ export class AparteTriggers extends HTMLElement {
         } else {
             this._commands = [];
         }
-        window.addEventListener('resize', this._place);
-        window.addEventListener('scroll', this._place, true);
     }
 
     // ── Lists ───────────────────────────────────────────────────────────
@@ -280,6 +304,11 @@ export class AparteTriggers extends HTMLElement {
         level.status = status;
         level.active = level.rows.findIndex((row) => !row.item.disabled && row.item.id !== BACK_ID);
         if (level.active < 0) level.active = level.rows.length ? 0 : -1;
+        const kept = index === 0 && this._keepActive !== null
+            ? level.rows.findIndex((row) => row.item.id === this._keepActive && !row.item.disabled)
+            : -1;
+        if (index === 0) this._keepActive = null;
+        if (kept >= 0) level.active = kept;
         this._paint(level, index);
         this._place();
         this._syncEditor();
@@ -607,9 +636,7 @@ export class AparteTriggers extends HTMLElement {
             if (el) this._openChild(levelIndex, row, el);
             return;
         }
-        const proceed = this.dispatchEvent(new CustomEvent<AparteTriggerSelectEventDetail>('aparte-trigger-select', {
-            bubbles: true, composed: true, cancelable: true, detail: { trigger: hit.trigger, item, query: hit.query },
-        }));
+        const proceed = dispatchChatEvent<AparteTriggerSelectEventDetail>(this, 'aparte-trigger-select', { trigger: hit.trigger, item, query: hit.query }, { cancelable: true });
         this.close();
         if (!proceed) return;
         const end = input.getCaret()?.offset ?? hit.end;

@@ -339,6 +339,13 @@ export type { ExportedMessageRepository } from './runtime/message-repository.js'
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
+// Pure the same way: they read and dispatch on the element they are handed, only when called.
+export { chatIdOf, dispatchChatEvent } from './interop/chat-events.js';
+export type { AparteChatScoped } from './interop/chat-events.js';
+export type {
+    AparteElementSpec, AparteElementSpecEvent, AparteElementSpecEvents,
+    AparteSpecAttributes, AparteSpecProperties, AparteSpecEvents,
+} from './interop/element-spec.js';
 // A type, so it costs nothing here and its absence WAS a compile error for an SSR
 // consumer — `check:node-barrel-types` caught it the moment the browser barrel gained it.
 export type { AparteUiEventName } from './interop/element-props.js';

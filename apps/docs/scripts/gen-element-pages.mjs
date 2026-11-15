@@ -35,7 +35,7 @@ import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readCatalogue } from './lib/catalogue.mjs';
-import { bindingName, readElements, readNativeEventNames, readReactComponents } from '../../../scripts/gen-element-bindings.mjs';
+import { bindingName, readElements, readNativeEventNames, readReactComponents, specName } from '../../../scripts/gen-element-bindings.mjs';
 import bindingConfig from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -365,6 +365,8 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
     ? `\n<Tabs syncKey="framework">\n`
     : `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
 
+  if (plugin?.spec) return md + specTabs(decl, plugin, { attr, bool, ev, detail, openTag, plain });
+
   md += `<TabItem label="Vanilla">\n\n\`\`\`html\n${openTag(plain)}\n\`\`\`\n`;
   if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
   md += `\n</TabItem>\n`;
@@ -433,6 +435,36 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
       : `Written as a plain custom element.`
   }\n\n</TabItem>\n`;
 
+  md += `</Tabs>\n\nInstallation and the framework-specific traps: [React](/frameworks/react/) · [Vue](/frameworks/vue/) · [Svelte](/frameworks/svelte/) · [Angular](/frameworks/angular/).\n`;
+  return md;
+}
+
+/**
+ * The tabs of a plugin's element that exports a spec: React makes a component of it, Vue and Svelte
+ * type the tag from it, Angular takes `CUSTOM_ELEMENTS_SCHEMA`. The same door for every plugin.
+ */
+function specTabs(decl, plugin, { attr, bool, ev, detail, openTag, plain }) {
+  const tag = decl.tagName;
+  const { name, from } = plugin.spec;
+  const component = tag.replace(/^aparte-/, '').split('-').map((p) => p[0].toUpperCase() + p.slice(1)).join('');
+  const binding = ev ? bindingName(tag, ev.name, {}) : null;
+  const callback = binding ? `on${binding[0].toUpperCase()}${binding.slice(1)}` : null;
+  const props = [
+    attr ? (bool ? attr.name : `${attr.name}="…"`) : null,
+    callback ? `${callback}={${detail ? '(detail) => use(detail)' : '() => onIt()'}}` : null,
+  ].filter(Boolean);
+  const how = '([how](/frameworks/elements/#your-own-element-or-a-plugins))';
+  let md = `<TabItem label="Vanilla">\n\n\`\`\`html\n${openTag(plain)}\n\`\`\`\n`;
+  if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
+  md += `\n</TabItem>\n`;
+  md += `<TabItem label="React">\n\n\`\`\`tsx\nimport { createAparteElement } from '@aparte/react';\nimport { ${name} } from '${from}';\n\nconst ${component} = createAparteElement(${name});\n\n<${component}${props.length ? ` ${props.join(' ')}` : ''} />\n\`\`\`\n\n`
+    + `\`createAparteElement\` makes a component of the plugin's spec, once, at module level: the tag's attributes as props by their HTML names, its properties as props, each event an \`onXxx\` callback called with \`(detail, event)\` ${how}.\n\n</TabItem>\n`;
+  md += `<TabItem label="Vue">\n\n\`\`\`ts\nimport type { AparteVueElement } from '@aparte/vue';\nimport type { ${name} } from '${from}';\n\ndeclare module 'vue' {\n  interface GlobalComponents { '${tag}': AparteVueElement<typeof ${name}> }\n}\n\`\`\`\n\n\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\n`
+    + `Declared through Vue's \`GlobalComponents\` from the plugin's spec, so \`vue-tsc\` checks the tag, its properties and its events ${how}.\n\n</TabItem>\n`;
+  md += `<TabItem label="Svelte">\n\n\`\`\`ts\nimport type { AparteSvelteElement } from '@aparte/svelte';\nimport type { ${name} } from '${from}';\n\ndeclare module 'svelte/elements' {\n  interface SvelteHTMLElements { '${tag}': AparteSvelteElement<typeof ${name}> }\n}\n\`\`\`\n\n\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\n`
+    + `Declared through \`SvelteHTMLElements\` from the plugin's spec, so \`svelte-check\` covers the attributes, the properties and the \`on:\` handlers ${how}.\n\n</TabItem>\n`;
+  md += `<TabItem label="Angular">\n\n\`\`\`html\n<${tag}${attr ? ` ${bool ? `[attr.${attr.name}]="on ? '' : null"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${ev.name})="${detail ? 'use($event.detail)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\n`
+    + `The plugin's element takes \`CUSTOM_ELEMENTS_SCHEMA\` on the component that hosts it, as any custom element does: \`[x]="v"\` sets a property, \`(event)\` listens for the DOM event ${how}.\n\n</TabItem>\n`;
   md += `</Tabs>\n\nInstallation and the framework-specific traps: [React](/frameworks/react/) · [Vue](/frameworks/vue/) · [Svelte](/frameworks/svelte/) · [Angular](/frameworks/angular/).\n`;
   return md;
 }
@@ -708,6 +740,22 @@ function pluginBindings(dir, pkg) {
   return { pkg, react: has('react'), vue: has('vue'), svelte: has('svelte'), angular };
 }
 
+/**
+ * The spec a plugin exports for `tag` (`approvalModeElement`), and the entry that exports it — the
+ * main one, or a subpath such as `@aparte/plugin-artifacts/panel` — or `null` when it exports none.
+ */
+function pluginSpec(dir, pkg, tag) {
+  const name = specName(tag);
+  const exported = (file) => existsSync(file) && new RegExp(`export\\s*\\{[^}]*\\b${name}\\b`).test(readFileSync(file, 'utf8'));
+  if (exported(join(dir, 'src', 'index.ts'))) return { name, from: pkg };
+  const exports = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).exports ?? {};
+  for (const [key, value] of Object.entries(exports)) {
+    const source = typeof value === 'object' ? value['@aparte-workspace/source'] : null;
+    if (key !== '.' && source && exported(join(dir, source))) return { name, from: `${pkg}/${key.slice(2)}` };
+  }
+  return null;
+}
+
 if (existsSync(PLUGIN_DIR)) {
   mkdirSync(PARTIALS, { recursive: true });
   const seen = new Set();
@@ -720,7 +768,7 @@ if (existsSync(PLUGIN_DIR)) {
       for (const d of mod.declarations ?? []) {
         if (!d.customElement || !d.tagName) continue;
         apiElements.push(apiEntry(d, pkg));
-        pluginDecls.push({ decl: d, plugin: pluginBindings(join(PLUGIN_DIR, plugin), pkg) });
+        pluginDecls.push({ decl: d, plugin: { ...pluginBindings(join(PLUGIN_DIR, plugin), pkg), spec: pluginSpec(join(PLUGIN_DIR, plugin), pkg, d.tagName) } });
         seen.add(`${d.tagName}.mdx`);
         writeIfChanged(
           join(PARTIALS, `${d.tagName}.mdx`),

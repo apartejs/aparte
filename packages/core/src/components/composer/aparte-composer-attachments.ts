@@ -3,6 +3,7 @@ import type { AparteAttachmentState } from '../../types/index.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { dispatchChatEvent } from '../../interop/chat-events.js';
 
 
 /**
@@ -216,11 +217,7 @@ export class AparteComposerAttachments extends HTMLElement {
             img.setAttribute('tabindex', '0');
             img.setAttribute('aria-label', images[i]?.name ?? '');
             const open = (): void => {
-                this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
-                    bubbles: true,
-                    composed: true,
-                    detail: { url: img.src, name: images[i]?.name ?? '', type: images[i]?.type ?? '' },
-                }));
+                dispatchChatEvent(this, 'aparte-attachment-preview', { url: img.src, name: images[i]?.name ?? '', type: images[i]?.type ?? '' });
             };
             img.addEventListener('click', open);
             img.addEventListener('keydown', (e) => {

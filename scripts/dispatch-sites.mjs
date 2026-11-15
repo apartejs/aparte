@@ -100,7 +100,7 @@ function flagIn(init, flag) {
  */
 export function dispatchesIn(text) {
     const out = [];
-    const CALL = /(?:new CustomEvent(?:<[^>(]*>)?|dispatchLifecycleEvent|_dispatchLifecycleEvent)\s*\(/g;
+    const CALL = /(?:new CustomEvent(?:<[^>(]*>)?|dispatchLifecycleEvent|_dispatchLifecycleEvent|dispatchChatEvent)\s*(?:<[^>(]*>)?\(/g;
     for (const m of text.matchAll(CALL)) {
         let depth = 1;
         let i = m.index + m[0].length;
@@ -114,6 +114,22 @@ export function dispatchesIn(text) {
         if (!name) continue;
         // The lifecycle helper always stamps `targetId`, so it always has a detail.
         const viaHelper = m[0].includes('dispatchLifecycleEvent');
+        // `dispatchChatEvent(el, name, detail, init?)` (`interop/chat-events.ts`): bubbling and
+        // composed ON the element it is handed — not the host, which is what `viaHelper` means
+        // to the chat surface — with a detail, and cancelable when its init says so.
+        if (m[0].startsWith('dispatchChatEvent')) {
+            const args = splitArgs(body);
+            out.push({
+                name: name[1],
+                hasDetail: true,
+                onWindow: false,
+                receiver: args[0]?.replace(/\s+/g, '') ?? null,
+                viaHelper: false,
+                bubbles: true,
+                cancelable: flagIn(args[3], 'cancelable') === true,
+            });
+            continue;
+        }
         // WHERE it goes. `window.dispatchEvent(new CustomEvent(…))` is a page-wide broadcast
         // no element listener can hear; everything else — `this`, a resolved child, the
         // lifecycle helper (whose callers hand it the chat host or its render target) —

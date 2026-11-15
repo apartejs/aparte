@@ -50,8 +50,8 @@ row; the four framework wrappers take it through their `toolbar` slot (see
 `description` and its `contextWindow` ("Long documents · 128K context"). The trigger keeps the
 name alone, and the filter searches the line too.
 
-The plugin types its own element, one subpath per framework, so the tag is checked as soon as
-you import that subpath once:
+The plugin exports `modelSelectorElement`, its element's spec, and every framework binds it as it
+binds [any plugin's element](/frameworks/elements/#your-own-element-or-a-plugins):
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
@@ -66,53 +66,64 @@ Nothing to import: the tag is in `HTMLElementTagNameMap` once the plugin is impo
 </TabItem>
 <TabItem label="React">
 
-```ts
-import '@aparte/plugin-model-selector/react';
-```
-
+{/* doc-check: skip excerpt — a fragment of your component */}
 ```tsx
-<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+import { createAparteElement } from '@aparte/react';
+import { modelSelectorElement } from '@aparte/plugin-model-selector';
+
+const ModelSelector = createAparteElement(modelSelectorElement);
+
+<ModelSelector persist searchable placeholder="Pick a model" onModelChange={(detail) => use(detail.modelId)} />
 ```
 
 </TabItem>
 <TabItem label="Vue">
 
+{/* doc-check: skip augments 'vue', which the snippet compiler has no resolution for */}
 ```ts
-import '@aparte/plugin-model-selector/vue';
+import type { AparteVueElement } from '@aparte/vue';
+import type { modelSelectorElement } from '@aparte/plugin-model-selector';
+
+declare module 'vue' {
+  interface GlobalComponents { 'aparte-model-selector': AparteVueElement<typeof modelSelectorElement> }
+}
 ```
 
 ```vue
-<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" @aparte-model-change="(e) => use(e.detail.modelId)" />
 ```
 
 </TabItem>
 <TabItem label="Svelte">
 
+{/* doc-check: skip augments 'svelte/elements', which the snippet compiler has no resolution for */}
 ```ts
-import '@aparte/plugin-model-selector/svelte';
+import type { AparteSvelteElement } from '@aparte/svelte';
+import type { modelSelectorElement } from '@aparte/plugin-model-selector';
+
+declare module 'svelte/elements' {
+  interface SvelteHTMLElements { 'aparte-model-selector': AparteSvelteElement<typeof modelSelectorElement> }
+}
 ```
 
 ```svelte
-<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" on:aparte-model-change={(e) => use(e.detail.modelId)} />
 ```
 
 </TabItem>
 <TabItem label="Angular">
 
-A directive, because Angular's template compiler needs a class claiming the selector to turn
-`[persist]` into a real binding.
-
-```ts
-import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
-// @Component({ imports: [AparteModelSelectorDirective], … })
-```
+With `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it:
 
 ```html
-<aparte-model-selector [persist]="true" [searchable]="true" (modelChange)="use($event.modelId)" />
+<aparte-model-selector persist searchable placeholder="Pick a model" (aparte-model-change)="use($event.detail.modelId)"></aparte-model-selector>
 ```
 
 </TabItem>
 </Tabs>
+
+The framework entries the plugin shipped before (`@aparte/plugin-model-selector/react`, `/vue`,
+`/svelte`, and the `/angular` directive) still work, and are deprecated in favour of the spec.
 
 Outside Angular, a presence attribute is `''` to set and `null` to remove, never `false`
 ([the rule](/frameworks/elements/#presence-attributes)). The

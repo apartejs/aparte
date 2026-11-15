@@ -161,6 +161,7 @@ export class AparteSelect extends HTMLElement {
     }
 
     attributeChangedCallback(name: string, oldValue: string, newValue: string): void {
+        if (oldValue === newValue) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this.isConnected) return;
 
         if (name === 'value' && oldValue !== newValue && newValue !== this._value) {
