@@ -15,7 +15,7 @@
  * and `conditionFromText`.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, type Loose } from '../kit/dom.js';
 import { formatDay, formatHour, formatNumber, formatPercent, formatUnit, formatWhen, toDate } from '../kit/format.js';
 import { sparkline } from '../kit/sparkline.js';
@@ -573,7 +573,7 @@ export const weatherCard = defineCard<WeatherData, WeatherVariant>({
 });
 
 /** Draw a tool's weather as this card — returns the function that stops it. */
-export function setupWeatherCard(options: CardSetupOptions<WeatherData, WeatherVariant> = {}): () => void {
+export function setupWeatherCard(options: CardSetupOptions<WeatherData, WeatherVariant> = {}): CardSetupHandle {
     return weatherCard.setup(options);
 }
 

@@ -24,6 +24,7 @@ the same way in React, Vue, Svelte, Angular and plain HTML.
 | A message, by who wrote it | `aparte-chat-bubble[data-role]`: `user` or `assistant` |
 | A reply still being written | `[aria-busy="true"]`, inside the message |
 | A turn that failed | `[data-error-code]`, in the reply |
+| The value a select shows | `aparte-select [role="combobox"]`, whose text is the shown value and nothing else (a searchable select shows its button, `[aria-haspopup="listbox"]`) |
 
 These are a promise like the rest of [what will not change](/reference/stability/): a hook moves only
 in a major version, after a notice. `data-aparte-chat`, `data-act` and `data-role` are attributes of

@@ -778,15 +778,15 @@ export class AparteSelect extends HTMLElement {
         }
         // The width stack — rebuilt here because this runs on every change to the
         // options too, so an option written later (or a list refreshed in place)
-        // still counts. `textContent` per span: a label is consumer text, never markup.
+        // still counts. `data-label` per span, drawn by CSS as generated content (so the trigger's textContent is the shown value only): a label is consumer text, never markup.
         const sizer = this._trigger?.querySelector('.aparte-select-label-sizer');
         if (sizer) {
             const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => optionLabelText(o))];
-            const current = Array.from(sizer.children, (s) => s.textContent ?? '');
+            const current = Array.from(sizer.children, (s) => s.getAttribute('data-label') ?? '');
             if (labels.length !== current.length || labels.some((l, i) => l !== current[i])) {
                 sizer.replaceChildren(...labels.map((text) => {
                     const span = document.createElement('span');
-                    span.textContent = text;
+                    span.setAttribute('data-label', text);
                     return span;
                 }));
             }

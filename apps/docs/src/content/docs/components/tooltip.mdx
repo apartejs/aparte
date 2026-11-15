@@ -21,8 +21,23 @@ code block, in either theme.
 
 Wrap the trigger and the tooltip in `.aparte-tooltip-anchor` and set `data-side` (`top`,
 `bottom`, `start` or `end`): the tooltip sits on that side, `--aparte-tooltip-gap` away, with its
-arrow turned to match. Showing it on hover and focus is your script's or your CSS's, and so is
-keeping it on screen near an edge. It never catches the pointer itself.
+arrow turned to match. Keeping it on screen near an edge is your script's, and it never catches the
+pointer itself. Showing it is yours too, unless you ask the anchor to do it, as below.
+
+### On hover and focus
+
+Add `.aparte-tooltip-anchor--hover` to the anchor and the tooltip shows when the pointer is over it
+or the keyboard is inside it, after `--aparte-tooltip-delay` (400ms), with no script. It is opt-in:
+an anchor without the modifier behaves as before.
+
+```html
+<span class="aparte-tooltip-anchor aparte-tooltip-anchor--hover">
+  <button class="aparte-btn aparte-btn--icon" aria-label="Copy" aria-describedby="tip-copy">
+    <aparte-icon name="copy"></aparte-icon>
+  </button>
+  <div class="aparte-tooltip" id="tip-copy" role="tooltip" data-side="end">Copy to clipboard</div>
+</span>
+```
 
 ## Customize
 
@@ -35,7 +50,7 @@ keeping it on screen near an edge. It never catches the pointer itself.
 ## Accessibility
 
 - Give the tooltip `role="tooltip"` and an id, and point the trigger at it with
-  `aria-describedby`; show it on focus as well as on hover, and hide it on Escape.
+  `aria-describedby`; show it on focus as well as on hover, and hide it on Escape (the hover modifier does not: Escape and touch are yours).
 - A tooltip is a hint: anything the reader must know belongs in the page.
 
 ## Related

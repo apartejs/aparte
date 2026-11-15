@@ -18,7 +18,7 @@
  * `onlineStoreUrl`) — and `map` covers the rest.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardAction, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardAction, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, webUrl } from '../kit/dom.js';
 import { carousel } from '../kit/carousel.js';
 import { currencyCode, formatNumber, formatPercent, formatPrice, readPriceText } from '../kit/format.js';
@@ -742,6 +742,6 @@ export const productCard = defineCard<ProductData, ProductVariant>({
 });
 
 /** Draw a tool's products as this card — returns the function that stops it. */
-export function setupProductCard(options: CardSetupOptions<ProductData, ProductVariant> = {}): () => void {
+export function setupProductCard(options: CardSetupOptions<ProductData, ProductVariant> = {}): CardSetupHandle {
     return productCard.setup(options);
 }

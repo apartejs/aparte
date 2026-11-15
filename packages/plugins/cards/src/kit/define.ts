@@ -197,6 +197,18 @@ export interface CardDefinition<D, V extends string = string> {
     partial?(input: Record<string, unknown>): Partial<D> | null;
 }
 
+/**
+ * What `setup()` hands back: the function that takes the card off, which also carries
+ * `refresh()`. `refresh()` runs `actions(data, ctx)` again for every card of this setup that
+ * is still on the page, so a button that depends on something the page knows (signed in or
+ * not, a saved list) follows it without the conversation being drawn again.
+ */
+export interface CardSetupHandle {
+    (): void;
+    /** Draws the action buttons again, from `actions`, on the cards on screen. */
+    refresh(): void;
+}
+
 /** How an app plugs a card in. */
 export interface CardSetupOptions<D, V extends string = string> {
     /** The tool (or tools) whose result this card draws. Without it, only `card` segments draw it. */
@@ -377,6 +389,8 @@ function patch(element: HTMLElement, next: HTMLElement): void {
     element.replaceChildren(...next.childNodes);
     const moved = bindings.get(next);
     if (moved) bindings.set(element, moved);
+    const made = drawnWith.get(next);
+    if (made) drawnWith.set(element, made);
     const from = drawnFrom.get(next);
     if (from === undefined) drawnFrom.delete(element);
     else drawnFrom.set(element, from);
@@ -417,6 +431,9 @@ interface Queue<D> {
     variant: string;
 }
 const queues = new WeakMap<Element, Queue<unknown>>();
+
+/** The data and origin each drawing's action buttons were made from, carried onto the page by `patch` (see `refresh`). */
+const drawnWith = new WeakMap<Element, { data: unknown; origin: CardOrigin }>();
 
 /** What each drawing was drawn from (see `fingerprint`), carried onto the page by `patch`. */
 const drawnFrom = new WeakMap<Element, string>();
@@ -690,9 +707,60 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         if (byKey.size > KEPT_MAX) byKey.delete(byKey.keys().next().value!);
     }
 
+    /**
+     * The drawings made for each setup, and what they were drawn from, so `refresh()` can put
+     * their actions right again. Weak on both sides: a card that left the page is not kept
+     * alive for it. A drawing may later be moved into the element on the page (`homes`); the
+     * newest drawing of an element is the one whose data counts.
+     */
+    const drawings = new WeakMap<CardSetupOptions<D, V>, Set<WeakRef<HTMLElement>>>();
+
+    function track(options: CardSetupOptions<D, V>, node: HTMLElement, data: D, origin: CardOrigin): void {
+        if (!options.actions) return;
+        drawnWith.set(node, { data, origin });
+        const set = drawings.get(options) ?? new Set<WeakRef<HTMLElement>>();
+        drawings.set(options, set);
+        set.add(new WeakRef(node));
+        // A page that redraws a card all day does not grow this without bound.
+        if (set.size > 256) {
+            for (const ref of set) {
+                const held = ref.deref();
+                if (!held || (!held.isConnected && !homes.has(held))) set.delete(ref);
+            }
+        }
+    }
+
+    function refreshActions(options: CardSetupOptions<D, V>): void {
+        const set = drawings.get(options);
+        if (!set || !options.actions) return;
+        // Oldest first, so the newest drawing of an element is the one left standing.
+        const latest = new Map<HTMLElement, { data: D; origin: CardOrigin }>();
+        for (const ref of [...set]) {
+            const node = ref.deref();
+            if (!node) { set.delete(ref); continue; }
+            const target = homes.get(node) ?? node;
+            const made = drawnWith.get(target) ?? drawnWith.get(node);
+            if (!made || !target.isConnected) continue;
+            latest.set(target, made as { data: D; origin: CardOrigin });
+        }
+        for (const [target, { data, origin }] of latest) {
+            const old = target.querySelector<HTMLElement>(':scope > .aparte-rich-card__actions');
+            const active = typeof document === 'undefined' ? null : document.activeElement;
+            const at = old && active && old.contains(active)
+                ? [...old.querySelectorAll('button')].indexOf(active as HTMLButtonElement)
+                : -1;
+            const next = actionsOf(options, data, origin);
+            if (old && next) old.replaceWith(next);
+            else if (old) old.remove();
+            else if (next) target.append(next);
+            if (at >= 0) next?.querySelectorAll('button')[Math.min(at, next.querySelectorAll('button').length - 1)]?.focus({ preventScroll: true });
+        }
+    }
+
     function drawData(options: CardSetupOptions<D, V>, config: AparteConfig, data: D, variant: V, id: string, source: CardOrigin, from: string): HTMLElement {
         const node = root('ready', variant, id);
         drawnFrom.set(node, from);
+        track(options, node, data, source);
         // The element on the page: a redraw moves this drawing into the one already there.
         const onChange = (name: string, value: unknown) => void change(homes.get(node) ?? node, options, config, data, variant, id, source, from, name, value);
         const held = new Set<string>();
@@ -785,7 +853,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         }
     }
 
-    function setup(options: CardSetupOptions<D, V> = {}): () => void {
+    function setup(options: CardSetupOptions<D, V> = {}): CardSetupHandle {
         const config = options.config ?? aparteGlobalConfig;
         const matchers = options.tool === undefined ? [] : Array.isArray(options.tool) ? options.tool : [options.tool];
 
@@ -851,7 +919,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
         const restoreSegments = overrideSegmentRenderer(cardSegmentRenderer(config), config);
 
         let stopped = false;
-        return () => {
+        const stopFn = () => {
             if (stopped) return;
             stopped = true;
             for (const restore of restores) restore();
@@ -861,6 +929,7 @@ export function defineCard<D, V extends string>(definition: CardDefinition<D, V>
             if (own && own.length === 0) registry.delete(definition.name);
             restoreSegments();
         };
+        return Object.assign(stopFn, { refresh: () => { if (!stopped) refreshActions(options); } });
     }
 
     /**

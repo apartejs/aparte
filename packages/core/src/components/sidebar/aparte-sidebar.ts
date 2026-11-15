@@ -45,6 +45,11 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * get away with. Collapsed — folded as a column or slid off as a drawer — it carries
  * `inert` and `aria-hidden`, so nothing invisible keeps a tab stop.
  *
+ * **Rail.** `collapsed="rail"` folds the column to `--aparte-sidebar-rail-width` and keeps it
+ * in the flow: the children marked `data-rail` stay (icon buttons, an avatar), the rest and the
+ * `.aparte-sidebar__label` texts hide, and it takes no `inert`. `collapsed` is still true, so a
+ * toggle reads it as folded; the app swaps `collapsed` for `rail` itself, which is its call.
+ *
  * **In the floating chat.** Inside `<aparte-launcher>` the chat is a card a few hundred pixels
  * wide in the widest window, so a sidebar that is the direct child of the card's
  * `.aparte-app-shell` follows the chat and not the window: a drawer in the card, held by the
@@ -60,13 +65,14 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  *
  * @element aparte-sidebar
  *
- * @attr {boolean} collapsed - Hidden (in the flow) or closed (as a drawer). Reflected; set it to start closed.
+ * @attr {boolean|"rail"} collapsed - Hidden (in the flow) or closed (as a drawer). `collapsed="rail"` folds the column to a narrow rail that stays usable instead of to nothing. Reflected; set it to start closed.
  * @attr {string} breakpoint - The window width under which the sidebar becomes a drawer: a length (default `48rem`), or `none` for a column that never does, in a floating chat's card included.
  * @attr {boolean} data-drawer - Reflected BY the element while the window is narrower than `breakpoint` (48rem unless you set it), and in the card of an `<aparte-launcher>` when it is the direct child of the card's `.aparte-app-shell`. Read-only.
  *
  * @fires {CustomEvent<AparteSidebarToggleDetail>} aparte-sidebar-toggle - The sidebar opened or closed, by a toggle, by Escape, by a click on the scrim or by `collapsed` being set. Bubbles.
  *
  * @cssprop [--aparte-sidebar-width=260px] - Width of the column, and of the drawer.
+ * @cssprop [--aparte-sidebar-rail-width=56px] - Width of the column folded to a rail (`collapsed="rail"`).
  * @cssprop [--aparte-sidebar-inset=var(--aparte-space-3)] - The inline inset of the four
  *   regions (header, search, body, footer): one value, so their content stands on one axis.
  * @cssprop [--aparte-sidebar-bg=var(--aparte-surface-2)] - Its ground.
@@ -113,6 +119,7 @@ export class AparteSidebar extends HTMLElement {
     /** The control that last opened the drawer, to hand the focus back to. */
     private _opener: HTMLElement | null = null;
     private _lastCollapsed: boolean | null = null;
+    private _lastRail = false;
 
     /**
      * `connectedCallback` has run and the element knows what its markup asked for.
@@ -170,6 +177,15 @@ export class AparteSidebar extends HTMLElement {
         this.toggleAttribute('collapsed', presenceOn(value));
     }
 
+    /**
+     * A rail is a column folded to `--aparte-sidebar-rail-width` that stays in the flow and
+     * stays usable (`collapsed="rail"`). Only in the flow: a drawer is open or closed, and a
+     * closed one is off-screen whatever its attribute says.
+     */
+    private _rail(): boolean {
+        return this.getAttribute('collapsed') === 'rail' && !this.drawer;
+    }
+
     /** True while the sidebar is a drawer: the window is under the breakpoint, or it is in a floating chat's card. */
     get drawer(): boolean {
         return this.hasAttribute('data-drawer');
@@ -208,6 +224,7 @@ export class AparteSidebar extends HTMLElement {
         // Last: `_watchBreakpoint` may have closed the sidebar on its way in, and that
         // close is the drawer entering, not a change to announce.
         this._lastCollapsed = this.collapsed;
+        this._lastRail = this._rail();
         if (!this.id) this.id = `aparte-sidebar-${++sidebarIdSeq}`;
         this._syncToggles();
         this._ready = true;
@@ -305,7 +322,17 @@ export class AparteSidebar extends HTMLElement {
         }
         if (name !== 'collapsed') return;
         const collapsed = this.collapsed;
-        if (collapsed === this._lastCollapsed) return;
+        const rail = this._rail();
+        if (collapsed === this._lastCollapsed && rail === this._lastRail) {
+            return;
+        }
+        this._lastRail = rail;
+        if (collapsed === this._lastCollapsed) {
+            // Only the KIND of collapse changed (a rail to a full fold, or back): the column
+            // is not announced as opening or closing, but what it hides is re-decided.
+            this._syncHidden();
+            return;
+        }
         this._lastCollapsed = collapsed;
         // A collapse taken in the flow is a preference about the COLUMN, and survives a
         // resize. One taken over a drawer, or by the breakpoint itself, is not.
@@ -418,7 +445,7 @@ export class AparteSidebar extends HTMLElement {
      * `<aparte-sidebar inert={busy}>` out of existence. The class docblock says it in prose.
      */
     private _syncHidden(): void {
-        if (this.collapsed) {
+        if (this.collapsed && !this._rail()) {
             this.toggleAttribute('inert', true);
             this.setAttribute('aria-hidden', 'true');
             this._ownHidden = true;

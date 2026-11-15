@@ -41,7 +41,7 @@
  * `[step, result]`), and `tasks[]` of `name`/`state`/`done`. `map` covers the rest.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str } from '../kit/dom.js';
 import { formatNumber, formatPercent, toDate } from '../kit/format.js';
 import { intlTag, word, type CardWord } from '../kit/strings.js';
@@ -810,6 +810,6 @@ export const planCard = defineCard<PlanData, PlanVariant>({
 });
 
 /** Draw an agent's plan or task list as this card — returns the function that stops it. */
-export function setupPlanCard(options: CardSetupOptions<PlanData, PlanVariant> = {}): () => void {
+export function setupPlanCard(options: CardSetupOptions<PlanData, PlanVariant> = {}): CardSetupHandle {
     return planCard.setup(options);
 }

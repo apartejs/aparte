@@ -105,6 +105,29 @@
   translate: 0 -50%;
 }
 
+/* Opt-in: a `.aparte-tooltip-anchor--hover` shows its tooltip on hover and on keyboard
+   focus inside the anchor, after `--aparte-tooltip-delay`, with no script. Without the modifier
+   nothing changes: a tooltip is still shown and hidden by whoever owns it. The tooltip is
+   hidden by default under the modifier only; Escape and touch are not handled here. */
+.aparte-tooltip-anchor--hover > .aparte-tooltip {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--aparte-duration-fast) ease, visibility 0s linear var(--aparte-duration-fast);
+}
+
+.aparte-tooltip-anchor--hover:hover > .aparte-tooltip,
+.aparte-tooltip-anchor--hover:focus-within > .aparte-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: var(--aparte-tooltip-delay), var(--aparte-tooltip-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-tooltip-anchor--hover > .aparte-tooltip {
+    transition: none;
+  }
+}
+
 /* The arrow points DOWN by default — the common case, a tooltip above the thing it
    labels — and each `data-side` turns it toward the anchor. Centring on the box's edge
    uses a logical inset plus a negative margin rather than a transform, so it re-centres

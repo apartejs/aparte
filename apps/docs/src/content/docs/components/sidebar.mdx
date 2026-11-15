@@ -44,6 +44,30 @@ since the card is narrow in the widest window: it slides over the card, not over
 is a column again once the chat is maximized to the whole window. `breakpoint="none"` keeps a
 column there too.
 
+### As a rail
+
+Set `collapsed="rail"` and the column folds to a narrow strip (`--aparte-sidebar-rail-width`, 56px)
+instead of to nothing. It stays in the flow and stays usable: it takes no `inert`. What stays is what
+you mark `data-rail` among its direct children, an icon-only nav, the toggle, an avatar; the
+other children are hidden, and so is any `.aparte-sidebar__label` or `.aparte-sidebar__brand` inside
+a marked one. As a drawer a rail means nothing: the drawer is open or off-screen.
+
+```html
+<aparte-sidebar collapsed="rail">
+  <div class="aparte-sidebar__header" data-rail>
+    <button class="aparte-btn aparte-btn--icon" data-aparte-sidebar-toggle aria-label="Menu">
+      <aparte-icon name="menu"></aparte-icon>
+    </button>
+    <span class="aparte-sidebar__brand">Acme</span>
+  </div>
+  <div class="aparte-sidebar__body">…</div>
+</aparte-sidebar>
+```
+
+The element does not decide when it is a rail, and has no keyboard shortcut: the toggle you place
+sets `collapsed` to `"rail"` or removes it, from your script. Give each icon in a rail its name
+with [a tooltip that shows on hover](/components/tooltip/#on-hover-and-focus).
+
 ## Usage
 
 <Usage />
@@ -63,6 +87,7 @@ conversations match.
 | Variable | What it sets |
 | --- | --- |
 | `--aparte-sidebar-width` | The column's width, and the drawer's (260px). |
+| `--aparte-sidebar-rail-width` | The column folded to a rail, `collapsed="rail"` (56px). |
 | `--aparte-sidebar-inset` | The inline inset of its four regions. |
 | `--aparte-sidebar-bg` | Its background. |
 
