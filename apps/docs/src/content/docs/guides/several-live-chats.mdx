@@ -84,6 +84,7 @@ show(mount(null));
 
 ```tsx
 import { useEffect, useRef, useState } from 'react';
+import type { AparteConversationSelectDetail } from '@aparte/core';
 import { AparteChat, useAparteClient } from '@aparte/react';
 
 type Live = { key: string; conversationId: string | null };
@@ -106,7 +107,7 @@ export function Chats() {
 
   useEffect(() => {
     const open = (e: Event) => {
-      const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+      const { id, targetId } = (e as CustomEvent<AparteConversationSelectDetail>).detail;
       if (targetId !== 'chats') return;
       const live = id ? chatsRef.current.find((c) => c.conversationId === id) : undefined;
       if (live) return setShown(live.key);
@@ -138,7 +139,7 @@ export function Chats() {
 ```vue
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { AparteClient } from '@aparte/core';
+import { AparteClient, type AparteConversationSelectDetail } from '@aparte/core';
 import { AparteChat } from '@aparte/vue';
 
 type Live = { key: string; conversationId: string | null; client: AparteClient };
@@ -156,7 +157,7 @@ function mount(conversationId: string | null): void {
 mount(null);
 
 function open(e: Event): void {
-  const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+  const { id, targetId } = (e as CustomEvent<AparteConversationSelectDetail>).detail;
   if (targetId !== 'chats') return;
   const live = id ? chats.value.find((c) => c.conversationId === id) : undefined;
   if (live) shown.value = live.key;
@@ -187,7 +188,7 @@ const activeId = computed(() => chats.value.find((c) => c.key === shown.value)?.
 ```svelte
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AparteClient } from '@aparte/core';
+  import { AparteClient, type AparteConversationSelectDetail } from '@aparte/core';
   import { AparteChat } from '@aparte/svelte/runes';
 
   type Live = { key: string; conversationId: string | null; client: AparteClient };
@@ -206,7 +207,7 @@ const activeId = computed(() => chats.value.find((c) => c.key === shown.value)?.
 
   onMount(() => {
     const open = (e: Event) => {
-      const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+      const { id, targetId } = (e as CustomEvent<AparteConversationSelectDetail>).detail;
       if (targetId !== 'chats') return;
       const live = id ? chats.find((c) => c.conversationId === id) : undefined;
       if (live) shown = live.key;
@@ -239,7 +240,7 @@ On Svelte 4, the same with `let` variables, `onDestroy` and `on:conversationCrea
 
 ```ts
 import { Component, OnDestroy, computed, signal } from '@angular/core';
-import { AparteClient } from '@aparte/core';
+import { AparteClient, type AparteConversationSelectDetail } from '@aparte/core';
 import { AparteChatComponent, AparteConversationListDirective } from '@aparte/angular';
 
 type Live = { key: string; conversationId: string | null; client: AparteClient };
@@ -266,7 +267,7 @@ export class ChatsComponent implements OnDestroy {
   private next = 1;
 
   private readonly open = (e: Event) => {
-    const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+    const { id, targetId } = (e as CustomEvent<AparteConversationSelectDetail>).detail;
     if (targetId !== 'chats') return;
     const live = id ? this.chats().find((c) => c.conversationId === id) : undefined;
     if (live) this.shown.set(live.key);
@@ -300,8 +301,9 @@ export class ChatsComponent implements OnDestroy {
 </TabItem>
 </Tabs>
 
-The list's New chat sends `aparte-conversation-select` with `{ id: null }`, and the same code
-mounts a fresh chat for it. Unmount the chats you no longer need — a few recent ones are enough —
+A New chat button of yours sends `aparte-conversation-select` with `{ id: null, targetId: 'chats' }`
+(`AparteConversationSelectDetail` types `id` as `string | null`), and the same code mounts a
+fresh chat for it. Unmount the chats you no longer need — a few recent ones are enough —
 and a chat that goes saves what it holds, a reply still on its way included.
 
 ## Which conversation a chat shows

@@ -38,7 +38,12 @@ export interface AparteConversationListItem {
 export type AparteConversationMetaRenderer = (item: AparteConversationListItem) => HTMLElement | string | null;
 
 export interface AparteConversationSelectDetail {
-    id: string;
+    /**
+     * The conversation to open, or `null` for a new conversation. The list sends a row's id; a
+     * New chat button of the app's own sends `{ id: null }` on `window`, and the chats bound to
+     * a manager start a new conversation for it.
+     */
+    id: string | null;
     /**
      * The id of the chat the list drives, its `target`, when it has one: the conversation
      * opens in that chat alone. Without it, in every chat of the page.
