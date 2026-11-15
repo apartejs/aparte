@@ -84,6 +84,13 @@
   // proxy the parent mutated in place keeps its identity, not its ids. A report that comes back,
   // however late, is taken with every older one; any other value is the parent's word and clears
   // them, so a list the parent restores later (a reopened conversation, an undo) is applied.
+  //
+  // Not core's `takeEcho`, measured rather than assumed: it matches by identity, which a proxy
+  // never has, and matching on the ids alone — the comparator it could take — drops a list of
+  // the parent's own with the same ids and other content, written while a report is on its way
+  // back (an edit the parent makes). The values a report comes back as include the proxy the
+  // parent stores, which only exists after the callback: core's queue cannot hold it.
+  // `an-echo-is-known-by-value.test.ts` is that case.
   let pendingEchoes: Array<{ values: object[]; ids: string[] }> = [];
   const sameIds = (a: readonly (string | undefined)[], b: readonly (string | undefined)[]) =>
     a.length === b.length && a.every((id, i) => id === b[i]);
