@@ -21,6 +21,13 @@ const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
 // ?view=overlay (this example's name) or ?layout=page (the vanilla example's) —
 // the overlay-composer anatomy.
+// ?controlled-conversation: the conversation persistence guide's recipe — the open conversation
+// kept in this component's state and handed back to the chat, following the list's selections
+// too. The browser test of the recipe turns it on.
+function resolveControlledConversation(): boolean {
+    return new URLSearchParams(window.location.search).has('controlled-conversation');
+}
+
 function resolveOverlayComposer(): boolean {
     const params = new URLSearchParams(window.location.search);
     return params.get('view') === 'overlay' || params.get('layout') === 'page';
@@ -113,6 +120,8 @@ function resolveOverlayComposer(): boolean {
                 <!-- (aparte-link-click): the DOM event itself, on the chat's host, because the
                      handler cancels it; the (linkClick) output hands the detail alone. -->
                 <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay"
+                             [conversationId]="controlled ? conversationId() : null"
+                             (conversationCreated)="onConversationCreated($event)"
                              (aparte-link-click)="onLinkClick($event)">
                     <div slot="empty-state" class="welcome" id="welcome">
                         <div class="welcome__body">
@@ -204,6 +213,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     protected readonly suggestionsJson = SUGGESTIONS_JSON;
     protected readonly overlay = resolveOverlayComposer();
+    protected readonly controlled = resolveControlledConversation();
+    protected readonly conversationId = signal<string | null>(null);
+    private readonly followSelect = (e: WindowEventMap['aparte-conversation-select']) => this.conversationId.set(e.detail.id);
     protected readonly frameworkCard = FRAMEWORK_CARD;
 
     // The list's rows and its wait, fed from the manager below. Bound onto
@@ -226,6 +238,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     // the list fed from it, the header's controls. The row menu's writes are the
     // list's own, through `manage` in the template.
     ngAfterViewInit(): void {
+        if (this.controlled) window.addEventListener('aparte-conversation-select', this.followSelect);
         const manager = createSiteManager();
         // Select is not one of them: the chat's controller hears
         // `aparte-conversation-select` on the window and loads the conversation.
@@ -256,11 +269,17 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         this.chat().focusInput();
     }
 
+    protected onConversationCreated(id: string): void {
+        if (this.controlled) this.conversationId.set(id);
+    }
+
     ngOnDestroy(): void {
+        window.removeEventListener('aparte-conversation-select', this.followSelect);
         this.unsubscribe?.();
     }
 
     protected newChat(): void {
+        if (this.controlled) this.conversationId.set(null);
         void this.chat().setConversationId(null);
         this.chat().focusInput();
     }

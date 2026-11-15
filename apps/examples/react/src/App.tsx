@@ -42,6 +42,17 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
     // — the overlay-composer anatomy.
     const params = new URLSearchParams(window.location.search);
     const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
+    // `?controlled-conversation`: the conversation persistence guide's recipe — the open
+    // conversation kept in this component's state and handed back to the chat, following the
+    // list's selections too. The browser test of the recipe turns it on.
+    const controlled = params.has('controlled-conversation');
+    const [conversationId, setConversationId] = useState<string | null>(null);
+    useEffect(() => {
+        if (!controlled) return;
+        const follow = (e: WindowEventMap['aparte-conversation-select']) => setConversationId(e.detail.id);
+        window.addEventListener('aparte-conversation-select', follow);
+        return () => window.removeEventListener('aparte-conversation-select', follow);
+    }, [controlled]);
 
     // The site's wiring, once: the manager registered for every element on the page,
     // the list fed from it, the header's controls.
@@ -83,6 +94,7 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
     useEffect(() => { if (listRef.current) listRef.current.loading = listLoading; }, [listLoading]);
 
     const newChat = () => {
+        if (controlled) setConversationId(null);
         void chat.ref.current?.setConversationId(null);
         chat.ref.current?.focusInput();
     };
@@ -138,6 +150,7 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                         ref={chat.ref}
                         messages={chat.messages}
                         onMessagesChange={chat.setMessages}
+                        {...(controlled ? { conversationId, onConversationCreated: setConversationId } : {})}
                         centerWhenEmpty
                         overlayComposer={overlay}
                         attachments
