@@ -235,11 +235,10 @@ What it changes depends on the code of the turn's error, the one the reply's err
 The person sends U1 and the turn fails on the network, then sends U2, then U3:
 
 ```ts
-// The request for U2:
-[{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' }]
-// The request for U3 starts with it:
-[{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' },
- { role: 'assistant', content: 'A2' }, { role: 'user', content: 'U3' }]
+// The messages of the request for U2:
+const forU2 = [{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' }];
+// The request for U3 starts with them:
+const forU3 = [...forU2, { role: 'assistant', content: 'A2' }, { role: 'user', content: 'U3' }];
 ```
 
 Had U1 failed with `PROVIDER_POLICY`, the request for U2 would end on `{ role: 'user', content: 'U2' }`.
