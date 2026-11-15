@@ -391,15 +391,24 @@ export class AparteConversationList extends HTMLElement {
      */
     set conversations(items: AparteConversationListItem[]) {
         this._conversations = Array.isArray(items) ? items : [];
+        this._renderUnlessHeld();
+    }
+
+    /** A render held by an open menu or a rename (see `conversations`): run once it is over. */
+    private _renderAfterMenu = false;
+
+    /**
+     * The one way a render asked from outside runs: held while a row menu is open or a title is
+     * being renamed, drawn once that ends. A press's deferred render goes through it too, so a
+     * rename started by the click that closed a menu is not wiped by the render that menu held.
+     */
+    private _renderUnlessHeld(): void {
         if ((this._renaming && !this._renaming.done) || this.querySelector('[data-menu-for]')) {
             this._renderAfterMenu = true;
             return;
         }
         this._render();
     }
-
-    /** A render held by an open menu or a rename (see `conversations`): run once it is over. */
-    private _renderAfterMenu = false;
     private _renderHeld(): void {
         if (!this._renderAfterMenu || !this.isConnected) return;
         this._renderAfterMenu = false;
@@ -477,7 +486,7 @@ export class AparteConversationList extends HTMLElement {
             this._pressed = false;
             if (!this._renderAfterPress) return;
             this._renderAfterPress = false;
-            if (this.isConnected) this._render();
+            if (this.isConnected) this._renderUnlessHeld();
         }, 0);
     };
 

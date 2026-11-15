@@ -63,4 +63,25 @@ describe('rows handed again', () => {
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         expect(rowOf(el, 'c')).not.toBeNull();
     });
+
+    it('keep a rename started with the pointer after a render held by the menu', async () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        openMenu(el, 'a');
+        el.conversations = items;
+        const rename = el.querySelector<HTMLElement>('[data-menu-action="rename"]')!;
+        rename.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        window.dispatchEvent(new Event('pointerup'));
+        rename.click();
+        const input = rowOf(el, 'a').querySelector<HTMLInputElement>('input.aparte-conv-item__input');
+        expect(input).not.toBeNull();
+        input!.value = 'Half typed';
+
+        await new Promise((r) => setTimeout(r, 5));
+        expect(rowOf(el, 'a').querySelector('input')).toBe(input);
+        expect(input!.value).toBe('Half typed');
+
+        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(rowOf(el, 'a').querySelector('input')).toBeNull();
+    });
 });
