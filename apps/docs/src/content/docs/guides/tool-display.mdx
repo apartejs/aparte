@@ -368,10 +368,39 @@ A `'*'` hide therefore leaves a tool with a renderer of its own drawn, such as
 `registerToolDisplay('ask_user', { hidden: true })` hides it, and that is what `receipt: false` on
 `setupAskUser()` does.
 
+## A second line and a note
+
+Your display gives the row a second line under the name and a note after its state, with no plugin
+involved. Each is text or a function of the call, and wins over a provider's.
+
+```ts
+aparteGlobalConfig.registerToolDisplay('search_docs', {
+  label: 'Search the docs',
+  // What the call is doing, in every state: give it for the call's whole life, or never,
+  // or the row changes height.
+  activity: (segment) => `Looking for “${String(segment.toolCall.input['query'])}”`,
+  note: (segment) => (segment.status === 'resolved' ? 'done' : ''),
+});
+```
+
+## Set a target in the code font
+
+A quiet line sets the target in the chat's font, since a sentence reads better there. For a tool
+whose target is a path or a command, change it for that tool alone with a selector on its name; no
+option is needed.
+
+```css
+.aparte-segment-tool-call[data-tool-name="read_file"][data-quiet] .aparte-tool-target {
+  font-family: var(--aparte-code-font-family);
+}
+```
+
+`data-tool-name` is on every row and is the tool's identifier, not its label. The `[data-quiet]` in the selector gives it one more point of specificity than the line's own rule, so it wins whatever order the stylesheets load in.
+
 ## A line a plugin fills
 
 A plugin that knows more about a call than its name, such as the sub-agent a `delegate` call
-started, fills the same row with `setToolLineProvider`: that is how
+started, fills the same row with `registerToolLineProvider` (or the app does, with `setToolLineProvider`): that is how
 [`@aparte/plugin-subagents`](/guides/sub-agents/) draws a sub-agent's line. It returns an `AparteToolLine`, all plain
 text:
 
@@ -385,8 +414,11 @@ text:
   line for the disclosure. `current: true` marks the row whose subject is open now (`data-current`
   on the row, `aria-current="true"` on the button).
 
-Your `registerToolDisplay` always wins, field by field. A config holds one provider (`null`
-removes it), and a chat with a config of its own uses the page's when it has none. It is called
+Your `registerToolDisplay` always wins, field by field. `setToolLineProvider` sets the app's one
+provider (`null` removes it), and a plugin adds its own beside it with `registerToolLineProvider`,
+which returns the function that removes it. The providers are asked in order, the app's first, and
+the first to answer a call wins, so two plugins and your own can all be installed. A chat with a
+config of its own uses the page's when it has none. It is called
 whenever the row is drawn, updated or relabelled, so its words follow a language switch:
 `pluralize` and `formatDuration` give the plural and the duration a turn's fold uses. A provider
 that throws leaves the default line.

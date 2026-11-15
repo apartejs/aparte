@@ -22,7 +22,7 @@ const installed = new WeakMap<AparteConfig, () => void>();
  * call, out of the reply and out of what the model reads. A sub-agent no call opened gets the
  * same line, from a segment of the plugin's own.
  *
- * Installs one run-event observer, one tool-line provider and the `subagent` segment's
+ * Installs one run-event observer, one tool-line provider (added beside the app's, never over it) and the `subagent` segment's
  * renderer on `config` (the global config by default). Returns the function that takes them
  * off; calling it again on the same config replaces the first setup.
  *
@@ -37,7 +37,7 @@ export function setupSubagents(options: SubagentsOptions = {}, config: AparteCon
     const lanes = createLanes();
     const provider = createLineProvider({ ...options });
     const stopObserving = config.observeRunEvents(lanes.observe);
-    config.setToolLineProvider(provider);
+    const releaseLine = config.registerToolLineProvider(provider);
     registerSegmentRenderer(subagentRenderer, config);
 
     let disposed = false;
@@ -46,7 +46,7 @@ export function setupSubagents(options: SubagentsOptions = {}, config: AparteCon
         disposed = true;
         stopObserving();
         lanes.dispose();
-        if (config.getToolLineProvider() === provider) config.setToolLineProvider(null);
+        releaseLine();
         if (getSegmentRenderer(SUBAGENT_SEGMENT_TYPE, config) === subagentRenderer) unregisterSegmentRenderer(SUBAGENT_SEGMENT_TYPE, config);
         if (installed.get(config) === dispose) installed.delete(config);
     };

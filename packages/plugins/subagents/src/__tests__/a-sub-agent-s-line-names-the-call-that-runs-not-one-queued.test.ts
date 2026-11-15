@@ -25,21 +25,21 @@ const carrying = (segments: AparteSegment[]): AparteToolCallSegment => ({
 describe("a sub-agent's line", () => {
     it('names the call that runs while the one after it is queued', () => {
         const stop = setupSubagents();
-        const line = aparteGlobalConfig.getToolLineProvider()!(carrying([call('w1', 'edit_file'), call('w2', 'run_command', { queued: true })]));
+        const line = aparteGlobalConfig.getToolLineProviders()[0]!(carrying([call('w1', 'edit_file'), call('w2', 'run_command', { queued: true })]));
         expect(line?.activity).toBe('edit_file');
         stop();
     });
 
     it('passes over a call left waiting its turn by a pause', () => {
         const stop = setupSubagents();
-        const line = aparteGlobalConfig.getToolLineProvider()!(carrying([call('w1', 'edit_file'), call('w2', 'run_command', { deferred: { reason: 'queued' } })]));
+        const line = aparteGlobalConfig.getToolLineProviders()[0]!(carrying([call('w1', 'edit_file'), call('w2', 'run_command', { deferred: { reason: 'queued' } })]));
         expect(line?.activity).toBe('edit_file');
         stop();
     });
 
     it('names the queued call once it goes on', () => {
         const stop = setupSubagents();
-        const line = aparteGlobalConfig.getToolLineProvider()!(carrying([call('w1', 'edit_file', { status: 'resolved' }), call('w2', 'run_command')]));
+        const line = aparteGlobalConfig.getToolLineProviders()[0]!(carrying([call('w1', 'edit_file', { status: 'resolved' }), call('w2', 'run_command')]));
         expect(line?.activity).toBe('run_command');
         stop();
     });

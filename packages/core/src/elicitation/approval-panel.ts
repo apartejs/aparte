@@ -62,6 +62,7 @@ export function buildApprovalPanel(
     onChange: () => void,
     details?: string,
     allowOther = true,
+    preview?: HTMLElement | string,
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
@@ -110,6 +111,20 @@ export function buildApprovalPanel(
         // option, so approving stays one gesture and reading the call is Shift+Tab.
         pre.tabIndex = 0;
         body.append(argsLabel, pre);
+    }
+
+    /*
+     * What the call WOULD do, drawn, between the arguments and the options — a diff for an
+     * edit, say, where the arguments are two strings a person cannot read as a change. An
+     * element goes in as it is; a string goes through the config's sanitizer, as every
+     * app-authored string the library inserts as HTML does. The tool's own display makes
+     * it (`approvalPreview`), never the model.
+     */
+    if (preview !== undefined && preview !== '') {
+        const slot = el('div', 'aparte-approval-preview');
+        if (typeof preview === 'string') slot.innerHTML = cfg.sanitizeHtml(preview);  // safe-text: the app's preview markup, through the config's sanitizer
+        else slot.appendChild(preview);
+        body.appendChild(slot);
     }
 
     const dismiss = el('div', 'aparte-elic-dismiss');
