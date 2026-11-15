@@ -1,7 +1,6 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
+import { AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import type { AparteConversationListItem, AparteLinkClickEventDetail } from '@aparte/core';
 import { APARTE_ELEMENT_DIRECTIVES, AparteChatComponent } from '@aparte/angular';
-import { AparteApprovalModeElement } from './plugin-elements';
 import { mountModelSelector } from '../../../_shared/site-setup';
 import { routeLink } from '../../../_shared/links';
 import {
@@ -21,6 +20,13 @@ const SUGGESTIONS_JSON = JSON.stringify(WELCOME_SUGGESTIONS);
 
 // ?view=overlay (this example's name) or ?layout=page (the vanilla example's) —
 // the overlay-composer anatomy.
+// ?controlled-conversation: the conversation persistence guide's recipe — the open conversation
+// kept in this component's state and handed back to the chat, following the list's selections
+// too. The browser test of the recipe turns it on.
+function resolveControlledConversation(): boolean {
+    return new URLSearchParams(window.location.search).has('controlled-conversation');
+}
+
 function resolveOverlayComposer(): boolean {
     const params = new URLSearchParams(window.location.search);
     return params.get('view') === 'overlay' || params.get('layout') === 'page';
@@ -44,15 +50,17 @@ function resolveOverlayComposer(): boolean {
  * at all, because `manage` on the element lets the list carry them out on the manager
  * registered with `setConversationManager()`.
  *
- * No CUSTOM_ELEMENTS_SCHEMA: every element of core is claimed by its directive from
- * `@aparte/angular` (APARTE_ELEMENT_DIRECTIVES), and the one plugin element is claimed by
- * a few lines of our own (./plugin-elements). So the template is CHECKED — a misspelt tag
- * or an attribute the element does not have fails the build instead of rendering nothing.
+ * Every element of core is claimed by its directive from `@aparte/angular`
+ * (APARTE_ELEMENT_DIRECTIVES), so its attributes and outputs are typed. A plugin's element —
+ * `<aparte-approval-mode>` here — ships no Angular code, and `CUSTOM_ELEMENTS_SCHEMA` is what
+ * lets the template hold it, as Angular's own documentation says for any custom element. Its
+ * properties bind as `[labels]="…"` and its events as `(aparte-approval-mode-change)="…"`.
  */
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, AparteApprovalModeElement, FrameworkWeatherCardComponent],
+    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, FrameworkWeatherCardComponent],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
     template: `
         <div class="aparte-app-shell" id="chat-view">
             <aparte-sidebar>
@@ -113,6 +121,8 @@ function resolveOverlayComposer(): boolean {
                 <!-- (aparte-link-click): the DOM event itself, on the chat's host, because the
                      handler cancels it; the (linkClick) output hands the detail alone. -->
                 <aparte-chat centerWhenEmpty attachments placeholder="Ask ChatClone" [overlayComposer]="overlay"
+                             [conversationId]="controlled ? conversationId() : null"
+                             (conversationCreated)="onConversationCreated($event)"
                              (aparte-link-click)="onLinkClick($event)">
                     <div slot="empty-state" class="welcome" id="welcome">
                         <div class="welcome__body">
@@ -126,7 +136,7 @@ function resolveOverlayComposer(): boolean {
                     <!-- The toolbar row under the composer: the approval switch, exactly like
                          vanilla's <aparte-composer-toolbar> child — the model selector lands
                          there too under ?selector=toolbar (ngAfterViewInit below). The tag is
-                         a plugin's; AparteApprovalModeElement claims it for this template. -->
+                         a plugin's, which CUSTOM_ELEMENTS_SCHEMA lets this template hold. -->
                     <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
                 </aparte-chat>
             </main>
@@ -204,6 +214,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     protected readonly suggestionsJson = SUGGESTIONS_JSON;
     protected readonly overlay = resolveOverlayComposer();
+    protected readonly controlled = resolveControlledConversation();
+    protected readonly conversationId = signal<string | null>(null);
+    private readonly followSelect = (e: WindowEventMap['aparte-conversation-select']) => this.conversationId.set(e.detail.id);
     protected readonly frameworkCard = FRAMEWORK_CARD;
 
     // The list's rows and its wait, fed from the manager below. Bound onto
@@ -226,6 +239,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     // the list fed from it, the header's controls. The row menu's writes are the
     // list's own, through `manage` in the template.
     ngAfterViewInit(): void {
+        if (this.controlled) window.addEventListener('aparte-conversation-select', this.followSelect);
         const manager = createSiteManager();
         // Select is not one of them: the chat's controller hears
         // `aparte-conversation-select` on the window and loads the conversation.
@@ -256,11 +270,17 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         this.chat().focusInput();
     }
 
+    protected onConversationCreated(id: string): void {
+        if (this.controlled) this.conversationId.set(id);
+    }
+
     ngOnDestroy(): void {
+        window.removeEventListener('aparte-conversation-select', this.followSelect);
         this.unsubscribe?.();
     }
 
     protected newChat(): void {
+        if (this.controlled) this.conversationId.set(null);
         void this.chat().setConversationId(null);
         this.chat().focusInput();
     }

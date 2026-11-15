@@ -6,7 +6,7 @@
  * the reader did to it — a file folded, a run of unchanged lines shown, a selection, a comment
  * being written — and the lines' colours once the highlighter gave them.
  */
-import { resolveConfig, subscribeConfigChange, type AparteConfig } from '@aparte/core';
+import { dispatchChatEvent, resolveConfig, subscribeConfigChange, type AparteConfig } from '@aparte/core';
 import { diffTexts, splitLines } from './compute.js';
 import { highlightLines, languageOfPath } from './highlight.js';
 import { parseUnifiedDiff } from './parse.js';
@@ -92,6 +92,12 @@ function isSource(value: unknown): value is AparteDiffSource {
 
 function isFile(value: unknown): value is AparteDiffFile {
     return typeof value === 'object' && value !== null && Array.isArray((value as AparteDiffFile).hunks);
+}
+
+/** Two readings show the same change: the same files, the same lines in each. */
+function sameFiles(a: readonly Shown[], b: readonly Shown[]): boolean {
+    const key = (s: Shown): string => JSON.stringify([s.file, s.oldLines, s.newLines]);
+    return a.length === b.length && a.every((s, i) => key(s) === key(b[i]!));
 }
 
 /** What the app gave, as files to show. */
@@ -247,16 +253,71 @@ export class AparteDiff extends ElementBase {
     /** The change to show: a unified diff's text, `{ path, before, after }`, or a list of files (`AparteDiffFile` or texts). */
     get diff(): AparteDiffInput | null { return this._input; }
     set diff(value: AparteDiffInput | null) {
-        this._input = value ?? null;
-        this._shown = filesOf(this._input);
+        const next = value ?? null;
+        const before = this._shown;
+        const shown = filesOf(next);
+        // Handed the change it shows: the same text or object (perhaps mutated in place), or an
+        // equal one — an inline `{ path, before, after }` is a new object on every render of the
+        // app around it. It is drawn again from it, and what the reader was doing is kept: the
+        // folds, the lines picked, the field and its text, the focus. The same object mutated
+        // into another change keeps the folds and the lines picked that it still holds; its
+        // colours are the old text's, so it is coloured again from scratch.
+        const same = sameFiles(shown, before);
+        const again = next !== null && this._input !== null && (next === this._input || same);
+        // The keys of the lines picked, read from the rows on screen before they are replaced.
+        const picked = again && !same && this._selection && this.isConnected
+            ? this._selectedRows().map((row) => row.dataset['key']!)
+            : null;
+        const forward = !!picked && picked[0] === this._selection?.anchor;
+        this._input = next;
+        this._shown = shown;
         this._generation++;
+        if (again) {
+            shown.forEach((file, i) => {
+                const was = before[i];
+                if (!was || was.file.path !== file.file.path) return;
+                file.collapsed = was.collapsed;
+                file.roving = was.roving;
+                if (!same) return;
+                file.expanded = was.expanded;
+                file.html = was.html;
+            });
+        }
+        if (!again || (this._selection && (!shown[this._selection.file] || (!same && !picked)))) this._dropSelection();
+        if (this.isConnected) {
+            this._render();
+            if (picked) this._clampSelection(picked, forward);
+            void this._highlight(again);
+        }
+    }
+
+    /** No line picked, no field (drawn by the next render). */
+    private _dropSelection(): void {
         this._selection = null;
         this._writing = false;
         this._form?.node.remove();
-        if (this.isConnected) {
-            this._render();
-            void this._highlight();
+    }
+
+    /**
+     * The lines picked before the change was mutated in place, kept to those it still holds;
+     * nothing picked when none is left. `forward`: the selection ran down from its anchor.
+     */
+    private _clampSelection(picked: readonly string[], forward: boolean): void {
+        const selection = this._selection;
+        const lines = selection && this._linesOf(selection.file);
+        const there = new Set(lines ? [...lines.querySelectorAll<HTMLElement>(':scope > .aparte-diff-line')].map((r) => r.dataset['key']) : []);
+        const left = picked.filter((key) => there.has(key));
+        if (!selection || !left.length) {
+            this._letGo(false);
+            return;
         }
+        const first = left[0]!;
+        const last = left[left.length - 1]!;
+        if (selection.anchor === (forward ? first : last) && selection.focus === (forward ? last : first)) return;
+        selection.anchor = forward ? first : last;
+        selection.focus = forward ? last : first;
+        this._paintSelection();
+        if (this._writing) this._placeForm(false);
     }
 
     /** The comments to show under their lines, with their state. The element only shows them. */
@@ -796,9 +857,7 @@ export class AparteDiff extends ElementBase {
         const text = form?.input.value.trim() ?? '';
         if (!form || !range || !text) return;
         const detail: AparteDiffCommentEventDetail = { ...range, text };
-        const kept = this.dispatchEvent(new CustomEvent<AparteDiffCommentEventDetail>('aparte-diff-comment', {
-            detail, bubbles: true, composed: true, cancelable: true,
-        }));
+        const kept = dispatchChatEvent(this, 'aparte-diff-comment', detail, { cancelable: true });
         if (!kept) return;
         form.input.value = '';
         this._letGo(true);

@@ -7,6 +7,8 @@ import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { presenceOn } from '../../utils/presence.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
+import type { AparteChatScoped } from '../../interop/chat-events.js';
 
 /**
  * What the composer's one button means while a panel is up — and whether it is
@@ -71,7 +73,7 @@ export interface AparteComposerState {
 }
 
 /** Detail of the public `aparte-composer-change` DOM event. */
-export interface AparteComposerChangeEventDetail {
+export interface AparteComposerChangeEventDetail extends AparteChatScoped {
     state: AparteComposerState;
     composer: AparteComposer;
 }
@@ -326,6 +328,7 @@ export class AparteComposer extends HTMLElement {
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+        if (_old === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (name === 'disabled') {
             this._emit('disabled-change', { disabled: value !== null });
         }
@@ -767,11 +770,7 @@ export class AparteComposer extends HTMLElement {
         // Mirror state changes to a public DOM event so elements outside the
         // composer package can observe them without the private bus.
         if (AparteComposer._STATE_EVENTS.has(event)) {
-            this.dispatchEvent(new CustomEvent<AparteComposerChangeEventDetail>('aparte-composer-change', {
-                bubbles: true,
-                composed: true,
-                detail: { state: this.getState(), composer: this },
-            }));
+            dispatchChatEvent<AparteComposerChangeEventDetail>(this, 'aparte-composer-change', { state: this.getState(), composer: this });
         }
     }
 
@@ -819,16 +818,7 @@ export class AparteComposer extends HTMLElement {
     }
 
     private _ownTargetId(): string | undefined {
-        const attr = this.targetId;
-        if (attr) return attr;
-        let el: HTMLElement | null = this.parentElement;
-        while (el) {
-            const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
-            if (isHost && el.id) return el.id;
-            el = el.parentElement;
-        }
-        return undefined;
+        return chatIdOf(this);
     }
 
     /**

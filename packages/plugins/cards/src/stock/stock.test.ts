@@ -661,7 +661,7 @@ describe('the range buttons', () => {
     it('show the ranges over the chart, the one in force pressed: short on the button, in full to a screen reader', () => {
         stop = setupStockCard({ tool: 'get_quote', onChange: () => undefined });
         const card = draw(call('resolved', { ...RANGED, range: '1d' }));
-        const group = card.querySelector('.aparte-stock__ranges .aparte-rich-card__segmented')!;
+        const group = card.querySelector('.aparte-stock__ranges .aparte-segmented')!;
         expect(group.getAttribute('aria-label')).toBe('Range');
         const buttons = [...group.querySelectorAll('button')];
         expect(buttons.map((b) => b.textContent)).toEqual(['1D', '5D', '1M', '6M', '1Y', '5Y']);
@@ -684,7 +684,7 @@ describe('the range buttons', () => {
         const buttons = [...card.querySelectorAll('.aparte-stock__ranges button')];
         expect(buttons.map((b) => b.textContent)).toEqual(['1J', '5J', '1M', '6M', '1A', '5A']);
         expect(buttons[2]!.getAttribute('aria-label')).toMatch(/^1\smois$/u);
-        expect(card.querySelector('.aparte-rich-card__segmented')!.getAttribute('aria-label')).toBe('Période');
+        expect(card.querySelector('.aparte-segmented')!.getAttribute('aria-label')).toBe('Période');
     });
 
     it('ask the app for the range, and draw its answer in place: the focus kept, the baseline following', async () => {

@@ -120,6 +120,13 @@ export interface AparteElicitationRequest {
      * Ignored on `kind: 'question'` — a question's body is its schema.
      */
     details?: string;
+    /**
+     * What the call would do, drawn — mounted between the question and the options of an
+     * approval. An element is mounted as it is; a string goes through the config's HTML
+     * sanitizer. For a tool it is what its display's `approvalPreview` returns. Ignored on
+     * `kind: 'question'`.
+     */
+    preview?: HTMLElement | string;
     /** What to ask for. */
     /**
      * What value to collect. Required on a `'question'`, absent on an `'approval'` —
@@ -157,6 +164,15 @@ export interface AparteElicitationRequest {
      * @default true
      */
     allowOther?: boolean;
+    /**
+     * The conversation the request belongs to: the one open in the chat when the person
+     * acted, which a presenter of the app's own files the request under. Core's approval
+     * question carries it, and so does a tool handler that passes its context's
+     * `conversationId`. Absent when the chat has none.
+     */
+    conversationId?: string;
+    /** The reply the request belongs to, when a turn asks it — core's approval question carries it. */
+    messageId?: string;
     /**
      * Aborts the request — the panel closes and the promise REJECTS with
      * {@link AparteElicitationAbortError}. Pass a tool handler's signal so a

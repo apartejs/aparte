@@ -56,7 +56,7 @@ export interface AparteChatProps extends AparteChatEventCallbacks, AparteElement
     style?: string;
     /** Active conversation id (loads and persists through the registered conversation manager). */
     conversationId?: string | null;
-    /** An instance config for this chat; read once, when the host mounts. */
+    /** An instance config for this chat. A new one is applied once the turn in flight has ended, the messages kept. */
     config?: AparteConfig;
 
     /** The chat before the first message. */

@@ -1,5 +1,44 @@
 # @aparte/angular
 
+## 1.10.0
+
+### Minor Changes
+
+- 7476930: A new `config` given to `<AparteChat>` is now applied; it was read once, when the chat mounted, and a later one was ignored without a word.
+
+  Pass a config that keeps its identity across renders (created once, or memoized): each new object is applied as a new config, and every element inside re-resolves it. The same config handed again changes nothing.
+
+  When the prop changes, every element inside moves to the new config, and the chat's two locale strings (the loading line, the waiting line) follow the new language. The messages on screen stay. If the new config registers another conversation manager, the open conversation is opened again from it when it holds that conversation; when it does not, or the new config has no manager, the chat keeps saving that conversation to the manager it had, and the next conversation it opens comes from the new config. A config given while a reply is streaming waits for that turn to end, so a reply is never half-drawn with one configuration's renderers and finished with another's; the last one given wins.
+
+  The wrappers call the new `AparteChatHost.setConfig(config)`, which does the same for a binding of your own.
+
+- c4e34a9: Giving a chat back the conversation it just created (`conversationId` set from `onConversationCreated`, or bound to the conversation manager's `activeId`) no longer reloads it in the middle of the first reply. New: `getConversationId()` on every `<AparteChat>` says which conversation that chat shows.
+
+  Do you have to touch your code? Only if a class of yours implements `AparteChatImperativeApi`: add `getConversationId()`. Otherwise nothing changes; the pattern the conversation persistence guide documents now works as written:
+
+  ```tsx
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  <AparteChat
+    conversationId={conversationId}
+    onConversationCreated={setConversationId}
+  />;
+  ```
+
+  Before, the id came back while the first reply was streaming and the chat took it as a new conversation to open: it re-read the conversation from the manager, which did not hold the reply yet, so the reply's text landed in the person's bubble, the person's message disappeared and Send stayed disabled. Bound to the manager's `activeId` (natural in Vue, Svelte and Angular), the id came back even earlier, before the chat itself held it. A `conversationId` prop is now a no-op for the conversation the chat already shows or is creating. The imperative `setConversationId(id)` is unchanged: the same id again still re-reads the conversation.
+
+  `getConversationId()` is on `AparteChatImperativeApi`, so it is on React's ref handle, Vue's and Svelte's component instance, Angular's component, and `useAparteChat()` / `createAparteChat()`. It returns the conversation the chat opened, or the one its first message is creating, and `null` before either. Unlike the manager's single `activeId`, which names whichever chat opened a conversation last, it is per chat. `AparteChatHost` gains the two methods the wrappers call: `syncConversationId(id)` and `getConversationId()`.
+
+  In Angular, `setConversationId()` called on the component no longer leaves the `[conversationId]` input's next value compared against a stale id.
+
+### Patch Changes
+
+- ae2b087: `useAparteClient` in React now calls the function options of the latest render, so a resolver that reads state sees the state of now; calling a conversation helper's `init()` a second time no longer leaves the first manager writing its lists.
+
+  Nothing to change in your code; the ref you may have added to work around it keeps working.
+
+  - React: the client is still built once, on the first render, but `keyResolver`, `approvalResolver`, `requestInterceptor`, `history` (as a function), `targetResolver` and `fileInjectFilter` are called through the latest render's options. `streamRunner` is not: it is read once and handed to the client as it is, because the client recognises the engine's own loop (`runStreamAgent`) by identity; a runner that reads state reads it through a ref. An `approvalResolver` over the conversation's mode, or a `keyResolver` over a settings form, no longer sees the values it had at mount. The other options (`config`, `scopeToTargetId`, `maxTurns`…), and whether a function option is there at all, are still read once: remount with a `key` to change them. Vue, Svelte and Angular closures already read live values (refs, stores, signals), and their pages now say so.
+  - `init()` of React's `useConversationManager`, Vue's `useConversationManager`, Svelte 4's `createConversationManager` and Angular's `ConversationManagerService`, called again, replaces the manager and stops following the one before; its subscription used to stay, and the first manager's notifications went on overwriting `conversations` and `activeId`. (Svelte 5's `createConversations()` already did this.) Its `options` are read when it runs: a `titleProvider` that reads state reads it through a ref, or is replaced with `manager.setTitleProvider()`.
+
 ## 1.9.0
 
 ### Minor Changes

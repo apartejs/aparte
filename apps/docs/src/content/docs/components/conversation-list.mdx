@@ -78,6 +78,42 @@ instead of the shimmer:
 }
 ```
 
+### Your own groups
+
+An item can carry its own `group`, `{ key, label }`: a project, a folder, a workspace. A row that has
+one is listed under that heading instead of its date or the Pinned group, the groups come first in
+the order they first appear, and the items without one fall to the date groups below. `flat` still
+draws no heading, and the search hides a group once none of its rows match.
+
+```js
+list.conversations = [
+  { id: 'c1', title: 'Launch plan', group: { key: 'p-launch', label: 'Launch' } },
+  { id: 'c2', title: 'Pricing', group: { key: 'p-launch', label: 'Launch' } },
+  { id: 'c3', title: 'A quick question', updatedAt: Date.now() },
+];
+```
+
+### Marks of your own on a row
+
+`renderMeta` draws something of yours after a row's title — a shared mark, a count, a status — and
+returns `null` for a row with nothing to say. An element goes in as it is; a string is text, never
+markup. It sits beside the title button, not inside it, so a button or a link in it keeps its own
+accessible name and its own tab stop.
+
+```js
+const list = document.querySelector('aparte-conversation-list');
+list.renderMeta = (item) => {
+  if (!item.shared) return null;
+  const mark = document.createElement('span');
+  mark.className = 'aparte-badge';
+  mark.textContent = 'Shared';
+  return mark;
+};
+```
+
+Setting it draws the rows again, and it is read on every render after that. `renderMeta` is a
+property, like `conversations`; its look is `.aparte-conv-item__meta`.
+
 ### While it loads
 
 <Variant id="conversation-list-loading" />

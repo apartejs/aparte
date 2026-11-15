@@ -88,3 +88,8 @@ export type { ReceiptRow, ReceiptSource } from './receipt.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';
 
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';
+
+// The element described for a framework wrapper — `createAparteElement(askUserElement)` in React,
+// `AparteVueElement<typeof askUserElement>` and `AparteSvelteElement<typeof askUserElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { askUserElement } from './generated/element-specs.js';

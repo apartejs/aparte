@@ -273,9 +273,30 @@ const stop = setupDiff({
 
 `DiffSetupOptions` holds `tool` (a name, a pattern, or a list), `map` (the change, from the tool's
 result and the call's input; without it, the result must already be a diff), `commentable` and
-`open` (`false` keeps the change closed under its line). The config comes second, the page's by
+`open` (`false` keeps the change closed under its line) and `preview` (the change a call would make, for its approval question). The config comes second, the page's by
 default. [Tool display](/guides/tool-display/#a-file-change-behind-the-line) has more on what sits
 behind a tool's line.
+
+## In the approval question
+
+When the edit tool needs [approval](/components/approval/), the question can show the change
+before the call runs. `setupDiff` registers that too: it reads the call's input, `before` and
+`after` or `old_string` and `new_string` (with the file in `path` or `file_path`), and draws the
+diff between the question and its buttons. Give `preview` for an input of another shape, or `false`
+for none.
+
+```ts
+import { setupDiff } from '@aparte/plugin-diff';
+
+setupDiff({
+  tool: 'write_file',
+  // The input holds the new content only: the preview is a file created.
+  preview: (input) => ({ path: String(input['path']), before: null, after: String(input['content']) }),
+});
+```
+
+`preview` returns `null` for a call with nothing to show, and one that throws leaves the plain
+arguments.
 
 ## On the server
 
@@ -332,9 +353,10 @@ highlighter installed or replaced after the view was drawn colours it then, and 
 
 ## In a framework
 
-The plugin ships no framework binding. A Vue or Svelte template accepts the tag as it is; Angular
-needs `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it, and React a ref to set `diff` and
-`comments`, which are properties.
+The plugin exports `diffElement`, the element's spec, and every framework binds it as it binds
+[any plugin's element](/frameworks/elements/#your-own-element-or-a-plugins): `createAparteElement(diffElement)` in React, whose props then
+include `diff` and `comments`, which are properties, and `onDiffComment`; the tag typed from the
+spec in Vue and Svelte; `CUSTOM_ELEMENTS_SCHEMA` in Angular.
 
 ## Customize
 

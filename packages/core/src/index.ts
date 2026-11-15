@@ -34,6 +34,7 @@ import './styles/display/card.css';
 import './styles/display/kbd.css';
 import './styles/display/mark.css';
 import './styles/surface/tabs.css';
+import './styles/surface/segmented.css';
 import './styles/surface/accordion.css';
 import './styles/surface/menu.css';
 import './styles/surface/popover.css';
@@ -97,6 +98,7 @@ export type {
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
+    AparteDeferredCall,
     AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,
@@ -289,7 +291,7 @@ export type { AparteLauncherToggleDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
 export type {
@@ -340,11 +342,20 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 export { AparteClient } from './client/aparte-client.js';
 export { historyFromCheckpoint } from './context/checkpoint.js';
 export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export { withoutAbandonedTurns } from './client/wire-history.js';
 export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 export type { AparteUiEventName } from './interop/element-props.js';
+// Which chat an element belongs to, and an event stamped with it: for a plugin's element too.
+export { chatIdOf, dispatchChatEvent } from './interop/chat-events.js';
+export type { AparteChatScoped } from './interop/chat-events.js';
+// An element described for a framework wrapper: what a plugin exports so each wrapper can bind it.
+export type {
+    AparteElementSpec, AparteElementSpecEvent, AparteElementSpecEvents,
+    AparteSpecAttributes, AparteSpecProperties, AparteSpecEvents,
+} from './interop/element-spec.js';
 // Turns the `File[]` an `aparte-send` carries into renderable attachments — the
 // same conversion ConversationController does, for consumers driving the
 // imperative API themselves.
@@ -404,6 +415,7 @@ export { formatDuration } from './utils/format-duration.js';
 export type { AparteHostHandlersConfig } from './types/models.js';
 export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
+export type { AparteTurnContext } from './types/tools.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';

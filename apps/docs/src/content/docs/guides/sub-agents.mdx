@@ -647,13 +647,32 @@ sub-agent that needs a decision is stopped (`tool-aborted`, cause `no-resolver`)
 sub-agent calls on the server no `needsApproval`, and let the approval sit on the tool that opens
 the sub-agent.
 
+An [AG-UI agent](/providers/agent/ag-ui/) can pause on a call its own sub-agent made (an interrupt
+raised inside the sub-agent). That pause survives a reload: the call has no row in the reply, so the
+reply keeps it, in `deferredCalls`, with the name its sub-agent was announced with and the agent's
+ticket. A conversation saved while it waits is asked again when it is loaded, under the sub-agent's
+name, and the agent resumes with the answer:
+
+```ts
+import type { AparteDeferredCall } from '@aparte/core';
+
+// What the saved reply carries while the sub-agent waits; removed once the pause is answered.
+const waiting: AparteDeferredCall = {
+  toolCallId: 'd1', name: 'delete_file', input: { path: '/x' }, reason: 'approval',
+  agentId: 's1', agentName: 'cleaner', ticket: '…',
+};
+```
+
+A Stop, or a new message, closes the wait like any other pause.
+
 ## What it does not do yet
 
 - **What the model was told stays in the run.** The message saying the sub-agents started in the
   background are back is in that run's history only: the next turn's history is drawn from the
   reply, and reads the model's answer to it, not the message.
-- **A paused sub-agent does not survive a reload.** A sub-agent that was waiting for an approval
-  reads **Stopped** after a reload, and does not resume.
+- **A sub-agent waiting in the page does not survive a reload.** A sub-agent that the page's own
+  loop runs, waiting for an approval, reads **Stopped** after a reload and does not resume: the run
+  it lived in was the page's. A pause an agent elsewhere holds (above) does resume.
 - **Without the plugin, a sub-agent is neither drawn nor kept.** Its text and its tool calls stay
   out of the reply either way; the call that opened it shows as an ordinary tool row, and the
   console says once that nothing draws sub-agents. `config.observeRunEvents` hears their events,

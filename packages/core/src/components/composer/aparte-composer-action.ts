@@ -3,6 +3,8 @@ import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { dispatchChatEvent } from '../../interop/chat-events.js';
+import type { AparteChatScoped } from '../../interop/chat-events.js';
 
 /**
  * Generic action button primitive for `<aparte-composer>`.
@@ -111,6 +113,7 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+        if (_old === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this._button) return;
         if (name === 'disabled') {
             this._button.disabled = value !== null;
@@ -167,11 +170,7 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     private _handleClick(_e: MouseEvent): void {
-        this.dispatchEvent(new CustomEvent<AparteActionClickEventDetail>('aparte-action-click', {
-            bubbles: true,
-            composed: true,
-            detail: { actionId: this.getAttribute('action-id') ?? '', composer: this._getRoot() },
-        }));
+        dispatchChatEvent<AparteActionClickEventDetail>(this, 'aparte-action-click', { actionId: this.getAttribute('action-id') ?? '', composer: this._getRoot() });
     }
 
     private _resolveIcon(icon: string): string {
@@ -196,7 +195,7 @@ if (!customElements.get('aparte-composer-action')) {
  *
  * @event aparte-action-click
  */
-export interface AparteActionClickEventDetail {
+export interface AparteActionClickEventDetail extends AparteChatScoped {
     /** The `action-id` attribute of the button that was clicked, or `''`. */
     actionId: string;
     /** The owning composer, or `null` when the button is used outside one. */

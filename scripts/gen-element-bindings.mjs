@@ -350,7 +350,7 @@ function propertyOnlyMembers(el, config) {
 const namedTypes = (text) => (text.match(/\b[A-Z][A-Za-z0-9_]*\b/g) ?? [])
     .filter((n) => !['Array', 'Record', 'Partial', 'Readonly', 'ReadonlyArray', 'Promise', 'Map', 'Set'].includes(n));
 
-function renderAngular(elements, config, { native, configPath }) {
+function renderAngular(elements, config, { native, configPath, sources }) {
     const skip = new Set(config.angularSkip ?? []);
     const kept = elements.filter((el) => !skip.has(el.tagName));
 
@@ -412,9 +412,11 @@ function renderAngular(elements, config, { native, configPath }) {
 
     out += `import {\n${symbols.map((s) => `    ${s},`).join('\n')}\n} from '@angular/core';\n`;
     if (anyAttrs) out += `import { applyElementProps } from '@aparte/core';\n`;
-    if (details.size) {
-        out += `import type {\n${[...details].sort().map((d) => `    ${d},`).join('\n')}\n} from '@aparte/core';\n`;
-    }
+    // Each type from the source that exports it (`typeImports`): a plugin's own from its barrel,
+    // core's from `@aparte/core`. Core's directives pass no sources, so everything is core's.
+    const imported = typeImports([...details], sources ?? [{ from: '@aparte/core', exported: null }]);
+    refuse(imported.missing.map((type) => `a directive carries \`${type}\`, which no source exports: export it from the package's barrel.`));
+    out += imported.lines.join('');
 
     if (anyAttrs) out += `
 /**
@@ -1125,6 +1127,133 @@ import { createAparteElement, type AparteElementProps } from '${helper}';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Where a generated file imports each type from.
+//
+// A plugin's element names three kinds of type: its own (`ApprovalMode`, `AparteTrigger`), core's
+// (`AparteApprovalModeChangeEventDetail`, which core's event map types), and its attribute
+// interfaces, in the registry generated beside it. One `from` for all of them — the React renderer
+// takes the package's name, the Angular one wrote `@aparte/core` — is right for core and wrong for
+// every plugin. So each type is looked up in an ordered list of sources and imported from the first
+// that exports it; a type none of them exports is a refusal, since no consumer could compile the file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The `import type` lines for `types`: each from the first of `sources` (`{ from, exported }`,
+ * `exported` a Set of names, or `null` for "everything") that has it. Returns `{ lines, missing }`.
+ */
+export function typeImports(types, sources) {
+    const by = new Map();
+    const missing = [];
+    for (const type of [...new Set(types)].sort()) {
+        const source = sources.find((s) => s.exported === null || s.exported.has(type));
+        if (!source) {
+            missing.push(type);
+            continue;
+        }
+        if (!by.has(source.from)) by.set(source.from, []);
+        by.get(source.from).push(type);
+    }
+    const lines = sources.filter((s) => by.has(s.from))
+        .map((s) => `import type {\n${by.get(s.from).map((t) => `    ${t},`).join('\n')}\n} from '${s.from}';\n`);
+    return { lines, missing };
+}
+
+/** A module specifier from one generated directory to a file of the package, extension `.js`. */
+const relativeSpecifier = (fromDir, toFile) => {
+    const rel = relative(fromDir, toFile).split(sep).join('/').replace(/\.ts$/, '.js');
+    return rel.startsWith('.') ? rel : `./${rel}`;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The element specs: one `AparteElementSpec` per element of a plugin, from its manifest.
+//
+// Core's elements have components and directives in each wrapper; a plugin's cannot (a wrapper
+// depends on no plugin, and a third party could never add a line to one). So the plugin exports a
+// description of each of its elements — tag, attributes, properties, events with the name each
+// binds under, what is read at connect — and every wrapper turns it into what its framework needs.
+// The value is what React's `createAparteElement(spec)` reads; its phantom generics are what
+// Vue's `AparteVueElement` and Svelte's `AparteSvelteElement` read.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** `aparte-approval-mode` → `approvalModeElement`: the name a plugin exports its element's spec under. */
+export const specName = (tag) => `${camel(tag.replace(/^aparte-/, ''))}Element`;
+
+/**
+ * The specs of a manifest — `{ tag, name, attributes, initial, properties, events }` per element,
+ * each event `{ type, name, detail }` — or a refusal that names every problem: a binding name that
+ * is a native DOM event or shared by two events, a type no source exports (`sources`, as
+ * {@link typeImports} takes them), a spec name the package already exports by hand (`reserved`).
+ */
+export function elementSpecs(elements, config, { native, sources, reserved = new Set(), configPath = 'element-bindings.config.mjs' }) {
+    const problems = [];
+    const specs = elements.map((el) => {
+        const tag = el.tagName;
+        const name = specName(tag);
+        if (reserved.has(name)) {
+            problems.push(`<${tag}>: its spec would be exported as \`${name}\`, a name the package already exports. Rename the export.`);
+        }
+        const omit = new Set(config.angularInputOmit?.[tag] ?? []);
+        const atConnect = config.readAtConnect?.[tag] ?? [];
+        const declared = (el.attributes ?? []).map((a) => a.name).filter((n) => !omit.has(n));
+        const { properties, events: sent } = membersOf(el, config);
+        const events = sent.map((e) => ({ ...e, name: bindingName(tag, e.type, config) }));
+        problems.push(...bindingProblems(tag, events.map((e) => ({ event: e.type, name: e.name })), { native, configPath }));
+        const types = [...properties.flatMap((p) => namedTypes(p.type)), ...events.flatMap((e) => namedTypes(e.detail ?? ''))];
+        for (const type of typeImports(types, sources).missing) {
+            problems.push(`<${tag}>: carries \`${type}\`, which neither the package's barrel nor @aparte/core exports. The spec imports it, so no consumer could compile it: export it.`);
+        }
+        return {
+            tag,
+            name,
+            description: summary(el.description),
+            attributes: declared.filter((n) => !atConnect.includes(n)),
+            initial: declared.filter((n) => atConnect.includes(n)),
+            properties,
+            events,
+        };
+    });
+    refuse(problems);
+    return specs;
+}
+
+/** The file of a manifest's specs: `<name>Element` per element, typed by its phantom generics. */
+export function renderElementSpecs(specs, { sources, registry = './element-attributes.js' }) {
+    const types = specs.flatMap((s) => [...s.properties.flatMap((p) => namedTypes(p.type)), ...s.events.flatMap((e) => namedTypes(e.detail ?? ''))]);
+    const { lines } = typeImports(types, sources);
+    let out = BANNER + `
+/**
+ * Each element of this package described for a framework wrapper: an \`AparteElementSpec\`.
+ *
+ * React makes a component of one — \`createAparteElement(spec)\` from \`@aparte/react\` — and Vue and
+ * Svelte type the tag from its type — \`AparteVueElement<typeof spec>\`, \`AparteSvelteElement<typeof
+ * spec>\`. Generated from the package's manifest, so an attribute, a property or an event added to
+ * an element reaches every framework with no edit.
+ */
+import type { AparteElementSpec } from '@aparte/core';
+import type { AparteElementAttributes } from '${registry}';
+${lines.join('')}`;
+    for (const s of specs) {
+        const props = s.properties.length
+            ? `{\n${s.properties.map((p) => `${doc(p.description, '        ')}        ${p.name}?: ${p.type};\n`).join('')}    }`
+            : 'Record<never, never>';
+        const events = s.events.length
+            ? `{\n${s.events.map((e) => `${doc(e.description, '        ')}        '${e.type}': { name: '${e.name}'; detail: ${e.detail ?? 'null'} };\n`).join('')}    }`
+            : 'Record<never, never>';
+        out += '\n';
+        out += doc(`The spec of \`<${s.tag}>\`, for a framework wrapper (see \`AparteElementSpec\`)${s.description ? `: ${s.description}` : '.'}`, '');
+        out += `export const ${s.name}: AparteElementSpec<\n    AparteElementAttributes['${s.tag}'],\n    ${props},\n    ${events}\n> = {\n`;
+        out += `    tag: '${s.tag}',\n`;
+        out += `    attributes: ${strings(s.attributes)},\n`;
+        out += `    properties: ${strings(s.properties.map((p) => p.name))},\n`;
+        out += s.events.length
+            ? `    events: [\n${s.events.map((e) => `        ['${e.type}', '${e.name}'],`).join('\n')}\n    ],\n`
+            : '    events: [],\n';
+        out += `    initial: ${strings(s.initial)},\n};\n`;
+    }
+    return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** The package's own name: what a generated file imports the detail types from. */
 const packageName = (pkgDir) => JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')).name;
@@ -1195,7 +1324,7 @@ async function main() {
         console.error(
             'usage: node scripts/gen-element-bindings.mjs <packageDir> [--registry <dir>] [--angular <dir>]'
             + ' [--react-elements <dir> [--react-barrel <file>]] [--element-members <dir>]'
-            + ' [--chat-react <dir>] [--chat-vue <dir>] [--chat-svelte <dir>] [--config <file>]',
+            + ' [--chat-react <dir>] [--chat-vue <dir>] [--chat-svelte <dir>] [--specs <dir>] [--config <file>]',
         );
         process.exit(1);
     }
@@ -1217,18 +1346,54 @@ async function main() {
     const angularOut = flag('--angular');
     const reactOut = flag('--react-elements');
     const membersOut = flag('--element-members');
+    const specsOut = flag('--specs');
     const chatOut = { react: flag('--chat-react'), vue: flag('--chat-vue'), svelte: flag('--chat-svelte') };
     // The chat's base goes beside the Angular directives when this manifest has the chat:
     // core's does, a plugin's does not.
     const angularChat = Boolean(angularOut) && elements.some((el) => el.tagName === CHAT_TAG);
     const wantsChat = angularChat || Object.values(chatOut).some(Boolean);
-    const native = angularOut || reactOut || wantsChat ? readNativeEventNames() : null;
+    const native = angularOut || reactOut || wantsChat || specsOut ? readNativeEventNames() : null;
+
+    /*
+     * Where a generated file of a PLUGIN imports each type from (`typeImports`): the plugin's own
+     * barrel, by a relative path from the file; then core; then the registry generated beside it.
+     * Core's own files take everything from `@aparte/core`, as they always did.
+     */
+    const isCore = pkgDir === resolve(root, 'packages/core');
+    const registryContent = registryOut ? renderAttributes(elements, config) : null;
+    const sourcesFor = (outDir) => {
+        if (isCore) return undefined;
+        const dir = resolve(root, outDir);
+        // The entries that export the element's types: one of its own first, when the element lives
+        // there (`--barrel`: the artifact panel's is `src/panel.ts`), then the main barrel.
+        const barrels = [flag('--barrel') && resolve(root, flag('--barrel')), join(pkgDir, 'src', 'index.ts')].filter(Boolean);
+        const sources = [
+            ...barrels.map((barrel) => ({ from: relativeSpecifier(dir, barrel), exported: readBarrelExports(barrel, new Set(), isGenerated) })),
+            { from: '@aparte/core', exported: readBarrelExports(resolve(root, 'packages/core/src/index.ts')) },
+        ];
+        if (registryContent) {
+            const names = new Set([...registryContent.matchAll(/export (?:interface|type) (\w+)/g)].map((m) => m[1]));
+            sources.push({ from: relativeSpecifier(dir, join(resolve(root, registryOut), 'element-attributes.ts')), exported: names });
+        }
+        return sources;
+    };
 
     // Everything is rendered, and so checked, before anything is written: a refusal leaves
     // the files of the last good run in place, never half a new set.
     const writes = [];
-    if (registryOut) writes.push([registryOut, 'element-attributes.ts', renderAttributes(elements, config)]);
-    if (angularOut) writes.push([angularOut, 'element.directives.ts', renderAngular(elements, config, { native, configPath })]);
+    if (registryOut) writes.push([registryOut, 'element-attributes.ts', registryContent]);
+    // A directive takes core's types from core first: its file is compiled by `ngc` on its own
+    // (`tsconfig.angular.json`), and an import of the plugin's barrel would pull every source of
+    // the plugin into that program. Only what core does not export comes from the plugin.
+    const angularSources = angularOut && sourcesFor(angularOut)?.sort((a, b) => Number(b.from === '@aparte/core') - Number(a.from === '@aparte/core'));
+    if (angularOut) writes.push([angularOut, 'element.directives.ts', renderAngular(elements, config, { native, configPath, sources: angularSources })]);
+    if (specsOut) {
+        if (!registryOut) refuse(['--specs types each spec\'s attributes from the registry: pass --registry too.']);
+        const sources = sourcesFor(specsOut) ?? [{ from: '@aparte/core', exported: null }];
+        const specs = elementSpecs(elements, config, { native, sources, configPath });
+        const registry = relativeSpecifier(resolve(root, specsOut), join(resolve(root, registryOut), 'element-attributes.ts'));
+        writes.push([specsOut, 'element-specs.ts', renderElementSpecs(specs, { sources, registry })]);
+    }
     const bindings = wantsChat ? readChatBindings(pkgDir, config, { native, configPath }) : [];
     if (wantsChat) {
         const from = packageName(pkgDir);
@@ -1246,7 +1411,7 @@ async function main() {
     }
 
     if (!writes.length) {
-        console.error('[element-bindings] nothing to write — pass --registry, --angular, --react-elements, --element-members or a --chat-* flag, each with a directory.');
+        console.error('[element-bindings] nothing to write — pass --registry, --angular, --react-elements, --element-members, --specs or a --chat-* flag, each with a directory.');
         process.exit(1);
     }
     for (const [out, file, content] of writes) {

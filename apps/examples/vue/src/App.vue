@@ -46,6 +46,17 @@ const listLoading = ref(true);
 // — the overlay-composer anatomy.
 const params = new URLSearchParams(window.location.search);
 const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
+// `?controlled-conversation`: the conversation persistence guide's recipe — the open conversation
+// kept in this component's state and handed back to the chat, following the list's selections
+// too. The browser test of the recipe turns it on.
+const controlled = params.has('controlled-conversation');
+const conversationId = ref<string | null>(null);
+const followSelect = (e: WindowEventMap['aparte-conversation-select']) => { conversationId.value = e.detail.id; };
+function onConversationCreated(id: string): void {
+    if (controlled) conversationId.value = id;
+}
+onMounted(() => { if (controlled) window.addEventListener('aparte-conversation-select', followSelect); });
+onBeforeUnmount(() => window.removeEventListener('aparte-conversation-select', followSelect));
 
 let unsubscribe: (() => void) | null = null;
 
@@ -86,6 +97,7 @@ onBeforeUnmount(() => {
 });
 
 function newChat(): void {
+    if (controlled) conversationId.value = null;
     void chat.chatRef.value?.setConversationId(null);
     chat.chatRef.value?.focusInput();
 }
@@ -154,6 +166,8 @@ function onLinkClick(detail: AparteLinkClickEventDetail, event: CustomEvent<Apar
                 :ref="chat.chatRef"
                 :messages="chat.messages.value"
                 @messages-change="chat.onMessagesChange"
+                :conversation-id="controlled ? conversationId : null"
+                @conversation-created="onConversationCreated"
                 center-when-empty
                 :overlay-composer="overlay"
                 attachments

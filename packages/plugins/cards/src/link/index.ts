@@ -27,7 +27,7 @@
  * left goes in as text — never parsed.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, webUrl, type Loose } from '../kit/dom.js';
 import { formatNumber, toDate } from '../kit/format.js';
 import { intlTag, word, type CardWord } from '../kit/strings.js';
@@ -497,6 +497,6 @@ export const linkCard = defineCard<LinkData, LinkVariant>({
 });
 
 /** Draw a tool's links as this card — returns the function that stops it. */
-export function setupLinkCard(options: LinkCardOptions = {}): () => void {
+export function setupLinkCard(options: LinkCardOptions = {}): CardSetupHandle {
     return linkCard.setup(options);
 }

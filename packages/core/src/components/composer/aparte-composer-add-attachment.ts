@@ -96,6 +96,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+        if (_old === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (name === 'disabled' && this._button) {
             this._button.disabled = value !== null;
         }

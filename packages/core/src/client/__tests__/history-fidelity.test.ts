@@ -200,8 +200,8 @@ describe('history: viewport — a status-less transcript is history too', () => 
 
     it('still drops the trailing user echo, so the new question is not sent twice', async () => {
         // The composer has already appended the outgoing user row to the viewport by
-        // the time the turn is built, so the cutoff must stop at the last answered
-        // assistant — relaxing the gate must not relax that.
+        // the time the turn is built, so the cutoff must leave that row out — relaxing the
+        // gate must not relax that.
         const seen = await send([
             { id: 'u1', role: 'user', content: 'first', timestamp: 1 },
             { id: 'a1', role: 'assistant', content: 'answer', timestamp: 2 },
@@ -229,13 +229,16 @@ describe('history: viewport — a status-less transcript is history too', () => 
         expect(textOf(seen), 'a half-written reply is not what the assistant said').not.toContain('half a th');
     });
 
-    it('does not send an errored turn, and does not let it advance the cutoff', async () => {
+    it('does not send an errored reply, and sends the message that asked it with the new one', async () => {
+        // A failure with no code is one the same request can get past: the message goes
+        // with the next one from this request on, as it will in every request after it.
         const seen = await send([
             { id: 'u1', role: 'user', content: 'first', timestamp: 1 },
             { id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'error' },
         ], 'retry please');
 
         expect(rolesOf(seen), 'an error segment is not a reply').toEqual(['user']);
+        expect(textOf(seen)).toBe('first\n\nretry please');
     });
 });
 
@@ -366,6 +369,15 @@ describe('the `history` option documents the rule the code implements', () => {
         const doc = clientDoc();
         for (const word of ['streaming', 'pending', 'status']) {
             expect(doc, `a caller cannot learn the rule without the word "${word}"`).toContain(word);
+        }
+    });
+
+    it('says what a failed turn leaves in the next request, and which codes leave it out', () => {
+        // A server that keeps its own record compares histories: it has to learn the rule
+        // here, codes included, or it reads a merged message as a past that changed.
+        const doc = clientDoc();
+        for (const word of ['USAGE_CONTEXT_EXCEEDED', 'PROVIDER_POLICY', 'USAGE_BAD_REQUEST', 'files', 'withoutAbandonedTurns']) {
+            expect(doc, `the failed-turn rule is not stated without "${word}"`).toContain(word);
         }
     });
 });

@@ -42,6 +42,7 @@ export type {
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
+    AparteDeferredCall,
     AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,
@@ -193,7 +194,7 @@ export type { AparteElicitation } from './components/elicitation/aparte-elicitat
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 // From its own file, not the components barrel: it registers a code language on a config and
 // touches no DOM at import, so a server can set it up beside the rest of its config.
@@ -319,8 +320,10 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 export { AparteClient } from './client/aparte-client.js';
 export { historyFromCheckpoint } from './context/checkpoint.js';
 export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export { withoutAbandonedTurns } from './client/wire-history.js';
 export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
+export type { AparteTurnContext } from './types/tools.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';
 export type { AparteRunEventContext, AparteRunEventObserver } from './config/aparte-config.js';
@@ -336,6 +339,13 @@ export type { ExportedMessageRepository } from './runtime/message-repository.js'
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
+// Pure the same way: they read and dispatch on the element they are handed, only when called.
+export { chatIdOf, dispatchChatEvent } from './interop/chat-events.js';
+export type { AparteChatScoped } from './interop/chat-events.js';
+export type {
+    AparteElementSpec, AparteElementSpecEvent, AparteElementSpecEvents,
+    AparteSpecAttributes, AparteSpecProperties, AparteSpecEvents,
+} from './interop/element-spec.js';
 // A type, so it costs nothing here and its absence WAS a compile error for an SSR
 // consumer — `check:node-barrel-types` caught it the moment the browser barrel gained it.
 export type { AparteUiEventName } from './interop/element-props.js';

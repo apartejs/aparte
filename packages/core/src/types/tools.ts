@@ -5,7 +5,7 @@
 
 import type { AparteToolCallSegment } from './segments.js';
 import type { AparteIconName } from '../config/icon-provider.js';
-import type { StreamToolRun } from '@aparte/engine';
+import type { AparteTurnContext as StreamTurnContext, StreamToolRun } from '@aparte/engine';
 
 /** Definition of a tool the AI can call */
 export interface AparteTool {
@@ -76,7 +76,25 @@ export interface AparteToolApprovalRequestDetail {
     input: Record<string, unknown>;
     /** The sub-agent whose call this is; absent for the reply's own. */
     agentId?: string;
+    /** The reply the call belongs to. Always set by core; optional so a detail built by hand still compiles. */
+    messageId?: string;
+    /** The conversation the turn belongs to, as it was when the person acted. Absent when the chat has none. */
+    conversationId?: string;
 }
+
+/**
+ * The turn a callback is called for: `{ conversationId, messageId, targetId }` — the
+ * conversation open in the chat when the person acted (absent when it has none), the reply
+ * the turn writes into, the chat's id. Handed to `approvalResolver`, an approval policy and
+ * `requestInterceptor`, and on the server to `approvalPolicy` and `prepareRequest`
+ * (`{ messageId, conversationId }`, as the page sent them). Engine's type, under core's name.
+ *
+ * @example
+ * new AparteClient({
+ *   approvalResolver: (call, signal, { conversationId }) => cards.ask(conversationId, call, signal),
+ * });
+ */
+export type AparteTurnContext = StreamTurnContext;
 
 /** A tool call emitted by the AI during streaming */
 export interface AparteToolCall {
@@ -110,10 +128,18 @@ export interface AparteApprovalRuling {
  *
  * Pure and synchronous: it is evaluated once to decide whether the call pauses at all
  * (so an allowed call never flashes "awaiting approval") and once to answer.
+ *
+ * The third argument is the turn — `{ conversationId, messageId, targetId }` — for a rule
+ * that depends on the conversation (a workspace that allows writes in one project only).
  */
 export type AparteApprovalPolicy = (
     call: AparteToolCall,
     tool: AparteTool | undefined,
+    /**
+     * The turn the call belongs to — its conversation, its reply, its chat. Absent when the
+     * call is ruled outside a turn (`config.ruleOnToolCall(call)` called by hand).
+     */
+    turn?: AparteTurnContext,
 ) => AparteApprovalRuling | undefined;
 
 /** Result returned after a tool handler resolves */
@@ -251,6 +277,27 @@ export interface AparteToolDisplay {
     icon?: AparteIconName | (string & {});
     /** What the call targets, after the label — see {@link AparteToolSummary}. */
     summary?: AparteToolSummary;
+    /**
+     * What the call would DO, drawn in the approval question — a diff for an edit, a message
+     * for a send — between the question and its buttons. Called with the call (name and
+     * input) when the approval is asked; an element is mounted as it is, a string goes through
+     * the config's HTML sanitizer (escape the call's values all the same), `null` or `''`
+     * draws nothing. Build it from the tool's input, never from text the model wrote to
+     * persuade: this is the decision's evidence. One that throws leaves the plain arguments.
+     */
+    approvalPreview?: (call: AparteToolCall) => HTMLElement | string | null;
+    /**
+     * A second line under the name: what the call is doing now, and once it is over what it
+     * did. Plain text; a function reads the call. Give it for the call's whole life, or
+     * never — a line that comes and goes changes the row's height. Wins over a tool-line
+     * provider's `activity`; one that throws leaves the provider's.
+     */
+    activity?: string | ((segment: AparteToolCallSegment) => string);
+    /**
+     * A short note after the state word ("3 hits"). Plain text; a function reads the call.
+     * Wins over a tool-line provider's `note`; one that throws leaves the provider's.
+     */
+    note?: string | ((segment: AparteToolCallSegment) => string);
     /** The arguments as a person reads them — see {@link AparteToolInputFormatter}. */
     formatInput?: AparteToolInputFormatter;
     /**
@@ -319,9 +366,9 @@ export type AparteToolDetails = (segment: AparteToolCallSegment, held?: HTMLElem
  * fills the default row with it; every field is plain text, never HTML, and every field is
  * optional.
  *
- * The app's display always wins, field by field: `label` and `target` are read only when
- * the display gives none, and `details` only when the display has no `details` key.
- * `activity` and `note` have no display field of their own.
+ * The app's display always wins, field by field: `label`, `target`, `activity` and `note`
+ * are read only when the display gives none, and `details` only when the display has no
+ * `details` key.
  */
 export interface AparteToolLine {
     /** What the call goes by, when the display declares no label. */

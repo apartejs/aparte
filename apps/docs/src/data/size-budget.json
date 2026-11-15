@@ -1,26 +1,26 @@
 {
     "@aparte/angular": {
-        "js": 36864,
+        "js": 37888,
         "css": 0
     },
     "@aparte/core": {
-        "js": 278528,
-        "css": 25600
+        "js": 294656,
+        "css": 26368
     },
     "@aparte/docs-mcp": {
         "js": 4096,
         "css": 0
     },
     "@aparte/engine": {
-        "js": 8960,
+        "js": 9216,
         "css": 0
     },
     "@aparte/locales": {
-        "js": 28416,
+        "js": 28672,
         "css": 0
     },
     "@aparte/plugin-approval": {
-        "js": 3584,
+        "js": 3840,
         "css": 0
     },
     "@aparte/plugin-artifacts": {
@@ -32,7 +32,7 @@
         "css": 0
     },
     "@aparte/plugin-cards": {
-        "js": 192512,
+        "js": 193024,
         "css": 0
     },
     "@aparte/plugin-chartjs": {
@@ -40,11 +40,11 @@
         "css": 0
     },
     "@aparte/plugin-compaction": {
-        "js": 10240,
+        "js": 10496,
         "css": 0
     },
     "@aparte/plugin-diff": {
-        "js": 20992,
+        "js": 21504,
         "css": 0
     },
     "@aparte/plugin-echarts": {
@@ -64,7 +64,7 @@
         "css": 0
     },
     "@aparte/plugin-model-selector": {
-        "js": 9472,
+        "js": 9728,
         "css": 0
     },
     "@aparte/plugin-shiki": {
@@ -80,7 +80,7 @@
         "css": 0
     },
     "@aparte/plugin-subagents": {
-        "js": 16640,
+        "js": 17664,
         "css": 0
     },
     "@aparte/plugin-titler": {
@@ -88,7 +88,7 @@
         "css": 0
     },
     "@aparte/plugin-triggers": {
-        "js": 9728,
+        "js": 9984,
         "css": 0
     },
     "@aparte/provider-ai-sdk": {
@@ -108,11 +108,11 @@
         "css": 0
     },
     "@aparte/react": {
-        "js": 7936,
+        "js": 8448,
         "css": 0
     },
     "@aparte/runner-ag-ui": {
-        "js": 14592,
+        "js": 15104,
         "css": 0
     },
     "@aparte/runner-n8n": {
@@ -120,7 +120,7 @@
         "css": 0
     },
     "@aparte/svelte": {
-        "js": 6144,
+        "js": 6400,
         "css": 0
     },
     "@aparte/vue": {

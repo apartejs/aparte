@@ -67,9 +67,10 @@ export function sampleFor(text, name = '') {
     throw new Error(`no sample value for an attribute typed \`${text}\`: teach sampleFor() about it.`);
 }
 
-/** A property-only member's value: an array for a list, which is all the manifest has. */
+/** A property-only member's value: an array for a list, a function for a renderer. */
 export function sampleProperty(text) {
     if (/\[\]$/.test(text.trim())) return [];
+    if (/Renderer\b/.test(text)) return () => null;
     throw new Error(`no sample value for a property typed \`${text}\`: teach sampleProperty() about it.`);
 }
 

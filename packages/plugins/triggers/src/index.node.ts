@@ -19,3 +19,8 @@ export type {
     AparteTriggerSelectEventDetail,
     AparteTriggerSource,
 } from './types.js';
+
+// The element described for a framework wrapper — `createAparteElement(triggersElement)` in React,
+// `AparteVueElement<typeof triggersElement>` and `AparteSvelteElement<typeof triggersElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { triggersElement } from './generated/element-specs.js';

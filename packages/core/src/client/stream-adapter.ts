@@ -168,6 +168,11 @@ export interface CreateStreamAdapterOptions {
      */
     targetId?: string;
     /**
+     * The conversation the turn belongs to, for the lifecycle events that name it
+     * (`aparte-tool-approval-request`). Absent when the chat has none.
+     */
+    conversationId?: string;
+    /**
      * Whether the events this adapter is fed go to the observers of
      * {@link AparteConfig.observeRunEvents}. On by default: an adapter writing a reply is how
      * its run is heard. Pass `false` for an adapter fed events an observer handed you — a
@@ -188,7 +193,9 @@ export interface CreateStreamAdapterOptions {
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
-    const { target, config, messageId, targetId, observe: notify = true } = opts;
+    const { target, config, messageId, targetId, conversationId, observe: notify = true } = opts;
+    // Which turn a call that waits for a person belongs to, on the event that says it waits.
+    const turnOf = { messageId, ...(conversationId ? { conversationId } : {}) };
 
     // Per-turn streaming state (reset on `turn-start`, mirroring `_streamLoop`
     // creating a fresh parser / maps each outer iteration).
@@ -495,7 +502,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'tool-awaiting-approval':
                 target.updateSegment?.(`tool-${e.toolCallId}`, unqueued(`tool-${e.toolCallId}`, { status: 'awaiting-approval' as const }) as Partial<AparteSegment>);
-                dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input }, targetId);
+                dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input, ...turnOf }, targetId);
                 break;
 
             case 'tool-approved':
@@ -657,7 +664,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
         // Somebody must still be asked: an app that presents decisions itself listens for
         // this. The one event the router answers itself — the reply has no row for the call.
         if (e.type === 'tool-awaiting-approval') {
-            dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input, agentId }, targetId);
+            dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input, agentId, ...turnOf }, targetId);
         }
     };
 }

@@ -11,3 +11,8 @@ export { AparteArtifactPanel } from './panel/aparte-artifact-panel.js';
 export type { ArtifactPanelSource, ArtifactPanelRender, ArtifactVersionChangeEventDetail } from './panel/aparte-artifact-panel.js';
 export { connectArtifactPanel } from './panel/connect.js';
 export type { ConnectArtifactPanelOptions, ArtifactPanelSplit } from './panel/connect.js';
+
+// The element described for a framework wrapper — `createAparteElement(artifactPanelElement)` in React,
+// `AparteVueElement<typeof artifactPanelElement>` and `AparteSvelteElement<typeof artifactPanelElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { artifactPanelElement } from './generated/element-specs.js';

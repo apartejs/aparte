@@ -52,11 +52,12 @@ conversation so far, the `tool` messages answering the last calls included, as `
 | --- | --- |
 | `messageId` | the id of the reply this run writes; the loop does not read it, a runner that forwards the run does |
 | `conversationId` | the id of the conversation the run belongs to — the one open in the chat when the person sent the message, left out when the chat has none; the loop does not read it, a runner that sends the run elsewhere does ([a route or a thread per conversation](/guides/server-loop/#one-route-and-one-journal-per-conversation)) |
+| `userMessage` | `{ content, messageId? }`, the person's message this run answers as it was sent: the text typed on a send (files inlined as parts), the retried message on a retry, the new text on an edit. It is not always the last user message of `baseRequest.messages`: after a turn that failed, that history joins the failed message to the next one, for a model that reads it whole. A runner whose agent keeps its own memory and is sent only the new message reads this instead. Left out on the resume of a saved pause; the loop does not read it |
 | `baseRequest` | the first request: its `messages` and `modelId`, the tools, `toolChoice` |
 | `transportCall(request)` | calls the model with the request of each turn |
 | `toolLookup(name)` | the handler of a tool, `(call, signal) => Promise<{ content, structuredContent? }>` |
 | `toolConfigLookup(name)` | a tool's `maxTurns`, `needsApproval`, `external` and [`parallel`](#several-calls-in-one-reply) |
-| `approvalResolver(call, signal)` | answers a call that needs approval: `{ approved, payload?, instruction?, reason? }` |
+| `approvalResolver(call, signal)` | answers a call that needs approval with `{ approved, payload?, instruction?, reason?, by? }`. `call.agent` names the sub-agent whose call it is, absent for the run's own; `by` says who refused (`'person'`, `'policy'`), so the row says it right. Under `AparteClient`, your resolver also receives the turn as a third argument, `{ conversationId, messageId, targetId }` ([tools](/guides/tools/#decide-in-code)) |
 | `emitter(event)` | receives every event of the run |
 | `signal` | stops the run |
 | `maxTurns`, `toolTimeoutMs` | the turns of one run, ten by default, and a tool's time, five minutes by default |

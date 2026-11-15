@@ -10,23 +10,24 @@ import type { AparteToolCallSegment, AparteToolLine } from '../types/index.js';
 const reported = new WeakSet<object>();
 
 /**
- * What the config's tool-line provider says about this call (`setToolLineProvider`), or
- * `undefined` when there is none, it says nothing, or it throws — the default line then.
- * Called at every draw, update and relabel, never stored: its words follow the locale.
+ * What the config's tool-line providers say about this call (`setToolLineProvider`, then
+ * each `registerToolLineProvider` in order — the first to answer wins), or `undefined` when
+ * there is none, none says anything, or a throwing one is the only one — the default line
+ * then. Called at every draw, update and relabel, never stored: its words follow the locale.
  */
 export function toolLineOf(segment: AparteToolCallSegment, config: AparteConfig): AparteToolLine | undefined {
-    const provider = config.getToolLineProvider();
-    if (!provider) return undefined;
-    try {
-        const line = provider(segment);
-        return line && typeof line === 'object' ? line : undefined;
-    } catch (err) {
-        if (!reported.has(provider)) {
-            reported.add(provider);
-            console.error('[aparte] The tool-line provider threw; the row keeps its default line. Further throws from it are not reported.', err);
+    for (const provider of config.getToolLineProviders()) {
+        try {
+            const line = provider(segment);
+            if (line && typeof line === 'object') return line;
+        } catch (err) {
+            if (!reported.has(provider)) {
+                reported.add(provider);
+                console.error('[aparte] A tool-line provider threw; the row keeps its default line. Further throws from it are not reported.', err);
+            }
         }
-        return undefined;
     }
+    return undefined;
 }
 
 /** A provider's field as the row writes it: trimmed text, `''` for anything else. */
@@ -94,17 +95,30 @@ export function toolTargetPartsOf(
     return { text, isWords: text !== '' };
 }
 
-/**
- * The row's second line, from the tool-line provider, in every state it gives one: what the
- * call is doing now, and once it is over what it did. Core says nothing there on its own.
- */
-export function toolActivityOf(_segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
-    // In every state the provider gives one: a row keeps its height from its start to its end
-    // only if its second line does not come and go with the call's state.
-    return textOf(line?.activity);
+/** A display field that is text or a function of the call: its trimmed text, `''` for nothing, or when it throws. */
+function displayText(
+    field: string | ((segment: AparteToolCallSegment) => string) | undefined,
+    segment: AparteToolCallSegment,
+): string {
+    if (field === undefined) return '';
+    try {
+        return textOf(typeof field === 'function' ? field(segment) : field);
+    } catch {
+        return '';
+    }
 }
 
-/** The provider's trailing note, in every state. */
-export function toolLineNoteOf(line: AparteToolLine | undefined): string {
-    return textOf(line?.note);
+/**
+ * The row's second line: the app's `activity` on the tool's display, else the tool-line
+ * provider's, in every state it gives one. Core says nothing there on its own.
+ */
+export function toolActivityOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined, config: AparteConfig): string {
+    // In every state the app or a provider gives one: a row keeps its height from its start to its end
+    // only if its second line does not come and go with the call's state.
+    return displayText(config.getToolDisplay(segment.toolCall?.name ?? '')?.activity, segment) || textOf(line?.activity);
+}
+
+/** The row's trailing note: the app's `note` on the tool's display, else the provider's, in every state. */
+export function toolLineNoteOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined, config: AparteConfig): string {
+    return displayText(config.getToolDisplay(segment.toolCall?.name ?? '')?.note, segment) || textOf(line?.note);
 }

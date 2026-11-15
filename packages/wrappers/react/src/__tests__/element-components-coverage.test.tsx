@@ -84,7 +84,7 @@ describe('every attribute of an element is a prop that is written onto it', () =
 describe('every property-only member of an element is a prop assigned to it', () => {
     const withProperties = rows.filter((r) => r.properties.length);
     it('finds the one the issue could not reach: the rows of the conversation list', () => {
-        expect(withProperties.map((r) => [r.tag, r.properties.map((p) => p.name)])).toContainEqual(['aparte-conversation-list', ['conversations']]);
+        expect(withProperties.map((r) => [r.tag, r.properties.map((p) => p.name)])).toContainEqual(['aparte-conversation-list', ['conversations', 'renderMeta']]);
     });
 
     for (const row of withProperties) {

@@ -11,7 +11,7 @@ export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerSta
 
 // Conversation list primitive
 export { AparteConversationList } from './conversation-list/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './conversation-list/index.js';
+export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './conversation-list/index.js';
 
 // Prompt starters
 export { AparteSuggestions, setupSuggestionBlocks, SUGGESTIONS_BLOCK_LANGUAGE } from './suggestions/index.js';

@@ -32,7 +32,8 @@ import {
     isTerminalStatus,
 } from '../../utils/segments.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
-import { CheckpointStateWatcher, chatIdOf } from '../../context/checkpoint-state.js';
+import { CheckpointStateWatcher } from '../../context/checkpoint-state.js';
+import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
 
 /**
  * An assistant reply handed over as a markdown string, split the way the stream would
@@ -501,6 +502,8 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     disconnectedCallback(): void {
+        // Moved, the viewport may land in another chat: its id is looked up again there.
+        this._chatId = undefined;
         window.removeEventListener('aparte-config-change', this._onConfigChange);
         if (this._boundResetHandler) {
             window.removeEventListener('aparte-reset', this._boundResetHandler);
@@ -604,16 +607,24 @@ export class AparteChatViewport extends HTMLElement {
             } as AparteSegment;
         }
 
-        // Dispatch segment update event
-        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEventDetail>('aparte-segment-update', {
-            bubbles: true,
-            composed: true,
-            detail: { messageId, segmentId, content: chunk, append: true }
-        }));
+        // Dispatch segment update event. Once per chunk, so the chat's id is looked up once per
+        // connection (`_chatIdOnce`), not by a climb up the DOM each time.
+        const targetId = this._chatIdOnce();
+        const detail: AparteSegmentUpdateEventDetail = targetId === undefined
+            ? { messageId, segmentId, content: chunk, append: true }
+            : { messageId, segmentId, content: chunk, append: true, targetId };
+        this.dispatchEvent(new CustomEvent('aparte-segment-update', { bubbles: true, composed: true, detail }));
 
         // Notify bubble
         this._notifyBubble(messageId, 'appendToSegment', chunk, segmentId);
         this._autoScroll();
+    }
+
+    /** The chat this viewport is in, while it stays connected — see `appendToSegment`. */
+    private _chatId: string | undefined;
+    private _chatIdOnce(): string | undefined {
+        // A chat with no id yet (a host names itself after its children connect) is asked again.
+        return this._chatId ??= chatIdOf(this);
     }
 
     /**
@@ -1591,11 +1602,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _dispatchPathChanged(messages: AparteMessage[], siblings: AparteSiblingInfo[]): void {
         const detail: ApartePathChangedEventDetail = { messages, siblings };
-        this.dispatchEvent(new CustomEvent<ApartePathChangedEventDetail>('aparte-path-changed', {
-            bubbles: true,
-            composed: true,
-            detail,
-        }));
+        dispatchChatEvent(this, 'aparte-path-changed', detail);
     }
 
     private _autoScroll(): void {

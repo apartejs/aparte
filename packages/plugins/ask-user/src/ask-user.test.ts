@@ -93,6 +93,12 @@ describe('askUserHandler — elicitation adapter', () => {
         });
     });
 
+    it('asks under the conversation of the turn, which an app files the question under', async () => {
+        presenter({ action: 'accept', content: 'Paris' });
+        await askUserHandler(call({ question: 'Where?', options: [{ title: 'Paris' }] }), sig(), { conversationId: 'c1' });
+        expect(lastRequest).toMatchObject({ conversationId: 'c1' });
+    });
+
     it('accepts the single-element questions[] form as an enum', async () => {
         presenter({ action: 'accept', content: 'react' });
         await askUserHandler(call({ questions: [{ question: 'FW?', options: [{ title: 'react' }] }] }), sig());

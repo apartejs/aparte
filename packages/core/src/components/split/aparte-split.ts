@@ -393,7 +393,8 @@ export class AparteSplit extends HTMLElement {
         this._ready = false;
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this._ready) return;
         switch (name) {
             case 'position': {

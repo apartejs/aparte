@@ -1,5 +1,156 @@
 # @aparte/core
 
+## 1.10.0
+
+### Minor Changes
+
+- 8436252: With several chats on one conversation manager, a chat's first message now starts a conversation of its own, even when another chat has one open or is creating one.
+
+  Do you have to touch your code? Only if several chats share one manager and you create a conversation with `manager.createNew()` for one of them: give it to that chat (`conversationId`, or `setConversationId()`). With several chats on one manager, a chat whose first message was sent while another chat had a conversation open saved that message into the other chat's conversation, marked the other chat's row in the list as answering, and told the client the turn belonged to it. Two chats sending their first message at the same moment could end up in one conversation. Each chat now reads only its own conversation: the one it opened, or the one its first message is creating, which the controller exposes as `pendingId` until `activeId` holds it.
+
+  The manager still has one `activeId`, and it still names the conversation the last chat to move opened. It does not drive a chat: calling `manager.select()` or `manager.createNew()` yourself changes no chat's transcript. A chat alone on its manager still saves its first message into the empty conversation you created with `manager.createNew()`; with several chats, give that conversation to the chat it is for. To open a conversation in a chat, dispatch `aparte-conversation-select` with that chat's id as `targetId`, set its `conversationId`, or call `setConversationId()` on it.
+
+- 5f96251: A plugin's element can now be used from React as a typed component: `createAparteElement(approvalModeElement)` from `@aparte/react`. Each plugin exports a spec for its element (`approvalModeElement`, `modelSelectorElement`, `triggersElement`, `diffElement`, `subagentViewElement`, `askUserElement`, and `artifactPanelElement` from `@aparte/plugin-artifacts/panel`), and Vue and Svelte type the tag from it with `AparteVueElement<typeof spec>` and `AparteSvelteElement<typeof spec>`.
+
+  ```tsx
+  const ApprovalMode = createAparteElement(approvalModeElement);
+  <ApprovalMode
+    labels={{ ask: "Ask first" }}
+    onApprovalModeChange={(detail) => save(detail.mode)}
+  />;
+  ```
+
+  The spec is core's new `AparteElementSpec` type — the tag, its attributes, the members it has only as a property, its events with the name each binds under, and what it reads at connect — with phantom generics, so the attribute, property and event types travel with the value (`AparteSpecAttributes`, `AparteSpecProperties`, `AparteSpecEvents` read them back). It is data and defines nothing. A plugin generates its specs from its manifest; a third party writes one literal and every wrapper binds it the same way, since a plugin can depend on core but never on a wrapper. In Angular, a plugin's element takes `CUSTOM_ELEMENTS_SCHEMA`, as any custom element does.
+
+  Deprecated: `@aparte/plugin-model-selector/react`, `/vue`, `/svelte` and `/angular`. They keep working until the next major; use `modelSelectorElement` the same way as any other plugin's spec.
+
+- b4ff550: Events sent from inside a chat now carry `targetId`, the id of that chat — `aparte-card-action`, `aparte-card-change`, `aparte-approval-mode-change`, `aparte-diff-comment` and the others — so a page with several chats can tell them apart. New: `chatIdOf(el)` and `dispatchChatEvent(el, type, detail)`.
+
+  What carries it now: a message's `aparte-action`, `aparte-feedback`, `aparte-feedback-reason`, `aparte-message-info`, `aparte-branch-navigate`, `aparte-link-click` and `aparte-attachment-preview`; the composer's `aparte-composer-change`, `aparte-action-click` and `aparte-attachment-preview`; the viewport's `aparte-path-changed` and `aparte-segment-update`; `aparte-suggestion`; `aparte-model-change`; `aparte-approval-mode-change`; `aparte-trigger-select`; `aparte-card-action` and `aparte-card-change`; `aparte-diff-comment`; `aparte-artifact-open` and `aparte-artifact-version-change`. Their detail types gain `targetId?: string`; nothing is removed. A chat with no `id` names none, and the detail then has no `targetId` key.
+
+  `chatIdOf(el)` is the rule core uses everywhere it needs an element's chat, exported: the `target` of the nearest aparté element that names one, else the id of the nearest `<aparte-chat>` or `[data-aparte-chat]` root that has one, across a shadow root. It replaces the copies the composer, the client, the bubble, the context gauge, the suggestions and the triggers each kept. `dispatchChatEvent(el, type, detail, { cancelable })` dispatches a bubbling, composed event with that `targetId` stamped on the detail (one the detail already has is kept) and returns what `dispatchEvent` returns: a plugin's element, or yours, sends its events the way core's do.
+
+  The plugins that use them need `@aparte/core` 1.10.0.
+
+- 100a185: An approval question can now show what the call would do: a tool's display takes `approvalPreview`, and the panel mounts what it returns between the question and the buttons.
+
+  `approvalPreview(call)` returns an element, a string of HTML (sanitised) or `null`; `requestUserInput()` takes the same thing as `preview` on an approval request. `setupDiff()` registers a diff preview for an edit tool from its input (`before` and `after`, or `old_string` and `new_string`), and takes a `preview` option for another shape, or `false` for none.
+
+- 7476930: A new `config` given to `<AparteChat>` is now applied; it was read once, when the chat mounted, and a later one was ignored without a word.
+
+  Pass a config that keeps its identity across renders (created once, or memoized): each new object is applied as a new config, and every element inside re-resolves it. The same config handed again changes nothing.
+
+  When the prop changes, every element inside moves to the new config, and the chat's two locale strings (the loading line, the waiting line) follow the new language. The messages on screen stay. If the new config registers another conversation manager, the open conversation is opened again from it when it holds that conversation; when it does not, or the new config has no manager, the chat keeps saving that conversation to the manager it had, and the next conversation it opens comes from the new config. A config given while a reply is streaming waits for that turn to end, so a reply is never half-drawn with one configuration's renderers and finished with another's; the last one given wins.
+
+  The wrappers call the new `AparteChatHost.setConfig(config)`, which does the same for a binding of your own.
+
+- f65be56: `<aparte-conversation-list>` takes `group: { key, label }` on an item to list it under a heading of your own, and a `renderMeta(item)` property to draw a mark of yours after a row's title.
+
+  Nothing to change in your code. A row with a `group` is listed there instead of under its date or Pinned; the groups come first, in order of first appearance, and the rows without one keep the date groups below them. `renderMeta` returns an element, a string (text, never markup) or `null`; it sits beside the title button, not inside it, so a button of yours in it keeps its own name and tab stop. Setting it draws the rows again.
+
+- e5d60b4: After a failed turn, every later request now sends the same history: the failed message goes with the next one from the next request on, or is left out of every request when its error says the same request fails again.
+
+  Do you have to touch your code? No. A server that compared histories and took a message ending in `"\n\n" + <a recorded message>` for that message can drop that workaround: the history no longer changes from one request to the next.
+
+  - **What changed.** The send cut the history at the last answered reply, so the request after a failed turn left the failed message out, and the request after that put it back, joined to the next message. A server that keeps its own record saw the past change under it. The send now cuts only the message being sent, and one rule, decided by the code on the failed reply's error segment, says what a failed turn leaves:
+    - the network, a 5xx, a rate limit, a key, a Stop before the first token: the message is kept, and goes joined to the next one (`mergeAdjacentUserMessages`), as retry and edit already sent it;
+    - `USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`, `USAGE_BAD_REQUEST`: the message, and every message that went out with it, is left out of every later request, or the conversation could not go on;
+    - a message that carried files is left out too: the history sends a message's text, never the files a send read, and the model would be asked about a file it is not shown.
+  - **Who follows it.** Send, retry, edit, the resume of a paused turn, the context gauge (`estimateWireTokens`, `measureContext`) and `@aparte/plugin-compaction`, whose cut no longer weighs a message no request sends and whose summary no longer reads it.
+  - **New export.** `withoutAbandonedTurns(messages)` returns the messages a later request still sends, for a `history` function or a server of your own.
+  - **What it fixes downstream.** An AG-UI thread numbers its messages by place, and the ids no longer name two different messages in one thread. n8n, which receives only the last message, now hears the failed one with the next instead of never.
+
+- ff401d3: A pause on a sub-agent's call now survives a reload: `resumeDeferred` asks it again under the sub-agent's name, and the run resumes with the answer.
+
+  Do you have to touch your code? No. A storage adapter that saves the message as it is keeps the new field; one that copies chosen fields should copy `deferredCalls` too.
+
+  - **What was wrong.** An agent elsewhere (an AG-UI agent, a server loop of your own) can pause on a call its sub-agent made. That call has no row in the reply, so nothing the conversation saved said a call was waiting: after a reload, `resumeDeferred` found no pause, the question was never asked again, and the agent kept waiting for an answer.
+  - **What the reply keeps.** `AparteMessage.deferredCalls`, a list of `AparteDeferredCall` — `{ toolCallId, name, input, reason, agentId, agentName, ticket }` — written when the run pauses, before `aparte-message-paused`, so the conversation saved then has it. It names nothing of a plugin: the call, why it waits, the sub-agent's id and the name it was announced with, the server's ticket. It is removed once the pause is answered, and closed by a Stop or a new message, like a row's `deferred`.
+  - **On a reload.** `resumeDeferred` resumes the reply's own paused calls and these together, each sub-agent call with its `agentId`, asked under its sub-agent's name (`Allow read_file for Researcher?`), and an `approvalResolver` receives `call.agent`. The call that opened the sub-agent stays open across the load, so the resume hands it back to the agent unanswered rather than "stopped".
+
+- 8f8be35: Add `--aparte-warning-surface` and `--aparte-info-surface`, and the `chevronDownIcon`, `chevronUpIcon` and `panelLeftIcon` glyphs in `@aparte/core/icons`.
+
+  The two surfaces complete the intent family: success and error had one, warning and info did not, so a rule reading them got an invalid value and painted nothing. They use the same recipe. The chevrons name by direction what `expand` and `collapse` name by state; `panelLeft` is the usual glyph for a desktop sidebar toggle.
+
+- d2f054c: `approvalResolver`, an approval policy and `requestInterceptor` now receive the turn they are called for, `{ conversationId, messageId, targetId }` (`AparteTurnContext`), and so do the server handler's `approvalPolicy` and `prepareRequest`.
+
+  ```ts
+  new AparteClient({
+    approvalResolver: (call, signal, { conversationId }) =>
+      cards.ask(conversationId, call, signal),
+  });
+  ```
+
+  Do you have to touch your code? No. Each is an extra argument a callback is free to ignore. A resolver that read the open conversation from the app's own state, or from a capturing listener on `aparte-conversation-loaded`, can read it from the turn instead.
+
+  - **Why.** The client asks again about a paused call the moment a conversation is loaded (`resumeDeferred`), before a framework has rendered the new id: a resolver that read the app's state filed the request under the conversation shown before, and its card never appeared. The turn is read when the person acted, at every call site: a turn in the page, a paused server run, a resume after a reload.
+  - **Where it goes.** The third argument of `approvalResolver(call, signal, turn)` and of an approval policy `(call, tool, turn)` (absent only when `config.ruleOnToolCall(call)` is called by hand, which now takes the turn as an optional second argument); the second of `requestInterceptor(request, turn)`; on the server, `approvalPolicy(call, tool, turn)` and `prepareRequest(request, req, turn)`, with `{ messageId, conversationId }` as the page sent them. The sub-agent whose call it is stays on `call.agent`.
+  - **On the event and the panel.** `aparte-tool-approval-request` carries `messageId` and `conversationId`, and the approval core puts to the panel carries them on the request (`AparteElicitationRequest.conversationId`, `messageId`), for a presenter of your own. `@aparte/plugin-ask-user` and the n8n `buttons` tool put the conversation on the question they ask.
+  - **The approval preview.** The request also carries `preview`, what the tool display's `approvalPreview` draws for the call.
+  - **A browser tool that answers a paused server run** is now told its conversation (`context.conversationId`), like a tool the page's own loop runs.
+  - **`AparteToolApprovalResolver`** is now its own type, engine's resolver plus the turn. Passing one straight to `runStreamAgent` needs a wrapper: `(call, signal) => resolver(call, signal, turn)`.
+
+- c4e34a9: Giving a chat back the conversation it just created (`conversationId` set from `onConversationCreated`, or bound to the conversation manager's `activeId`) no longer reloads it in the middle of the first reply. New: `getConversationId()` on every `<AparteChat>` says which conversation that chat shows.
+
+  Do you have to touch your code? Only if a class of yours implements `AparteChatImperativeApi`: add `getConversationId()`. Otherwise nothing changes; the pattern the conversation persistence guide documents now works as written:
+
+  ```tsx
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  <AparteChat
+    conversationId={conversationId}
+    onConversationCreated={setConversationId}
+  />;
+  ```
+
+  Before, the id came back while the first reply was streaming and the chat took it as a new conversation to open: it re-read the conversation from the manager, which did not hold the reply yet, so the reply's text landed in the person's bubble, the person's message disappeared and Send stayed disabled. Bound to the manager's `activeId` (natural in Vue, Svelte and Angular), the id came back even earlier, before the chat itself held it. A `conversationId` prop is now a no-op for the conversation the chat already shows or is creating. The imperative `setConversationId(id)` is unchanged: the same id again still re-reads the conversation.
+
+  `getConversationId()` is on `AparteChatImperativeApi`, so it is on React's ref handle, Vue's and Svelte's component instance, Angular's component, and `useAparteChat()` / `createAparteChat()`. It returns the conversation the chat opened, or the one its first message is creating, and `null` before either. Unlike the manager's single `activeId`, which names whichever chat opened a conversation last, it is per chat. `AparteChatHost` gains the two methods the wrappers call: `syncConversationId(id)` and `getConversationId()`.
+
+  In Angular, `setConversationId()` called on the component no longer leaves the `[conversationId]` input's next value compared against a stale id.
+
+- 60b91c1: A question or approval whose options are buttons now answers to the keyboard: 1 to 9 press the matching option, and Escape means Skip (question) or the one refusing option (approval).
+
+  Each option wears its number and carries `aria-keyshortcuts`. The digits work only while an option has the focus, so a number typed in a sentence stays text; a held key, a modifier, an IME composition and a text field (the "Other" field, the instruction) are ignored. Escape on an approval presses the option with `tone: 'deny'` only when there is exactly one, and it no longer closes a launcher the chat sits in while a panel is asking. On by default.
+
+- aa20dd2: Add `.aparte-segmented`: a pill-shaped row of choices over native radio buttons, with `--sm` and `--block`, and keyboard focus drawn on the chosen segment.
+
+  Wrap each `<input type="radio">` and its text in a `<label class="aparte-segmented__item">` inside a `<div class="aparte-segmented" role="radiogroup">`. A row of buttons that each do something wears the same look, with `aria-pressed` on a `.aparte-segmented__item` button. The cards' range buttons now use this recipe. Their markup keeps `aria-pressed`, `data-card-key` and the class names `aparte-rich-card__segmented` and `aparte-rich-card__segment`, so a stylesheet of yours that reached them still does; the look itself now comes from `.aparte-segmented`.
+
+- 1306924: `<aparte-sidebar collapsed="rail">` folds the column to a 56px rail that stays usable, and `.aparte-tooltip-anchor--hover` shows a tooltip on hover and focus with no script.
+
+  Nothing to change in your code: a plain `collapsed` still folds to nothing, and an anchor without the modifier behaves as before. In a rail the children you mark `data-rail` stay, the others and any `.aparte-sidebar__label` or `.aparte-sidebar__brand` inside a marked one hide, and the sidebar takes no `inert`. The width is `--aparte-sidebar-rail-width`; the tooltip's delay is `--aparte-tooltip-delay` (400ms). The rail has no keyboard shortcut and the element does not choose when to be one: your toggle sets the attribute.
+
+- 73253c3: A tool's display can now set the row's `note` and `activity` (text, or a function of the call), and `registerToolLineProvider()` adds a tool-line provider without replacing the one the app set.
+
+  The app's display wins over a provider, field by field. Providers are asked in order, `setToolLineProvider()` first, and the first one that answers a call wins; `registerToolLineProvider()` returns the function that removes it, and `getToolLineProviders()` lists them. `setToolLineProvider()` is unchanged. `@aparte/plugin-subagents` registers its provider instead of setting it, so it no longer overwrites the app's.
+
+- `@aparte/runner-n8n` sends n8n the message just typed, also after a failed turn; it sent the failed message again, joined to the new one, which n8n's memory may already hold. The run now names the person's message it answers: `userMessage`, `{ content, messageId? }`, on `StreamRunOptions`, which `AparteClient` fills on a send, a retry and an edit.
+
+  Do you have to touch your code? No. A runner whose agent keeps its own memory and is sent only the new message reads `opts.userMessage` rather than the last user message of `baseRequest.messages`, which after a failed turn is that message joined to the one before it. With a client that does not name it, `@aparte/runner-n8n` reads the history as before. A first message whose turn failed now keeps its n8n session for the next one.
+
+### Patch Changes
+
+- 81d38ee: An element handed a value it already holds no longer closes, unfocuses or resets what the person was doing in it — re-rendering a framework wrapper with the same props is now harmless.
+
+  - `<aparte-triggers>`: re-setting `triggers` keeps the open list open, on the row the keyboard was on, when the trigger it shows is still declared at the same place; a child list opened from a row stays open, on its own row, while that row is still listed, and closes with it otherwise. The commands-and-mentions recipe re-set it on every React render, so the list opened on `@` and closed at once.
+  - `<aparte-approval-mode>`: re-setting `labels` renames the options in place, so an open list stays open.
+  - `<aparte-diff>`: re-setting `diff` with the change it shows — the same text or object, or an equal one, such as an inline `{ path, before, after }` — keeps the lines picked, the comment field and its text, the folds and the focus. The same object mutated into another change is drawn and coloured from its new text, and keeps the folds and the lines picked that still exist in it.
+  - `<aparte-artifact-panel>`: re-setting `render` with the same function keeps the tab and the preview the reader chose.
+  - `<aparte-conversation-list>`: re-setting `conversations` while a row's menu is open or a title is being renamed waits for them to end, instead of closing the menu and dropping what was typed.
+  - `<aparte-suggestions>`: re-setting `suggestions` keeps the focused chip and the row's scroll.
+  - An attribute written again with the value it has does nothing, on every element of core and the plugins (eleven of them redrew or rewrote their parts).
+
+  `applyElementProps`, which every `AparteUi` and the generated React components use, now writes an attribute or a CSS variable only when it differs from the value it last wrote on that element; an object or a function is still assigned every time, because it may have been mutated in place (a Vue `push` behind a deep watch, a Svelte 5 proxy, Svelte 4's `arr = arr`). An element that changes its own attribute keeps what it did until the prop next changes, as the React components already behaved.
+
+  A test reads every element of core and of the seven plugins with a manifest and holds each to this: an attribute written again makes no mutation under the element, and a property assigned again keeps the focus and what is open, selected or typed.
+
+- 1306924: A select's trigger text is now the value it shows and nothing else, so `textContent` of the trigger reads "gpt-4o" and not every option's label run together.
+
+  Nothing to change in your code, unless a test read the hidden width labels (`.aparte-select-label-sizer > span`) as text: they now carry the label in `data-label` and CSS draws it as generated content. The trigger keeps the width of its widest option, as before. The testing guide lists the select's hook.
+
+- Updated dependencies [d2f054c]
+  - @aparte/engine@1.10.0
+
 ## 1.9.0
 
 ### Minor Changes

@@ -64,6 +64,21 @@ describe('a live card', () => {
         expect(card.querySelector('[role="switch"]')!.getAttribute('aria-checked')).toBe('true');
     });
 
+    it('names the chat the change came from', async () => {
+        stop = lightCard.setup({ onChange: async ({ name, value }, data) => ({ ...data, [name]: value }) });
+        const card = draw({ name: 'Lamp', on: false, level: 40 });
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'chat-a';
+        document.body.append(chat);
+        chat.append(card);
+        const seen: unknown[] = [];
+        document.addEventListener('aparte-card-change', (e) => seen.push(e.detail.targetId), { once: true });
+        card.querySelector<HTMLButtonElement>('[role="switch"]')!.click();
+        await flush();
+        expect(seen).toEqual(['chat-a']);
+    });
+
     it('keeps what onChange gave when core draws the same segment again, draws a new result as it is, and keeps the first for when it comes back', async () => {
         stop = lightCard.setup({ onChange: async ({ name, value }, data) => ({ ...data, [name]: value }) });
         const card = draw({ name: 'Lamp', on: false, level: 40 });

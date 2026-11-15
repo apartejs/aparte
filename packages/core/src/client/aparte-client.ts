@@ -7,14 +7,15 @@ import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
-import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
+import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
-import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
+import { chatIdOf } from '../interop/chat-events.js';
+import type { AparteStreamRunner, AparteStreamRunEmitter, AparteStreamRunOptions, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteToolCall, AparteTool, AparteApprovalRuling, AparteToolRun } from '../types/tools.js';
+import type { AparteToolCall, AparteTool, AparteApprovalRuling, AparteToolRun, AparteTurnContext } from '../types/tools.js';
 import type { AparteRequestMeta } from '../types/chat.js';
-import type { AparteMessageToken } from '../types/models.js';
+import type { AparteDeferredCall, AparteMessageToken } from '../types/models.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
@@ -75,10 +76,23 @@ interface AparteChatTargetElement extends HTMLElement {
  * id alone forced a lookup table filled by one event and read by another, which is the
  * shape that breaks in silence.
  *
- * Engine's `StreamApprovalResolver`, under core's name — one type, not a twin to keep in
- * step: its result's `instruction`, `reason` and `by` are documented there.
+ * Engine's `StreamApprovalResolver`, under core's name — the same call and the same result,
+ * whose `instruction`, `reason` and `by` are documented there — plus a third argument, the
+ * turn the call belongs to (`AparteTurnContext`): the conversation open when the person
+ * acted, the reply, the chat. The client knows it at every call site, a call asked again
+ * after a reload (`resumeDeferred`) included, so a resolver files the request under its own
+ * conversation without reading an app state that may not have caught up yet.
+ *
+ * @example
+ * new AparteClient({
+ *   approvalResolver: (call, signal, { conversationId }) => cards.ask(conversationId, call, signal),
+ * });
  */
-export type AparteToolApprovalResolver = StreamApprovalResolver;
+export type AparteToolApprovalResolver = (
+    call: Parameters<StreamApprovalResolver>[0],
+    signal: AbortSignal,
+    turn: AparteTurnContext,
+) => ReturnType<StreamApprovalResolver>;
 
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
@@ -113,6 +127,8 @@ export interface AparteClientOptions {
      *
      * On a refusal it may return an `instruction` (the user's words) or a `reason`
      * (nobody spoke), which the model reads as the tool result.
+     *
+     * Its third argument is the turn: `{ conversationId, messageId, targetId }`.
      */
     approvalResolver?: AparteToolApprovalResolver;
 
@@ -126,9 +142,10 @@ export interface AparteClientOptions {
     streamRunner?: AparteStreamRunner;
 
     /**
-     * Optional request interceptor to modify the chat request before sending.
+     * Optional request interceptor to modify the chat request before sending. Its second
+     * argument is the turn the request is for: `{ conversationId, messageId, targetId }`.
      */
-    requestInterceptor?: (request: AparteChatRequest) => AparteChatRequest | Promise<AparteChatRequest>;
+    requestInterceptor?: (request: AparteChatRequest, turn: AparteTurnContext) => AparteChatRequest | Promise<AparteChatRequest>;
 
     /**
      * Whether to register core's default segment renderers.
@@ -144,12 +161,17 @@ export interface AparteClientOptions {
 
     /**
      * Conversation history strategy:
-     * - 'viewport' (default) — sends every user/assistant turn up to the last answered
-     *                          one. A turn that errored, or is still in flight
-     *                          ('streaming' / 'pending'), is held back and does not move
-     *                          that cutoff; a turn a host seeded with NO `status` counts
-     *                          as answered, so a restored or server-rendered transcript
-     *                          goes out as history without inventing a status for it.
+     * - 'viewport' (default) — sends every user/assistant turn before the message being
+     *                          sent. A reply still in flight ('streaming' / 'pending') is
+     *                          held back, and so is a reply that errored; a turn a host
+     *                          seeded with NO `status` is history, so a restored or
+     *                          server-rendered transcript goes out without inventing a
+     *                          status for it. After a failed turn, the message that asked
+     *                          goes with the next one, from the next request on, unless
+     *                          its error's `code` says the same request fails again
+     *                          (`USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
+     *                          `USAGE_BAD_REQUEST`) or it carried files: then it is left
+     *                          out of every later request (`withoutAbandonedTurns`).
      * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
      *
@@ -642,6 +664,22 @@ export class AparteClient {
     }
 
     /**
+     * What the call would do, as the tool's display draws it for the approval panel
+     * (`AparteToolDisplay.approvalPreview`), read from the chat's config, the one the row
+     * renders with. `undefined` when the display has none, answers `null`, or throws: the
+     * question then shows the arguments alone.
+     */
+    private _approvalPreviewOf(call: AparteToolCall, target: HTMLElement): HTMLElement | string | undefined {
+        const display = resolveConfig(target).getToolDisplay(call.name);
+        try {
+            return display?.approvalPreview?.({ id: call.id, name: call.name, input: call.input }) ?? undefined;
+        } catch (error) {
+            console.warn(`[aparte] The approval preview of "${call.name}" threw; the question shows the arguments alone.`, error);
+            return undefined;
+        }
+    }
+
+    /**
      * Ask the human at the COMPOSER, and report what they decided.
      *
      * The default channel. Routing through `requestUserInput` puts the decision
@@ -666,9 +704,11 @@ export class AparteClient {
         event: { id: string; name: string; input: Record<string, unknown>; agent?: { id: string; name?: string } },
         signal: AbortSignal,
         target: HTMLElement,
+        turn: AparteTurnContext,
     ): Promise<{ approved: boolean; payload?: unknown; instruction?: string; by?: StreamRefusalOrigin }> {
         // Who asks, when it is a sub-agent with a name: an id is not a word for a person.
         const agentName = event.agent?.name?.trim();
+        const preview = this._approvalPreviewOf(event, target);
         const answer = await requestUserInput({
             kind: 'approval',
             /*
@@ -708,6 +748,10 @@ export class AparteClient {
             ],
             signal,
             target,
+            ...(preview !== undefined ? { preview } : {}),
+            // Which turn asks: a presenter of the app's own files the request under it.
+            messageId: turn.messageId,
+            ...(turn.conversationId ? { conversationId: turn.conversationId } : {}),
         });
         // `decline` is the corner escape, which for a decision means "not this": the
         // safe reading of an unanswered approval is never "go ahead".
@@ -795,11 +839,24 @@ export class AparteClient {
              * resume of a pause included.
              */
             conversationId?: string;
+            /**
+             * The person's message this turn answers, as it was sent — for a runner whose agent
+             * keeps its own memory (see `StreamRunOptions.userMessage`). Every run of the turn.
+             */
+            userMessage?: AparteStreamRunOptions['userMessage'];
+            /** The sub-agents a resumed pause already named, by `agentId`: its run announces them no more. */
+            agentNames?: ReadonlyMap<string, string>;
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
         // a viewport and does not carry it. See `_targetIdOf`.
         const chatId = this._targetIdOf(targetElement);
+        // What every callback of this turn is told it is called for.
+        const turn: AparteTurnContext = {
+            ...(opts?.conversationId ? { conversationId: opts.conversationId } : {}),
+            messageId,
+            ...(chatId ? { targetId: chatId } : {}),
+        };
         const registeredTools = this._toolsForCurrentModel();
         // One function for the request, because a compaction builds it twice: the messages
         // change, and everything else the turn does to a request (the interceptor, the
@@ -814,7 +871,7 @@ export class AparteClient {
                 ...(opts?.meta ? { _meta: opts.meta } : {}),
             };
             if (this.options.requestInterceptor) {
-                built = await this.options.requestInterceptor(built);
+                built = await this.options.requestInterceptor(built, turn);
             }
             // toolChoice: 'none' — strip tools so the model never sees them, and their
             // instructions with them (the system message _systemMessages() added).
@@ -870,7 +927,7 @@ export class AparteClient {
         if (this._streamController !== streamController) this._streamController?.abort();
         this._streamController = streamController;
         this._turnsInFlight.add(messageId);
-        this._agentNames.set(messageId, new Map());
+        this._agentNames.set(messageId, new Map(opts?.agentNames ?? []));
         // The compactor this chat answers to: the one on ITS config first (a chat inside an
         // instance boundary), then the client's. Needs `rebuild` to be of any use — what it
         // does is make the history smaller, and only the caller knows how to send it again.
@@ -908,7 +965,7 @@ export class AparteClient {
         const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
-                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files, opts?.conversationId);
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files, opts?.conversationId, opts?.userMessage);
             // A server loop paused on calls only the page can answer: ask here — the
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
@@ -924,7 +981,7 @@ export class AparteClient {
             // call itself: a vendor that sends no ids has them minted per stream, so a later call
             // can carry an id approved earlier in the turn, and that approval was not for it.
             let approvedAtLastPause = new Set<string>();
-            const rowEvents = createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}) });
+            const rowEvents = createStreamAdapter({ target: targetElement as StreamAdapterTarget, config: this._config, messageId, ...(chatId ? { targetId: chatId } : {}), ...(opts?.conversationId ? { conversationId: opts.conversationId } : {}) });
             while (result.suspended) {
                 const stopped = this._isAborted || streamController.signal.aborted;
                 if (!stopped && ++resumes > maxResumes) {
@@ -937,7 +994,7 @@ export class AparteClient {
                 const approvedNow = new Set<string>();
                 const outcomes = stopped
                     ? undefined
-                    : await this._answerDeferred(targetElement, messageId, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
+                    : await this._answerDeferred(targetElement, turn, result.suspended.pending, streamController.signal, rowEvents, approvedAtLastPause, approvedNow);
                 approvedAtLastPause = approvedNow;
                 if (!outcomes) {
                     // Nobody will answer them — a Stop, or a channel that gave up: the calls
@@ -961,7 +1018,7 @@ export class AparteClient {
                     targetElement, messageId, provider,
                     { ...baseRequest, messages },
                     authConfig, streamController, deferral,
-                    undefined, opts?.conversationId,
+                    undefined, opts?.conversationId, opts?.userMessage,
                 );
             }
             const usage = result.usage;
@@ -1158,13 +1215,16 @@ export class AparteClient {
         // sent only by a provider that decodes greedily without one. (`request.seed`
         // stays untouched: it is the caller's reproducibility knob, and writing one
         // here would defeat it.)
+        // The message this turn answers: the one retried, or the one the retried reply answered.
+        const asked = [...historyMessages].reverse().find((m) => m.role === 'user');
         await this._streamTurn(
             targetElement, newMessageId, provider,
             [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
-                ...this._turnMeta([...historyMessages].reverse().find((m) => m.role === 'user')),
+                ...this._turnMeta(asked),
                 ...(conversationId ? { conversationId } : {}),
+                ...(asked ? { userMessage: { content: messageWireText(asked), messageId: asked.id } } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1264,6 +1324,10 @@ export class AparteClient {
             authConfig, {
                 ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
                 ...(conversationId ? { conversationId } : {}),
+                userMessage: {
+                    content: editIdx >= 0 ? messageWireText(allMessages[editIdx]!) : String(newContent),
+                    messageId,
+                },
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1406,14 +1470,7 @@ export class AparteClient {
      * through to the next one up rather than answer "no id".
      */
     private _targetIdOf(el: HTMLElement | null | undefined): string | undefined {
-        let node: HTMLElement | null = el ?? null;
-        while (node) {
-            const tag = node.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || node.hasAttribute?.('data-aparte-chat');
-            if (isHost && node.id) return node.id;
-            node = node.parentElement;
-        }
-        return el?.id || undefined;
+        return chatIdOf(el) ?? (el?.id || undefined);
     }
 
     /**
@@ -1579,6 +1636,9 @@ export class AparteClient {
             });
             if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
         }
+        // The message just sent, as the chat shows it: the last one, whoever echoed it.
+        const shown = targetElement.getMessages?.().at(-1);
+        const sentId = shown?.role === 'user' ? shown.id : undefined;
 
         const messageId = uuid();
         const config = this._config.getModelConfig();
@@ -1656,6 +1716,7 @@ export class AparteClient {
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
                 ...this._turnMeta(event.detail),
                 ...(conversationId ? { conversationId } : {}),
+                userMessage: { content: this._userContent(content, fileParts), ...(sentId ? { messageId: sentId } : {}) },
             },
         );
     }
@@ -1676,13 +1737,15 @@ export class AparteClient {
             messages.push(...historyOption(viewportMessages));
         }
 
-        const userMsg: AparteChatMessage['content'] = (parts && parts.length > 0)
-            ? [{ type: 'text' as const, text: userContent }, ...parts]
-            : userContent;
-        messages.push({ role: 'user', content: userMsg });
+        messages.push({ role: 'user', content: this._userContent(userContent, parts) });
         // Applied once, to the final array: the history may end on a user turn (a failed
         // one, a compaction summary) that the new message now sits right after.
         return mergeAdjacentUserMessages(messages);
+    }
+
+    /** The message being sent, as the request carries it: the text, then the files inlined as parts. */
+    private _userContent(text: string, parts?: AparteContentPart[]): AparteChatMessage['content'] {
+        return parts && parts.length > 0 ? [{ type: 'text' as const, text }, ...parts] : text;
     }
 
     private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
@@ -1690,18 +1753,15 @@ export class AparteClient {
         // the very message being sent (a turn retried after an overflow), and the cutoff
         // would otherwise have cut it away with that message.
         const { summary, messages } = historyFromCheckpoint(path);
-        // Exclude trailing unanswered user messages: the current user message is
-        // already added explicitly at the end of _buildMessages, so including it
-        // from the viewport would cause a duplicate.
-        // Find the last ANSWERED assistant response and cut there — errored and
-        // in-flight turns are not answers and must not move the cutoff.
-        let cutoff = 0;
-        for (let i = 0; i < messages.length; i++) {
-            const m = messages[i]!;
-            if (m.role === 'assistant' && m.status !== 'error' && !isInFlight(m)) {
-                cutoff = i + 1;
-            }
-        }
+        // The message being sent is the last one not in flight (the reply waiting for it
+        // is): `_buildMessages` adds it itself, with its files, so it is cut here or it
+        // would go twice. Only that one. A message whose turn failed before it stays: it
+        // goes with this one, or is left out, by the rule every request follows
+        // (`withoutAbandonedTurns`). Cutting at the last ANSWERED reply left it out of
+        // this request and put it back, joined to this message, in the next one.
+        let cutoff = messages.length;
+        while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
+        if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
 
         // The cutoff is this path's own concern; what each message contributes to the
         // wire is shared with retry and edit — see `wireMessages`.
@@ -1811,6 +1871,8 @@ export class AparteClient {
         files?: readonly File[],
         // The conversation the turn belongs to — on a resume as on the first run.
         conversationId?: string,
+        // The person's message the turn answers, as it was sent.
+        userMessage?: AparteStreamRunOptions['userMessage'],
     ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1850,7 +1912,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files, conversationId);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files, conversationId, userMessage);
     }
 
     /**
@@ -1873,6 +1935,7 @@ export class AparteClient {
         deferral?: StreamDeferral,
         files?: readonly File[],
         conversationId?: string,
+        userMessage?: AparteStreamRunOptions['userMessage'],
     ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
@@ -1880,11 +1943,17 @@ export class AparteClient {
         // two lifecycle dispatches (`aparte-tool-approval-request` and the abort) go
         // out unstamped, which every chat on the page reads as its own.
         const chatId = this._targetIdOf(targetElement);
+        const turn: AparteTurnContext = {
+            ...(conversationId ? { conversationId } : {}),
+            messageId,
+            ...(chatId ? { targetId: chatId } : {}),
+        };
         const adapter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
             messageId,
             ...(chatId ? { targetId: chatId } : {}),
+            ...(conversationId ? { conversationId } : {}),
         });
         // `prefixSegments` (`_meta`) land right after the runner's `run-start` — the
         // flip to `status: 'streaming'` — so they sit on a streaming bubble, in the
@@ -1900,6 +1969,11 @@ export class AparteClient {
         // error, and it is the tool's, not the model's or the network's (below).
         let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
+            // Before the adapter, which says the turn paused: whoever saves the conversation
+            // then must find the calls a reload has to ask again.
+            if (event.type === 'run-suspended' && (event as { agentId?: unknown }).agentId == null) {
+                this._keepSubAgentCalls(targetElement, messageId, event.pending, (event as { ticket?: unknown }).ticket);
+            }
             adapter(event);
             // Kept for the question a pause asks about one of its calls.
             if (event.type === 'agent-start' && event.name) this._agentNames.get(messageId)?.set(event.agentId, event.name);
@@ -1962,7 +2036,7 @@ export class AparteClient {
                 needsApproval: hostOwnsDecision
                     ? tool.needsApproval
                     : (call: AparteToolCall) => {
-                        const verdict = this._config.ruleOnToolCall(call).verdict;
+                        const verdict = this._config.ruleOnToolCall(call, turn).verdict;
                         return verdict === 'allow' ? false : verdict;
                     },
             };
@@ -1975,7 +2049,7 @@ export class AparteClient {
         // A host's own resolver decides everything and sees no policy: it already
         // chose to own the decision. The default channel consults the policy first — a
         // `deny` refuses with the policy's own reason, never "the user rejected this".
-        const approvalResolver = this._approvalResolverFor(targetElement);
+        const approvalResolver = this._approvalResolverFor(targetElement, turn);
 
         /*
          * A handler's crash ends the run on the handler's own error. Classified like a
@@ -1996,6 +2070,7 @@ export class AparteClient {
             ...(deferral ? { deferral } : {}),
             ...(files && files.length > 0 ? { files } : {}),
             ...(conversationId ? { conversationId } : {}),
+            ...(userMessage ? { userMessage } : {}),
             baseRequest,
             transportCall,
             toolLookup,
@@ -2031,19 +2106,21 @@ export class AparteClient {
      * the tool's `needsApproval` — reads a tool the page does not have, and said
      * "allow": the page approved, silently, what the server wanted a person to decide.
      */
-    private _approvalResolverFor(targetElement: AparteChatTargetElement, gatedElsewhere = false): StreamApprovalResolver {
-        return this.options.approvalResolver
-            ?? (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
+    private _approvalResolverFor(targetElement: AparteChatTargetElement, turn: AparteTurnContext, gatedElsewhere = false): StreamApprovalResolver {
+        // The host's own resolver is told the turn; the loop that calls it knows none.
+        const host = this.options.approvalResolver;
+        if (host) return (call, sig) => host(call, sig, turn);
+        return (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
                 const ruling: AparteApprovalRuling = gatedElsewhere
-                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name)) ?? { verdict: 'ask' })
-                    : this._config.ruleOnToolCall(call);
+                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn) ?? { verdict: 'ask' })
+                    : this._config.ruleOnToolCall(call, turn);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
                     // `tool` message, or fall through to "the user rejected this" downstream.
                     return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.', by: 'policy' };
                 }
-                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
+                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement, turn);
             });
     }
 
@@ -2058,7 +2135,7 @@ export class AparteClient {
      */
     private async _answerDeferred(
         targetElement: AparteChatTargetElement,
-        messageId: string,
+        turn: AparteTurnContext,
         pending: StreamDeferredCall[],
         signal: AbortSignal,
         rowEvents?: AparteStreamRunEmitter,
@@ -2066,7 +2143,8 @@ export class AparteClient {
         approvedNow: Set<string> = new Set(),
     ): Promise<Record<string, StreamDeferredOutcome> | undefined> {
         const outcomes: Record<string, StreamDeferredOutcome> = {};
-        const resolver = this._approvalResolverFor(targetElement, true);
+        const { messageId } = turn;
+        const resolver = this._approvalResolverFor(targetElement, turn, true);
         // A refusal ends the pause's later calls, as it ends the turn's in the page's own
         // loop: nobody is asked about them and none of them runs — but each is ANSWERED, as
         // not run. Left without an answer, a server pauses on it again and an AG-UI agent
@@ -2103,7 +2181,7 @@ export class AparteClient {
                 const key = approvalKey(call);
                 if (!approvedBefore.has(key) && !approvedNow.has(key)) {
                     try {
-                        gate = await this._gateBrowserTool(asked, signal, targetElement, rowEvents);
+                        gate = await this._gateBrowserTool(asked, signal, targetElement, turn, rowEvents);
                     } catch (error: unknown) {
                         if (!signal.aborted && (error as { name?: string } | undefined)?.name !== 'AbortError') throw error;
                         gate = undefined;
@@ -2125,8 +2203,13 @@ export class AparteClient {
                 try {
                     if (!handler) throw new Error(`No browser handler is registered for "${p.name}".`);
                     // No `run`: the run that asked is the server's, and it is over. A handler
-                    // that opens a sub-agent here gets `runSubAgent`'s clear error.
-                    const result = await handler(ran, signal, { target: targetElement as unknown as HTMLElement, config: this._config });
+                    // that opens a sub-agent here gets `runSubAgent`'s clear error. The
+                    // conversation, though, is this turn's, as for a tool the page's loop runs.
+                    const result = await handler(ran, signal, {
+                        target: targetElement as unknown as HTMLElement,
+                        config: this._config,
+                        ...(turn.conversationId ? { conversationId: turn.conversationId } : {}),
+                    });
                     outcomes[p.toolCallId] = {
                         kind: 'result',
                         content: result.content,
@@ -2152,11 +2235,12 @@ export class AparteClient {
         call: AparteToolCall & Pick<Parameters<StreamApprovalResolver>[0], 'agent'>,
         signal: AbortSignal,
         targetElement: AparteChatTargetElement,
+        turn: AparteTurnContext,
         rowEvents?: AparteStreamRunEmitter,
     ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
         const ruling = this.options.approvalResolver
             ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
-            : this._config.ruleOnToolCall(call).verdict;
+            : this._config.ruleOnToolCall(call, turn).verdict;
         if (ruling === 'allow') return null;
         // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
@@ -2167,7 +2251,7 @@ export class AparteClient {
                 ...(call.agent ? { agentId: call.agent.id } : {}),
             });
         }
-        const decision = (await this._approvalResolverFor(targetElement)(call, signal)) ?? undefined;
+        const decision = (await this._approvalResolverFor(targetElement, turn)(call, signal)) ?? undefined;
         // Back to running, and still PAUSED: the resume hands this call back open for its
         // result to answer. The reply's own call not through `rowEvents` — that adapter never
         // saw the call start, so it takes any settle for the end of the pause and drops
@@ -2189,18 +2273,52 @@ export class AparteClient {
      * history that resumes them is built first; a new pause marks what still waits.
      */
     private _spendPause(targetElement: AparteChatTargetElement, messageId: string): void {
-        const segments = targetElement.getMessage?.(messageId)?.segments
-            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const message = this._messageOf(targetElement, messageId);
+        const segments = message?.segments;
         const paused = (segment: AparteSegment): segment is AparteToolCallSegment =>
             segment.type === 'tool_call' && Boolean((segment as AparteToolCallSegment).deferred);
-        if (!segments?.some(paused)) return;
+        const rows = Boolean(segments?.some(paused));
+        if (!rows && !message?.deferredCalls?.length) return;
         targetElement.updateMessage?.(messageId, {
-            segments: segments.map((segment) => {
-                if (!paused(segment)) return segment;
-                const { deferred: _spent, ...rest } = segment;
-                return rest;
-            }),
+            ...(rows ? {
+                segments: segments!.map((segment) => {
+                    if (!paused(segment)) return segment;
+                    const { deferred: _spent, ...rest } = segment;
+                    return rest;
+                }),
+            } : {}),
+            // A sub-agent's paused calls go with the rows': the server answers them now.
+            ...(message?.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
+    }
+
+    /** A reply by its id, tree-wide first: a retry during the wait moves the path. */
+    private _messageOf(targetElement: AparteChatTargetElement, messageId: string): AparteMessage | undefined {
+        return targetElement.getMessage?.(messageId) ?? targetElement.getMessages?.()?.find((m) => m.id === messageId);
+    }
+
+    /**
+     * Keep on the reply the calls a paused run left that no row of the reply holds: a
+     * sub-agent's, which its line draws. The rows of the reply carry their own pause
+     * (`deferred`); these would otherwise be in nothing the conversation saves, and a reload
+     * would find no pause to resume. Each keeps the name its sub-agent was announced with,
+     * which a reload has no other way to know.
+     */
+    private _keepSubAgentCalls(targetElement: AparteChatTargetElement, messageId: string, pending: readonly StreamDeferredCall[], ticket: unknown): void {
+        const names = this._agentNames.get(messageId);
+        const kept: AparteDeferredCall[] = pending.filter((p) => p.agentId != null).map((p) => {
+            const agentName = names?.get(p.agentId!);
+            return {
+                toolCallId: p.toolCallId,
+                name: p.name,
+                input: (p.input ?? {}) as Record<string, unknown>,
+                reason: p.reason,
+                agentId: p.agentId!,
+                ...(agentName ? { agentName } : {}),
+                ...(typeof ticket === 'string' ? { ticket } : {}),
+            };
+        });
+        if (kept.length > 0) targetElement.updateMessage?.(messageId, { deferredCalls: kept });
     }
 
     /**
@@ -2212,18 +2330,23 @@ export class AparteClient {
      * the wait moves the head. A run in the page ends every call itself: nothing to do.
      */
     private _closeOpenCalls(targetElement: AparteChatTargetElement, messageId: string): void {
-        const segments = targetElement.getMessage?.(messageId)?.segments
-            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const message = this._messageOf(targetElement, messageId);
+        const segments = message?.segments;
         const unfinished = (segment: AparteSegment): segment is AparteToolCallSegment =>
             segment.type === 'tool_call'
             && ((segment as AparteToolCallSegment).status === 'pending' || (segment as AparteToolCallSegment).status === 'awaiting-approval');
-        if (!segments?.some(unfinished)) return;
+        const rows = Boolean(segments?.some(unfinished));
+        if (!rows && !message?.deferredCalls?.length) return;
         targetElement.updateMessage?.(messageId, {
-            segments: segments.map((segment) => {
-                if (!unfinished(segment)) return segment;
-                const { deferred: _spent, ...rest } = segment;
-                return { ...rest, status: 'aborted' as const };
-            }),
+            ...(rows ? {
+                segments: segments!.map((segment) => {
+                    if (!unfinished(segment)) return segment;
+                    const { deferred: _spent, ...rest } = segment;
+                    return { ...rest, status: 'aborted' as const };
+                }),
+            } : {}),
+            // A sub-agent's paused calls end with the rows: nothing will answer them now.
+            ...(message?.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
     }
 
@@ -2266,13 +2389,19 @@ export class AparteClient {
     private _closeDeferred(targetElement: AparteChatTargetElement): void {
         const messages = targetElement.getMessages?.() ?? [];
         const last = [...messages].reverse().find((m) => m.role === 'assistant');
-        if (!last?.segments?.some(isOpenDeferred)) return;
-        const segments = last.segments.map((segment) => {
-            if (!isOpenDeferred(segment)) return segment;
-            const { deferred: _closed, ...rest } = segment;
-            return { ...rest, status: 'aborted' as const };
+        const rows = Boolean(last?.segments?.some(isOpenDeferred));
+        if (!last || (!rows && !last.deferredCalls?.length)) return;
+        targetElement.updateMessage?.(last.id, {
+            ...(rows ? {
+                segments: last.segments!.map((segment) => {
+                    if (!isOpenDeferred(segment)) return segment;
+                    const { deferred: _closed, ...rest } = segment;
+                    return { ...rest, status: 'aborted' as const };
+                }),
+            } : {}),
+            // A sub-agent's wait is closed with them: no row answers it on the wire.
+            ...(last.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
-        targetElement.updateMessage?.(last.id, { segments });
     }
 
     /**
@@ -2295,11 +2424,13 @@ export class AparteClient {
         const messages = targetElement.getMessages?.() ?? [];
         const last = [...messages].reverse().find((m) => m.role === 'assistant');
         const open = (last?.segments ?? []).filter(isOpenDeferred);
-        const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket;
+        // A sub-agent's paused calls: no row of the reply holds them, so the reply does.
+        const kept = last?.deferredCalls ?? [];
+        const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket ?? kept.find((c) => c.ticket)?.ticket;
         // Not a reply a turn is already running into: a live pause waits on its panel, and a
         // second load of the conversation (a click on the one already open) would otherwise
         // start the same reply again and put the same question twice.
-        if (!last || open.length === 0 || !ticket || this._resuming.has(last.id) || this._turnsInFlight.has(last.id)) return false;
+        if (!last || open.length + kept.length === 0 || !ticket || this._resuming.has(last.id) || this._turnsInFlight.has(last.id)) return false;
 
         const config = this._config.getModelConfig();
         // The model the turn ran on, when its provider is still here; else today's default.
@@ -2318,9 +2449,17 @@ export class AparteClient {
         this._resuming.add(last.id);
         try {
             const authConfig = provider.id ? await this._resolveAuth(provider.id) : undefined;
-            const pending: StreamDeferredCall[] = open.map((s) => ({
-                toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
-            }));
+            const pending: StreamDeferredCall[] = [
+                ...open.map((s) => ({
+                    toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
+                })),
+                // Asked under their sub-agent, by the name it was announced with.
+                ...kept.map((c) => ({
+                    toolCallId: c.toolCallId, name: c.name, input: c.input, reason: c.reason,
+                    ...(c.agentId !== undefined ? { agentId: c.agentId } : {}),
+                })),
+            ];
+            const agentNames = new Map(kept.flatMap((c) => (c.agentId !== undefined && c.agentName ? [[c.agentId, c.agentName] as const] : [])));
             const base = this._resumeBase(messages, messages.indexOf(last));
             await this._streamTurn(targetElement, last.id, provider, base, recorded?.modelId ?? config.defaultModel ?? '', authConfig, {
                 resume: { pending, ticket },
@@ -2331,6 +2470,7 @@ export class AparteClient {
                 },
                 ...(recorded?.temperature !== undefined ? { temperature: recorded.temperature } : {}),
                 ...(conversationId ? { conversationId } : {}),
+                ...(agentNames.size > 0 ? { agentNames } : {}),
             });
         } finally {
             this._resuming.delete(last.id);

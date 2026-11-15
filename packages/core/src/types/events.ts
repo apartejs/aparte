@@ -3,6 +3,7 @@
  * Event interfaces for component communication and control
  */
 
+import type { AparteChatScoped } from '../interop/chat-events.js';
 import type { AparteMessage, AparteMessageToken } from './models.js';
 import type { AparteConfig } from '../config/aparte-config.js';
 import type { AparteComposer } from '../components/composer/aparte-composer.js';
@@ -103,7 +104,7 @@ export interface AparteMessageDoneEventDetail {
  *
  * @event aparte-model-change
  */
-export interface AparteModelChangeEventDetail {
+export interface AparteModelChangeEventDetail extends AparteChatScoped {
     /** Selected provider ID (e.g., 'openrouter', 'gemini') */
     providerId?: string;
 
@@ -145,7 +146,7 @@ export interface AparteSiblingInfo {
  *
  * @event aparte-link-click
  */
-export interface AparteLinkClickEventDetail {
+export interface AparteLinkClickEventDetail extends AparteChatScoped {
     /** The `href` as written on the anchor, after sanitization. */
     href: string;
     /** The anchor itself, for a host that wants its text or its `rel`. */
@@ -161,7 +162,7 @@ export interface AparteLinkClickEventDetail {
  *
  * @event aparte-branch-navigate
  */
-export interface AparteBranchNavigateEventDetail {
+export interface AparteBranchNavigateEventDetail extends AparteChatScoped {
     /** Message id whose siblings should be navigated */
     messageId: string;
     /** 'prev' = move to previous sibling, 'next' = move to next sibling */
@@ -176,7 +177,7 @@ export interface AparteBranchNavigateEventDetail {
  *
  * @event aparte-path-changed
  */
-export interface ApartePathChangedEventDetail {
+export interface ApartePathChangedEventDetail extends AparteChatScoped {
     /** Messages on the new active path, root → head. */
     messages: AparteMessage[];
     /** Sibling metadata, one entry per message on the path. */
@@ -276,7 +277,7 @@ export interface AparteCollectCommandsEventDetail {
  *
  * @event aparte-trigger-select
  */
-export interface AparteTriggerSelectEventDetail {
+export interface AparteTriggerSelectEventDetail extends AparteChatScoped {
     trigger: { char: string };
     item: { id: string; label: string; data?: unknown };
     query: string;
@@ -288,7 +289,7 @@ export interface AparteTriggerSelectEventDetail {
  *
  * @event aparte-feedback-reason
  */
-export interface AparteFeedbackReasonEventDetail {
+export interface AparteFeedbackReasonEventDetail extends AparteChatScoped {
     messageId: string;
     reason: string;
 }
@@ -299,7 +300,7 @@ export interface AparteFeedbackReasonEventDetail {
  *
  * @event aparte-feedback
  */
-export interface AparteFeedbackEventDetail {
+export interface AparteFeedbackEventDetail extends AparteChatScoped {
     /** Message id receiving the feedback. */
     messageId: string;
     /** 'positive' for thumbs-up, 'negative' for thumbs-down. */
@@ -335,7 +336,7 @@ export interface AparteActionEventDetail {
  *
  * @event aparte-message-info
  */
-export interface AparteMessageInfoEventDetail {
+export interface AparteMessageInfoEventDetail extends AparteChatScoped {
     /** Message id whose stats should be shown. */
     messageId: string;
     /** Token usage + timing for the message, when available. */
@@ -572,7 +573,7 @@ export interface AparteCompactErrorEventDetail {
  *
  * @event aparte-attachment-preview
  */
-export interface AparteAttachmentPreviewEventDetail {
+export interface AparteAttachmentPreviewEventDetail extends AparteChatScoped {
     /** Object URL or remote URL of the image or the file. */
     url: string;
     /** File name, or `''` when the attachment carries none. */
@@ -593,7 +594,7 @@ export interface AparteAttachmentPreviewEventDetail {
  *
  * @event aparte-approval-mode-change
  */
-export interface AparteApprovalModeChangeEventDetail {
+export interface AparteApprovalModeChangeEventDetail extends AparteChatScoped {
     /** The mode just switched to. */
     mode: string;
     /** The mode it replaced. */

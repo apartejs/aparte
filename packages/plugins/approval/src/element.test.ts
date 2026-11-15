@@ -43,6 +43,22 @@ describe('<aparte-approval-mode>', () => {
         expect(select(el)?.getAttribute('value')).toBe('ask');
     });
 
+    it('names the chat a switch came from, for a page with several', () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'chat-b';
+        document.body.appendChild(chat);
+        const el = document.createElement('aparte-approval-mode') as AparteApprovalMode;
+        chat.appendChild(el);
+        const announced = vi.fn();
+        document.addEventListener('aparte-approval-mode-change', (e) => announced(e.detail), { once: true });
+        select(el)!.dispatchEvent(new CustomEvent('aparte-select-change', {
+            bubbles: true, detail: { value: 'plan', label: 'Plan', previousValue: 'ask' },
+        }));
+        expect(announced).toHaveBeenCalledWith({ mode: 'plan', previousMode: 'ask', targetId: 'chat-b' });
+    });
+
     it('a change on the select switches the mode and announces it', () => {
         const approval = setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
         const el = mount();
@@ -117,12 +133,51 @@ describe('<aparte-approval-mode>', () => {
         expect(el.mode).toBe('ask');
     });
 
+    it('labels draw the select again when it is gone, or when one of its options is', () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const el = mount();
+        select(el)!.remove();
+        el.labels = { plan: 'Planifier' };
+        expect(select(el)).not.toBeNull();
+        expect(el.querySelector('aparte-option[value="plan"]')?.textContent).toBe('Planifier');
+
+        el.querySelector('aparte-option[value="auto"]')!.remove();
+        el.labels = { auto: 'Automatique' };
+        expect(el.querySelector('aparte-option[value="auto"]')?.textContent).toBe('Automatique');
+        expect(el.querySelectorAll('aparte-option')).toHaveLength(4);
+    });
+
     it('labels can be replaced for a localised host', () => {
         setupApproval({ classify }, aparteGlobalConfig);
         const el = mount();
         el.labels = { plan: 'Planifier', auto: 'Automatique' };
         const text = [...el.querySelectorAll('aparte-option')].map((o) => o.textContent?.trim());
         expect(text).toEqual(['Planifier', 'Ask', 'Auto-edit', 'Automatique']);
+    });
+
+    it('labels handed again, the same or new, leave the open list open and the focus where it was', async () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const el = mount();
+        const labels = { plan: 'Planifier' };
+        el.labels = labels;
+        const sel = el.querySelector('aparte-select') as HTMLElement & { open: boolean };
+        const trigger = sel.querySelector<HTMLElement>('.aparte-select-trigger')!;
+        trigger.focus();
+        sel.open = true;
+        expect(sel.open).toBe(true);
+
+        el.labels = labels;
+        expect(select(el)).toBe(sel);
+        expect(sel.open).toBe(true);
+        expect(document.activeElement).toBe(trigger);
+
+        el.labels = { plan: 'Planifier', ask: 'Demander' };
+        await Promise.resolve();
+        expect(select(el)).toBe(sel);
+        expect(sel.open).toBe(true);
+        expect([...el.querySelectorAll('aparte-option')].map((o) => o.textContent?.trim())).toEqual(['Planifier', 'Demander', 'Auto-edit', 'Auto']);
+        // The trigger shows the current mode's new name.
+        expect(trigger.textContent).toContain('Demander');
     });
 
     it('resolves the scoped config it sits in, not the global one', () => {

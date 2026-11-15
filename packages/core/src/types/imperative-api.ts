@@ -68,7 +68,18 @@ export interface AparteChatImperativeApi {
     /** Abort an in-flight {@link injectTokenStream} loop (the source iterable is `return()`ed). */
     stopTokenStream: () => void;
     // ── conversation lifecycle ──
+    /**
+     * Open a conversation now — the same id again re-reads it from the conversation manager.
+     * The `conversationId` prop is the declarative path, and it is a no-op for the
+     * conversation the chat already shows or is creating.
+     */
     setConversationId: (id: string | null) => Promise<void>;
+    /**
+     * The conversation this chat shows: the one it opened, or the one its first message is
+     * creating; `null` before either. Per chat — the conversation manager's `activeId` names
+     * whichever chat opened one last — so it is what a list beside several chats highlights.
+     */
+    getConversationId: () => string | null;
     // ── misc ──
     scrollToBottom: () => void;
     focusInput: () => void;

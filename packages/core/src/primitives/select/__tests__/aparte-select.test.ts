@@ -391,13 +391,19 @@ describe('re-connecting does not accumulate listeners', () => {
 // showing a label the list no longer offered.
 describe('AparteSelect — the width stack follows the options', () => {
     const stack = (el: AparteSelect): string[] =>
-        Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'), (s) => s.textContent ?? '');
+        Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'), (s) => s.getAttribute('data-label') ?? '');
     const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
     it('lists the placeholder and every option label', () => {
         const el = mountSelect([{ value: 'short' }, { value: 'a much longer option label' }]);
         expect(stack(el)).toEqual(['Pick', 'short', 'a much longer option label']);
         expect(el.querySelector('.aparte-select-label-text')?.textContent).toBe('Pick');
+    });
+
+    it('keeps the width labels out of the trigger text, so it reads as the shown value only', () => {
+        const el = mountSelect([{ value: 'short' }, { value: 'a much longer option label' }]);
+        el.value = 'short';
+        expect(el.querySelector('.aparte-select-trigger')?.textContent).toBe('short');
     });
 
     it('follows a list refreshed in place, label included, and settles without looping', async () => {

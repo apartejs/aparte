@@ -133,3 +133,81 @@ describe('applyElementProps — the rest of the chain still behaves', () => {
         expect(el.getAttribute('value')).toBe('0');
     });
 });
+
+/**
+ * A wrapper re-applies its whole prop bag whenever the bag changes identity, which in React is
+ * every render of an inline `props={{ … }}`. A write of a value the element already holds is not
+ * free: `setAttribute` with the same string still calls `attributeChangedCallback`, and an
+ * element that redraws there loses what the person was doing in it.
+ */
+describe('applyElementProps — a value written before is not written again', () => {
+    function watch(el: HTMLElement) {
+        const records: MutationRecord[] = [];
+        const observer = new MutationObserver((list) => records.push(...list));
+        observer.observe(el, { attributes: true });
+        return () => {
+            records.push(...observer.takeRecords());
+            observer.disconnect();
+            return records;
+        };
+    }
+
+    it('skips an attribute whose value is the one it last wrote', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { mode: 'ask', open: true, size: 3, hidden: false });
+        const stop = watch(el);
+        applyElementProps(el, { mode: 'ask', open: true, size: 3, hidden: false });
+        expect(stop()).toEqual([]);
+    });
+
+    it('still writes a value that changed, and a removal after a write', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { mode: 'ask', open: true });
+        applyElementProps(el, { mode: 'auto', open: false });
+        expect(el.getAttribute('mode')).toBe('auto');
+        expect(el.hasAttribute('open')).toBe(false);
+        applyElementProps(el, { open: true });
+        expect(el.hasAttribute('open')).toBe(true);
+    });
+
+    it('skips a CSS variable whose value is the one it last wrote', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { '--aparte-x': '4px' });
+        const stop = watch(el);
+        applyElementProps(el, { '--aparte-x': '4px' });
+        expect(stop()).toEqual([]);
+        applyElementProps(el, { '--aparte-x': '6px' });
+        expect(el.style.getPropertyValue('--aparte-x')).toBe('6px');
+    });
+
+    it('assigns an object or a function again, even the same one: it may have been mutated', () => {
+        const el = document.createElement('div');
+        const seen: unknown[] = [];
+        Object.defineProperty(el, 'items', { set: (v: unknown) => seen.push(v), get: () => seen[seen.length - 1] });
+        const items = ['a'];
+        applyElementProps(el, { items });
+        items.push('b');
+        applyElementProps(el, { items });
+        expect(seen).toEqual([items, items]);
+    });
+
+    it('compares with what it wrote, not with what the element holds now', () => {
+        // An element that changes its own attribute (a select's `value`) keeps what it did until
+        // the prop next changes: a prop is a write, not a watch.
+        const el = document.createElement('div');
+        applyElementProps(el, { value: 'a' });
+        el.setAttribute('value', 'b');
+        applyElementProps(el, { value: 'a' });
+        expect(el.getAttribute('value')).toBe('b');
+        applyElementProps(el, { value: 'c' });
+        expect(el.getAttribute('value')).toBe('c');
+    });
+
+    it('does not carry what it wrote from one element to another', () => {
+        const a = document.createElement('div');
+        const b = document.createElement('div');
+        applyElementProps(a, { mode: 'ask' });
+        applyElementProps(b, { mode: 'ask' });
+        expect(b.getAttribute('mode')).toBe('ask');
+    });
+});

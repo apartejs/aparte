@@ -68,7 +68,10 @@ export type {
 // registry: an event added to an element reaches the template with no edit here.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { ComponentOptionsMixin, DefineComponent } from 'vue';
-import type { AparteAttrValue, AparteElementAttributes, AparteElementTagName } from '@aparte/core';
+import type {
+    AparteAttrValue, AparteElementAttributes, AparteElementTagName,
+    AparteSpecAttributes, AparteSpecEvents, AparteSpecProperties,
+} from '@aparte/core';
 import type { AparteElementEvents, AparteElementProperties } from './generated/element-members.js';
 
 /** `active-id` → `activeId`: the name Vue's template checker looks a kebab-case attribute up under. */
@@ -102,3 +105,25 @@ type AparteVueElements = {
 declare module 'vue' {
     interface GlobalComponents extends AparteVueElements {}
 }
+
+/**
+ * The `GlobalComponents` entry for an element a plugin — or you — describes with an
+ * `AparteElementSpec`: its attributes and properties as props, its events as emits, typed the way
+ * core's own elements are above.
+ *
+ * @example
+ * ```ts
+ * import type { AparteVueElement } from '@aparte/vue';
+ * import type { approvalModeElement } from '@aparte/plugin-approval';
+ *
+ * declare module 'vue' {
+ *   interface GlobalComponents { 'aparte-approval-mode': AparteVueElement<typeof approvalModeElement> }
+ * }
+ * ```
+ */
+export type AparteVueElement<S> = DefineComponent<
+    VueAttrs<AparteSpecAttributes<S>> & Partial<AparteSpecProperties<S>>,
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- DefineComponent's own defaults
+    {}, {}, {}, {}, ComponentOptionsMixin, ComponentOptionsMixin,
+    Emits<{ [K in keyof AparteSpecEvents<S>]: CustomEvent<AparteSpecEvents<S>[K] extends { readonly detail: infer D } ? D : never> }>
+>;

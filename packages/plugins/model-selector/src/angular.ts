@@ -1,4 +1,8 @@
 /**
+ * @deprecated Since 1.10.0. Every plugin's element is bound the same way now, from the spec its
+ * package exports (`modelSelectorElement`): use `CUSTOM_ELEMENTS_SCHEMA` on the component, as for any plugin's element.
+ * This entry keeps working until the next major.
+ *
  * `<aparte-model-selector>` as an Angular directive. Import it into a standalone
  * component:
  *

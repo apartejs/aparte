@@ -144,3 +144,20 @@ test('the composer keeps its breathing room at the bottom edge', async ({ page }
         .toBeLessThanOrEqual(17);
     expect(await measure()).toBeGreaterThanOrEqual(15);
 });
+
+// React mounts the approval switch with the component `createAparteElement` makes of the plugin's
+// spec (`approvalModeElement`), its `labels` an object: a property, which no attribute can carry.
+// Set as one, the site's name for a mode is on the option; written as an attribute it would be
+// `labels="[object Object]"` and the switch would show the plugin's defaults.
+test('a plugin element made from its spec takes an object as the property it is (React)', async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith('react'), 'the React example mounts the switch from its spec');
+    await installLlmMock(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.waitUngated();
+    const mode = chat.composerToolbar.locator('aparte-approval-mode');
+    await expect(mode).toHaveCount(1);
+    expect(await mode.getAttribute('labels')).toBeNull();
+    expect(await mode.evaluate((el) => (el as HTMLElement & { labels: Record<string, string> }).labels.ask)).toBe('Ask first');
+    await expect(mode.locator('aparte-option[value="ask"]')).toHaveText('Ask first');
+});

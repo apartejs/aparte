@@ -87,6 +87,32 @@ An `AparteApprovalOption` has a `value`, a `label`, an optional `description` (w
 commits to) and a `tone`, `affirm` or `deny`. A label can be a function, re-read when the
 language changes while the question is open.
 
+## Show what the call would do
+
+The arguments are two strings and a path; a person approving an edit wants to read the change.
+A tool's display can draw it with `approvalPreview`, which receives the call (its name and its
+input) when the question is asked and returns an element, a string of HTML (sanitised, as every
+string the library inserts as HTML is), or `null` for nothing. What it returns is mounted between
+the question and the buttons, under the arguments, and scrolls on its own if it is tall.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerToolDisplay('send_email', {
+  approvalPreview: (call) => {
+    const input = call.input as { to: string; subject: string };
+    const preview = document.createElement('p');
+    preview.textContent = `To ${input.to}: ${input.subject}`;
+    return preview;
+  },
+});
+```
+
+Build it from the input, never from a sentence the model wrote to persuade: it is the evidence for
+the decision. A function that throws leaves the plain arguments. For an edit tool,
+[`setupDiff`](/components/diff/#in-the-approval-question) registers a diff preview for you. When you
+call `requestUserInput()` yourself, the same element goes in `preview`.
+
 ## Customize
 
 - Which calls ask is a policy: the [approval mode](/components/approval-mode/) switch decides
@@ -104,6 +130,14 @@ language changes while the question is open.
   they are written by the model.
 - The options are buttons in a group named from the `approvalOptionsLabel` key ("Your
   decision"); a decision takes one click or one key press.
+- Each option wears its number, drawn beside its label (it is not part of the label's text), and
+  carries `aria-keyshortcuts`. **1** to **9** press the matching option, but only while an option
+  has the focus: the panel keeps the focus on itself while the person writes in the composer, so a
+  digit typed in a sentence stays a digit. **Escape** presses the option whose `tone` is `deny`,
+  when there is exactly one; with two refusals, or none, it does nothing. Both keys are on by
+  default, ignore a held key, a modifier (Ctrl, Alt, Meta, Shift) and an IME composition, and
+  stay out of the instruction field. Escape is handled, so it does not also close a launcher the
+  chat sits in.
 - The instruction field is named by its placeholder ("Or tell it what to do instead…"). Enter
   sends what is written there and Shift+Enter starts a new line, as in the composer.
 - The panel takes the focus and gives it back when it closes (to the composer when there is nothing

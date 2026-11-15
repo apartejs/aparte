@@ -250,6 +250,85 @@ describe('<aparte-triggers>', () => {
         expect(labels(element)).toEqual(['Anna']);
     });
 
+    // A wrapper hands the triggers again on every render of the app around it — the same array
+    // when it is memoized, a new one with the same triggers when it is not. The list open under
+    // the person's fingers stays open, on the row they were on.
+    describe('handed its triggers again', () => {
+        it('keeps the list open, on the same row, given the same array', () => {
+            const triggers = [{ ...AT, items: list('Paul', 'Anna', 'Zoé') }];
+            const { element, type, key } = mount(triggers);
+            type('@');
+            key('ArrowDown');
+            expect(active(element)).toBe('Anna');
+            element.triggers = triggers;
+            expect(element.isOpen).toBe(true);
+            expect(active(element)).toBe('Anna');
+        });
+
+        it('keeps it open with a new array holding the same trigger, and shows what it now lists', () => {
+            const { element, type, key } = mount([{ ...AT, items: list('Paul', 'Anna') }]);
+            type('@');
+            key('ArrowDown');
+            element.triggers = [{ ...AT, items: list('Paul', 'Anna', 'Zoé') }];
+            expect(element.isOpen).toBe(true);
+            expect(labels(element)).toEqual(['Paul', 'Anna', 'Zoé']);
+            expect(active(element)).toBe('Anna');
+        });
+
+        it('draws the array mutated in place', () => {
+            const items = list('Paul');
+            const triggers = [{ ...AT, items }];
+            const { element, type } = mount(triggers);
+            type('@');
+            items.push({ id: 'Anna', label: 'Anna' });
+            element.triggers = triggers;
+            expect(labels(element)).toEqual(['Paul', 'Anna']);
+        });
+
+        it('keeps a child list open, on its row, while the row that opened it is still listed', () => {
+            const tree = (): AparteTriggerItem[] => [
+                { id: 'p', label: 'Parent', children: [{ id: 'a', label: 'Child A' }, { id: 'b', label: 'Child B' }] },
+                { id: 'q', label: 'Other' },
+            ];
+            const triggers = [{ ...AT, items: tree() }];
+            const { element, type, key } = mount(triggers);
+            type('@');
+            key('ArrowRight');
+            key('ArrowDown');
+            const panels = () => [...element.querySelectorAll<HTMLElement>('[role="listbox"]')];
+            const child = panels()[1]!;
+            expect(active(child)).toBe('Child B');
+
+            element.triggers = triggers;
+            expect(panels()).toHaveLength(2);
+            expect(panels()[1]).toBe(child);
+            expect(active(child)).toBe('Child B');
+            expect(options(panels()[0]!)[0]!.getAttribute('aria-expanded')).toBe('true');
+
+            element.triggers = [{ ...AT, items: tree() }];
+            expect(panels()).toHaveLength(2);
+            expect(active(panels()[1]!)).toBe('Child B');
+            key('Enter');
+            expect(element.isOpen).toBe(false);
+        });
+
+        it('closes a child list whose row is gone, and keeps the root', () => {
+            const { element, type, key } = mount([{ ...AT, items: [{ id: 'p', label: 'Parent', children: list('Child') }, { id: 'q', label: 'Other' }] }]);
+            type('@');
+            key('ArrowRight');
+            element.triggers = [{ ...AT, items: list('Other') }];
+            expect(element.querySelectorAll('[role="listbox"]')).toHaveLength(1);
+            expect(labels(element)).toEqual(['Other']);
+        });
+
+        it('closes when the trigger it shows is no longer there', () => {
+            const { element, type } = mount([{ ...AT, items: list('Paul') }]);
+            type('@');
+            element.triggers = [SLASH];
+            expect(element.isOpen).toBe(false);
+        });
+    });
+
     describe('beside a question or an approval', () => {
         it('closes when something else in the composer takes the focus', () => {
             const { composer, element, editor, type } = mount([{ ...AT, items: list('Paul') }]);

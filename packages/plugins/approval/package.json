@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-approval",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "homepage": "https://apartejs.dev/components/approval-mode/",
     "publishConfig": {
         "access": "public"
@@ -56,13 +56,14 @@
         "dev": "vite",
         "build": "vite build && tsc -b --emitDeclarationOnly --force && pnpm run analyze && node ../../../scripts/stamp-dist.mjs",
         "analyze": "cem analyze",
+        "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/approval --registry packages/plugins/approval/src/generated --specs packages/plugins/approval/src/generated",
         "preview": "vite preview",
         "test": "vitest",
         "test:run": "vitest run",
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=1.9.0 <2.0.0"
+        "@aparte/core": ">=1.10.0 <2.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

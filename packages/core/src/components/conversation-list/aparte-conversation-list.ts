@@ -25,7 +25,17 @@ export interface AparteConversationListItem {
     archivedAt?: number;
     /** When set, the row sits in the "Pinned" group first, and its menu offers unpin. */
     pinnedAt?: number;
+    /**
+     * The group the row sits in, named by the app (a project, a folder). A row that carries
+     * one is grouped by it, before pinning and dates; the groups come first, in order of
+     * first appearance, and the items without one fall to the date groups below. `flat`
+     * still renders no heading.
+     */
+    group?: { key: string; label: string };
 }
+
+/** What `renderMeta` is: an element, text, or `null` for a row with nothing to say. */
+export type AparteConversationMetaRenderer = (item: AparteConversationListItem) => HTMLElement | string | null;
 
 export interface AparteConversationSelectDetail {
     id: string;
@@ -370,14 +380,83 @@ export class AparteConversationList extends HTMLElement {
         return '';
     }
 
-    /** Set the list of conversations to display. Triggers a re-render. */
+    /**
+     * Set the list of conversations to display. Triggers a re-render — held while a row's menu is
+     * open or a title is being renamed, and run when that ends.
+     *
+     * A host assigns this on every manager change, and a wrapper on every render of the app around
+     * it, often the very array the list holds (mutated in place, so it is drawn again rather than
+     * skipped). A render replaces the rows, and with them the open menu and the field being typed
+     * in: those are the reader's, so the rows wait for them, as they wait for a press to land.
+     */
     set conversations(items: AparteConversationListItem[]) {
         this._conversations = Array.isArray(items) ? items : [];
+        this._renderUnlessHeld();
+    }
+
+    /** A render held by an open menu or a rename (see `conversations`): run once it is over. */
+    private _renderAfterMenu = false;
+
+    /**
+     * The one way a render asked from outside runs: held while a row menu is open or a title is
+     * being renamed, drawn once that ends. A press's deferred render goes through it too, so a
+     * rename started by the click that closed a menu is not wiped by the render that menu held.
+     */
+    private _renderUnlessHeld(): void {
+        if ((this._renaming && !this._renaming.done) || this.querySelector('[data-menu-for]')) {
+            this._renderAfterMenu = true;
+            return;
+        }
+        this._render();
+    }
+    private _renderHeld(): void {
+        if (!this._renderAfterMenu || !this.isConnected) return;
+        this._renderAfterMenu = false;
         this._render();
     }
 
     get conversations(): AparteConversationListItem[] {
         return this._conversations;
+    }
+
+    private _renderMeta: AparteConversationMetaRenderer | null = null;
+
+    /**
+     * Draws something of the app's after a row's title — a shared mark, a count, a status
+     * pill — and returns `null` for a row with nothing to say. An element goes in as it is;
+     * a string is text, never markup. It sits BESIDE the title button, not inside it, so it
+     * may hold a button or a link of its own, with its own accessible name. Setting it draws
+     * the rows again, held like `conversations` while a menu is open or a title is being
+     * renamed; the same function handed again draws nothing. It is read on every render after that.
+     */
+    set renderMeta(fn: AparteConversationMetaRenderer | null) {
+        const next = typeof fn === 'function' ? fn : null;
+        if (next === this._renderMeta) return;
+        this._renderMeta = next;
+        this._renderUnlessHeld();
+    }
+
+    get renderMeta(): AparteConversationMetaRenderer | null {
+        return this._renderMeta;
+    }
+
+    /** Puts what `renderMeta` returns after each row's title. Rows are strings, so this runs on the built DOM. */
+    private _applyMeta(): void {
+        const draw = this._renderMeta;
+        if (!draw) return;
+        const byId = new Map(this._conversations.map((c) => [c.id, c]));
+        for (const row of this.querySelectorAll<HTMLElement>('[data-conv-id]')) {
+            const item = byId.get(row.dataset['convId'] ?? '');
+            const select = row.querySelector('.aparte-conv-item__select');
+            if (!item || !select) continue;
+            const made = draw(item);
+            if (made === null || made === undefined || made === '') continue;
+            const slot = document.createElement('span');
+            slot.className = 'aparte-conv-item__meta';
+            if (typeof made === 'string') slot.textContent = made;
+            else slot.append(made);
+            select.after(slot);
+        }
     }
 
     // ─── Rendering ────────────────────────────────────────────────────────
@@ -410,7 +489,7 @@ export class AparteConversationList extends HTMLElement {
             this._pressed = false;
             if (!this._renderAfterPress) return;
             this._renderAfterPress = false;
-            if (this.isConnected) this._render();
+            if (this.isConnected) this._renderUnlessHeld();
         }, 0);
     };
 
@@ -429,6 +508,7 @@ export class AparteConversationList extends HTMLElement {
             this._renderAfterPress = true;
             return;
         }
+        this._renderAfterMenu = false;
         // The menus and the rename input live inside the rows; a render replaces them.
         this._releaseMenus();
         this._renaming = null;
@@ -493,6 +573,7 @@ export class AparteConversationList extends HTMLElement {
         } else {
             this.innerHTML = groups;
         }
+        this._applyMeta();
         this._applyFilter();
         this._wireMenus();
         if (!restore) return;
@@ -571,7 +652,7 @@ export class AparteConversationList extends HTMLElement {
      */
     private _groups(): ConversationGroup[] {
         const items = this._conversations;
-        if (this.hasAttribute('flat') || !items.some(c => typeof c.updatedAt === 'number')) {
+        if (this.hasAttribute('flat') || !items.some(c => typeof c.updatedAt === 'number' || c.group)) {
             return [{ key: 'all', label: null, items }];
         }
         const now = new Date();
@@ -586,7 +667,19 @@ export class AparteConversationList extends HTMLElement {
             }
             g.items.push(item);
         };
+        const named = new Map<string, ConversationGroup>();
         for (const c of items) {
+            if (c.group) {
+                // The app's own group wins over pinning and dates, and has a map of its own so
+                // a group called 'today' cannot be mistaken for the date bucket.
+                let g = named.get(c.group.key);
+                if (!g) {
+                    g = { key: c.group.key, label: c.group.label, items: [] };
+                    named.set(c.group.key, g);
+                }
+                g.items.push(c);
+                continue;
+            }
             if (c.pinnedAt) { push('pinned', this._t('conversationGroupPinned'), c); continue; }
             const at = c.updatedAt;
             if (typeof at !== 'number') { push('undated', null, c); continue; }
@@ -611,7 +704,7 @@ export class AparteConversationList extends HTMLElement {
             .sort((a, b) => b.localeCompare(a))
             .map(k => buckets.get(k)!);
         const undated = buckets.get('undated');
-        return [...fixed, ...months, ...(undated ? [undated] : [])];
+        return [...named.values(), ...fixed, ...months, ...(undated ? [undated] : [])];
     }
 
     private _renderGroup(group: ConversationGroup): string {
@@ -751,7 +844,10 @@ export class AparteConversationList extends HTMLElement {
                 margin: VIEWPORT_MARGIN,
                 align: 'end',
                 onOpen: () => this._fillMenu(row, menu),
-                onClose: () => menu.remove(),
+                onClose: () => {
+                    menu.remove();
+                    this._renderHeld();
+                },
             }));
         }
         const context = this._contextMenu ??= this._newMenu();
@@ -765,7 +861,10 @@ export class AparteConversationList extends HTMLElement {
                 if (!row || !this.contains(row) || target.closest('[data-rename-id], [data-menu-for]')) return false;
                 return this._fillMenu(row, context);
             },
-            onClose: () => context.remove(),
+            onClose: () => {
+                context.remove();
+                this._renderHeld();
+            },
         }));
     }
 

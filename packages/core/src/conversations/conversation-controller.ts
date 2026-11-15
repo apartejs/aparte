@@ -62,6 +62,24 @@ export interface AparteChatBinding {
     afterRender?(cb: () => void): void;
 }
 
+/**
+ * The controllers bound to each manager. A chat's first message joins the conversation the
+ * manager names as active only when its controller is the one chat on that manager — see
+ * `_adoptable`.
+ */
+const boundTo = new WeakMap<AparteConversationManager, Set<AparteConversationController>>();
+
+function enrol(manager: AparteConversationManager | null, controller: AparteConversationController, on: boolean): void {
+    if (!manager) return;
+    let set = boundTo.get(manager);
+    if (on) {
+        if (!set) boundTo.set(manager, set = new Set());
+        set.add(controller);
+    } else {
+        set?.delete(controller);
+    }
+}
+
 /** How many renders a compaction's save waits for the summary to reach the binding. */
 const MAX_COMPACTION_SAVE_WAITS = 6;
 
@@ -114,6 +132,11 @@ export class AparteConversationController {
     private _isStreaming = false;
     private _isLoadingConversation = false;
     private _ensureInFlight: Promise<string> | null = null;
+    /**
+     * The conversation this chat's first message is creating, from the moment `createNew()`
+     * is called until it resolves — see {@link pendingId}.
+     */
+    private _pendingId: string | null = null;
     /** The conversation the turn in flight started in, and what the lists were told of it. */
     private _turn: { id: string; status: AparteConversationStatus } | null = null;
     /** The reply the turn in flight writes into, from its `aparte-message-start`. */
@@ -178,16 +201,30 @@ export class AparteConversationController {
     }
 
     /**
+     * The conversation this chat's first message is creating, while it is being created:
+     * set when the send calls `createNew()`, `null` again once {@link activeId} holds it.
+     *
+     * It is this chat's own, whatever the manager says. The manager has ONE `activeId`,
+     * which every chat on it writes when it opens or creates a conversation; with two chats
+     * it names the one that moved last. A wrapper that is handed this id back — through
+     * `onConversationCreated`, or bound to the manager's `activeId`, which changes before
+     * the creation resolves — knows from it that the chat already shows that conversation.
+     */
+    get pendingId(): string | null {
+        return this._pendingId;
+    }
+
+    /**
      * The conversation a message sent now belongs to: the open one, or — for the first
-     * message of a chat — the one that send is creating. `createNew()` makes it the
-     * manager's active conversation synchronously, so the client, which hears the send
-     * right after this controller does, already finds it there; this controller's own id
-     * follows once the conversation is saved. `_ensureConversationAndPersist` reads the
-     * same two places to decide where the message is saved, so a turn is carried to the
-     * conversation its message was written in.
+     * message of a chat — the one that send is creating. The client hears the send right
+     * after this controller does, so the creation has already started and its id is known
+     * ({@link pendingId}); this controller's own id follows once the conversation is saved.
+     * `_ensureConversationAndPersist` reads the same two places to decide where the message
+     * is saved, so a turn is carried to the conversation its message was written in. Never
+     * the manager's `activeId`: that may be another chat's conversation.
      */
     private _openId(): string | null {
-        return this._activeId ?? this._manager()?.activeId ?? null;
+        return this._activeId ?? this._pendingId;
     }
 
     /**
@@ -200,7 +237,7 @@ export class AparteConversationController {
     private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
-        const manager = this._options.manager ?? (() => {
+        const manager = this._options.manager ?? this._keptManager ?? (() => {
             const scoped = resolveConfig(this._binding.host);
             const m = scoped.getConversationManager();
             if (!m) this._warnManagerOnTheWrongConfig(scoped);
@@ -212,10 +249,64 @@ export class AparteConversationController {
         // first time it is needed, and a manager replaced on the config is re-subscribed.
         if (manager && this._bound && manager !== this._subscribedTo) {
             this._unsubscribeManager?.();
+            enrol(this._subscribedTo, this, false);
+            enrol(manager, this, true);
             this._subscribedTo = manager;
             this._unsubscribeManager = manager.subscribe(this._onManagerChanged);
         }
         return manager;
+    }
+
+    /**
+     * The manager a config change could not take the open conversation away from: the new
+     * config's manager does not hold it, or the new config has none. The chat keeps saving
+     * that conversation where it lives until it opens another — see {@link followConfig}.
+     */
+    private _keptManager: AparteConversationManager | null = null;
+    /** Release handle for a wait on a new manager still loading its list (see followConfig). */
+    private _stopConfigWait: (() => void) | null = null;
+
+    /**
+     * The chat was given another config (`AparteChatHost.setConfig`), and its conversation
+     * manager may be another one. Nothing on screen is lost either way:
+     * - the new manager holds the open conversation: it is opened again from there, and saved there;
+     * - it does not, or the new config has no manager: the chat keeps the manager it had for
+     *   the conversation it shows, and goes on saving it there; the next conversation it
+     *   opens comes from the new config.
+     * A manager still loading its list is waited for before it is asked.
+     */
+    followConfig(): void {
+        this._stopConfigWait?.();
+        this._stopConfigWait = null;
+        if (this._options.manager || !this._bound) return;
+        const host = this._binding.host;
+        const before = this._keptManager ?? this._subscribedTo;
+        const next = resolveConfig(host).getConversationManager();
+        const id = this._openId();
+        if (!before || next === before || !id) {
+            this._keptManager = null;
+            this._manager();
+            return;
+        }
+        this._keptManager = before;
+        if (!next) return;
+        const decide = (): void => {
+            if (!this._bound || this._openId() !== id || resolveConfig(host).getConversationManager() !== next) return;
+            if (!next.conversations.some((c) => c.id === id)) return;
+            this._keptManager = null;
+            this._manager();
+            void this.setConversationId(id);
+        };
+        if (next.initialized) {
+            decide();
+            return;
+        }
+        const stop = next.subscribe(() => {
+            stop();
+            this._stopConfigWait = null;
+            decide();
+        });
+        this._stopConfigWait = stop;
     }
 
     /**
@@ -253,11 +344,11 @@ export class AparteConversationController {
             this._turn = null;
             return;
         }
-        // `createNew()` assigns the manager's active id before its promise resolves, so a
-        // first message's conversation is usually known here already. Only a turn STARTING
-        // falls back on it: a pause or a resume belongs to a turn already known, and a late
-        // one after a switch must not mark the conversation the person went to.
-        const id = this._turn?.id ?? (status === 'running' ? this._activeId ?? this._manager()?.activeId ?? null : null);
+        // A first message's conversation is known as soon as its creation starts
+        // (`pendingId`), so it is usually known here already. Only a turn STARTING falls back
+        // on it: a pause or a resume belongs to a turn already known, and a late one after a
+        // switch must not mark the conversation the person went to.
+        const id = this._turn?.id ?? (status === 'running' ? this._openId() : null);
         if (!id) return;
         this._turn = { id, status };
         tellConversationStatus(id, status);
@@ -441,6 +532,7 @@ export class AparteConversationController {
         // Unbound FIRST: `_persistActive()` below resolves the manager, and while
         // bound that resolution would re-subscribe during teardown.
         this._bound = false;
+        enrol(this._subscribedTo, this, false);
         this._subscribedTo = null;
         // Persist current state before tearing down. This covers the case where
         // the host component is destroyed mid-stream (e.g. "New Chat" navigates
@@ -458,6 +550,9 @@ export class AparteConversationController {
         this._turnMessage = null;
         this._stopHydrationRetry?.();
         this._stopHydrationRetry = null;
+        this._stopConfigWait?.();
+        this._stopConfigWait = null;
+        this._keptManager = null;
         const host = this._binding.host;
         if (this._onSendCapture) {
             host.removeEventListener('aparte-send', this._onSendCapture, { capture: true } as EventListenerOptions);
@@ -594,6 +689,12 @@ export class AparteConversationController {
 
     private async _openConversation(id: string | null): Promise<void> {
         const isSwitch = id !== this._activeId;
+        if (isSwitch && this._keptManager) {
+            // Leaving the conversation a config change could not take along: saved where it
+            // lives, and what opens now comes from the config's own manager.
+            this._persistActive();
+            this._keptManager = null;
+        }
         const manager = this._manager();
         // Abort any in-flight stream tied to this binding only when actually
         // switching to a different conversation.
@@ -867,6 +968,23 @@ export class AparteConversationController {
         void manager.updateMessages(this._activeId, msgs, tree);
     }
 
+    /**
+     * The conversation the manager names as active, for a chat that has none: only when this
+     * controller is the one chat on that manager (an app that called `manager.createNew()`
+     * itself and never gave the id to the chat), and only an empty conversation, whose
+     * messages are in memory — a save from this chat must not write over messages it never
+     * showed. With several chats the manager's `activeId` names whichever moved last.
+     */
+    private _adoptable(manager: AparteConversationManager): string | null {
+        const id = manager.activeId;
+        if (!id || this._ensureInFlight) return null;
+        const chats = boundTo.get(manager);
+        if (!chats || chats.size !== 1 || !chats.has(this)) return null;
+        const conv = manager.conversations.find((c) => c.id === id);
+        if (!conv || conv.archivedAt || !manager.isLoaded(id) || (conv.messages?.length ?? 0) > 0) return null;
+        return id;
+    }
+
     private async _ensureConversationAndPersist(userMsg: AparteMessage): Promise<void> {
         const manager = this._manager();
         if (!manager) {
@@ -878,17 +996,22 @@ export class AparteConversationController {
         // Capture the active id at send-time. If the user switches
         // conversations while createNew()/addMessage() are in flight we
         // must not clobber the new active id.
+        // A single chat whose app created an empty conversation on the manager itself joins it.
+        const adopted = this._activeId === null && this._pendingId === null ? this._adoptable(manager) : null;
+        if (adopted) this._activeId = adopted;
         const wasActiveId = this._activeId;
-        let convId = wasActiveId ?? manager.activeId;
+        // Never the manager's `activeId` otherwise: with several chats on one manager it may be
+        // another chat's conversation, open or being created.
+        let convId = wasActiveId ?? this._pendingId;
 
-        // A concurrent send is still creating the conversation. `createNew()`
-        // assigns `manager.activeId` synchronously, BEFORE its promise resolves,
-        // so we already read that id above and would otherwise call addMessage()
-        // ahead of the first sender: storage would hold the two user messages in
-        // reverse order and `_autoTitle` would title the conversation from the
-        // second one (the order self-heals on the next _persistActive, the title
-        // does not). Waiting here — rather than entering the creation branch —
-        // keeps send order and leaves the switch-away race guard below alone.
+        // A concurrent send is still creating the conversation: its id is known
+        // (`_pendingId`) BEFORE the creation resolves, so we already read it above and
+        // would otherwise call addMessage() ahead of the first sender: storage would hold
+        // the two user messages in reverse order and `_autoTitle` would title the
+        // conversation from the second one (the order self-heals on the next
+        // _persistActive, the title does not). Waiting here — rather than entering the
+        // creation branch — keeps send order and leaves the switch-away race guard below
+        // alone.
         if (convId && this._activeId === null && this._ensureInFlight) {
             await this._ensureInFlight.catch(() => { /* the creating send reports it */ });
             convId = this._activeId ?? convId;
@@ -902,10 +1025,16 @@ export class AparteConversationController {
                 // via CSS (`min-w-0` + `truncate`). The manager decides the final
                 // title when the message is added (title provider, empty text).
                 const text = (userMsg.content ?? '').toString().trim();
-                this._ensureInFlight = manager.createNew(text).then(conv => conv.id);
+                const created = manager.createNew(text);
+                // `createNew()` makes the conversation the manager's active one before its
+                // first await, so it is read here, synchronously, before another chat can
+                // create one of its own: from now on this chat knows it as its own.
+                this._pendingId = manager.activeId;
+                this._ensureInFlight = created.then(conv => conv.id);
             }
             convId = await this._ensureInFlight;
             this._ensureInFlight = null;
+            this._pendingId = null;
 
             // Race guard: if the user switched away while createNew() was
             // resolving, the optimistic user message was already replaced

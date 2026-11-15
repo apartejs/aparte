@@ -1,4 +1,8 @@
 /**
+ * @deprecated Since 1.10.0. Every plugin's element is bound the same way now, from the spec its
+ * package exports (`modelSelectorElement`): use `createAparteElement(modelSelectorElement)` from `@aparte/react`.
+ * This entry keeps working until the next major.
+ *
  * `<aparte-model-selector>` as a typed JSX intrinsic. Import once, anywhere:
  *
  * ```ts

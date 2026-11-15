@@ -61,9 +61,11 @@ agent: with the memory on the agent only, n8n answers that request with an error
 ## Sessions and memory
 
 The page sends only the person's new message: the conversation lives in n8n, in the memory
-attached to the agent. So a session is a conversation. By default the runner starts a new session
+attached to the agent. So a session is a conversation. After a turn that failed — a workflow
+error, the network — the next request carries the message just typed, not the failed one again:
+n8n may have stored it already. By default the runner starts a new session
 for each new conversation — a message with no reply before it — and continues it after, so two
-chats never share a memory. Give `sessionId` when your app keeps a conversation across reloads, and
+chats never share a memory; a first message whose turn failed keeps its session for the next one. Give `sessionId` when your app keeps a conversation across reloads, and
 read it back with `loadN8nHistory`:
 
 ```ts

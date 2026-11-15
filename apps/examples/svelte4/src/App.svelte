@@ -78,6 +78,17 @@
   // — the overlay-composer anatomy.
   const params = new URLSearchParams(window.location.search);
   const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
+  // `?controlled-conversation`: the conversation persistence guide's recipe — the open
+  // conversation kept in this component's state and handed back to the chat, following the
+  // list's selections too. The browser test of the recipe turns it on.
+  const controlled = params.has('controlled-conversation');
+  let conversationId: string | null = null;
+  const followSelect = (e: WindowEventMap['aparte-conversation-select']) => { conversationId = e.detail.id; };
+  onMount(() => {
+    if (!controlled) return;
+    window.addEventListener('aparte-conversation-select', followSelect);
+    return () => window.removeEventListener('aparte-conversation-select', followSelect);
+  });
 
   // The site's wiring, once: the manager registered for every element on the page,
   // the list fed from it, the header's controls.
@@ -113,6 +124,7 @@
   });
 
   function newChat() {
+    if (controlled) conversationId = null;
     void comp?.setConversationId(null);
     comp?.focusInput();
   }
@@ -174,6 +186,8 @@
       bind:this={comp}
       messages={$messages}
       on:messagesChange={handleMessagesChange}
+      conversationId={controlled ? conversationId : null}
+      onconversationCreated={(id) => { if (controlled) conversationId = id; }}
       on:linkClick={handleLinkClick}
       centerWhenEmpty
       overlayComposer={overlay}

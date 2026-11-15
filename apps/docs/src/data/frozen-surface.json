@@ -440,6 +440,7 @@
       "attachConfig",
       "buildApprovalPanel",
       "buildElicitationPanel",
+      "chatIdOf",
       "collectRendererStyles",
       "contentToText",
       "contextConfig",
@@ -456,6 +457,7 @@
       "defineMountedSegmentRenderer",
       "defineMountedToolRenderer",
       "detachConfig",
+      "dispatchChatEvent",
       "enhanceContextMenu",
       "enhanceMenu",
       "enhanceTabs",
@@ -502,7 +504,8 @@
       "toToolCallView",
       "toolRefusal",
       "unregisterSegmentRenderer",
-      "uuid"
+      "uuid",
+      "withoutAbandonedTurns"
     ],
     "@aparte/engine": [
       "runStreamAgent",
@@ -525,6 +528,7 @@
     "@aparte/plugin-approval": [
       "APPROVAL_MODES",
       "AparteApprovalMode",
+      "approvalModeElement",
       "classifyTool",
       "createApprovalPolicy",
       "getApprovalController",
@@ -551,6 +555,7 @@
     "@aparte/plugin-ask-user": [
       "ASK_USER_DECLINED",
       "AparteAskUser",
+      "askUserElement",
       "askUserHandler",
       "buildReceipt",
       "createAskUserTool",
@@ -697,6 +702,7 @@
     ],
     "@aparte/plugin-diff": [
       "AparteDiff",
+      "diffElement",
       "diffTexts",
       "formatUnifiedDiff",
       "parseUnifiedDiff",
@@ -722,7 +728,8 @@
       "setupMermaidWith"
     ],
     "@aparte/plugin-model-selector": [
-      "AparteModelSelector"
+      "AparteModelSelector",
+      "modelSelectorElement"
     ],
     "@aparte/plugin-shiki": [
       "setupShikiProvider",
@@ -741,7 +748,8 @@
       "setupSubagents",
       "subagentOf",
       "subagentStatus",
-      "subagentTranscript"
+      "subagentTranscript",
+      "subagentViewElement"
     ],
     "@aparte/plugin-titler": [
       "createTitleProvider",
@@ -751,7 +759,8 @@
       "AparteTriggers",
       "detectTrigger",
       "matchRows",
-      "scoreItem"
+      "scoreItem",
+      "triggersElement"
     ],
     "@aparte/provider-ai-sdk": [
       "createAiSdkProvider",
@@ -815,6 +824,7 @@
       "AparteSuggestions",
       "AparteToolUI",
       "AparteUi",
+      "createAparteElement",
       "useAparteChat",
       "useAparteClient",
       "useAparteEvent",
@@ -1062,6 +1072,7 @@
     "--aparte-approval-option-padding",
     "--aparte-approval-option-radius",
     "--aparte-approval-option-size",
+    "--aparte-approval-preview-max-height",
     "--aparte-attachment-chip-bg",
     "--aparte-attachment-chip-border",
     "--aparte-attachment-chip-color",
@@ -1247,6 +1258,7 @@
     "--aparte-icon-size-xl",
     "--aparte-info",
     "--aparte-info-ink",
+    "--aparte-info-surface",
     "--aparte-ink-dark",
     "--aparte-ink-flip",
     "--aparte-ink-l",
@@ -1395,6 +1407,7 @@
     "--aparte-scrollbar-width",
     "--aparte-secondary",
     "--aparte-secondary-ink",
+    "--aparte-segmented-pad",
     "--aparte-select-bg",
     "--aparte-select-border",
     "--aparte-select-border-hover",
@@ -1416,6 +1429,7 @@
     "--aparte-shimmer-shine",
     "--aparte-sidebar-bg",
     "--aparte-sidebar-inset",
+    "--aparte-sidebar-rail-width",
     "--aparte-sidebar-width",
     "--aparte-skeleton-base",
     "--aparte-skeleton-circle-size",
@@ -1507,6 +1521,7 @@
     "--aparte-tool-spinner-size",
     "--aparte-tooltip-bg",
     "--aparte-tooltip-color",
+    "--aparte-tooltip-delay",
     "--aparte-tooltip-gap",
     "--aparte-tooltip-max-width",
     "--aparte-tooltip-shadow",
@@ -1518,6 +1533,7 @@
     "--aparte-waiting-height",
     "--aparte-warning",
     "--aparte-warning-ink",
+    "--aparte-warning-surface",
     "--aparte-z-dropdown",
     "--aparte-z-floating",
     "--aparte-z-raised"
@@ -1831,6 +1847,7 @@
       "clearMessages",
       "focusInput",
       "getComposer",
+      "getConversationId",
       "getElement",
       "getMessages",
       "getViewport",
@@ -1978,6 +1995,7 @@
           "flat",
           "loading",
           "manage",
+          "renderMeta",
           "target"
         ],
         "outputs": [

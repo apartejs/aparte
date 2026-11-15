@@ -396,17 +396,8 @@ a.aparte-stock__symbol:focus-visible {
 
 /* ── The range buttons, across the top of the chart ──────────────────── */
 
-.aparte-stock__ranges .aparte-rich-card__segmented {
-  display: flex;
-  inline-size: 100%;
-  box-sizing: border-box;
-}
-
-.aparte-stock__ranges .aparte-rich-card__segment {
-  flex: 1 1 0;
-  min-inline-size: 0;
+.aparte-stock__ranges .aparte-segmented__item {
   padding-inline: var(--aparte-space-1);
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 

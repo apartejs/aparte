@@ -1,0 +1,119 @@
+// @vitest-environment jsdom
+/**
+ * A host assigns `conversations` on every manager change, and a wrapper on every render of the
+ * app around it — often the very array the list holds, mutated in place. A row's open menu and a
+ * title being renamed are the reader's: the rows are drawn again once they end, not under them.
+ */
+import { describe, it, expect, afterEach } from 'vitest';
+import '../aparte-conversation-list.js';
+import type { AparteConversationListItem } from '../aparte-conversation-list.js';
+
+type ListEl = HTMLElement & {
+    conversations: AparteConversationListItem[];
+    renderMeta: ((item: AparteConversationListItem) => HTMLElement | string | null) | null;
+};
+
+function mount(items: AparteConversationListItem[]): ListEl {
+    const el = document.createElement('aparte-conversation-list') as ListEl;
+    document.body.appendChild(el);
+    el.conversations = items;
+    return el;
+}
+
+const rowOf = (el: ListEl, id: string): HTMLElement => el.querySelector<HTMLElement>(`[data-conv-id="${id}"]`)!;
+const openMenu = (el: ListEl, id: string): HTMLElement => {
+    el.querySelector<HTMLElement>(`[data-more-id="${id}"]`)!.click();
+    return el.querySelector<HTMLElement>('[role="menu"]')!;
+};
+const choose = (el: ListEl, action: string): void => {
+    el.querySelector<HTMLElement>(`[data-menu-action="${action}"]`)!.click();
+};
+
+afterEach(() => { document.body.innerHTML = ''; });
+
+describe('rows handed again', () => {
+    it('keep a row menu open, with the focus in it, and draw once it closes', () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        const menu = openMenu(el, 'b');
+        const focused = document.activeElement;
+        expect(menu.contains(focused)).toBe(true);
+
+        items[0]!.title = 'One, renamed';
+        el.conversations = items;
+        expect(el.querySelector('[role="menu"]')).toBe(menu);
+        expect(document.activeElement).toBe(focused);
+
+        menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(el.querySelector('[role="menu"]')).toBeNull();
+        expect(rowOf(el, 'a').textContent).toContain('One, renamed');
+    });
+
+    it('keep a title being renamed, with what was typed, and draw when the rename ends', () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        openMenu(el, 'a');
+        choose(el, 'rename');
+        const input = rowOf(el, 'a').querySelector<HTMLInputElement>('input.aparte-conv-item__input')!;
+        input.value = 'Half typed';
+
+        items.push({ id: 'c', title: 'Three' });
+        el.conversations = items;
+        expect(rowOf(el, 'a').querySelector('input')).toBe(input);
+        expect(input.value).toBe('Half typed');
+        expect(document.activeElement).toBe(input);
+
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(rowOf(el, 'c')).not.toBeNull();
+    });
+
+    it('keep a rename started with the pointer after a render held by the menu', async () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        openMenu(el, 'a');
+        el.conversations = items;
+        const rename = el.querySelector<HTMLElement>('[data-menu-action="rename"]')!;
+        rename.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        window.dispatchEvent(new Event('pointerup'));
+        rename.click();
+        const input = rowOf(el, 'a').querySelector<HTMLInputElement>('input.aparte-conv-item__input');
+        expect(input).not.toBeNull();
+        input!.value = 'Half typed';
+
+        await new Promise((r) => setTimeout(r, 5));
+        expect(rowOf(el, 'a').querySelector('input')).toBe(input);
+        expect(input!.value).toBe('Half typed');
+
+        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(rowOf(el, 'a').querySelector('input')).toBeNull();
+    });
+
+    it('keep an open menu and a rename when handed the same renderMeta again', () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        const meta = (): string => 'x';
+        el.renderMeta = meta;
+        const menu = openMenu(el, 'a');
+        el.renderMeta = meta;
+        expect(el.querySelector('[role="menu"]')).toBe(menu);
+
+        choose(el, 'rename');
+        const input = rowOf(el, 'a').querySelector<HTMLInputElement>('input.aparte-conv-item__input')!;
+        input.value = 'Half typed';
+        el.renderMeta = meta;
+        expect(rowOf(el, 'a').querySelector('input')).toBe(input);
+        expect(input.value).toBe('Half typed');
+    });
+
+    it('hold a new renderMeta while a menu is open, and draw it once the menu closes', () => {
+        const items = [{ id: 'a', title: 'One' }];
+        const el = mount(items);
+        const menu = openMenu(el, 'a');
+        el.renderMeta = () => 'shared';
+        expect(el.querySelector('[role="menu"]')).toBe(menu);
+        expect(el.querySelector('.aparte-conv-item__meta')).toBeNull();
+
+        menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(el.querySelector('.aparte-conv-item__meta')?.textContent).toBe('shared');
+    });
+});

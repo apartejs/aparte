@@ -26,6 +26,8 @@ import type { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteComposer, AparteComposerPanelMode } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
+import { bindOptionKeys, numberOptions } from '../../elicitation/option-keys.js';
+import { chatIdOf } from '../../interop/chat-events.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 import { AparteElicitationAbortError } from '../../elicitation/types.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
@@ -477,7 +479,10 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 const approvalMode = (): AparteComposerPanelMode => (sendable() ? 'submit' : 'none');
                 const syncSubmit = (): void => composer.setPanelSubmitEnabled(sendable(), approvalMode());
                 const panel = runWithConfig(cfg, () =>
-                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details, request.allowOther ?? true));
+                    buildApprovalPanel(request.message, request.options ?? [], syncSubmit, request.details, request.allowOther ?? true, request.preview));
+                // 1-9 and Escape, on the options drawn as buttons.
+                numberOptions(panel.el);
+                bindOptionKeys(panel.el);
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
                 this._pending = {
@@ -515,6 +520,9 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
+            // 1-9 and Escape (Skip), on a single question whose options are buttons.
+            numberOptions(panel.el);
+            bindOptionKeys(panel.el);
             const retract = addRetract(panel.el, panel.dismiss, cfg, () => panel.focus(), syncSubmit);
 
             /*
@@ -571,14 +579,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * resolves `undefined` on three wrappers out of four.
      */
     private _pendingTargetId(): string | undefined {
-        let el: HTMLElement | null = this._pending?.composer ?? null;
-        while (el) {
-            const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
-            if (isHost && el.id) return el.id;
-            el = el.parentElement;
-        }
-        return undefined;
+        return chatIdOf(this._pending?.composer ?? null);
     }
 
     /**

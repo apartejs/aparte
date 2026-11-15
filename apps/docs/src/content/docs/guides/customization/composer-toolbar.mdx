@@ -39,13 +39,15 @@ import Variant from '../../../../components/catalog/Variant.astro';
 </TabItem>
 <TabItem label="React">
 
+{/* doc-check: skip excerpt — a fragment of your component */}
 ```tsx
+// At module level: const ModelSelector = createAparteElement(modelSelectorElement);
 <AparteChat
   messages={chat.messages}
   onMessagesChange={chat.setMessages}
   toolbar={<>
     <ModePicker value={mode} onChange={setMode} />
-    <aparte-model-selector persist="" style={{ marginInlineStart: 'auto' }} />
+    <ModelSelector persist style={{ marginInlineStart: 'auto' }} />
   </>}
 />
 ```

@@ -22,7 +22,7 @@ describe('setupSubagents', () => {
     it('installs one observer, the tool-line provider and the segment renderer, on the global config by default', () => {
         const stop = setupSubagents();
         expect(aparteGlobalConfig.getRunEventObservers()).toHaveLength(1);
-        expect(aparteGlobalConfig.getToolLineProvider()!(carrying)).toMatchObject({ label: 'Researcher' });
+        expect(aparteGlobalConfig.getToolLineProviders()[0]!(carrying)).toMatchObject({ label: 'Researcher' });
         expect(getSegmentRenderer(SUBAGENT_SEGMENT_TYPE, aparteGlobalConfig)).toBeDefined();
         stop();
     });
@@ -31,7 +31,7 @@ describe('setupSubagents', () => {
         const stop = setupSubagents();
         stop();
         expect(aparteGlobalConfig.getRunEventObservers()).toHaveLength(0);
-        expect(aparteGlobalConfig.getToolLineProvider()).toBeNull();
+        expect(aparteGlobalConfig.getToolLineProviders()).toHaveLength(0);
         expect(getSegmentRenderer(SUBAGENT_SEGMENT_TYPE, aparteGlobalConfig)).toBeUndefined();
         // Safe to call twice.
         stop();
@@ -83,7 +83,7 @@ describe('setupSubagents', () => {
         setupSubagents({ counts: true });
         const stop = setupSubagents({ activity: false });
         expect(aparteGlobalConfig.getRunEventObservers()).toHaveLength(1);
-        const line = aparteGlobalConfig.getToolLineProvider()!({
+        const line = aparteGlobalConfig.getToolLineProviders()[0]!({
             ...carrying,
             subagent: { id: 'a1', name: 'Researcher', status: 'running', segments: [{ id: 'tool-g', type: 'tool_call', status: 'pending', toolCall: { id: 'g', name: 'grep', input: {} } }] },
         } as AparteToolCallSegment);
@@ -97,16 +97,18 @@ describe('setupSubagents', () => {
         const stop = setupSubagents({}, config);
         expect(config.getRunEventObservers()).toHaveLength(1);
         expect(aparteGlobalConfig.getRunEventObservers()).toHaveLength(0);
-        expect(aparteGlobalConfig.getToolLineProvider()).toBeNull();
+        expect(aparteGlobalConfig.getToolLineProviders()).toHaveLength(0);
         stop();
         expect(config.getRunEventObservers()).toHaveLength(0);
     });
 
-    it("an app's own provider replaced by the setup is not removed by another's disposer", () => {
+    it("the app's own provider is kept beside the setup's, asked first, and survives the disposer", () => {
         const stop = setupSubagents();
         const mine = () => ({ label: 'Mine' });
         aparteGlobalConfig.setToolLineProvider(mine);
+        expect(aparteGlobalConfig.getToolLineProviders()[0]).toBe(mine);
+        expect(aparteGlobalConfig.getToolLineProviders()).toHaveLength(2);
         stop();
-        expect(aparteGlobalConfig.getToolLineProvider()).toBe(mine);
+        expect(aparteGlobalConfig.getToolLineProviders()).toEqual([mine]);
     });
 });

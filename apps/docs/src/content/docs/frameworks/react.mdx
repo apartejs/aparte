@@ -68,9 +68,13 @@ yourself; `onMessageSent` fires after, for a side effect.
 ## Stream a model
 
 `useAparteClient` starts a client when the component mounts, stops it when it unmounts, and returns
-`{ client, abort }`. It takes the `AparteClientOptions` and reads them once, on the first render: a
-function option keeps the values it closed over then, so read live state from a ref inside it, and
-remount the component with a new `key` to change the options. For a real model, register its
+`{ client, abort }`. It takes the `AparteClientOptions` and builds the client once, on the first
+render. Its function options — `keyResolver`, `approvalResolver`, `requestInterceptor`,
+`history`, `targetResolver` and `fileInjectFilter` — are called from the latest render, so one
+that reads state sees the state of now. `streamRunner` is read once and handed to the client as it
+is (the client recognises the engine's own loop by identity), so a runner that reads state reads
+it through a ref; the other options are read once too, so remount the component with a new `key`
+to change them. For a real model, register its
 provider, name the model and give the key — `aparteGlobalConfig.setModelConfig({ defaultProvider:
 'openrouter', defaultModel: 'openai/gpt-4o-mini' })` and `useAparteClient({ keyResolver })`
 ([Connect a model](/providers/)). A `config` prop gives one `<AparteChat>` providers and a

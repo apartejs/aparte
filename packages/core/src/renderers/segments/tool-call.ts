@@ -96,7 +96,7 @@ function reasonOf(segment: AparteToolCallSegment): string {
  * tools · 12 s") — one place after the state word, both in the reader's language.
  */
 function noteOf(segment: AparteToolCallSegment, line: AparteToolLine | undefined): string {
-    return [reasonOf(segment), toolLineNoteOf(line)].filter(Boolean).join(' · ');
+    return [reasonOf(segment), toolLineNoteOf(segment, line, contextConfig())].filter(Boolean).join(' · ');
 }
 
 /**
@@ -429,7 +429,7 @@ function setTarget(element: Element, segment: AparteToolCallSegment, line: Apart
 function setActivity(element: Element, segment: AparteToolCallSegment, line: AparteToolLine | undefined): void {
     const el = element.querySelector('.aparte-tool-activity');
     if (!el) return;
-    const text = toolActivityOf(segment, line);
+    const text = toolActivityOf(segment, line, contextConfig());
     if (el.textContent !== text) el.textContent = text;
     el.toggleAttribute('hidden', !text);
 }
@@ -615,7 +615,7 @@ function pillMarkup(segment: AparteToolCallSegment, line: AparteToolLine | undef
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const icon = iconOf(segment);  // safe-text: the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     const target = toolTarget(segment, line);
-    const activity = toolActivityOf(segment, line);
+    const activity = toolActivityOf(segment, line, contextConfig());
     const note = noteOf(segment, line);
     const name = nameOf(segment, line);
     const quiet = quietOf(segment);

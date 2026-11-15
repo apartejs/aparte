@@ -71,7 +71,9 @@ export function estimateRequestTokens(request: { messages: AparteChatMessage[]; 
  * The estimate of what the wire sends for these messages: the same serialisation the
  * client builds its history with (`wireMessages`) — a reply's thinking is not sent, its
  * text is, and a tool call and its result count as the envelope and the `tool` message
- * the wire carries. A failed turn and one still in flight send nothing.
+ * the wire carries. A failed reply and one still in flight send nothing, and neither does a
+ * message whose reply failed for good (`withoutAbandonedTurns`); one whose reply failed on
+ * the network is counted, since it goes with the next message.
  *
  * Not `estimateTokens(message.content)`: assistant replies keep their text in
  * `segments` with `content` empty, so that sum would read a whole conversation as free.

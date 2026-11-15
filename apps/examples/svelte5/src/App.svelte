@@ -80,6 +80,17 @@
   // — the overlay-composer anatomy.
   const params = new URLSearchParams(window.location.search);
   const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
+  // `?controlled-conversation`: the conversation persistence guide's recipe — the open
+  // conversation kept in this component's state and handed back to the chat, following the
+  // list's selections too. The browser test of the recipe turns it on.
+  const controlled = params.has('controlled-conversation');
+  let conversationId = $state<string | null>(null);
+  onMount(() => {
+    if (!controlled) return;
+    const follow = (e: WindowEventMap['aparte-conversation-select']) => { conversationId = e.detail.id; };
+    window.addEventListener('aparte-conversation-select', follow);
+    return () => window.removeEventListener('aparte-conversation-select', follow);
+  });
 
   // The site's wiring, once: the manager registered for every element on the page,
   // the list fed from it, the header's controls.
@@ -115,6 +126,7 @@
   });
 
   function newChat() {
+    if (controlled) conversationId = null;
     void comp?.setConversationId(null);
     comp?.focusInput();
   }
@@ -172,7 +184,7 @@
 
   <main class="aparte-app-shell__main">
     {#if FRAMEWORK_CARD}<FrameworkWeatherCard />{/if}
-    <AparteChat bind:this={comp} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone" onlinkClick={onLinkClick}>
+    <AparteChat bind:this={comp} conversationId={controlled ? conversationId : null} onconversationCreated={(id) => { if (controlled) conversationId = id; }} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone" onlinkClick={onLinkClick}>
       {#snippet emptyState()}
         <div class="welcome" id="welcome">
           <div class="welcome__body">

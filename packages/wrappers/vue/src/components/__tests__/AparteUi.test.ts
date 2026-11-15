@@ -6,6 +6,18 @@ import { registerAllComponents } from '@aparte/core';
 // Real aparté elements — the whole point is that they are attribute-driven.
 registerAllComponents();
 
+/** Records what it is told: each attribute change it hears, and each assignment of `items`. */
+class FxProbe extends HTMLElement {
+    static get observedAttributes(): string[] { return ['mode']; }
+    heard: string[] = [];
+    sets = 0;
+    private _items: unknown = null;
+    get items(): unknown { return this._items; }
+    set items(value: unknown) { this._items = value; this.sets++; }
+    attributeChangedCallback(name: string): void { this.heard.push(name); }
+}
+if (!customElements.get('fx-probe')) customElements.define('fx-probe', FxProbe);
+
 describe('AparteUi.vue', () => {
     it('mounts the named element and applies props as ATTRIBUTES', () => {
         // Regression: applyProps used to assign DOM *properties*. aparté elements are
@@ -52,6 +64,22 @@ describe('AparteUi.vue', () => {
         const el = wrapper.element.querySelector('aparte-chat-bubble') as HTMLElement;
         expect((el as unknown as { someData: unknown }).someData).toBe(payload);
         expect(el.hasAttribute('someData')).toBe(false);
+    });
+
+    // A prop bag handed again — a new object with the same values, or the same array pushed to
+    // behind the deep watch. The element hears an attribute only when its value changes, and gets
+    // the object again every time (it was mutated), so its setter can keep its state.
+    it('handed an equal prop bag, writes no attribute again and hands the object again', async () => {
+        const items = ['a'];
+        const wrapper = mount(AparteUi, { props: { name: 'fx-probe', props: { mode: 'ask', items } } });
+        const el = wrapper.element.querySelector('fx-probe') as FxProbe;
+        expect(el.heard).toEqual(['mode']);
+        const sets = el.sets;
+        await wrapper.setProps({ name: 'fx-probe', props: { mode: 'ask', items } });
+        expect(el.heard).toEqual(['mode']);
+        expect(el.sets).toBe(sets + 1);
+        await wrapper.setProps({ name: 'fx-probe', props: { mode: 'auto', items } });
+        expect(el.heard).toEqual(['mode', 'mode']);
     });
 
     it('forwards a DEFAULT_EVENTS event through elementEvent', () => {
