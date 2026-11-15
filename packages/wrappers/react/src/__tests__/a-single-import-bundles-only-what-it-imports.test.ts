@@ -15,7 +15,17 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 
 // esbuild is Vite's own dependency: reached through it, not declared by this package.
-const esbuild = createRequire(createRequire(import.meta.url).resolve('vite'))('esbuild') as typeof import('esbuild');
+interface Esbuild {
+    build(options: Record<string, unknown>): Promise<{ outputFiles: { text: string }[] }>;
+}
+interface EsbuildPlugin {
+    name: string;
+    setup(b: {
+        onResolve(options: { filter: RegExp }, callback: () => { path: string; namespace: string }): void;
+        onLoad(options: { filter: RegExp; namespace: string }, callback: () => { contents: string; loader: string; resolveDir: string }): void;
+    }): void;
+}
+const esbuild = createRequire(createRequire(import.meta.url).resolve('vite'))('esbuild') as Esbuild;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 let shipped = '';
@@ -47,7 +57,7 @@ async function bundle(names: string): Promise<string> {
         treeShaking: true,
         external: ['react', 'react-dom', 'react/jsx-runtime', '@aparte/core'],
         logLevel: 'silent',
-        plugins: [{
+        plugins: [<EsbuildPlugin>{
             name: 'shipped',
             setup(b) {
                 b.onResolve({ filter: /^aparte-react$/ }, () => ({ path: 'aparte-react', namespace: 'shipped' }));
