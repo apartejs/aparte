@@ -17,6 +17,11 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
   `label` is now read as a key of the locale when the locale has it, as its documentation already said and the bubble did not do: add yours with `extendLocale`, and the words follow the chat's language. A label the locale does not have is shown as written.
   <sub>`@aparte/core`</sub>
 
+- [289cf4d](https://github.com/apartejs/aparte/commit/289cf4d): A request whose history starts at a checkpoint names the summary it opens with in `_meta.historySummary`, so a server that keeps its own history can tell it from what the person said. Nothing to change in your code.
+
+  The summary still goes as a `user` message under its preamble, joined to the person's next message when one follows. `historySummary` is the text that message opens with, exactly; what follows it, after a blank line, is the person's. It travels in `_meta` rather than on the message, so a backend that hands `messages` to a model API as they are never meets a field it does not know.
+  <sub>`@aparte/core`</sub>
+
 ### Patch Changes
 
 - [77f1d8e](https://github.com/apartejs/aparte/commit/77f1d8e): A diff line's two numbers are set further apart, so a line far down a file (`118 118`) no longer reads as one number. Nothing to change in your code.
