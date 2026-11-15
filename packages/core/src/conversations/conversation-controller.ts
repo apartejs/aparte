@@ -114,6 +114,11 @@ export class AparteConversationController {
     private _isStreaming = false;
     private _isLoadingConversation = false;
     private _ensureInFlight: Promise<string> | null = null;
+    /**
+     * The conversation this chat's first message is creating, from the moment `createNew()`
+     * is called until it resolves — see {@link pendingId}.
+     */
+    private _pendingId: string | null = null;
     /** The conversation the turn in flight started in, and what the lists were told of it. */
     private _turn: { id: string; status: AparteConversationStatus } | null = null;
     /** The reply the turn in flight writes into, from its `aparte-message-start`. */
@@ -178,16 +183,30 @@ export class AparteConversationController {
     }
 
     /**
+     * The conversation this chat's first message is creating, while it is being created:
+     * set when the send calls `createNew()`, `null` again once {@link activeId} holds it.
+     *
+     * It is this chat's own, whatever the manager says. The manager has ONE `activeId`,
+     * which every chat on it writes when it opens or creates a conversation; with two chats
+     * it names the one that moved last. A wrapper that is handed this id back — through
+     * `onConversationCreated`, or bound to the manager's `activeId`, which changes before
+     * the creation resolves — knows from it that the chat already shows that conversation.
+     */
+    get pendingId(): string | null {
+        return this._pendingId;
+    }
+
+    /**
      * The conversation a message sent now belongs to: the open one, or — for the first
-     * message of a chat — the one that send is creating. `createNew()` makes it the
-     * manager's active conversation synchronously, so the client, which hears the send
-     * right after this controller does, already finds it there; this controller's own id
-     * follows once the conversation is saved. `_ensureConversationAndPersist` reads the
-     * same two places to decide where the message is saved, so a turn is carried to the
-     * conversation its message was written in.
+     * message of a chat — the one that send is creating. The client hears the send right
+     * after this controller does, so the creation has already started and its id is known
+     * ({@link pendingId}); this controller's own id follows once the conversation is saved.
+     * `_ensureConversationAndPersist` reads the same two places to decide where the message
+     * is saved, so a turn is carried to the conversation its message was written in. Never
+     * the manager's `activeId`: that may be another chat's conversation.
      */
     private _openId(): string | null {
-        return this._activeId ?? this._manager()?.activeId ?? null;
+        return this._activeId ?? this._pendingId;
     }
 
     /**
@@ -253,11 +272,11 @@ export class AparteConversationController {
             this._turn = null;
             return;
         }
-        // `createNew()` assigns the manager's active id before its promise resolves, so a
-        // first message's conversation is usually known here already. Only a turn STARTING
-        // falls back on it: a pause or a resume belongs to a turn already known, and a late
-        // one after a switch must not mark the conversation the person went to.
-        const id = this._turn?.id ?? (status === 'running' ? this._activeId ?? this._manager()?.activeId ?? null : null);
+        // A first message's conversation is known as soon as its creation starts
+        // (`pendingId`), so it is usually known here already. Only a turn STARTING falls back
+        // on it: a pause or a resume belongs to a turn already known, and a late one after a
+        // switch must not mark the conversation the person went to.
+        const id = this._turn?.id ?? (status === 'running' ? this._openId() : null);
         if (!id) return;
         this._turn = { id, status };
         tellConversationStatus(id, status);
@@ -879,16 +898,18 @@ export class AparteConversationController {
         // conversations while createNew()/addMessage() are in flight we
         // must not clobber the new active id.
         const wasActiveId = this._activeId;
-        let convId = wasActiveId ?? manager.activeId;
+        // Never the manager's `activeId`: with several chats on one manager it may be
+        // another chat's conversation, open or being created.
+        let convId = wasActiveId ?? this._pendingId;
 
-        // A concurrent send is still creating the conversation. `createNew()`
-        // assigns `manager.activeId` synchronously, BEFORE its promise resolves,
-        // so we already read that id above and would otherwise call addMessage()
-        // ahead of the first sender: storage would hold the two user messages in
-        // reverse order and `_autoTitle` would title the conversation from the
-        // second one (the order self-heals on the next _persistActive, the title
-        // does not). Waiting here — rather than entering the creation branch —
-        // keeps send order and leaves the switch-away race guard below alone.
+        // A concurrent send is still creating the conversation: its id is known
+        // (`_pendingId`) BEFORE the creation resolves, so we already read it above and
+        // would otherwise call addMessage() ahead of the first sender: storage would hold
+        // the two user messages in reverse order and `_autoTitle` would title the
+        // conversation from the second one (the order self-heals on the next
+        // _persistActive, the title does not). Waiting here — rather than entering the
+        // creation branch — keeps send order and leaves the switch-away race guard below
+        // alone.
         if (convId && this._activeId === null && this._ensureInFlight) {
             await this._ensureInFlight.catch(() => { /* the creating send reports it */ });
             convId = this._activeId ?? convId;
@@ -902,10 +923,16 @@ export class AparteConversationController {
                 // via CSS (`min-w-0` + `truncate`). The manager decides the final
                 // title when the message is added (title provider, empty text).
                 const text = (userMsg.content ?? '').toString().trim();
-                this._ensureInFlight = manager.createNew(text).then(conv => conv.id);
+                const created = manager.createNew(text);
+                // `createNew()` makes the conversation the manager's active one before its
+                // first await, so it is read here, synchronously, before another chat can
+                // create one of its own: from now on this chat knows it as its own.
+                this._pendingId = manager.activeId;
+                this._ensureInFlight = created.then(conv => conv.id);
             }
             convId = await this._ensureInFlight;
             this._ensureInFlight = null;
+            this._pendingId = null;
 
             // Race guard: if the user switched away while createNew() was
             // resolving, the optimistic user message was already replaced
