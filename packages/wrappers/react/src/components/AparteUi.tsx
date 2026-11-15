@@ -45,7 +45,7 @@ export type { AparteUiHandle } from '@aparte/core';
  *   onElementEvent={onEvent}
  * />
  */
-export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function AparteUi(
+export const AparteUi = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardRef<AparteUiHandle, AparteUiProps>(function AparteUi(
     { name, props = {}, onElementEvent, events },
     ref,
 ) {
@@ -99,6 +99,4 @@ export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function Apart
     }), []);
 
     return <span ref={hostRef} style={{ display: 'contents' }} />;
-});
-
-AparteUi.displayName = 'AparteUi';
+}), { displayName: 'AparteUi' });

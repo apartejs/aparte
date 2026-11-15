@@ -196,7 +196,9 @@ const subscribeToNothing = () => () => {};
 const isHydrating = () => true;
 const isNotHydrating = () => false;
 
-export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
+// Side-effect free, so a bundler drops it from an app that imports something else: a
+// module-level `AparteChat.displayName = …` would keep it, and its event table, in every bundle.
+export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
         messages = NO_MESSAGES,
         placeholder = 'Type a message...',
@@ -479,6 +481,4 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             </aparte-composer>
         </div>
     );
-});
-
-AparteChat.displayName = 'AparteChat';
+}), { displayName: 'AparteChat' });
