@@ -38,20 +38,45 @@ test('a plan reported as an activity is drawn by the plan card and ticked in pla
     const errors = collectPageErrors(page);
     const chat = new ChatPage(page);
     await page.goto('/?scenario');
+    // Every drawing of the steps, recorded as it lands. A poll can miss a step's run: on a loaded
+    // runner two updates land in one task, and nothing paints between them. Each update draws
+    // the card's inside afresh, and a drawing is never touched again once in: its statuses,
+    // read later, are the ones it came with.
+    await page.evaluate(() => {
+        const drawn: string[][] = [];
+        (window as unknown as { e2eStepsDrawn: string[][] }).e2eStepsDrawn = drawn;
+        new MutationObserver((records) => {
+            for (const record of records) {
+                for (const node of record.addedNodes) {
+                    if (!(node instanceof Element)) continue;
+                    const steps = [...node.querySelectorAll('.aparte-plan__step[data-status]')];
+                    if (node.matches('.aparte-plan__step[data-status]')) steps.unshift(node);
+                    if (steps.length) drawn.push(steps.map((step) => step.getAttribute('data-status')!));
+                }
+            }
+        }).observe(document.body, { subtree: true, childList: true });
+    });
     await chat.send('Plan the release and tick it off as you go.');
 
     const card = chat.lastReply.locator('.aparte-plan-card');
     const steps = card.locator('.aparte-plan__step');
     await expect(steps).toHaveCount(3);
-    await expect(steps.first()).toHaveAttribute('data-status', 'in-progress');
     // Mark the card's element (a property: the card keeps its attributes in step with its data):
     // an update that rebuilt it would lose the mark.
     await card.evaluate((el) => { (el as HTMLElement & { e2eFirst?: boolean }).e2eFirst = true; });
 
-    await expect(steps.nth(1)).toHaveAttribute('data-status', 'in-progress');
     await expect(chat.lastReply).toContainText('Released: version bumped');
-    await expect(steps.nth(2)).toHaveAttribute('data-status', 'done');
     await expect(card.locator('.aparte-plan__count')).toHaveText('3 of 3 done');
+    // Each step ran, then was done, in turn: its status in each drawing, repeats dropped.
+    const lived = await page.evaluate(() => {
+        const drawn = (window as unknown as { e2eStepsDrawn: string[][] }).e2eStepsDrawn;
+        return [0, 1, 2].map((i) => drawn.map((statuses) => statuses[i]).filter((s, j, all) => s !== undefined && s !== all[j - 1]));
+    });
+    expect(lived).toEqual([
+        ['in-progress', 'done'],
+        ['pending', 'in-progress', 'done'],
+        ['pending', 'in-progress', 'done'],
+    ]);
     await expect(card).toHaveCount(1);
     expect(await card.evaluate((el) => (el as HTMLElement & { e2eFirst?: boolean }).e2eFirst)).toBe(true);
     expect(errors).toEqual([]);
