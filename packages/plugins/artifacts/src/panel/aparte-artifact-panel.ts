@@ -189,8 +189,11 @@ export class AparteArtifactPanel extends ElementBase {
     /** Draw a version yourself: see {@link ArtifactPanelRender}. `null` goes back to the built-in rendering. */
     get render(): ArtifactPanelRender | null { return this._render; }
     set render(value: ArtifactPanelRender | null) {
+        // Handed the one it has (a wrapper assigns its props again on every render of the app
+        // around it): a refresh, which keeps the tab and the preview the reader chose. Another
+        // one starts the body over.
+        if (value !== this._render) this._clearBody();
         this._render = value;
-        this._clearBody();
         this.refresh();
     }
 
