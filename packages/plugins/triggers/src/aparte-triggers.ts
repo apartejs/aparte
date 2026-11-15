@@ -1,5 +1,5 @@
 import {
-    deferHydrationOf, placeFloating, resolveConfig,
+    chatIdOf, deferHydrationOf, dispatchChatEvent, placeFloating, resolveConfig,
     type AparteComposer, type AparteComposerInput, type AparteComposerToken,
 } from '@aparte/core';
 import { collectCommands, commandItems } from './collect.js';
@@ -164,7 +164,7 @@ export class AparteTriggers extends HTMLElement {
             config: resolveConfig(this),
             composer,
             chat,
-            targetId: composer.getAttribute('target') || chat?.id || undefined,
+            targetId: chatIdOf(composer),
         };
     }
 
@@ -636,9 +636,7 @@ export class AparteTriggers extends HTMLElement {
             if (el) this._openChild(levelIndex, row, el);
             return;
         }
-        const proceed = this.dispatchEvent(new CustomEvent<AparteTriggerSelectEventDetail>('aparte-trigger-select', {
-            bubbles: true, composed: true, cancelable: true, detail: { trigger: hit.trigger, item, query: hit.query },
-        }));
+        const proceed = dispatchChatEvent<AparteTriggerSelectEventDetail>(this, 'aparte-trigger-select', { trigger: hit.trigger, item, query: hit.query }, { cancelable: true });
         this.close();
         if (!proceed) return;
         const end = input.getCaret()?.offset ?? hit.end;

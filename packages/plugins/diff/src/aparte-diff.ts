@@ -6,7 +6,7 @@
  * the reader did to it — a file folded, a run of unchanged lines shown, a selection, a comment
  * being written — and the lines' colours once the highlighter gave them.
  */
-import { resolveConfig, subscribeConfigChange, type AparteConfig } from '@aparte/core';
+import { dispatchChatEvent, resolveConfig, subscribeConfigChange, type AparteConfig } from '@aparte/core';
 import { diffTexts, splitLines } from './compute.js';
 import { highlightLines, languageOfPath } from './highlight.js';
 import { parseUnifiedDiff } from './parse.js';
@@ -822,9 +822,7 @@ export class AparteDiff extends ElementBase {
         const text = form?.input.value.trim() ?? '';
         if (!form || !range || !text) return;
         const detail: AparteDiffCommentEventDetail = { ...range, text };
-        const kept = this.dispatchEvent(new CustomEvent<AparteDiffCommentEventDetail>('aparte-diff-comment', {
-            detail, bubbles: true, composed: true, cancelable: true,
-        }));
+        const kept = dispatchChatEvent(this, 'aparte-diff-comment', detail, { cancelable: true });
         if (!kept) return;
         form.input.value = '';
         this._letGo(true);

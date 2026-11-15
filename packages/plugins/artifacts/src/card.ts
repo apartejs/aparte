@@ -17,7 +17,7 @@
  * applied to a tier-(c) affordance. The document it mounts comes from
  * `./preview-document.ts`, or from the consumer's own builder.
  */
-import { escapeHtml, escapeAttr, copyText, contextConfig, enhanceTabs, renderCodeLanguages } from '@aparte/core';
+import { escapeHtml, escapeAttr, copyText, contextConfig, dispatchChatEvent, enhanceTabs, renderCodeLanguages } from '@aparte/core';
 import type { AparteSegmentRenderer } from '@aparte/core';
 import { ARTIFACT_SEGMENT_TYPE, type ArtifactSegment } from './segment.js';
 import { deriveArtifactKind } from './kinds.js';
@@ -328,13 +328,9 @@ const card = {
                 // As the card shows it, copies it and downloads it: without the code fences a
                 // model may wrap the content in.
                 const artifact = { ...latest, content: documentOf(latest) };
-                element.dispatchEvent(new CustomEvent<ArtifactOpenEventDetail>('aparte-artifact-open', {
-                    bubbles: true,
-                    composed: true,
-                    // Which document, and which appearance of it: what a panel needs to show
-                    // this very version among the document's others (`artifactDocuments`).
-                    detail: { artifact, documentId: latest.documentId ?? latest.id, segmentId: latest.id },
-                }));
+                // Which document, and which appearance of it: what a panel needs to show
+                // this very version among the document's others (`artifactDocuments`).
+                dispatchChatEvent<ArtifactOpenEventDetail>(element, 'aparte-artifact-open', { artifact, documentId: latest.documentId ?? latest.id, segmentId: latest.id });
             });
         }
 

@@ -9,7 +9,7 @@
  * cannot act is not offered.
  */
 import {
-    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, deferHydrationOf,
+    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, deferHydrationOf, dispatchChatEvent,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
     type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
@@ -50,9 +50,8 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         const previous = this._controller.getMode();
         this._controller.setMode(next);
         if (this._controller.getMode() !== previous) {
-            this.dispatchEvent(new CustomEvent<AparteApprovalModeChangeEventDetail>('aparte-approval-mode-change', {
-                bubbles: true, composed: true, detail: { mode: next, previousMode: previous },
-            }));
+            // Stamped with the chat it came from: a page with several acts on the right one.
+            dispatchChatEvent<AparteApprovalModeChangeEventDetail>(this, 'aparte-approval-mode-change', { mode: next, previousMode: previous });
         }
     };
 

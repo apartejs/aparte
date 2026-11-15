@@ -43,6 +43,22 @@ describe('<aparte-approval-mode>', () => {
         expect(select(el)?.getAttribute('value')).toBe('ask');
     });
 
+    it('names the chat a switch came from, for a page with several', () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'chat-b';
+        document.body.appendChild(chat);
+        const el = document.createElement('aparte-approval-mode') as AparteApprovalMode;
+        chat.appendChild(el);
+        const announced = vi.fn();
+        document.addEventListener('aparte-approval-mode-change', (e) => announced(e.detail), { once: true });
+        select(el)!.dispatchEvent(new CustomEvent('aparte-select-change', {
+            bubbles: true, detail: { value: 'plan', label: 'Plan', previousValue: 'ask' },
+        }));
+        expect(announced).toHaveBeenCalledWith({ mode: 'plan', previousMode: 'ask', targetId: 'chat-b' });
+    });
+
     it('a change on the select switches the mode and announces it', () => {
         const approval = setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
         const el = mount();

@@ -2,6 +2,7 @@
  * The shape of a change, shared by the computation (`diffTexts`, `parseUnifiedDiff`), the
  * element and the setup. Plain data: no DOM, so a server can build it and send it as JSON.
  */
+import type { AparteChatScoped } from '@aparte/core';
 
 /** What a line of a hunk is: unchanged, added, or removed. */
 export type AparteDiffLineKind = 'context' | 'add' | 'del';
@@ -92,7 +93,7 @@ export interface AparteDiffComment {
  *
  * @event aparte-diff-comment
  */
-export interface AparteDiffCommentEventDetail {
+export interface AparteDiffCommentEventDetail extends AparteChatScoped {
     path: string;
     side: AparteDiffSide;
     startLine: number;

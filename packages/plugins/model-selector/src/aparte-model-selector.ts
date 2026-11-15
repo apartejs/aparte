@@ -1,6 +1,7 @@
 import {
     aparteGlobalConfig,
     deferHydrationOf,
+    dispatchChatEvent,
     escapeAttr,
     resolveConfig,
     type AparteConfig,
@@ -659,11 +660,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             previousModelId: previousModelId || undefined,
         };
 
-        this.dispatchEvent(new CustomEvent<AparteModelChangeEventDetail>('aparte-model-change', {
-            bubbles: true,
-            composed: true,
-            detail,
-        }));
+        dispatchChatEvent(this, 'aparte-model-change', detail);
 
         // Persist if enabled
         if (this.hasAttribute('persist')) {

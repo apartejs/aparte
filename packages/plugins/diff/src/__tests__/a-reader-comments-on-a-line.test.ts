@@ -172,6 +172,19 @@ describe('a comment on a line', () => {
         expect([event.bubbles, event.composed, event.cancelable]).toEqual([true, true, true]);
     });
 
+    it('names the chat it came from, for a page with several', () => {
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'review';
+        document.body.append(chat);
+        const el = mount(EDIT, { commentable: '' }, chat);
+        const got = comments(el);
+        click(gutter(el, 'add', 2));
+        type(form(el)!.input, 'Up');
+        form(el)!.submit.click();
+        expect(got[0]!.targetId).toBe('review');
+    });
+
     it("moves the focus to the first line a fold shows, on the line's button", () => {
         const el = mount(FORTY, { commentable: '' });
         el.querySelector<HTMLButtonElement>('button.aparte-diff-fold__show')!.click();

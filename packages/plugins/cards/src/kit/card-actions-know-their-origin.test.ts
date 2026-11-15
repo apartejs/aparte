@@ -43,6 +43,23 @@ async function fence(source: string): Promise<HTMLElement> {
     return host;
 }
 
+describe('the chat a card action came from', () => {
+    it('is named on the event, so a page with several chats acts on the right one', async () => {
+        stops.push(note.setup({ actions: () => [{ label: 'Go', id: 'go' }] }));
+        stops.push(setupCardFences());
+        const chat = document.createElement('div');
+        chat.setAttribute('data-aparte-chat', '');
+        chat.id = 'chat-b';
+        document.body.append(chat);
+        const host = await fence('{"text":"Lille"}');
+        chat.append(host);
+        const seen: (string | undefined)[] = [];
+        document.addEventListener('aparte-card-action', (e) => seen.push(e.detail.targetId), { once: true });
+        (host.querySelector('.aparte-rich-card__action') as HTMLButtonElement).click();
+        expect(seen).toEqual(['chat-b']);
+    });
+});
+
 describe('the origin of a card', () => {
     it('is "fence" for a card the model wrote in its answer', async () => {
         const seen: CardOrigin[] = [];
