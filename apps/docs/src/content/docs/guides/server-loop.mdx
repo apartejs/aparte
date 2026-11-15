@@ -214,6 +214,45 @@ journal opened by it, a file named after it, a row keyed on it — check first, 
 calling, that they may. With a route per conversation, `authorize` sees the route and can answer
 before anything runs.
 
+### After a failed turn
+
+A server that compares the history it is sent with its own journal, to tell a new message from a
+retry or an edit, can rely on one rule: each request starts with the messages of the request
+before it. A turn that failed changes the history once, in the next request, and never again.
+
+What it changes depends on the code of the turn's error, the one the reply's error segment carries
+(`AparteErrorSegment.code`):
+
+- **The same request could get past it** — the network, a 5xx, a rate limit, a key, a Stop before
+  the first token: the message that failed is kept, and the next request sends it joined to the
+  new message, with a blank line between them. The failed reply itself is never sent.
+- **The same request would fail again** — `USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
+  `USAGE_BAD_REQUEST`: the message is left out of every later request, with every message that went
+  out with it, or the conversation could not go on.
+- **The message carried files**: it is left out too. The history sends a message's text and never
+  the files a send read, so the next request would ask about a file the model is not shown.
+
+The person sends U1 and the turn fails on the network, then sends U2, then U3:
+
+```ts
+// The request for U2:
+[{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' }]
+// The request for U3 starts with it:
+[{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' },
+ { role: 'assistant', content: 'A2' }, { role: 'user', content: 'U3' }]
+```
+
+Had U1 failed with `PROVIDER_POLICY`, the request for U2 would end on `{ role: 'user', content: 'U2' }`.
+Send, retry, edit and the resume of a paused turn follow the same rule, and so do the context gauge
+and a compaction. `withoutAbandonedTurns`, from `@aparte/core`, applies it to a transcript:
+
+```ts
+import { withoutAbandonedTurns, type AparteMessage } from '@aparte/core';
+
+declare const transcript: AparteMessage[];
+const stillSent = withoutAbandonedTurns(transcript); // the messages a later request still sends
+```
+
 ## Approvals across the network
 
 A server tool with `needsApproval: true`, or a call the server's `approvalPolicy` answers `ask`,
