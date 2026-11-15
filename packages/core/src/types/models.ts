@@ -181,6 +181,25 @@ export interface AparteContextSummary {
  * Core message structure for the chat
  * Supports both simple content and rich multi-segment content
  */
+/**
+ * A call a paused server run left waiting, kept on its reply (`AparteMessage.deferredCalls`)
+ * because no row of the reply holds it: a sub-agent's. What a reload needs to ask it again —
+ * the call, why it waits, whose it is, and the server's ticket.
+ */
+export interface AparteDeferredCall {
+    toolCallId: string;
+    name: string;
+    input: Record<string, unknown>;
+    /** Why it waits: a person's decision (`approval`), a tool the page runs (`external`), its turn (`queued`). */
+    reason: 'approval' | 'external' | 'queued';
+    /** The sub-agent whose call it is. */
+    agentId?: string;
+    /** That sub-agent's name, as its `agent-start` gave it: what the question says about who asks. */
+    agentName?: string;
+    /** The server's continuation ticket, opaque to the page. */
+    ticket?: string;
+}
+
 export interface AparteMessage {
     /** Unique identifier for the message */
     id: string;
@@ -228,6 +247,15 @@ export interface AparteMessage {
      * a reload (`resumeDeferred`), not on whatever model is selected by then.
      */
     model?: { providerId: string; modelId: string; temperature?: number };
+
+    /**
+     * Calls a paused server run left waiting that have no row in this reply — a
+     * sub-agent's, which its own line draws, not the reply. Written by `AparteClient` when
+     * the run pauses and saved with the conversation, like a row's `deferred`, so a reload
+     * asks them again (`resumeDeferred`), under the sub-agent's name. Removed once the
+     * pause is answered, or closed by a Stop or a new message.
+     */
+    deferredCalls?: AparteDeferredCall[];
 
     /**
      * This message is the summary `@aparte/plugin-compaction` injected in place of the

@@ -42,6 +42,7 @@ export type {
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
+    AparteDeferredCall,
     AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,

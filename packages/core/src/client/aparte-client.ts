@@ -14,7 +14,7 @@ import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegmen
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling, AparteToolRun, AparteTurnContext } from '../types/tools.js';
 import type { AparteRequestMeta } from '../types/chat.js';
-import type { AparteMessageToken } from '../types/models.js';
+import type { AparteDeferredCall, AparteMessageToken } from '../types/models.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteFinishReason } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
@@ -841,6 +841,8 @@ export class AparteClient {
              * resume of a pause included.
              */
             conversationId?: string;
+            /** The sub-agents a resumed pause already named, by `agentId`: its run announces them no more. */
+            agentNames?: ReadonlyMap<string, string>;
         },
     ): Promise<void> {
         // The id of the CHAT, resolved once for the whole turn — the render target is
@@ -922,7 +924,7 @@ export class AparteClient {
         if (this._streamController !== streamController) this._streamController?.abort();
         this._streamController = streamController;
         this._turnsInFlight.add(messageId);
-        this._agentNames.set(messageId, new Map());
+        this._agentNames.set(messageId, new Map(opts?.agentNames ?? []));
         // The compactor this chat answers to: the one on ITS config first (a chat inside an
         // instance boundary), then the client's. Needs `rebuild` to be of any use — what it
         // does is make the history smaller, and only the caller knows how to send it again.
@@ -1955,6 +1957,11 @@ export class AparteClient {
         // error, and it is the tool's, not the model's or the network's (below).
         let toolCrash: string | undefined;
         const emitter: AparteStreamRunEmitter = (event) => {
+            // Before the adapter, which says the turn paused: whoever saves the conversation
+            // then must find the calls a reload has to ask again.
+            if (event.type === 'run-suspended' && (event as { agentId?: unknown }).agentId == null) {
+                this._keepSubAgentCalls(targetElement, messageId, event.pending, (event as { ticket?: unknown }).ticket);
+            }
             adapter(event);
             // Kept for the question a pause asks about one of its calls.
             if (event.type === 'agent-start' && event.name) this._agentNames.get(messageId)?.set(event.agentId, event.name);
@@ -2253,18 +2260,52 @@ export class AparteClient {
      * history that resumes them is built first; a new pause marks what still waits.
      */
     private _spendPause(targetElement: AparteChatTargetElement, messageId: string): void {
-        const segments = targetElement.getMessage?.(messageId)?.segments
-            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const message = this._messageOf(targetElement, messageId);
+        const segments = message?.segments;
         const paused = (segment: AparteSegment): segment is AparteToolCallSegment =>
             segment.type === 'tool_call' && Boolean((segment as AparteToolCallSegment).deferred);
-        if (!segments?.some(paused)) return;
+        const rows = Boolean(segments?.some(paused));
+        if (!rows && !message?.deferredCalls?.length) return;
         targetElement.updateMessage?.(messageId, {
-            segments: segments.map((segment) => {
-                if (!paused(segment)) return segment;
-                const { deferred: _spent, ...rest } = segment;
-                return rest;
-            }),
+            ...(rows ? {
+                segments: segments!.map((segment) => {
+                    if (!paused(segment)) return segment;
+                    const { deferred: _spent, ...rest } = segment;
+                    return rest;
+                }),
+            } : {}),
+            // A sub-agent's paused calls go with the rows': the server answers them now.
+            ...(message?.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
+    }
+
+    /** A reply by its id, tree-wide first: a retry during the wait moves the path. */
+    private _messageOf(targetElement: AparteChatTargetElement, messageId: string): AparteMessage | undefined {
+        return targetElement.getMessage?.(messageId) ?? targetElement.getMessages?.()?.find((m) => m.id === messageId);
+    }
+
+    /**
+     * Keep on the reply the calls a paused run left that no row of the reply holds: a
+     * sub-agent's, which its line draws. The rows of the reply carry their own pause
+     * (`deferred`); these would otherwise be in nothing the conversation saves, and a reload
+     * would find no pause to resume. Each keeps the name its sub-agent was announced with,
+     * which a reload has no other way to know.
+     */
+    private _keepSubAgentCalls(targetElement: AparteChatTargetElement, messageId: string, pending: readonly StreamDeferredCall[], ticket: unknown): void {
+        const names = this._agentNames.get(messageId);
+        const kept: AparteDeferredCall[] = pending.filter((p) => p.agentId != null).map((p) => {
+            const agentName = names?.get(p.agentId!);
+            return {
+                toolCallId: p.toolCallId,
+                name: p.name,
+                input: (p.input ?? {}) as Record<string, unknown>,
+                reason: p.reason,
+                agentId: p.agentId!,
+                ...(agentName ? { agentName } : {}),
+                ...(typeof ticket === 'string' ? { ticket } : {}),
+            };
+        });
+        if (kept.length > 0) targetElement.updateMessage?.(messageId, { deferredCalls: kept });
     }
 
     /**
@@ -2276,18 +2317,23 @@ export class AparteClient {
      * the wait moves the head. A run in the page ends every call itself: nothing to do.
      */
     private _closeOpenCalls(targetElement: AparteChatTargetElement, messageId: string): void {
-        const segments = targetElement.getMessage?.(messageId)?.segments
-            ?? targetElement.getMessages?.()?.find((m) => m.id === messageId)?.segments;
+        const message = this._messageOf(targetElement, messageId);
+        const segments = message?.segments;
         const unfinished = (segment: AparteSegment): segment is AparteToolCallSegment =>
             segment.type === 'tool_call'
             && ((segment as AparteToolCallSegment).status === 'pending' || (segment as AparteToolCallSegment).status === 'awaiting-approval');
-        if (!segments?.some(unfinished)) return;
+        const rows = Boolean(segments?.some(unfinished));
+        if (!rows && !message?.deferredCalls?.length) return;
         targetElement.updateMessage?.(messageId, {
-            segments: segments.map((segment) => {
-                if (!unfinished(segment)) return segment;
-                const { deferred: _spent, ...rest } = segment;
-                return { ...rest, status: 'aborted' as const };
-            }),
+            ...(rows ? {
+                segments: segments!.map((segment) => {
+                    if (!unfinished(segment)) return segment;
+                    const { deferred: _spent, ...rest } = segment;
+                    return { ...rest, status: 'aborted' as const };
+                }),
+            } : {}),
+            // A sub-agent's paused calls end with the rows: nothing will answer them now.
+            ...(message?.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
     }
 
@@ -2330,13 +2376,19 @@ export class AparteClient {
     private _closeDeferred(targetElement: AparteChatTargetElement): void {
         const messages = targetElement.getMessages?.() ?? [];
         const last = [...messages].reverse().find((m) => m.role === 'assistant');
-        if (!last?.segments?.some(isOpenDeferred)) return;
-        const segments = last.segments.map((segment) => {
-            if (!isOpenDeferred(segment)) return segment;
-            const { deferred: _closed, ...rest } = segment;
-            return { ...rest, status: 'aborted' as const };
+        const rows = Boolean(last?.segments?.some(isOpenDeferred));
+        if (!last || (!rows && !last.deferredCalls?.length)) return;
+        targetElement.updateMessage?.(last.id, {
+            ...(rows ? {
+                segments: last.segments!.map((segment) => {
+                    if (!isOpenDeferred(segment)) return segment;
+                    const { deferred: _closed, ...rest } = segment;
+                    return { ...rest, status: 'aborted' as const };
+                }),
+            } : {}),
+            // A sub-agent's wait is closed with them: no row answers it on the wire.
+            ...(last.deferredCalls?.length ? { deferredCalls: undefined } : {}),
         });
-        targetElement.updateMessage?.(last.id, { segments });
     }
 
     /**
@@ -2359,11 +2411,13 @@ export class AparteClient {
         const messages = targetElement.getMessages?.() ?? [];
         const last = [...messages].reverse().find((m) => m.role === 'assistant');
         const open = (last?.segments ?? []).filter(isOpenDeferred);
-        const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket;
+        // A sub-agent's paused calls: no row of the reply holds them, so the reply does.
+        const kept = last?.deferredCalls ?? [];
+        const ticket = open.find((s) => s.deferred?.ticket)?.deferred?.ticket ?? kept.find((c) => c.ticket)?.ticket;
         // Not a reply a turn is already running into: a live pause waits on its panel, and a
         // second load of the conversation (a click on the one already open) would otherwise
         // start the same reply again and put the same question twice.
-        if (!last || open.length === 0 || !ticket || this._resuming.has(last.id) || this._turnsInFlight.has(last.id)) return false;
+        if (!last || open.length + kept.length === 0 || !ticket || this._resuming.has(last.id) || this._turnsInFlight.has(last.id)) return false;
 
         const config = this._config.getModelConfig();
         // The model the turn ran on, when its provider is still here; else today's default.
@@ -2382,9 +2436,17 @@ export class AparteClient {
         this._resuming.add(last.id);
         try {
             const authConfig = provider.id ? await this._resolveAuth(provider.id) : undefined;
-            const pending: StreamDeferredCall[] = open.map((s) => ({
-                toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
-            }));
+            const pending: StreamDeferredCall[] = [
+                ...open.map((s) => ({
+                    toolCallId: s.toolCall.id, name: s.toolCall.name, input: s.toolCall.input, reason: s.deferred!.reason,
+                })),
+                // Asked under their sub-agent, by the name it was announced with.
+                ...kept.map((c) => ({
+                    toolCallId: c.toolCallId, name: c.name, input: c.input, reason: c.reason,
+                    ...(c.agentId !== undefined ? { agentId: c.agentId } : {}),
+                })),
+            ];
+            const agentNames = new Map(kept.flatMap((c) => (c.agentId !== undefined && c.agentName ? [[c.agentId, c.agentName] as const] : [])));
             const base = this._resumeBase(messages, messages.indexOf(last));
             await this._streamTurn(targetElement, last.id, provider, base, recorded?.modelId ?? config.defaultModel ?? '', authConfig, {
                 resume: { pending, ticket },
@@ -2395,6 +2457,7 @@ export class AparteClient {
                 },
                 ...(recorded?.temperature !== undefined ? { temperature: recorded.temperature } : {}),
                 ...(conversationId ? { conversationId } : {}),
+                ...(agentNames.size > 0 ? { agentNames } : {}),
             });
         } finally {
             this._resuming.delete(last.id);
