@@ -120,6 +120,34 @@ describe('<AparteChat> given back the conversation it created', () => {
     });
 });
 
+describe('<AparteChat conversationId> on a conversation the manager holds', () => {
+    // Chat A creates c1 and is unmounted; a new chat is mounted on c1. The manager holds it
+    // loaded, so the host writes its messages during the mount effect — and the mount-time run
+    // of the `messages` effect took the initial `[]` prop for a push from the parent and emptied
+    // the transcript, while `getConversationId()` said c1.
+    it('draws it, without a setConversationId after mount', async () => {
+        const { config, manager } = await configWithManager();
+        const { client, release } = gatedClient(config, 'chat-a');
+        const refA = React.createRef<AparteChatImperativeApi>();
+        const first = render(<AparteChat ref={refA} id="chat-a" config={config} />);
+        act(() => send(first.container, 'chat-a', 'hello'));
+        await act(async () => release());
+        await waitFor(() => expect(refA.current!.isStreaming()).toBe(false));
+        await waitFor(() => expect(manager.conversations[0]?.messages).toHaveLength(2));
+        const c1 = refA.current!.getConversationId()!;
+        expect(manager.isLoaded(c1)).toBe(true);
+        first.unmount();
+        client.stop();
+
+        const refB = React.createRef<AparteChatImperativeApi>();
+        const { container } = render(<AparteChat ref={refB} id="chat-b" config={config} conversationId={c1} />);
+        expect(refB.current!.getConversationId()).toBe(c1);
+        await waitFor(() => expect(refB.current!.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]));
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
+        expect(manager.conversations.find((c) => c.id === c1)?.messages).toHaveLength(2);
+    });
+});
+
 describe('<AparteChat config>', () => {
     it('follows a new config, once the turn in flight has ended', async () => {
         const first = new AparteConfig();

@@ -268,6 +268,10 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     // The prop as the host last received it: an effect runs once on mount too, and the host
     // took the first value at creation. Whether a NEW value is one to open is the host's call.
     const conversationPropRef = useRef<string | null>(conversationId);
+    // The `messages` prop as last received, for the same reason: the host took the first value
+    // at creation, and may have replaced it since (a conversation the manager holds is drawn
+    // during `bind()`), so the effect's run on mount is no push from the parent.
+    const messagesPropRef = useRef<AparteMessage[]>(messages);
 
     // Keep the latest prop callbacks in a ref so the host's stable binding — and the
     // listeners below — always call the current handlers without recreating either.
@@ -325,7 +329,9 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     // list the parent restores later is not mistaken for one.
     useEffect(() => {
         const echo = hostRef.current?.takeEcho(messages) ?? false;
-        if (echo || messages === messagesRef.current) return;
+        const received = messages === messagesPropRef.current;
+        messagesPropRef.current = messages;
+        if (echo || received || messages === messagesRef.current) return;
         applyMessages(messages);
         if (messages.length === 0) hostRef.current?.clearRenderCache();
     }, [messages]);
