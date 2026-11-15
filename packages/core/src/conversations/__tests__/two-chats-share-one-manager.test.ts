@@ -148,4 +148,55 @@ describe('two chats on one conversation manager', () => {
         expect(marked).toHaveLength(1);
         expect(marked[0]).not.toBe('c1');
     });
+
+    it('a chat that came and went leaves the other the only one on the manager', async () => {
+        const a = chat('a');
+        const b = chat('b');
+        controller(a);
+        const gone = new AparteConversationController(b.binding, { manager });
+        gone.bind()();
+        const created = await manager.createNew('');
+        send(a.host, 'hello');
+        await settle();
+        expect(manager.conversations.find((c) => c.id === created.id)?.messages.map((m) => m.content)).toEqual(['hello']);
+    });
+});
+
+describe('one chat on a conversation manager', () => {
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('a first message joins the empty conversation the app created on the manager itself', async () => {
+        const adapter = new MemoryAdapter();
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        const a = chat('a');
+        const ctl = new AparteConversationController(a.binding, { manager });
+        const unbind = ctl.bind();
+        const created = await manager.createNew('');
+
+        send(a.host, 'hello');
+        await settle();
+        expect(ctl.activeId).toBe(created.id);
+        expect(manager.conversations).toHaveLength(1);
+        expect(manager.conversations[0]!.messages.map((m) => m.content)).toEqual(['hello']);
+        expect(openConversationOf(a.host)).toBe(created.id);
+        unbind();
+    });
+
+    it('a first message does not join a conversation that already holds messages', async () => {
+        const adapter = new MemoryAdapter();
+        await adapter.save({ id: 'kept', title: 'kept', createdAt: 1, updatedAt: 1, messages: [{ id: 'm', role: 'user', content: 'old', timestamp: 1 }] });
+        const manager = new AparteConversationManager(adapter);
+        await manager.init();
+        manager.select('kept');
+        const a = chat('a');
+        const ctl = new AparteConversationController(a.binding, { manager });
+        const unbind = ctl.bind();
+
+        send(a.host, 'hello');
+        await settle();
+        expect(ctl.activeId).not.toBe('kept');
+        expect(manager.conversations.find((c) => c.id === 'kept')!.messages.map((m) => m.content)).toEqual(['old']);
+        unbind();
+    });
 });

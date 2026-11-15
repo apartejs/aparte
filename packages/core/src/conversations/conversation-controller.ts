@@ -62,6 +62,24 @@ export interface AparteChatBinding {
     afterRender?(cb: () => void): void;
 }
 
+/**
+ * The controllers bound to each manager. A chat's first message joins the conversation the
+ * manager names as active only when its controller is the one chat on that manager — see
+ * `_adoptable`.
+ */
+const boundTo = new WeakMap<AparteConversationManager, Set<AparteConversationController>>();
+
+function enrol(manager: AparteConversationManager | null, controller: AparteConversationController, on: boolean): void {
+    if (!manager) return;
+    let set = boundTo.get(manager);
+    if (on) {
+        if (!set) boundTo.set(manager, set = new Set());
+        set.add(controller);
+    } else {
+        set?.delete(controller);
+    }
+}
+
 /** How many renders a compaction's save waits for the summary to reach the binding. */
 const MAX_COMPACTION_SAVE_WAITS = 6;
 
@@ -231,6 +249,8 @@ export class AparteConversationController {
         // first time it is needed, and a manager replaced on the config is re-subscribed.
         if (manager && this._bound && manager !== this._subscribedTo) {
             this._unsubscribeManager?.();
+            enrol(this._subscribedTo, this, false);
+            enrol(manager, this, true);
             this._subscribedTo = manager;
             this._unsubscribeManager = manager.subscribe(this._onManagerChanged);
         }
@@ -512,6 +532,7 @@ export class AparteConversationController {
         // Unbound FIRST: `_persistActive()` below resolves the manager, and while
         // bound that resolution would re-subscribe during teardown.
         this._bound = false;
+        enrol(this._subscribedTo, this, false);
         this._subscribedTo = null;
         // Persist current state before tearing down. This covers the case where
         // the host component is destroyed mid-stream (e.g. "New Chat" navigates
@@ -947,6 +968,23 @@ export class AparteConversationController {
         void manager.updateMessages(this._activeId, msgs, tree);
     }
 
+    /**
+     * The conversation the manager names as active, for a chat that has none: only when this
+     * controller is the one chat on that manager (an app that called `manager.createNew()`
+     * itself and never gave the id to the chat), and only an empty conversation, whose
+     * messages are in memory — a save from this chat must not write over messages it never
+     * showed. With several chats the manager's `activeId` names whichever moved last.
+     */
+    private _adoptable(manager: AparteConversationManager): string | null {
+        const id = manager.activeId;
+        if (!id || this._ensureInFlight) return null;
+        const chats = boundTo.get(manager);
+        if (!chats || chats.size !== 1 || !chats.has(this)) return null;
+        const conv = manager.conversations.find((c) => c.id === id);
+        if (!conv || conv.archivedAt || !manager.isLoaded(id) || (conv.messages?.length ?? 0) > 0) return null;
+        return id;
+    }
+
     private async _ensureConversationAndPersist(userMsg: AparteMessage): Promise<void> {
         const manager = this._manager();
         if (!manager) {
@@ -958,8 +996,11 @@ export class AparteConversationController {
         // Capture the active id at send-time. If the user switches
         // conversations while createNew()/addMessage() are in flight we
         // must not clobber the new active id.
+        // A single chat whose app created an empty conversation on the manager itself joins it.
+        const adopted = this._activeId === null && this._pendingId === null ? this._adoptable(manager) : null;
+        if (adopted) this._activeId = adopted;
         const wasActiveId = this._activeId;
-        // Never the manager's `activeId`: with several chats on one manager it may be
+        // Never the manager's `activeId` otherwise: with several chats on one manager it may be
         // another chat's conversation, open or being created.
         let convId = wasActiveId ?? this._pendingId;
 
