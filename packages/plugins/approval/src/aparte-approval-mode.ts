@@ -9,7 +9,7 @@
  * cannot act is not offered.
  */
 import {
-    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, deferHydrationOf, dispatchChatEvent,
+    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, cssEscape, deferHydrationOf, dispatchChatEvent,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
     type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
@@ -139,7 +139,7 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
             return;
         }
         for (const mode of APPROVAL_MODES) {
-            const option = select.querySelector(`aparte-option[value="${mode}"]`);
+            const option = select.querySelector(`aparte-option[value="${cssEscape(mode)}"]`);
             if (!option) {
                 this._render();
                 return;
