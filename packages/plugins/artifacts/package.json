@@ -66,6 +66,7 @@
         "dev": "vite",
         "build": "vite build && tsc -b --emitDeclarationOnly --force && pnpm run analyze && node ../../../scripts/stamp-dist.mjs",
         "analyze": "cem analyze",
+        "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/artifacts --registry packages/plugins/artifacts/src/generated --specs packages/plugins/artifacts/src/generated --barrel packages/plugins/artifacts/src/panel.ts",
         "preview": "vite preview",
         "test": "vitest",
         "test:run": "vitest run",

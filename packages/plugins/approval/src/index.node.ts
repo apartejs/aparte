@@ -17,3 +17,8 @@ export type { AparteApprovalMode } from './aparte-approval-mode.js';
 export type {
     AparteApprovalPolicy, AparteApprovalRuling, AparteToolCall, AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
+
+// The element described for a framework wrapper — `createAparteElement(approvalModeElement)` in React,
+// `AparteVueElement<typeof approvalModeElement>` and `AparteSvelteElement<typeof approvalModeElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { approvalModeElement } from './generated/element-specs.js';

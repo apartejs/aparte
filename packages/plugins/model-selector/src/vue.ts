@@ -1,4 +1,8 @@
 /**
+ * @deprecated Since 1.10.0. Every plugin's element is bound the same way now, from the spec its
+ * package exports (`modelSelectorElement`): use `AparteVueElement<typeof modelSelectorElement>` from `@aparte/vue`.
+ * This entry keeps working until the next major.
+ *
  * `<aparte-model-selector>` typed for Vue templates. Import once, anywhere:
  *
  * ```ts

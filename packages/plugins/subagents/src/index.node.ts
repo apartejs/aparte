@@ -25,3 +25,8 @@ export type {
     AparteSubagentEndEventDetail,
     AparteSubagentOpenEventDetail,
 } from './types.js';
+
+// The element described for a framework wrapper — `createAparteElement(subagentViewElement)` in React,
+// `AparteVueElement<typeof subagentViewElement>` and `AparteSvelteElement<typeof subagentViewElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { subagentViewElement } from './generated/element-specs.js';

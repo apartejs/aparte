@@ -26,3 +26,8 @@ export type {
     AparteDiffSide,
     AparteDiffSource,
 } from './types.js';
+
+// The element described for a framework wrapper — `createAparteElement(diffElement)` in React,
+// `AparteVueElement<typeof diffElement>` and `AparteSvelteElement<typeof diffElement>` in Vue and
+// Svelte. Data only, generated from the manifest: it defines nothing.
+export { diffElement } from './generated/element-specs.js';

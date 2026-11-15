@@ -4,6 +4,12 @@
     "sourceRoot": "packages/plugins/artifacts/src",
     "projectType": "library",
     "targets": {
+        "gen": {
+            "//": "`gen` writes the registry and the element specs into `src/generated`, which `build` must not own: `build` owns `dist`. Same shape as model-selector.",
+            "outputs": [
+                "{projectRoot}/src/generated"
+            ]
+        },
         "build": {
             "executor": "nx:run-script",
             "outputs": [
