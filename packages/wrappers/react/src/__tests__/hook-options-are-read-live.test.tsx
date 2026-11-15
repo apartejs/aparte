@@ -38,8 +38,11 @@ describe('useAparteClient', () => {
                 config,
                 autoRegister: false,
                 scopeToTargetId: 'chat-live',
-                streamRunner: async (opts) => {
+                requestInterceptor: (request) => {
                     ran.push(label);
+                    return request;
+                },
+                streamRunner: async (opts) => {
                     opts.emitter({ type: 'run-start' });
                     opts.emitter({ type: 'run-done' });
                     return undefined;
@@ -57,6 +60,15 @@ describe('useAparteClient', () => {
             await vi.waitFor(() => expect(ran).toHaveLength(1));
         });
         expect(ran).toEqual(['second render']);
+    });
+
+    it('hands the client the streamRunner it was given, itself', () => {
+        // The client tells the engine's own loop (`streamRunner: runStreamAgent`) from a runner
+        // that calls the model elsewhere by identity; a forwarder in its place lost that.
+        const streamRunner = async () => undefined;
+        const { result } = renderHook(() => useAparteClient({ autoRegister: false, streamRunner }));
+        const options = (result.current.client as unknown as { options: { streamRunner?: unknown } }).options;
+        expect(options.streamRunner).toBe(streamRunner);
     });
 });
 

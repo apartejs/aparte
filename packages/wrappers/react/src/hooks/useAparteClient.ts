@@ -8,9 +8,13 @@ export interface UseAparteClient {
     abort: () => void;
 }
 
-/** The options a turn calls back: read from the latest render, not from the first. */
+/**
+ * The options a turn calls back: read from the latest render, not from the first.
+ * Not `streamRunner`: the client tells the engine's own loop (`runStreamAgent`) from a runner
+ * that calls the model elsewhere by identity, and a forwarder in its place reads as the latter.
+ */
 const FUNCTION_OPTIONS = [
-    'keyResolver', 'approvalResolver', 'streamRunner', 'requestInterceptor',
+    'keyResolver', 'approvalResolver', 'requestInterceptor',
     'history', 'targetResolver', 'fileInjectFilter',
 ] as const;
 type FunctionOption = (typeof FUNCTION_OPTIONS)[number];
@@ -41,11 +45,13 @@ function throughLatest(first: AparteClientOptions, latest: { current: AparteClie
  * Angular's `AparteAiService`.
  *
  * The client is built once, on the first render. Its function options — `keyResolver`,
- * `approvalResolver`, `streamRunner`, `requestInterceptor`, `history` (as a function),
- * `targetResolver` and `fileInjectFilter` — are called from the LATEST render, so one that
- * closes over state sees the state of now, not of the mount. The other options (`config`,
- * `scopeToTargetId`, `maxTurns`…) are read once, and so is whether a function option is
- * there at all; to change those, remount the component that owns the hook (`key`).
+ * `approvalResolver`, `requestInterceptor`, `history` (as a function), `targetResolver` and
+ * `fileInjectFilter` — are called from the LATEST render, so one that closes over state sees
+ * the state of now, not of the mount. `streamRunner` is read once and handed to the client as
+ * it is (the client recognises the engine's own loop by identity); a runner that reads state
+ * reads it through a ref. The other options (`config`, `scopeToTargetId`, `maxTurns`…) are
+ * read once, and so is whether a function option is there at all; to change those, remount
+ * the component that owns the hook (`key`).
  *
  * @example
  * const { abort } = useAparteClient({ keyResolver });
