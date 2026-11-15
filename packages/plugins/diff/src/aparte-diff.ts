@@ -94,13 +94,13 @@ function isFile(value: unknown): value is AparteDiffFile {
     return typeof value === 'object' && value !== null && Array.isArray((value as AparteDiffFile).hunks);
 }
 
-/** What the app gave, as files to show. */
 /** Two readings show the same change: the same files, the same lines in each. */
 function sameFiles(a: readonly Shown[], b: readonly Shown[]): boolean {
     const key = (s: Shown): string => JSON.stringify([s.file, s.oldLines, s.newLines]);
     return a.length === b.length && a.every((s, i) => key(s) === key(b[i]!));
 }
 
+/** What the app gave, as files to show. */
 function filesOf(input: AparteDiffInput | null): Shown[] {
     const shown = (file: AparteDiffFile, source?: AparteDiffSource): Shown => {
         const old = source ? splitLines(source.before ?? '') : null;
