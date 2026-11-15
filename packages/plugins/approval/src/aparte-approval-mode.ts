@@ -11,9 +11,8 @@
 import {
     resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr, cssEscape, deferHydrationOf, dispatchChatEvent,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
-    type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
-import { getApprovalController, type ApprovalController } from './approval.js';
+import { getApprovalController, type ApprovalController, type ApprovalModeChangeDetail } from './approval.js';
 import { APPROVAL_MODES, APPROVAL_MODE_LABELS, type ApprovalMode } from './policy.js';
 
 const DEFAULT_LABELS = APPROVAL_MODE_LABELS;
@@ -34,7 +33,7 @@ const DEFAULT_LABELS = APPROVAL_MODE_LABELS;
  * </aparte-composer>
  * ```
  *
- * @fires {CustomEvent<AparteApprovalModeChangeEventDetail>} aparte-approval-mode-change - After a switch: `{ mode, previousMode }`. Bubbles and crosses shadow roots.
+ * @fires {CustomEvent<ApprovalModeChangeDetail>} aparte-approval-mode-change - After a switch: `{ mode, previousMode }`. Bubbles and crosses shadow roots.
  */
 export class AparteApprovalMode extends HTMLElement implements AparteConfigAware {
     private _cfg: AparteConfig | null = null;
@@ -51,7 +50,7 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         this._controller.setMode(next);
         if (this._controller.getMode() !== previous) {
             // Stamped with the chat it came from: a page with several acts on the right one.
-            dispatchChatEvent<AparteApprovalModeChangeEventDetail>(this, 'aparte-approval-mode-change', { mode: next, previousMode: previous });
+            dispatchChatEvent<ApprovalModeChangeDetail>(this, 'aparte-approval-mode-change', { mode: next, previousMode: previous });
         }
     };
 

@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import {
-    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
+    AparteClient, AparteConfig, AparteConversationManager, registerAllComponents, resolveConfig,
     type AparteChatImperativeApi, type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import AparteChat from '../AparteChat.vue';
@@ -27,6 +27,23 @@ function memoryAdapter(): AparteStorageAdapter {
         async save(c) { store.set(c.id, c); },
         async delete(id) { store.delete(id); },
     };
+}
+
+/** A manager that holds c1 loaded, as it does once a chat that had it open is gone. */
+async function heldConversation(config: AparteConfig): Promise<AparteConversationManager> {
+    const adapter = memoryAdapter();
+    await adapter.save({
+        id: 'c1', title: 'one', createdAt: 1, updatedAt: 1,
+        messages: [
+            { id: 'u1', role: 'user', content: 'hello', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2 },
+        ],
+    });
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    config.setConversationManager(manager);
+    expect(manager.isLoaded('c1')).toBe(true);
+    return manager;
 }
 
 function gatedClient(config: AparteConfig, chatId: string) {
@@ -94,6 +111,21 @@ describe.each<Bound>(['conversationCreated', 'the manager\'s activeId'])('<Apart
         expect(chat.value!.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         expect(chat.value!.getConversationId()).toBe(seen.at(-1));
         client.stop();
+        wrapper.unmount();
+    });
+});
+
+describe('<AparteChat conversationId> on a conversation the manager holds', () => {
+    it('draws it, without a setConversationId after mount', async () => {
+        const config = new AparteConfig();
+        await heldConversation(config);
+        const wrapper = mount(AparteChat, { props: { id: 'chat-b', config, conversationId: 'c1' }, attachTo: document.body });
+        const chat = wrapper.vm as unknown as AparteChatImperativeApi;
+        await vi.waitFor(() => expect(chat.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]));
+        await new Promise((r) => setTimeout(r, 20));
+        expect(chat.getConversationId()).toBe('c1');
+        expect(chat.getMessages()).toHaveLength(2);
+        expect(wrapper.element.ownerDocument.querySelectorAll('#chat-b aparte-chat-bubble')).toHaveLength(2);
         wrapper.unmount();
     });
 });

@@ -9,7 +9,7 @@ import '@angular/compiler';
 import { Component, inject, provideExperimentalZonelessChangeDetection, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
-    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
+    AparteClient, AparteConfig, AparteConversationManager, registerAllComponents, resolveConfig,
     type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import { AparteChatComponent } from '../aparte-chat.component';
@@ -28,6 +28,23 @@ function memoryAdapter(): AparteStorageAdapter {
         async save(c) { store.set(c.id, c); },
         async delete(id) { store.delete(id); },
     };
+}
+
+/** A manager that holds c1 loaded, as it does once a chat that had it open is gone. */
+async function heldConversation(config: AparteConfig): Promise<AparteConversationManager> {
+    const adapter = memoryAdapter();
+    await adapter.save({
+        id: 'c1', title: 'one', createdAt: 1, updatedAt: 1,
+        messages: [
+            { id: 'u1', role: 'user', content: 'hello', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2 },
+        ],
+    });
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    config.setConversationManager(manager);
+    expect(manager.isLoaded('c1')).toBe(true);
+    return manager;
 }
 
 function gatedClient(config: AparteConfig, chatId: string) {
@@ -86,6 +103,18 @@ class ConfigHost {
     readonly chat = viewChild.required(AparteChatComponent);
 }
 
+const heldConfig = new AparteConfig();
+
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat id="chat-b" [config]="config" conversationId="c1" />`,
+})
+class HeldHost {
+    readonly config = heldConfig;
+    readonly chat = viewChild.required(AparteChatComponent);
+}
+
 afterEach(() => TestBed.resetTestingModule());
 
 describe.each([
@@ -113,6 +142,23 @@ describe.each([
 
         expect(chat.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         client.stop();
+    });
+});
+
+describe('<aparte-chat conversationId> on a conversation the manager holds', () => {
+    it('draws it, without a setConversationId after mount', async () => {
+        await heldConversation(heldConfig);
+        TestBed.configureTestingModule({ imports: [HeldHost], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(HeldHost);
+        fixture.autoDetectChanges();
+        await fixture.whenStable();
+        const chat = fixture.componentInstance.chat();
+        await vi.waitFor(() => expect(chat.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]));
+        await new Promise((r) => setTimeout(r, 20));
+        await fixture.whenStable();
+        expect(chat.getConversationId()).toBe('c1');
+        expect(chat.getMessages()).toHaveLength(2);
+        expect((fixture.nativeElement as HTMLElement).querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
     });
 });
 

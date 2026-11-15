@@ -6,9 +6,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import {
-    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
+    AparteClient, AparteConfig, AparteConversationManager, registerAllComponents, resolveConfig,
     type AparteChatImperativeApi, type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
+import RunesChat from '../../runes/AparteChat.svelte';
 import ConversationPerChatHost from './ConversationPerChatHost.svelte';
 import ConfigHost from './ConfigHost.svelte';
 
@@ -25,6 +26,23 @@ function memoryAdapter(): AparteStorageAdapter {
         async save(c) { store.set(c.id, c); },
         async delete(id) { store.delete(id); },
     };
+}
+
+/** A manager that holds c1 loaded, as it does once a chat that had it open is gone. */
+async function heldConversation(config: AparteConfig): Promise<AparteConversationManager> {
+    const adapter = memoryAdapter();
+    await adapter.save({
+        id: 'c1', title: 'one', createdAt: 1, updatedAt: 1,
+        messages: [
+            { id: 'u1', role: 'user', content: 'hello', timestamp: 1 },
+            { id: 'a1', role: 'assistant', content: 'Hello', timestamp: 2 },
+        ],
+    });
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    config.setConversationManager(manager);
+    expect(manager.isLoaded('c1')).toBe(true);
+    return manager;
 }
 
 function gatedClient(config: AparteConfig, chatId: string) {
@@ -72,6 +90,21 @@ describe.each(['created', 'activeId'] as const)('<AparteChat> given back the con
         expect(api()!.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         expect(api()!.getConversationId()).toBe(seen.at(-1));
         client.stop();
+    });
+});
+
+describe('<AparteChat conversationId> on a conversation the manager holds', () => {
+    it('draws it, without a setConversationId after mount', async () => {
+        const config = new AparteConfig();
+        await heldConversation(config);
+        const { component, container } = render(RunesChat, { props: { id: 'chat-b', config, conversationId: 'c1' } });
+        const chat = component as unknown as AparteChatImperativeApi;
+        await vi.waitFor(() => expect(chat.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]));
+        await new Promise((r) => setTimeout(r, 20));
+        await tick();
+        expect(chat.getConversationId()).toBe('c1');
+        expect(chat.getMessages()).toHaveLength(2);
+        expect(container.querySelectorAll('aparte-chat-bubble')).toHaveLength(2);
     });
 });
 

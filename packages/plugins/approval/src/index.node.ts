@@ -8,7 +8,7 @@
  * this entry keeps importing without a DOM.
  */
 export { setupApproval, getApprovalController } from './approval.js';
-export type { ApprovalSetupOptions, ApprovalController } from './approval.js';
+export type { ApprovalSetupOptions, ApprovalController, ApprovalModeChangeDetail } from './approval.js';
 export { APPROVAL_MODES, classifyTool, rulingFor, createApprovalPolicy } from './policy.js';
 export type { ApprovalMode, ToolClass, ToolMatcher, ApprovalClassification } from './policy.js';
 // The element's TYPE only — `export type` is erased, so this entry stays DOM-free while

@@ -4,6 +4,29 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.10.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [08b0986](https://github.com/apartejs/aparte/commit/08b0986): `AparteConversationSelectDetail.id` is now `string | null`: `null` means a new conversation. Handle it where you read the event's `id` as a `string`.
+
+  `aparte-conversation-select` with `{ id: null }` is the documented way for a New chat button to start a new conversation, and every chat bound to a manager honours it, but the type said `id: string`: dispatching it took a cast, and a typed listener's "new conversation" branch read as dead code. The list itself still sends a row's id. A listener that passes `id` on to `setConversationId()` or a `conversationId` prop needs nothing, since both take `string | null`; one that uses it as a `string` (an index, a lookup key) now gets a type error where `null` was always possible at runtime.
+  <sub>`@aparte/core`</sub>
+
+- [3e390fc](https://github.com/apartejs/aparte/commit/3e390fc): `onApprovalModeChange` (and any listener typed from `approvalModeElement`) now receives `ApprovalModeChangeDetail`, whose `mode` and `previousMode` are `ApprovalMode`; drop the guard or cast you used to index a `Record<ApprovalMode, …>`.
+
+  The switch and the `/approval` command only ever send one of the four modes, but the element's spec typed the detail as core's `AparteApprovalModeChangeEventDetail`, where both are `string`, so `createAparteElement(approvalModeElement)` called back with a `string`. `ApprovalModeChangeDetail` is new, exported from the plugin, and extends core's type, so a listener on the DOM event map keeps compiling. Core's type stays `string`, for a host that registers modes of its own.
+  <sub>`@aparte/plugin-approval`</sub>
+
+- [b4bdc29](https://github.com/apartejs/aparte/commit/b4bdc29): `<AparteChat conversationId={id}>` now draws that conversation when it mounts, also when the conversation manager already holds it loaded; a `setConversationId(id)` after mount is no longer needed.
+
+  Nothing to change in your code; remove the workaround if you added one. A conversation the manager holds (one another chat had open, on the same manager) is drawn at once, during the chat's mount. The `messages` prop's effect then ran for the first time, took the initial `[]` for a list pushed by the parent, and replaced the transcript with it: the chat showed its empty state while `getConversationId()` returned the id. The effect's first run is now recognised as the value the chat was created with. A conversation that has to be fetched (`loadFull`) was not affected, nor were Vue, Svelte or Angular, whose `messages` watchers do not run on mount; each wrapper now has a test for this case.
+  <sub>`@aparte/react`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.10.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
