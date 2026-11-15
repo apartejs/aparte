@@ -348,6 +348,11 @@ export type { AparteUiEventName } from './interop/element-props.js';
 // Which chat an element belongs to, and an event stamped with it: for a plugin's element too.
 export { chatIdOf, dispatchChatEvent } from './interop/chat-events.js';
 export type { AparteChatScoped } from './interop/chat-events.js';
+// An element described for a framework wrapper: what a plugin exports so each wrapper can bind it.
+export type {
+    AparteElementSpec, AparteElementSpecEvent, AparteElementSpecEvents,
+    AparteSpecAttributes, AparteSpecProperties, AparteSpecEvents,
+} from './interop/element-spec.js';
 // Turns the `File[]` an `aparte-send` carries into renderable attachments — the
 // same conversion ConversationController does, for consumers driving the
 // imperative API themselves.

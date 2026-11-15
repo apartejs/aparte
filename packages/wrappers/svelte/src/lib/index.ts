@@ -34,4 +34,4 @@ export type {
 } from './types.js';
 
 // Custom-element types for Svelte templates: every element of core, typed (see elements.ts).
-export type { AparteSvelteElements } from './elements.js';
+export type { AparteSvelteElements, AparteSvelteElement } from './elements.js';
