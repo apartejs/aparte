@@ -1,0 +1,61 @@
+---
+title: Segmented control
+description: A pill-shaped row of choices, one chosen, drawn over native radio buttons so a form reads it and the arrow keys move through it.
+catalog:
+  group: kit
+  order: 23
+  claims:
+    classes: [segmented]
+  demos: [kit-segmented]
+---
+
+import Variant from '../../../components/catalog/Variant.astro';
+import Classes from '../../../generated/api/kit/segmented.classes.mdx';
+import Vars from '../../../generated/api/kit/segmented.vars.mdx';
+
+<Variant id="kit-segmented" />
+
+`.aparte-segmented` is a track of segments with the chosen one raised, the look of
+[segmented tabs](/components/tabs/) for a choice rather than a panel. Each segment is a `<label>`
+around a native radio, so the group is a real form control: it submits with its form, the arrow
+keys move the choice, and a screen reader says "1 of 3".
+
+```html
+<div class="aparte-segmented" role="radiogroup" aria-label="Range">
+  <label class="aparte-segmented__item">
+    <input type="radio" name="range" value="1d" checked>
+    <span>1D</span>
+  </label>
+  <label class="aparte-segmented__item">
+    <input type="radio" name="range" value="1m">
+    <span>1M</span>
+  </label>
+</div>
+```
+
+Add `aparte-segmented--sm` for a denser row, or `aparte-segmented--block` to fill the line and share
+it equally between the segments. The radio stays in the page, invisible and over its segment, so a
+click anywhere on the segment lands on it and the focus ring is drawn on the segment.
+
+A row of buttons that each do something, rather than a field of a form, wears the same look:
+make each a `<button class="aparte-segmented__item" aria-pressed="true|false">`. The cards' range
+buttons are drawn that way.
+
+## Customize
+
+<Vars />
+
+## Classes
+
+<Classes />
+
+## Accessibility
+
+- Give the group a name: `role="radiogroup"` and an `aria-label` or `aria-labelledby`.
+- A label is the segment's accessible name. An icon-only segment needs `aria-label` on its input.
+- Focus is visible on the chosen segment, from the keyboard only.
+
+## Related
+
+- [Tabs](/components/tabs/) — the same track when each choice shows a panel.
+- [Field](/components/field/) — the other form controls of the kit.

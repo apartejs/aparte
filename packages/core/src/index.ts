@@ -34,6 +34,7 @@ import './styles/display/card.css';
 import './styles/display/kbd.css';
 import './styles/display/mark.css';
 import './styles/surface/tabs.css';
+import './styles/surface/segmented.css';
 import './styles/surface/accordion.css';
 import './styles/surface/menu.css';
 import './styles/surface/popover.css';
