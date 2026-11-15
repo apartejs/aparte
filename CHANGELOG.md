@@ -4,6 +4,28 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.11.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [c1912b3](https://github.com/apartejs/aparte/commit/c1912b3): A registered message action can show its label as text and stand before the built-in buttons: `registerAction({ …, display: 'label', position: 'start' })`. Existing actions are unchanged.
+
+  `display` is `'icon'` (the default, as before), `'label'` or `'both'`. `icon` is optional with `'label'`, and a button left with no icon to draw shows its label rather than an empty box. A button that shows its label is named by it, with no tooltip repeating it. `position` is `'end'` (the default, as before) or `'start'`; `order` sorts the actions on each side.
+
+  `label` is now read as a key of the locale when the locale has it, as its documentation already said and the bubble did not do: add yours with `extendLocale`, and the words follow the chat's language. A label the locale does not have is shown as written.
+  <sub>`@aparte/core`</sub>
+
+### Patch Changes
+
+- [77f1d8e](https://github.com/apartejs/aparte/commit/77f1d8e): A diff line's two numbers are set further apart, so a line far down a file (`118 118`) no longer reads as one number. Nothing to change in your code.
+
+  Each number now keeps `--aparte-space-5` on both sides instead of `--aparte-space-2`: 20px between the old number and the new one with the default spacing, where it was 8px, about one character once a number filled the column's three-digit minimum. 20px is what a unified diff leaves between them (GitHub and GitLab). The gutter's selectors are documented under Customize, for an app that wants a rule between the two columns.
+  <sub>`@aparte/plugin-diff`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.10.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
