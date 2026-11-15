@@ -1,5 +1,33 @@
 # @aparte/plugin-subagents
 
+## 1.10.0
+
+### Minor Changes
+
+- 5f96251: A plugin's element can now be used from React as a typed component: `createAparteElement(approvalModeElement)` from `@aparte/react`. Each plugin exports a spec for its element (`approvalModeElement`, `modelSelectorElement`, `triggersElement`, `diffElement`, `subagentViewElement`, `askUserElement`, and `artifactPanelElement` from `@aparte/plugin-artifacts/panel`), and Vue and Svelte type the tag from it with `AparteVueElement<typeof spec>` and `AparteSvelteElement<typeof spec>`.
+
+  ```tsx
+  const ApprovalMode = createAparteElement(approvalModeElement);
+  <ApprovalMode
+    labels={{ ask: "Ask first" }}
+    onApprovalModeChange={(detail) => save(detail.mode)}
+  />;
+  ```
+
+  The spec is core's new `AparteElementSpec` type — the tag, its attributes, the members it has only as a property, its events with the name each binds under, and what it reads at connect — with phantom generics, so the attribute, property and event types travel with the value (`AparteSpecAttributes`, `AparteSpecProperties`, `AparteSpecEvents` read them back). It is data and defines nothing. A plugin generates its specs from its manifest; a third party writes one literal and every wrapper binds it the same way, since a plugin can depend on core but never on a wrapper. In Angular, a plugin's element takes `CUSTOM_ELEMENTS_SCHEMA`, as any custom element does.
+
+  Deprecated: `@aparte/plugin-model-selector/react`, `/vue`, `/svelte` and `/angular`. They keep working until the next major; use `modelSelectorElement` the same way as any other plugin's spec.
+
+- 73253c3: A tool's display can now set the row's `note` and `activity` (text, or a function of the call), and `registerToolLineProvider()` adds a tool-line provider without replacing the one the app set.
+
+  The app's display wins over a provider, field by field. Providers are asked in order, `setToolLineProvider()` first, and the first one that answers a call wins; `registerToolLineProvider()` returns the function that removes it, and `getToolLineProviders()` lists them. `setToolLineProvider()` is unchanged. `@aparte/plugin-subagents` registers its provider instead of setting it, so it no longer overwrites the app's.
+
+### Patch Changes
+
+- 9696160: `aparte-subagent-open` now names its chat in `targetId` under a framework wrapper too, not only inside `<aparte-chat>`.
+
+  The line looked for the `<aparte-chat>` tag, and the React, Vue and Svelte wrappers render a `[data-aparte-chat]` root instead, so on those three the event came without the chat's id. It now finds its chat the way every chat-scoped event does (`chatIdOf`). A line in a standalone `<aparte-subagent-view>` still names the chat that view reads (`for`, or `chat`), wherever the view is mounted.
+
 ## 1.9.0
 
 ### Minor Changes
