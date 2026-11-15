@@ -95,6 +95,12 @@ function isFile(value: unknown): value is AparteDiffFile {
 }
 
 /** What the app gave, as files to show. */
+/** Two readings show the same change: the same files, the same lines in each. */
+function sameFiles(a: readonly Shown[], b: readonly Shown[]): boolean {
+    const key = (s: Shown): string => JSON.stringify([s.file, s.oldLines, s.newLines]);
+    return a.length === b.length && a.every((s, i) => key(s) === key(b[i]!));
+}
+
 function filesOf(input: AparteDiffInput | null): Shown[] {
     const shown = (file: AparteDiffFile, source?: AparteDiffSource): Shown => {
         const old = source ? splitLines(source.before ?? '') : null;
@@ -247,15 +253,35 @@ export class AparteDiff extends ElementBase {
     /** The change to show: a unified diff's text, `{ path, before, after }`, or a list of files (`AparteDiffFile` or texts). */
     get diff(): AparteDiffInput | null { return this._input; }
     set diff(value: AparteDiffInput | null) {
-        this._input = value ?? null;
-        this._shown = filesOf(this._input);
+        const next = value ?? null;
+        const before = this._shown;
+        const shown = filesOf(next);
+        // Handed the change it shows: the same text or object (perhaps mutated in place), or an
+        // equal one — an inline `{ path, before, after }` is a new object on every render of the
+        // app around it. It is drawn again from it, and what the reader was doing is kept: the
+        // folds, the lines picked, the field and its text, the focus.
+        const again = next !== null && this._input !== null && (next === this._input || sameFiles(shown, before));
+        this._input = next;
+        this._shown = shown;
         this._generation++;
-        this._selection = null;
-        this._writing = false;
-        this._form?.node.remove();
+        if (again) {
+            shown.forEach((file, i) => {
+                const was = before[i];
+                if (!was || was.file.path !== file.file.path) return;
+                file.collapsed = was.collapsed;
+                file.expanded = was.expanded;
+                file.roving = was.roving;
+                file.html = was.html;
+            });
+        }
+        if (!again || (this._selection && !shown[this._selection.file])) {
+            this._selection = null;
+            this._writing = false;
+            this._form?.node.remove();
+        }
         if (this.isConnected) {
             this._render();
-            void this._highlight();
+            void this._highlight(again);
         }
     }
 
