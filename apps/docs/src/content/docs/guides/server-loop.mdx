@@ -48,9 +48,9 @@ the first signing and all verifying.
 
 | Option | What it does |
 | --- | --- |
-| `approvalPolicy` | rules on each call, as `setApprovalPolicy` does in the page |
+| `approvalPolicy(call, tool, turn)` | rules on each call, as `setApprovalPolicy` does in the page; `turn` is `{ messageId, conversationId }`, as the page sent them |
 | `clientTools` | whether the page's own tools are accepted: `true` (the default), `false`, or a list of names |
-| `prepareRequest(request, req)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it |
+| `prepareRequest(request, req, turn)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it. `turn` is `{ messageId, conversationId }`, as the page sent them |
 | `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
 | `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default; a tool's own `maxTurns` applies too |
 | `parallelTools` | run together the calls of one reply whose tools say `parallel: true`, `true` by default; `false` runs every call one after another |

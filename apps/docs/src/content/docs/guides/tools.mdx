@@ -280,7 +280,9 @@ When the call belongs to a sub-agent that was given a name, the question says wh
 - **Stop** ends the reply, and the call shows Stopped; the model is told nothing.
 
 Each time a call starts to wait, the chat sends `aparte-tool-approval-request` with
-`{ toolCallId, toolName, input }`, for a notification of yours. When the loop runs on your server,
+`{ toolCallId, toolName, input, messageId, conversationId }`, for a notification of yours:
+`messageId` is the reply the call belongs to, `conversationId` the conversation open when the
+person sent the message, absent when the chat has none. When the loop runs on your server,
 the same panel answers its tools, even after a reload:
 [approvals across the network](/guides/server-loop/#approvals-across-the-network).
 
@@ -296,15 +298,20 @@ caller from `context.request` ([server loop](/guides/server-loop/)).
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
 
-aparteGlobalConfig.setApprovalPolicy((call) => {
+declare const sandboxes: Set<string>;   // yours: the conversations that run in a sandbox
+
+aparteGlobalConfig.setApprovalPolicy((call, _tool, turn) => {
   if (call.name === 'run_command' && String(call.input['cmd']).startsWith('rm '))
     return { verdict: 'deny', reason: 'Deleting is off in this workspace.' };
   if (call.name.startsWith('read_')) return { verdict: 'allow' };
+  if (turn?.conversationId && sandboxes.has(turn.conversationId)) return { verdict: 'allow' };
   return undefined;   // the tool's own needsApproval decides
 });
 ```
 
-A policy rules on each call before anyone is asked: `allow` runs it, `ask` asks the person as
+Its third argument is the turn the call belongs to, `{ conversationId, messageId, targetId }`:
+absent only when you call `config.ruleOnToolCall(call)` yourself, outside a turn. A policy rules on
+each call before anyone is asked: `allow` runs it, `ask` asks the person as
 `needsApproval` would, and `deny` refuses it, with the `reason` the model reads; the row says
 `Refused by policy`; the person does not read the reason, the model does. The modes people
 know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
@@ -318,16 +325,23 @@ resolver, or use a policy, not both.
 ```ts
 import { AparteClient } from '@aparte/core';
 
-declare function askTheTeam(name: string, input: Record<string, unknown>, signal: AbortSignal): Promise<boolean>;
+declare function askTheTeam(conversationId: string | undefined, name: string, input: Record<string, unknown>, signal: AbortSignal): Promise<boolean>;
 
 new AparteClient({
-  approvalResolver: async (call, signal) => ({
-    approved: await askTheTeam(call.name, call.input, signal),
+  approvalResolver: async (call, signal, { conversationId }) => ({
+    approved: await askTheTeam(conversationId, call.name, call.input, signal),
     instruction: 'Use the staging bucket instead.',   // read by the model on a refusal
     by: 'person',   // the row quotes the instruction back: You said: “…”
   }),
 }).start();
 ```
+
+The third argument is the turn the call belongs to (`AparteTurnContext`): `conversationId`, the
+conversation open in the chat when the person sent the message, absent when it has none;
+`messageId`, the reply; `targetId`, the chat's id. It is the turn's own, read when the person
+acted: a paused call asked again when its conversation is loaded carries that conversation, even
+before your framework has rendered it. A call of a sub-agent names it in `call.agent`.
+`requestInterceptor(request, turn)` receives the same turn.
 
 A resolver may also answer a `payload`, an object merged into the arguments before the handler
 runs, to correct a path while approving; the row still shows what the model sent. On a refusal it
