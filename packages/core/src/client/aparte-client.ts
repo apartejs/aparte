@@ -144,12 +144,17 @@ export interface AparteClientOptions {
 
     /**
      * Conversation history strategy:
-     * - 'viewport' (default) — sends every user/assistant turn up to the last answered
-     *                          one. A turn that errored, or is still in flight
-     *                          ('streaming' / 'pending'), is held back and does not move
-     *                          that cutoff; a turn a host seeded with NO `status` counts
-     *                          as answered, so a restored or server-rendered transcript
-     *                          goes out as history without inventing a status for it.
+     * - 'viewport' (default) — sends every user/assistant turn before the message being
+     *                          sent. A reply still in flight ('streaming' / 'pending') is
+     *                          held back, and so is a reply that errored; a turn a host
+     *                          seeded with NO `status` is history, so a restored or
+     *                          server-rendered transcript goes out without inventing a
+     *                          status for it. After a failed turn, the message that asked
+     *                          goes with the next one, from the next request on, unless
+     *                          its error's `code` says the same request fails again
+     *                          (`USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
+     *                          `USAGE_BAD_REQUEST`) or it carried files: then it is left
+     *                          out of every later request (`withoutAbandonedTurns`).
      * - 'none'               — sends only the current message
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
      *
@@ -1690,18 +1695,15 @@ export class AparteClient {
         // the very message being sent (a turn retried after an overflow), and the cutoff
         // would otherwise have cut it away with that message.
         const { summary, messages } = historyFromCheckpoint(path);
-        // Exclude trailing unanswered user messages: the current user message is
-        // already added explicitly at the end of _buildMessages, so including it
-        // from the viewport would cause a duplicate.
-        // Find the last ANSWERED assistant response and cut there — errored and
-        // in-flight turns are not answers and must not move the cutoff.
-        let cutoff = 0;
-        for (let i = 0; i < messages.length; i++) {
-            const m = messages[i]!;
-            if (m.role === 'assistant' && m.status !== 'error' && !isInFlight(m)) {
-                cutoff = i + 1;
-            }
-        }
+        // The message being sent is the last one not in flight (the reply waiting for it
+        // is): `_buildMessages` adds it itself, with its files, so it is cut here or it
+        // would go twice. Only that one. A message whose turn failed before it stays: it
+        // goes with this one, or is left out, by the rule every request follows
+        // (`withoutAbandonedTurns`). Cutting at the last ANSWERED reply left it out of
+        // this request and put it back, joined to this message, in the next one.
+        let cutoff = messages.length;
+        while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
+        if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
 
         // The cutoff is this path's own concern; what each message contributes to the
         // wire is shared with retry and edit — see `wireMessages`.

@@ -35,9 +35,9 @@ describe('the history sent alternates its roles', () => {
     });
 
     it('an errored turn followed by a new message is one user message carrying both texts', async () => {
-        // The send path cuts at the last ANSWERED reply, so it never sees the failed turn;
-        // an edit keeps everything up to the edited message, and there the failed turn's
-        // user message sits right beside the one being reworded.
+        // Send, retry and edit all keep a failed turn's user message after a failure the
+        // request can get past; an edit keeps everything up to the edited message, and
+        // there the failed turn's user message sits right beside the one being reworded.
         const seen: AparteChatRequest[] = [];
         const cfg = new AparteConfig();
         cfg.registerAIProvider({

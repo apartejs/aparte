@@ -10,7 +10,8 @@
  * with no `tool` message after it: a refusal sends its reason, a crash its error line,
  * and a call that never finished — stopped, still pending — a fixed sentence saying so.
  */
-import type { AparteChatMessage, AparteContentPart, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
+import type { AparteChatMessage, AparteContentPart, AparteErrorSegment, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
+import { AparteErrorCode } from '../types/errors.js';
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 export const COMPACTION_PREAMBLE =
@@ -241,10 +242,74 @@ export function messageWireText(message: AparteMessage): string {
 }
 
 /**
+ * The codes after which the same request fails again: too long for the window, refused by
+ * the provider's policy, malformed. Every other code is a moment — the network, the
+ * provider, a rate limit, a key — that the same request can get past.
+ */
+const FAILS_AGAIN: ReadonlySet<string> = new Set([
+    AparteErrorCode.USAGE_CONTEXT_EXCEEDED,
+    AparteErrorCode.PROVIDER_POLICY,
+    AparteErrorCode.USAGE_BAD_REQUEST,
+]);
+
+/**
+ * Whether a failed reply takes the messages that asked it out of every later request.
+ *
+ * Decided by the code its error carries (`AparteErrorSegment.code`, the last one): a code
+ * the same request meets again drops them, or they would fail every turn after them. A
+ * failure with no code (a transcript a host seeded) is one the request can get past.
+ *
+ * And a message that carried files: the history sends a message's text, never the files a
+ * send read, so keeping it would send the text without them — a question about an image
+ * the model is not shown.
+ */
+function failedForGood(reply: AparteMessage, asked: readonly AparteMessage[]): boolean {
+    const code = [...(reply.segments ?? [])].reverse().find((s): s is AparteErrorSegment => s.type === 'error')?.code;
+    if (code !== undefined && FAILS_AGAIN.has(code)) return true;
+    return asked.some((m) => (m.attachments?.length ?? 0) > 0);
+}
+
+/**
+ * The messages, without the turns a later request gives up on: each reply that failed for
+ * good and the messages that asked it — every user message since the last reply that did
+ * not fail, since a failure the request got past sends its message again with the next one.
+ *
+ * Every other message stays, a failure the request can get past included: its message goes
+ * with the next one (`mergeAdjacentUserMessages` joins the two), from the very next request
+ * on, as a retry or an edit sends it, and its reply is sent as nothing (`wireMessages`).
+ *
+ * The one rule for send, retry, edit, a resume, the context gauge and a compaction, so the
+ * history a server is sent never changes under it from one request to the next.
+ *
+ * @example
+ * // U1's reply failed on the network: U1 goes with U2. Refused by the policy: it is gone.
+ * withoutAbandonedTurns([u0, a0, u1, a1Failed, u2]);
+ */
+export function withoutAbandonedTurns(messages: readonly AparteMessage[]): AparteMessage[] {
+    const dropped = new Set<AparteMessage>();
+    let asked: AparteMessage[] = [];
+    for (const m of messages) {
+        if (m.role === 'user') {
+            asked.push(m);
+        } else if (m.role === 'assistant') {
+            if (m.status !== 'error') {
+                asked = [];
+            } else if (failedForGood(m, asked)) {
+                for (const a of asked) dropped.add(a);
+                dropped.add(m);
+                asked = [];
+            }
+        }
+    }
+    return dropped.size === 0 ? [...messages] : messages.filter((m) => !dropped.has(m));
+}
+
+/**
  * The one rule for what a list of messages contributes to the wire.
  *
  * Not the slice — the contribution: a role the wire has (`user`/`assistant`), a
- * turn that neither failed nor is still in flight, and text that is not empty. A reply
+ * turn that neither failed nor is still in flight, and text that is not empty. A user
+ * message whose reply failed for good is left out as well (`withoutAbandonedTurns`). A reply
  * that called tools goes out as the calls and their answers, in the order it showed
  * them (`wireTurns`); every other message keeps its one text, compaction preamble
  * included.
@@ -257,7 +322,7 @@ export function messageWireText(message: AparteMessage): string {
  * (`estimateWireTokens`) read the same serialisation and cannot drift.
  */
 export function wireMessages(messages: AparteMessage[]): AparteChatMessage[] {
-    return messages
+    return withoutAbandonedTurns(messages)
         .filter((m) => {
             if (m.role !== 'user' && m.role !== 'assistant') return false;
             return m.status !== 'error' && !isInFlight(m);
