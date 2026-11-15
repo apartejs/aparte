@@ -259,6 +259,8 @@ export class AparteChatHost {
     private _controller?: AparteConversationController;
     private _teardown: Array<() => void> = [];
     private _bound = false;
+    /** A config given while a turn was in flight, applied when it ends — see {@link setConfig}. */
+    private _nextConfig: { config: AparteConfig | undefined } | null = null;
 
     constructor(binding: AparteChatHostBinding, options: AparteChatHostOptions = {}) {
         this.binding = binding;
@@ -363,6 +365,11 @@ export class AparteChatHost {
     private _setStreamingId(id: string | null): void {
         if (this._streamingId === id) return;
         this._streamingId = id;
+        if (id === null && this._nextConfig) {
+            const { config } = this._nextConfig;
+            this._nextConfig = null;
+            this._applyConfig(config);
+        }
         this.binding.onStreamingChange?.(id);
         // The transcript's read-only-while-streaming flag has one writer per mode. In
         // framework-managed mode the repository is not written during a turn, so the
@@ -370,6 +377,35 @@ export class AparteChatHost {
         // live on every other message while a reply streamed, under all four wrappers.
         // This host already knows the truth for every wrapper: it says it.
         this._vp()?.setTranscriptBusy?.(id !== null);
+    }
+
+    // ── config ─────────────────────────────────────────────────────────────
+
+    /**
+     * Give the chat another instance config, or none (`undefined`: the page's). A wrapper
+     * calls it when its `config` prop changes: the boundary on the host moves, and every
+     * element inside re-resolves its config, while the messages, the conversation and the
+     * controller stay as they are.
+     *
+     * Not in the middle of a turn: a reply half-drawn with one configuration's renderers and
+     * finished with another's is worse than a change that waits. The last config given
+     * during the turn is applied when the turn ends.
+     */
+    setConfig(config: AparteConfig | undefined): void {
+        if (this._streamingId !== null) {
+            this._nextConfig = { config };
+            return;
+        }
+        this._nextConfig = null;
+        this._applyConfig(config);
+    }
+
+    private _applyConfig(config: AparteConfig | undefined): void {
+        if (config === this.options.config) return;
+        this.options.config = config;
+        if (!this._bound) return;
+        if (config) attachConfig(this.binding.host, config);
+        else detachConfig(this.binding.host);
     }
 
     // ── conversation ───────────────────────────────────────────────────────

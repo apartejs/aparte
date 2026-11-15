@@ -6,10 +6,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import {
-    AparteClient, AparteConfig, registerAllComponents,
+    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
     type AparteChatImperativeApi, type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import ConversationPerChatHost from './ConversationPerChatHost.svelte';
+import ConfigHost from './ConfigHost.svelte';
 
 registerAllComponents();
 
@@ -71,5 +72,25 @@ describe.each(['created', 'activeId'] as const)('<AparteChat> given back the con
         expect(api()!.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         expect(api()!.getConversationId()).toBe(seen.at(-1));
         client.stop();
+    });
+});
+
+describe('<AparteChat config>', () => {
+    it('follows a new config, once the turn in flight has ended', async () => {
+        const first = new AparteConfig();
+        const second = new AparteConfig();
+        const { component, rerender } = render(ConfigHost, { props: { config: first } });
+        await tick();
+        const root = (component as unknown as { api(): AparteChatImperativeApi }).api().getElement()!;
+        expect(resolveConfig(root)).toBe(first);
+
+        await rerender({ config: second });
+        expect(resolveConfig(root)).toBe(second);
+
+        root.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        await rerender({ config: first });
+        expect(resolveConfig(root)).toBe(second);
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'r1' } }));
+        expect(resolveConfig(root)).toBe(first);
     });
 });

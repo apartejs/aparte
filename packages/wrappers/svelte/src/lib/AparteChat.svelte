@@ -80,7 +80,8 @@
    * Instance {@link AparteConfig} for this chat. When set, aparté components
    * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
-   * global config. Read once when the host mounts.
+   * global config. A new one is applied once the turn in flight has ended, the
+   * messages kept.
    */
   export let config: AparteConfig | undefined = undefined;
 
@@ -165,6 +166,18 @@
   // depends on the prop alone: it runs before mount (no host yet), then on each new value.
   function followConversation(next: string | null) { void host?.syncConversationId(next ?? null); }
   $: followConversation(conversationId);
+
+  // A new `config`: the host moves the chat to it once the turn in flight has ended, and the
+  // labels follow the new one's language. Through a function, so the statement depends on the
+  // prop alone: it runs before mount (no host yet, onMount subscribes), then on each new value.
+  function followConfig(next: AparteConfig | undefined) {
+    if (!host) return;
+    host.setConfig(next);
+    unsubscribeLocale?.();
+    unsubscribeLocale = (next ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
+    localeTick += 1;
+  }
+  $: followConfig(config);
 
   // Reconcile bubbles after the rendered list changes (host queries the DOM).
   $: if (host && internalMessages) { void tick().then(() => host?.syncBubbles()); }

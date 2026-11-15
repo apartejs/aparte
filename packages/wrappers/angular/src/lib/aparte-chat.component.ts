@@ -223,6 +223,20 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
             if (next.length === 0 && !this._emitted.has(next)) untracked(() => this._host?.clearRenderCache());
         });
 
+        // A new [config]: the host moves the chat to it once the turn in flight has ended, and the
+        // two locale strings follow the new one's language. Before the host exists, the host is
+        // created with whatever this input holds then.
+        effect(() => {
+            const next = this.config();
+            untracked(() => {
+                if (!this._host) return;
+                this._host.setConfig(next);
+                this._unsubscribeLocale?.();
+                this._unsubscribeLocale = (next ?? aparteGlobalConfig).subscribe(() => this._localeTick.update((n) => n + 1));
+                this._localeTick.update((n) => n + 1);
+            });
+        });
+
         // [conversationId] drives the host, which takes the first value when it is created. The
         // host opens a new id, unless it is the conversation the chat already shows or is
         // creating: the id handed back from (conversationCreated), or from
@@ -403,7 +417,8 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      * Instance {@link AparteConfig} for this chat. When set, aparté components
      * inside resolve THIS config instead of `aparteGlobalConfig`, so
      * several independently-configured chats can coexist on one page. Omit for the
-     * global config. Read once, when the host is created after the first render.
+     * global config. A new one is applied once the turn in flight has ended, the
+     * messages kept.
      */
     readonly config = input<AparteConfig | undefined>(undefined);
 

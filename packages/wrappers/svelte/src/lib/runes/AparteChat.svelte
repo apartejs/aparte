@@ -126,6 +126,18 @@
     untrack(() => { void host?.syncConversationId(next ?? null); });
   });
 
+  // A new `config`: the host moves the chat to it once the turn in flight has ended (the first
+  // run comes before onMount's, with no host yet: the host is created with it).
+  $effect(() => {
+    const next = config;
+    untrack(() => host?.setConfig(next));
+  });
+  // The two labels follow the config's language, the new one's after a change.
+  $effect(() => {
+    const source = config ?? aparteGlobalConfig;
+    return untrack(() => source.subscribe(() => { localeTick += 1; }));
+  });
+
   // The bubbles are rendered by this template; the host reconciles them after each change.
   $effect(() => {
     void internalMessages;
@@ -175,7 +187,6 @@
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
     releaseDeferredHydration(rootRef);
-    const unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     const binding: AparteChatHostBinding = {
       hostId,
       host: rootRef!,
@@ -214,7 +225,6 @@
     const root = rootRef;
     for (const { type, listener } of forwarded) root?.addEventListener(type, listener);
     return () => {
-      unsubscribeLocale();
       for (const { type, listener } of forwarded) root?.removeEventListener(type, listener);
       unbind();
       host = null;

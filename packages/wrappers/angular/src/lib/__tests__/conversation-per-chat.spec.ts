@@ -9,7 +9,7 @@ import '@angular/compiler';
 import { Component, inject, provideExperimentalZonelessChangeDetection, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
-    AparteClient, AparteConfig, registerAllComponents,
+    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
     type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import { AparteChatComponent } from '../aparte-chat.component';
@@ -76,6 +76,16 @@ class FromTheManagerHost {
     readonly chat = viewChild.required(AparteChatComponent);
 }
 
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat id="chat-c" [config]="config()" />`,
+})
+class ConfigHost {
+    readonly config = signal(new AparteConfig());
+    readonly chat = viewChild.required(AparteChatComponent);
+}
+
 afterEach(() => TestBed.resetTestingModule());
 
 describe.each([
@@ -103,5 +113,31 @@ describe.each([
 
         expect(chat.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         client.stop();
+    });
+});
+
+describe('<aparte-chat [config]>', () => {
+    it('follows a new config, once the turn in flight has ended', async () => {
+        TestBed.configureTestingModule({ imports: [ConfigHost], providers: [provideExperimentalZonelessChangeDetection()] });
+        const fixture = TestBed.createComponent(ConfigHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const first = fixture.componentInstance.config();
+        const second = new AparteConfig();
+        const root = fixture.componentInstance.chat().getElement()!;
+        expect(resolveConfig(root)).toBe(first);
+
+        fixture.componentInstance.config.set(second);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(resolveConfig(root)).toBe(second);
+
+        root.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        fixture.componentInstance.config.set(first);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(resolveConfig(root)).toBe(second);
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'r1' } }));
+        expect(resolveConfig(root)).toBe(first);
     });
 });

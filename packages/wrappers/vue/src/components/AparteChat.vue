@@ -65,7 +65,8 @@ interface Props {
    * Instance {@link AparteConfig} for this chat. When set, aparté components
    * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
-   * global config. Read once when the host mounts.
+   * global config. A new one is applied once the turn in flight has ended, the
+   * messages kept.
    */
   config?: AparteConfig;
 }
@@ -222,6 +223,16 @@ watch(() => props.messages, (m) => {
 watch(internalMessages, () => { void nextTick(() => host?.syncBubbles()); });
 
 watch(() => props.isTyping, (t) => { typingActive.value = t; });
+// A new `config`: the host moves the chat to it once the turn in flight has ended, and the two
+// locale strings follow the new one's language.
+watch(() => props.config, (c) => {
+  const next = c ? toRaw(c) : undefined;
+  host?.setConfig(next);
+  if (!host) return;
+  unsubscribeLocale?.();
+  unsubscribeLocale = (next ?? aparteGlobalConfig).subscribe(() => { localeTick.value++; });
+  localeTick.value++;
+});
 // The host opens a new id, unless it is the conversation the chat already shows or is creating:
 // the id handed back from `conversationCreated`, or from the manager's `activeId`, which names the
 // new conversation before the chat holds it — both arrive while the first reply streams.

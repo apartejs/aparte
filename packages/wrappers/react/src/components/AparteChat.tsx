@@ -177,7 +177,8 @@ export interface AparteChatProps extends AparteChatEventProps {
      * component rendered inside resolves THIS config instead of the global
      * `aparteGlobalConfig` — letting several independently-configured chats
      * (different providers, tools, renderers) coexist on one page. Omit for the
-     * global config. Read once when the host mounts.
+     * global config. A new one is applied once the turn in flight has ended, the
+     * messages kept.
      */
     config?: AparteConfig;
 }
@@ -310,6 +311,10 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
         // The host is created once per mount (keyed by the stable hostId); prop
         // changes flow through cbRef / dedicated effects, not by recreating it.
     }, [hostId]);
+
+    // A new `config`: the host moves the chat to it once the turn in flight has ended. On mount
+    // it is the one the host was created with, which changes nothing.
+    useEffect(() => { hostRef.current?.setConfig(config); }, [config]);
 
     // Parent push: sync the prop into the authoritative list — unless it is the host's own
     // report coming back. In controlled mode the prop comes back as one of them — and, when

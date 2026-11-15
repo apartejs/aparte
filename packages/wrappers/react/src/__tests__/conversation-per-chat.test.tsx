@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, act, waitFor } from '@testing-library/react';
 import {
-    AparteClient, AparteConfig, AparteConversationManager, registerAllComponents,
+    AparteClient, AparteConfig, AparteConversationManager, registerAllComponents, resolveConfig,
     type AparteChatImperativeApi, type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import { AparteChat } from '../components/AparteChat';
@@ -117,5 +117,26 @@ describe('<AparteChat> given back the conversation it created', () => {
         expect(idA).not.toBe(idB);
         a.client.stop();
         b.client.stop();
+    });
+});
+
+describe('<AparteChat config>', () => {
+    it('follows a new config, once the turn in flight has ended', async () => {
+        const first = new AparteConfig();
+        const second = new AparteConfig();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const { rerender } = render(<AparteChat ref={ref} id="chat-c" config={first} />);
+        const root = ref.current!.getElement()!;
+        expect(resolveConfig(root)).toBe(first);
+
+        rerender(<AparteChat ref={ref} id="chat-c" config={second} />);
+        expect(resolveConfig(root)).toBe(second);
+
+        // A turn starts: a config given now waits for its end.
+        act(() => { root.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } })); });
+        rerender(<AparteChat ref={ref} id="chat-c" config={first} />);
+        expect(resolveConfig(root)).toBe(second);
+        act(() => { root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'r1' } })); });
+        expect(resolveConfig(root)).toBe(first);
     });
 });

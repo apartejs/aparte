@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import {
-    AparteClient, AparteConfig, registerAllComponents,
+    AparteClient, AparteConfig, registerAllComponents, resolveConfig,
     type AparteChatImperativeApi, type AparteConversation, type AparteMessage, type AparteStorageAdapter,
 } from '@aparte/core';
 import AparteChat from '../AparteChat.vue';
@@ -94,6 +94,27 @@ describe.each<Bound>(['conversationCreated', 'the manager\'s activeId'])('<Apart
         expect(chat.value!.getMessages().map((m) => [m.role, textOf(m)])).toEqual([['user', 'hello'], ['assistant', 'Hello']]);
         expect(chat.value!.getConversationId()).toBe(seen.at(-1));
         client.stop();
+        wrapper.unmount();
+    });
+});
+
+describe('<AparteChat config>', () => {
+    it('follows a new config, once the turn in flight has ended', async () => {
+        const first = new AparteConfig();
+        const second = new AparteConfig();
+        const wrapper = mount(AparteChat, { props: { id: 'chat-c', config: first } });
+        await new Promise((r) => setTimeout(r, 0));
+        const root = (wrapper.vm as unknown as AparteChatImperativeApi).getElement()!;
+        expect(resolveConfig(root)).toBe(first);
+
+        await wrapper.setProps({ config: second });
+        expect(resolveConfig(root)).toBe(second);
+
+        root.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        await wrapper.setProps({ config: first });
+        expect(resolveConfig(root)).toBe(second);
+        root.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'r1' } }));
+        expect(resolveConfig(root)).toBe(first);
         wrapper.unmount();
     });
 });
