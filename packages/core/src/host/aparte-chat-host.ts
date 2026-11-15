@@ -384,14 +384,22 @@ export class AparteChatHost {
     /**
      * Give the chat another instance config, or none (`undefined`: the page's). A wrapper
      * calls it when its `config` prop changes: the boundary on the host moves, and every
-     * element inside re-resolves its config, while the messages, the conversation and the
-     * controller stay as they are.
+     * element inside re-resolves its config. The config it already has changes nothing, so a
+     * wrapper may hand it on every render — a NEW object each render is a new config each time.
+     *
+     * The messages stay. When the new config's conversation manager is another one, the open
+     * conversation is opened again from it if it holds that conversation; otherwise the chat
+     * keeps saving it to the manager it had, until it opens another one.
      *
      * Not in the middle of a turn: a reply half-drawn with one configuration's renderers and
      * finished with another's is worse than a change that waits. The last config given
      * during the turn is applied when the turn ends.
      */
     setConfig(config: AparteConfig | undefined): void {
+        if (config === this.options.config) {
+            this._nextConfig = null;
+            return;
+        }
         if (this._streamingId !== null) {
             this._nextConfig = { config };
             return;
@@ -406,6 +414,7 @@ export class AparteChatHost {
         if (!this._bound) return;
         if (config) attachConfig(this.binding.host, config);
         else detachConfig(this.binding.host);
+        this._controller?.followConfig();
     }
 
     // ── conversation ───────────────────────────────────────────────────────

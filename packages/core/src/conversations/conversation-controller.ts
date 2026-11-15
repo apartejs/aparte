@@ -219,7 +219,7 @@ export class AparteConversationController {
     private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
-        const manager = this._options.manager ?? (() => {
+        const manager = this._options.manager ?? this._keptManager ?? (() => {
             const scoped = resolveConfig(this._binding.host);
             const m = scoped.getConversationManager();
             if (!m) this._warnManagerOnTheWrongConfig(scoped);
@@ -235,6 +235,58 @@ export class AparteConversationController {
             this._unsubscribeManager = manager.subscribe(this._onManagerChanged);
         }
         return manager;
+    }
+
+    /**
+     * The manager a config change could not take the open conversation away from: the new
+     * config's manager does not hold it, or the new config has none. The chat keeps saving
+     * that conversation where it lives until it opens another — see {@link followConfig}.
+     */
+    private _keptManager: AparteConversationManager | null = null;
+    /** Release handle for a wait on a new manager still loading its list (see followConfig). */
+    private _stopConfigWait: (() => void) | null = null;
+
+    /**
+     * The chat was given another config (`AparteChatHost.setConfig`), and its conversation
+     * manager may be another one. Nothing on screen is lost either way:
+     * - the new manager holds the open conversation: it is opened again from there, and saved there;
+     * - it does not, or the new config has no manager: the chat keeps the manager it had for
+     *   the conversation it shows, and goes on saving it there; the next conversation it
+     *   opens comes from the new config.
+     * A manager still loading its list is waited for before it is asked.
+     */
+    followConfig(): void {
+        this._stopConfigWait?.();
+        this._stopConfigWait = null;
+        if (this._options.manager || !this._bound) return;
+        const host = this._binding.host;
+        const before = this._keptManager ?? this._subscribedTo;
+        const next = resolveConfig(host).getConversationManager();
+        const id = this._openId();
+        if (!before || next === before || !id) {
+            this._keptManager = null;
+            this._manager();
+            return;
+        }
+        this._keptManager = before;
+        if (!next) return;
+        const decide = (): void => {
+            if (!this._bound || this._openId() !== id || resolveConfig(host).getConversationManager() !== next) return;
+            if (!next.conversations.some((c) => c.id === id)) return;
+            this._keptManager = null;
+            this._manager();
+            void this.setConversationId(id);
+        };
+        if (next.initialized) {
+            decide();
+            return;
+        }
+        const stop = next.subscribe(() => {
+            stop();
+            this._stopConfigWait = null;
+            decide();
+        });
+        this._stopConfigWait = stop;
     }
 
     /**
@@ -477,6 +529,9 @@ export class AparteConversationController {
         this._turnMessage = null;
         this._stopHydrationRetry?.();
         this._stopHydrationRetry = null;
+        this._stopConfigWait?.();
+        this._stopConfigWait = null;
+        this._keptManager = null;
         const host = this._binding.host;
         if (this._onSendCapture) {
             host.removeEventListener('aparte-send', this._onSendCapture, { capture: true } as EventListenerOptions);
@@ -613,6 +668,12 @@ export class AparteConversationController {
 
     private async _openConversation(id: string | null): Promise<void> {
         const isSwitch = id !== this._activeId;
+        if (isSwitch && this._keptManager) {
+            // Leaving the conversation a config change could not take along: saved where it
+            // lives, and what opens now comes from the config's own manager.
+            this._persistActive();
+            this._keptManager = null;
+        }
         const manager = this._manager();
         // Abort any in-flight stream tied to this binding only when actually
         // switching to a different conversation.
