@@ -133,6 +133,20 @@ describe('<aparte-approval-mode>', () => {
         expect(el.mode).toBe('ask');
     });
 
+    it('labels draw the select again when it is gone, or when one of its options is', () => {
+        setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const el = mount();
+        select(el)!.remove();
+        el.labels = { plan: 'Planifier' };
+        expect(select(el)).not.toBeNull();
+        expect(el.querySelector('aparte-option[value="plan"]')?.textContent).toBe('Planifier');
+
+        el.querySelector('aparte-option[value="auto"]')!.remove();
+        el.labels = { auto: 'Automatique' };
+        expect(el.querySelector('aparte-option[value="auto"]')?.textContent).toBe('Automatique');
+        expect(el.querySelectorAll('aparte-option')).toHaveLength(4);
+    });
+
     it('labels can be replaced for a localised host', () => {
         setupApproval({ classify }, aparteGlobalConfig);
         const el = mount();
