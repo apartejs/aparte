@@ -22,6 +22,10 @@
   - **A browser tool that answers a paused server run** is now told its conversation (`context.conversationId`), like a tool the page's own loop runs.
   - **`AparteToolApprovalResolver`** is now its own type, engine's resolver plus the turn. Passing one straight to `runStreamAgent` needs a wrapper: `(call, signal) => resolver(call, signal, turn)`.
 
+- `@aparte/runner-n8n` sends n8n the message just typed, also after a failed turn; it sent the failed message again, joined to the new one, which n8n's memory may already hold. The run now names the person's message it answers: `userMessage`, `{ content, messageId? }`, on `StreamRunOptions`, which `AparteClient` fills on a send, a retry and an edit.
+
+  Do you have to touch your code? No. A runner whose agent keeps its own memory and is sent only the new message reads `opts.userMessage` rather than the last user message of `baseRequest.messages`, which after a failed turn is that message joined to the one before it. With a client that does not name it, `@aparte/runner-n8n` reads the history as before. A first message whose turn failed now keeps its n8n session for the next one.
+
 ## 1.9.0
 
 ### Minor Changes

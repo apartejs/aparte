@@ -124,6 +124,10 @@
 
   The app's display wins over a provider, field by field. Providers are asked in order, `setToolLineProvider()` first, and the first one that answers a call wins; `registerToolLineProvider()` returns the function that removes it, and `getToolLineProviders()` lists them. `setToolLineProvider()` is unchanged. `@aparte/plugin-subagents` registers its provider instead of setting it, so it no longer overwrites the app's.
 
+- `@aparte/runner-n8n` sends n8n the message just typed, also after a failed turn; it sent the failed message again, joined to the new one, which n8n's memory may already hold. The run now names the person's message it answers: `userMessage`, `{ content, messageId? }`, on `StreamRunOptions`, which `AparteClient` fills on a send, a retry and an edit.
+
+  Do you have to touch your code? No. A runner whose agent keeps its own memory and is sent only the new message reads `opts.userMessage` rather than the last user message of `baseRequest.messages`, which after a failed turn is that message joined to the one before it. With a client that does not name it, `@aparte/runner-n8n` reads the history as before. A first message whose turn failed now keeps its n8n session for the next one.
+
 ### Patch Changes
 
 - 81d38ee: An element handed a value it already holds no longer closes, unfocuses or resets what the person was doing in it — re-rendering a framework wrapper with the same props is now harmless.

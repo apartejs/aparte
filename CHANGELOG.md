@@ -158,6 +158,11 @@ Every `@aparte/*` package ships at this version (they are released in lockstep).
   - `init()` of React's `useConversationManager`, Vue's `useConversationManager`, Svelte 4's `createConversationManager` and Angular's `ConversationManagerService`, called again, replaces the manager and stops following the one before; its subscription used to stay, and the first manager's notifications went on overwriting `conversations` and `activeId`. (Svelte 5's `createConversations()` already did this.) Its `options` are read when it runs: a `titleProvider` that reads state reads it through a ref, or is replaced with `manager.setTitleProvider()`.
   <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
 
+- `@aparte/runner-n8n` sends n8n the message just typed, also after a failed turn; it sent the failed message again, joined to the new one, which n8n's memory may already hold. The run now names the person's message it answers: `userMessage`, `{ content, messageId? }`, on `StreamRunOptions`, which `AparteClient` fills on a send, a retry and an edit.
+
+  Do you have to touch your code? No. A runner whose agent keeps its own memory and is sent only the new message reads `opts.userMessage` rather than the last user message of `baseRequest.messages`, which after a failed turn is that message joined to the one before it. With a client that does not name it, `@aparte/runner-n8n` reads the history as before. A first message whose turn failed now keeps its n8n session for the next one.
+  <sub>`@aparte/core`, `@aparte/engine`, `@aparte/runner-n8n`</sub>
+
 ### Patch Changes
 
 - [81d38ee](https://github.com/apartejs/aparte/commit/81d38ee): An element handed a value it already holds no longer closes, unfocuses or resets what the person was doing in it — re-rendering a framework wrapper with the same props is now harmless.

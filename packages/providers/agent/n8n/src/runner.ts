@@ -384,10 +384,19 @@ export function createN8nRunner(options: N8nRunnerOptions): AparteStreamRunner {
             }
             const messages = (opts.baseRequest as { messages: AparteChatMessage[] }).messages;
             const last = lastUserIndex(messages);
-            const message = last >= 0 ? messages[last] : undefined;
-            // No reply before the message: a new conversation, or one that was cleared. n8n
-            // must not answer it from the memory of the one before.
-            if (options.sessionId === undefined && !messages.slice(0, Math.max(last, 0)).some((m) => m.role === 'assistant')) {
+            const inHistory = last >= 0 ? messages[last] : undefined;
+            // The message the person sent this turn, which n8n is sent alone: its memory holds
+            // the rest. The history's last user message can be more than that — a message whose
+            // turn failed, joined to it for a model that reads the whole history, which n8n may
+            // already have stored. Read from the history for a client that does not name it.
+            const message: AparteChatMessage | undefined = opts.userMessage
+                ? { role: 'user', content: opts.userMessage.content as AparteChatMessage['content'] }
+                : inHistory;
+            // Nothing before the message: a new conversation, or one that was cleared. n8n
+            // must not answer it from the memory of the one before. A message joined in front
+            // of this one is something before it, sent in the session that heard it.
+            const joined = message !== inHistory && textOf(inHistory?.content) !== textOf(message?.content);
+            if (options.sessionId === undefined && !joined && !messages.slice(0, Math.max(last, 0)).some((m) => m.role === 'assistant')) {
                 ownSession = `aparte-${uuid()}`;
             }
             const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
