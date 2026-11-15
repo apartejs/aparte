@@ -177,7 +177,8 @@ export interface AparteChatProps extends AparteChatEventProps {
      * component rendered inside resolves THIS config instead of the global
      * `aparteGlobalConfig` — letting several independently-configured chats
      * (different providers, tools, renderers) coexist on one page. Omit for the
-     * global config. Read once when the host mounts.
+     * global config. A new one is applied once the turn in flight has ended, the
+     * messages kept.
      */
     config?: AparteConfig;
 }
@@ -264,7 +265,9 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);
-    const lastConvRef = useRef<string | null>(conversationId);
+    // The prop as the host last received it: an effect runs once on mount too, and the host
+    // took the first value at creation. Whether a NEW value is one to open is the host's call.
+    const conversationPropRef = useRef<string | null>(conversationId);
 
     // Keep the latest prop callbacks in a ref so the host's stable binding — and the
     // listeners below — always call the current handlers without recreating either.
@@ -309,6 +312,10 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
         // changes flow through cbRef / dedicated effects, not by recreating it.
     }, [hostId]);
 
+    // A new `config`: the host moves the chat to it once the turn in flight has ended. On mount
+    // it is the one the host was created with, which changes nothing.
+    useEffect(() => { hostRef.current?.setConfig(config); }, [config]);
+
     // Parent push: sync the prop into the authoritative list — unless it is the host's own
     // report coming back. In controlled mode the prop comes back as one of them — and, when
     // the parent's render lands after the host's next write (WebKit commits React after the
@@ -331,11 +338,13 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     // off internally on the first streamed token.
     useEffect(() => { setTypingActive(isTyping); }, [isTyping]);
 
-    // Conversation id changes (the initial value is loaded by the host on bind).
+    // Conversation id changes (the initial value is loaded by the host on bind). The host opens
+    // it, unless it is the conversation the chat already shows or is creating — the id handed
+    // back from `onConversationCreated` while the first reply streams.
     useEffect(() => {
-        if (conversationId === lastConvRef.current) return;
-        lastConvRef.current = conversationId;
-        void hostRef.current?.setConversationId(conversationId ?? null);
+        if (conversationId === conversationPropRef.current) return;
+        conversationPropRef.current = conversationId;
+        void hostRef.current?.syncConversationId(conversationId ?? null);
     }, [conversationId]);
 
     // A send from the composer makes the next auto-scroll, the one that brings the user's
@@ -405,6 +414,7 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
         injectTokenStream: (id, tokens) => hostRef.current?.streamTokens(id, tokens) ?? Promise.resolve(),
         stopTokenStream: () => hostRef.current?.stopTokenStream(),
         setConversationId: (id) => hostRef.current?.setConversationId(id) ?? Promise.resolve(),
+        getConversationId: () => hostRef.current?.getConversationId() ?? null,
         scrollToBottom: () => (viewportRef.current as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(),
         focusInput: () => (composerRef.current as unknown as { focus?: () => void })?.focus?.(),
         isStreaming: () => hostRef.current?.isStreaming ?? false,

@@ -98,7 +98,8 @@ is added when they send, so do not add it yourself; `@message-sent` fires after,
 ## Stream a model
 
 `useAparteClient` starts a client when the component mounts, stops it before it unmounts, and
-returns `{ client, abort }`; it takes the `AparteClientOptions`. For a real model, register its
+returns `{ client, abort }`; it takes the `AparteClientOptions`, read when the client is built — a
+function option that reads a `ref` reads its value of now. For a real model, register its
 provider, name the model and give the key — `aparteGlobalConfig.setModelConfig({ defaultProvider:
 'openrouter', defaultModel: 'openai/gpt-4o-mini' })` and `useAparteClient({ keyResolver })`
 ([Connect a model](/providers/)). A `config` prop gives one `<AparteChat>` providers and a

@@ -201,7 +201,8 @@ From `@aparte/svelte/runes`. The Svelte 4 component takes the same prop, or the 
 </Tabs>
 
 A conversation id opens that conversation in the chat, and `null` closes it. The first message
-sent with none open creates one and hands you its id, so a URL or a router can follow. From then
+sent with none open creates one and hands you its id, so a URL or a router can follow; given back
+to the chat as its `conversationId`, that id changes nothing, as the chat already shows it. From then
 on, the person's messages are saved as they are sent, and a reply when the chat hears it end —
 `aparte-message-done`, `-error` or `-aborted`, which `AparteClient` and `injectTokenStream` send,
 and a plain-HTML loop of your own sends as in [Your own loop](/guides/bring-your-own-loop/#make-stop-work). A new version is saved as it appears.
@@ -255,7 +256,8 @@ list?.setAttribute('manage', '');
 `flat` lists them without the groups — each with a menu to rename, pin, archive or delete it.
 With `manage`, the menu acts on the manager you registered. A click on a row sends
 `aparte-conversation-select`, which opens it in the chats bound to the manager. On a page with
-two chats, `target="<the chat's id>"` on the list keeps a click, and the menu, to that chat.
+two chats, `target="<the chat's id>"` on the list keeps a click, and the menu, to that chat; to keep
+several chats live, one per conversation, see [Several live chats](/guides/several-live-chats/).
 
 Without `manage`, the list only announces each gesture, and you carry it out:
 
@@ -412,6 +414,7 @@ each attachment a new `URL.createObjectURL(row.blob)`
 <Cards
     cards={[
         { href: '/guides/titles/', title: 'Conversation titles', line: 'A short title for each conversation, in the browser or from your model.' },
+        { href: '/guides/several-live-chats/', title: 'Several live chats', line: 'A reply that goes on streaming in one conversation while the person is in another.' },
         { href: '/components/conversation-list/', title: 'Conversation list', line: 'The list, its menu, its states and its options.' },
         { href: '/components/sidebar/', title: 'Sidebar', line: 'The column the list goes in, and its drawer on a phone.' },
     ]}

@@ -1,0 +1,327 @@
+---
+title: Keep several chats live beside one conversation list
+description: Let a reply go on streaming in one conversation while the person reads or writes in another — one chat per conversation, one conversation manager, one list.
+sidebar:
+  order: 7
+  label: Several live chats
+guide:
+  group: conversations
+---
+
+import { Tabs, TabItem } from '../../../components/content/tabs';
+
+A chat answers one conversation at a time: open another one in it, and the reply on its way
+stops. For a reply that goes on streaming in conversation A while the person reads or writes in
+B — and is complete when they come back — keep one chat mounted per conversation, show one of
+them, and let the list choose which.
+
+It takes four things:
+
+- **One conversation manager** for every chat, on the config they share
+  ([Save conversations](/guides/conversation-persistence/#register-a-manager)).
+- **One chat per conversation**, each with its own `id` and a client scoped to it
+  (`scopeToTargetId`), so each turn is answered in its own chat.
+- **Each chat bound to its conversation for its whole life**: the `conversationId` it mounts
+  with, or `null` for a new one. A new chat's first message creates the conversation and hands
+  you its id through `onConversationCreated`; give it back to that chat as its `conversationId`
+  if your state keeps it — the chat already shows it, so nothing reloads.
+- **A list that opens nothing by itself**: `target` set to the id of the element that holds the
+  chats, which is no chat's id. A click on a row then reaches your code alone, and you show the
+  chat that has that conversation, or mount one for it.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import { AparteClient, AparteConversationController, type AparteChat } from '@aparte/core';
+
+const pool = document.getElementById('chats')!;   // <div id="chats">
+const list = document.querySelector('aparte-conversation-list')!;
+list.setAttribute('target', 'chats');
+list.setAttribute('manage', '');
+
+const live: Array<{ chat: AparteChat; controller: AparteConversationController }> = [];
+let next = 1;
+
+function show(chat: AparteChat): void {
+  for (const entry of live) entry.chat.hidden = entry.chat !== chat;
+  const shown = live.find((entry) => entry.chat === chat);
+  list.setAttribute('active-id', shown?.controller.activeId ?? '');
+}
+
+function mount(conversationId: string | null): AparteChat {
+  const chat = document.createElement('aparte-chat') as AparteChat;
+  chat.id = `chat-${next++}`;
+  pool.append(chat);
+  new AparteClient({ scopeToTargetId: chat.id }).start();
+  const viewport = chat.viewport!;
+  const controller = new AparteConversationController({
+    hostId: chat.id,
+    host: chat,
+    getMessages: () => viewport.getMessages(),
+    setMessages: (messages) => viewport.setMessages(messages),
+    appendMessage: (message) => viewport.appendMessage(message),
+    clearMessages: (options) => viewport.clearAll(options),
+  }, { onConversationCreated: () => { if (!chat.hidden) show(chat); } });
+  controller.bind();
+  void controller.setConversationId(conversationId);
+  live.push({ chat, controller });
+  return chat;
+}
+
+window.addEventListener('aparte-conversation-select', (e) => {
+  const { id, targetId } = e.detail;
+  if (targetId !== 'chats') return;
+  const open = id ? live.find((entry) => entry.controller.activeId === id) : undefined;
+  show(open?.chat ?? mount(id));
+});
+
+show(mount(null));
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useEffect, useRef, useState } from 'react';
+import { AparteChat, useAparteClient } from '@aparte/react';
+
+type Live = { key: string; conversationId: string | null };
+
+function LiveChat({ chat, shown, onCreated }: { chat: Live; shown: boolean; onCreated: (id: string) => void }) {
+  useAparteClient({ scopeToTargetId: chat.key });
+  return (
+    <div hidden={!shown}>
+      <AparteChat id={chat.key} conversationId={chat.conversationId} onConversationCreated={onCreated} />
+    </div>
+  );
+}
+
+export function Chats() {
+  const [chats, setChats] = useState<Live[]>([{ key: 'chat-1', conversationId: null }]);
+  const [shown, setShown] = useState('chat-1');
+  const chatsRef = useRef(chats);
+  chatsRef.current = chats;
+  const next = useRef(2);
+
+  useEffect(() => {
+    const open = (e: Event) => {
+      const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+      if (targetId !== 'chats') return;
+      const live = id ? chatsRef.current.find((c) => c.conversationId === id) : undefined;
+      if (live) return setShown(live.key);
+      const key = `chat-${next.current++}`;
+      setChats((all) => [...all, { key, conversationId: id }]);
+      setShown(key);
+    };
+    window.addEventListener('aparte-conversation-select', open);
+    return () => window.removeEventListener('aparte-conversation-select', open);
+  }, []);
+
+  const created = (key: string) => (id: string) =>
+    setChats((all) => all.map((c) => (c.key === key ? { ...c, conversationId: id } : c)));
+
+  return (
+    <>
+      <aparte-conversation-list target="chats" manage="" active-id={chats.find((c) => c.key === shown)?.conversationId ?? ''} />
+      <div id="chats">
+        {chats.map((c) => <LiveChat key={c.key} chat={c} shown={c.key === shown} onCreated={created(c.key)} />)}
+      </div>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { AparteClient } from '@aparte/core';
+import { AparteChat } from '@aparte/vue';
+
+type Live = { key: string; conversationId: string | null; client: AparteClient };
+const chats = ref<Live[]>([]);
+const shown = ref('');
+let next = 1;
+
+function mount(conversationId: string | null): void {
+  const key = `chat-${next++}`;
+  const client = new AparteClient({ scopeToTargetId: key });
+  client.start();
+  chats.value.push({ key, conversationId, client });
+  shown.value = key;
+}
+mount(null);
+
+function open(e: Event): void {
+  const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+  if (targetId !== 'chats') return;
+  const live = id ? chats.value.find((c) => c.conversationId === id) : undefined;
+  if (live) shown.value = live.key;
+  else mount(id);
+}
+onMounted(() => window.addEventListener('aparte-conversation-select', open));
+onBeforeUnmount(() => {
+  window.removeEventListener('aparte-conversation-select', open);
+  for (const c of chats.value) c.client.stop();
+});
+
+const activeId = computed(() => chats.value.find((c) => c.key === shown.value)?.conversationId ?? '');
+</script>
+
+<template>
+  <aparte-conversation-list target="chats" manage :active-id="activeId" />
+  <div id="chats">
+    <div v-for="chat in chats" :key="chat.key" :hidden="chat.key !== shown">
+      <AparteChat :id="chat.key" :conversation-id="chat.conversationId" @conversation-created="chat.conversationId = $event" />
+    </div>
+  </div>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { AparteClient } from '@aparte/core';
+  import { AparteChat } from '@aparte/svelte/runes';
+
+  type Live = { key: string; conversationId: string | null; client: AparteClient };
+  let chats = $state<Live[]>([]);
+  let shown = $state('');
+  let next = 1;
+
+  function mount(conversationId: string | null) {
+    const key = `chat-${next++}`;
+    const client = new AparteClient({ scopeToTargetId: key });
+    client.start();
+    chats.push({ key, conversationId, client });
+    shown = key;
+  }
+  mount(null);
+
+  onMount(() => {
+    const open = (e: Event) => {
+      const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+      if (targetId !== 'chats') return;
+      const live = id ? chats.find((c) => c.conversationId === id) : undefined;
+      if (live) shown = live.key;
+      else mount(id);
+    };
+    window.addEventListener('aparte-conversation-select', open);
+    return () => {
+      window.removeEventListener('aparte-conversation-select', open);
+      for (const c of chats) c.client.stop();
+    };
+  });
+
+  const activeId = $derived(chats.find((c) => c.key === shown)?.conversationId ?? '');
+</script>
+
+<aparte-conversation-list target="chats" manage active-id={activeId}></aparte-conversation-list>
+<div id="chats">
+  {#each chats as chat (chat.key)}
+    <div hidden={chat.key !== shown}>
+      <AparteChat id={chat.key} conversationId={chat.conversationId} onconversationCreated={(id) => (chat.conversationId = id)} />
+    </div>
+  {/each}
+</div>
+```
+
+On Svelte 4, the same with `let` variables, `onDestroy` and `on:conversationCreated={(e) => …}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, OnDestroy, computed, signal } from '@angular/core';
+import { AparteClient } from '@aparte/core';
+import { AparteChatComponent, AparteConversationListDirective } from '@aparte/angular';
+
+type Live = { key: string; conversationId: string | null; client: AparteClient };
+
+@Component({
+  selector: 'app-chats',
+  standalone: true,
+  imports: [AparteChatComponent, AparteConversationListDirective],
+  template: `
+    <aparte-conversation-list target="chats" manage [attr.active-id]="activeId()"></aparte-conversation-list>
+    <div id="chats">
+      @for (chat of chats(); track chat.key) {
+        <div [hidden]="chat.key !== shown()">
+          <aparte-chat [id]="chat.key" [conversationId]="chat.conversationId" (conversationCreated)="created(chat.key, $event)"></aparte-chat>
+        </div>
+      }
+    </div>
+  `,
+})
+export class ChatsComponent implements OnDestroy {
+  readonly chats = signal<Live[]>([]);
+  readonly shown = signal('');
+  readonly activeId = computed(() => this.chats().find((c) => c.key === this.shown())?.conversationId ?? '');
+  private next = 1;
+
+  private readonly open = (e: Event) => {
+    const { id, targetId } = (e as CustomEvent<{ id: string | null; targetId?: string }>).detail;
+    if (targetId !== 'chats') return;
+    const live = id ? this.chats().find((c) => c.conversationId === id) : undefined;
+    if (live) this.shown.set(live.key);
+    else this.mount(id);
+  };
+
+  constructor() {
+    this.mount(null);
+    window.addEventListener('aparte-conversation-select', this.open);
+  }
+
+  mount(conversationId: string | null): void {
+    const key = `chat-${this.next++}`;
+    const client = new AparteClient({ scopeToTargetId: key });
+    client.start();
+    this.chats.update((all) => [...all, { key, conversationId, client }]);
+    this.shown.set(key);
+  }
+
+  created(key: string, id: string): void {
+    this.chats.update((all) => all.map((c) => (c.key === key ? { ...c, conversationId: id } : c)));
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('aparte-conversation-select', this.open);
+    for (const c of this.chats()) c.client.stop();
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+The list's New chat sends `aparte-conversation-select` with `{ id: null }`, and the same code
+mounts a fresh chat for it. Unmount the chats you no longer need — a few recent ones are enough —
+and a chat that goes saves what it holds, a reply still on its way included.
+
+## Which conversation a chat shows
+
+The manager has one `activeId`. Every chat writes it when it opens or creates a conversation, so
+with several chats it names whichever moved last — not the one on screen, and not a given chat's.
+Each chat answers for itself: `getConversationId()` on its handle returns the conversation it
+shows, or the one its first message is creating, and `null` before either. It is on every
+wrapper's `<AparteChat>` (React's ref, Vue's and Svelte's instance, Angular's component) and on
+`useAparteChat()`. A chat's first message only ever creates a conversation of its own, even while
+another chat is creating one at the same moment.
+
+Calling `manager.select()` or `manager.createNew()` yourself moves no chat. A chat opens a
+conversation through its `conversationId`, its `setConversationId()`, or
+`aparte-conversation-select` carrying its id as `targetId`.
+
+## A chat you do not show
+
+A chat hidden with `hidden` or `display: none` is still mounted, so it goes on working: its
+client answers the turn, the reply is written into its transcript and saved when the turn ends,
+and `aparte-conversation-loaded` is sent once a conversation's messages are in it, shown or not.
+What a hidden chat cannot do is measure itself: call `scrollToBottom()` on it when you show it,
+if it should open at the end of the reply.

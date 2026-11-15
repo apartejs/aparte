@@ -50,6 +50,7 @@ export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
             c()?.injectTokenStream(id, tokens) ?? Promise.resolve(),
         stopTokenStream: () => c()?.stopTokenStream(),
         setConversationId: (id: string | null) => c()?.setConversationId(id) ?? Promise.resolve(),
+        getConversationId: () => c()?.getConversationId() ?? null,
         isStreaming: () => c()?.isStreaming() ?? false,
         scrollToBottom: () => c()?.scrollToBottom(),
         focusInput: () => c()?.focusInput(),

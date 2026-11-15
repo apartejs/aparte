@@ -84,6 +84,13 @@
   // proxy the parent mutated in place keeps its identity, not its ids. A report that comes back,
   // however late, is taken with every older one; any other value is the parent's word and clears
   // them, so a list the parent restores later (a reopened conversation, an undo) is applied.
+  //
+  // Not core's `takeEcho`, measured rather than assumed: it matches by identity, which a proxy
+  // never has, and matching on the ids alone — the comparator it could take — drops a list of
+  // the parent's own with the same ids and other content, written while a report is on its way
+  // back (an edit the parent makes). The values a report comes back as include the proxy the
+  // parent stores, which only exists after the callback: core's queue cannot hold it.
+  // `an-echo-is-known-by-value.test.ts` is that case.
   let pendingEchoes: Array<{ values: object[]; ids: string[] }> = [];
   const sameIds = (a: readonly (string | undefined)[], b: readonly (string | undefined)[]) =>
     a.length === b.length && a.every((id, i) => id === b[i]);
@@ -116,13 +123,26 @@
     typingActive = isTyping;
   });
 
-  // The conversation id drives the host; the initial one is handed over at bind.
-  let lastConv = untrack(() => conversationId);
+  // The conversation id drives the host; the initial one is handed over at bind (this effect's
+  // first run comes before onMount's, with no host yet). The host opens a new id, unless it is the
+  // conversation the chat already shows or is creating: the id handed back from
+  // `onconversationCreated`, or from `createConversations().activeId`, which names the new
+  // conversation before the chat holds it — both arrive while the first reply streams.
   $effect(() => {
     const next = conversationId;
-    if (next === lastConv) return;
-    lastConv = next;
-    untrack(() => { void host?.setConversationId(next ?? null); });
+    untrack(() => { void host?.syncConversationId(next ?? null); });
+  });
+
+  // A new `config`: the host moves the chat to it once the turn in flight has ended (the first
+  // run comes before onMount's, with no host yet: the host is created with it).
+  $effect(() => {
+    const next = config;
+    untrack(() => host?.setConfig(next));
+  });
+  // The two labels follow the config's language, the new one's after a change.
+  $effect(() => {
+    const source = config ?? aparteGlobalConfig;
+    return untrack(() => source.subscribe(() => { localeTick += 1; }));
   });
 
   // The bubbles are rendered by this template; the host reconciles them after each change.
@@ -174,7 +194,6 @@
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
     releaseDeferredHydration(rootRef);
-    const unsubscribeLocale = (config ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
     const binding: AparteChatHostBinding = {
       hostId,
       host: rootRef!,
@@ -213,7 +232,6 @@
     const root = rootRef;
     for (const { type, listener } of forwarded) root?.addEventListener(type, listener);
     return () => {
-      unsubscribeLocale();
       for (const { type, listener } of forwarded) root?.removeEventListener(type, listener);
       unbind();
       host = null;
@@ -239,6 +257,7 @@
   }
   export function stopTokenStream() { host?.stopTokenStream(); }
   export function setConversationId(next: string | null): Promise<void> { return host?.setConversationId(next) ?? Promise.resolve(); }
+  export function getConversationId(): string | null { return host?.getConversationId() ?? null; }
   export function scrollToBottom() { (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(); }
   /** The `<aparte-chat-viewport>` element — the same accessor on all four wrappers. */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
@@ -259,7 +278,7 @@
     return {
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
-      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId, getConversationId,
       scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }

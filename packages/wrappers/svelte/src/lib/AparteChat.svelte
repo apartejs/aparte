@@ -80,7 +80,8 @@
    * Instance {@link AparteConfig} for this chat. When set, aparté components
    * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
-   * global config. Read once when the host mounts.
+   * global config. A new one is applied once the turn in flight has ended, the
+   * messages kept.
    */
   export let config: AparteConfig | undefined = undefined;
 
@@ -159,12 +160,24 @@
   let lastTyping = isTyping;
   $: if (isTyping !== lastTyping) { lastTyping = isTyping; typingActive = isTyping; }
 
-  // Conversation id changes (initial value loaded by the host on bind).
-  let lastConv = conversationId;
-  $: if (conversationId !== lastConv) {
-    lastConv = conversationId;
-    void host?.setConversationId(conversationId ?? null);
+  // Conversation id changes (initial value loaded by the host on bind). The host opens it, unless
+  // it is the conversation the chat already shows or is creating — the id handed back from
+  // `conversationCreated` while the first reply streams. Through a function, so the statement
+  // depends on the prop alone: it runs before mount (no host yet), then on each new value.
+  function followConversation(next: string | null) { void host?.syncConversationId(next ?? null); }
+  $: followConversation(conversationId);
+
+  // A new `config`: the host moves the chat to it once the turn in flight has ended, and the
+  // labels follow the new one's language. Through a function, so the statement depends on the
+  // prop alone: it runs before mount (no host yet, onMount subscribes), then on each new value.
+  function followConfig(next: AparteConfig | undefined) {
+    if (!host) return;
+    host.setConfig(next);
+    unsubscribeLocale?.();
+    unsubscribeLocale = (next ?? aparteGlobalConfig).subscribe(() => { localeTick += 1; });
+    localeTick += 1;
   }
+  $: followConfig(config);
 
   // Reconcile bubbles after the rendered list changes (host queries the DOM).
   $: if (host && internalMessages) { void tick().then(() => host?.syncBubbles()); }
@@ -292,6 +305,7 @@
   export function setConversationId(id: string | null): Promise<void> {
     return host?.setConversationId(id) ?? Promise.resolve();
   }
+  export function getConversationId(): string | null { return host?.getConversationId() ?? null; }
   export function scrollToBottom() {
     (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();
   }
@@ -322,7 +336,7 @@
     return {
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
-      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId, getConversationId,
       scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }

@@ -51,6 +51,8 @@ export function useConversationManager() {
     const init = async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig, options?: ConversationManagerOptions): Promise<void> => {
         const m = new AparteConversationManager(adapter, options);
         manager = m;
+        // Called again, it replaces the manager: the one before is followed no more.
+        unsub?.();
         unsub = m.subscribe((convs) => {
             conversations.value = [...convs];
             activeId.value = m.activeId;

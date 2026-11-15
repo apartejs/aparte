@@ -259,6 +259,8 @@ export class AparteChatHost {
     private _controller?: AparteConversationController;
     private _teardown: Array<() => void> = [];
     private _bound = false;
+    /** A config given while a turn was in flight, applied when it ends — see {@link setConfig}. */
+    private _nextConfig: { config: AparteConfig | undefined } | null = null;
 
     constructor(binding: AparteChatHostBinding, options: AparteChatHostOptions = {}) {
         this.binding = binding;
@@ -363,6 +365,11 @@ export class AparteChatHost {
     private _setStreamingId(id: string | null): void {
         if (this._streamingId === id) return;
         this._streamingId = id;
+        if (id === null && this._nextConfig) {
+            const { config } = this._nextConfig;
+            this._nextConfig = null;
+            this._applyConfig(config);
+        }
         this.binding.onStreamingChange?.(id);
         // The transcript's read-only-while-streaming flag has one writer per mode. In
         // framework-managed mode the repository is not written during a turn, so the
@@ -372,12 +379,77 @@ export class AparteChatHost {
         this._vp()?.setTranscriptBusy?.(id !== null);
     }
 
+    // ── config ─────────────────────────────────────────────────────────────
+
+    /**
+     * Give the chat another instance config, or none (`undefined`: the page's). A wrapper
+     * calls it when its `config` prop changes: the boundary on the host moves, and every
+     * element inside re-resolves its config, while the messages, the conversation and the
+     * controller stay as they are.
+     *
+     * Not in the middle of a turn: a reply half-drawn with one configuration's renderers and
+     * finished with another's is worse than a change that waits. The last config given
+     * during the turn is applied when the turn ends.
+     */
+    setConfig(config: AparteConfig | undefined): void {
+        if (this._streamingId !== null) {
+            this._nextConfig = { config };
+            return;
+        }
+        this._nextConfig = null;
+        this._applyConfig(config);
+    }
+
+    private _applyConfig(config: AparteConfig | undefined): void {
+        if (config === this.options.config) return;
+        this.options.config = config;
+        if (!this._bound) return;
+        if (config) attachConfig(this.binding.host, config);
+        else detachConfig(this.binding.host);
+    }
+
     // ── conversation ───────────────────────────────────────────────────────
 
-    /** Load / switch the active conversation via the controller. */
+    /**
+     * Load / switch the active conversation via the controller. The same id again re-reads
+     * it from the manager: this is the imperative call, the one that means "open this now".
+     * A `conversationId` prop goes through {@link syncConversationId}.
+     */
     setConversationId(id: string | null): Promise<void> {
         this._conversationId = id;
         return this._controller?.setConversationId(id) ?? Promise.resolve();
+    }
+
+    /**
+     * Follow a wrapper's `conversationId` prop: open `id`, unless it is the conversation this
+     * chat already shows or is creating.
+     *
+     * The documented pattern gives the created conversation back to the chat — the prop set
+     * from `onConversationCreated`, or bound to the manager's `activeId`, which names the new
+     * conversation before the creation even resolves. That id arrives while the first reply
+     * streams, and opening it then re-read a conversation the manager did not hold the reply
+     * of yet: the transcript was replaced under the stream. Compared with the controller, not
+     * with the last prop: the person opens other conversations from the list without the prop
+     * hearing of it.
+     */
+    syncConversationId(id: string | null): Promise<void> {
+        const controller = this._controller;
+        if (!controller) {
+            this._conversationId = id;
+            return Promise.resolve();
+        }
+        if (id === controller.activeId || (id !== null && id === controller.pendingId)) return Promise.resolve();
+        return this.setConversationId(id);
+    }
+
+    /**
+     * The conversation this chat shows: the one it opened, or the one its first message is
+     * creating; `null` for a chat with none yet. Per chat, which the manager's single
+     * `activeId` cannot say once several chats share it.
+     */
+    getConversationId(): string | null {
+        const controller = this._controller;
+        return controller ? controller.activeId ?? controller.pendingId : this._conversationId;
     }
 
     private _unbindController?: () => void;

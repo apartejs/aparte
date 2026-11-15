@@ -153,7 +153,7 @@ Pass `aparte` to `bootstrapApplication(App, { providers: [aparte] })`.
 | `modelConfig` | the model to send to, as `setModelConfig` takes it — a provider that lists its models over the network selects none |
 | `locale` | an `AparteLocale` object, such as `fr` from `@aparte/locales/fr` |
 | `themeMode` | `'light'`, `'dark'` or `'auto'`, which follows the system |
-| `clientOptions` | the `AparteClientOptions` — a `keyResolver` gives a cloud provider its key |
+| `clientOptions` | the `AparteClientOptions` — a `keyResolver` gives a cloud provider its key; a function option that reads a signal reads its value of now |
 | `autoConnect` | whether the client starts at bootstrap: `true` by default |
 
 A loader that fails is reported in the console and skipped. A loader defines its plugin's element,
