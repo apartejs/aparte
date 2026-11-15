@@ -222,7 +222,10 @@ watch(() => props.messages, (m) => {
 watch(internalMessages, () => { void nextTick(() => host?.syncBubbles()); });
 
 watch(() => props.isTyping, (t) => { typingActive.value = t; });
-watch(() => props.conversationId, (id) => { void host?.setConversationId(id ?? null); });
+// The host opens a new id, unless it is the conversation the chat already shows or is creating:
+// the id handed back from `conversationCreated`, or from the manager's `activeId`, which names the
+// new conversation before the chat holds it — both arrive while the first reply streams.
+watch(() => props.conversationId, (id) => { void host?.syncConversationId(id ?? null); });
 
 // ── Imperative API (forwards to the host) ──
 const appendMessage = (m: AparteMessage, o?: { historical?: boolean }) => host?.appendMessage(m, o);
@@ -242,6 +245,7 @@ const injectTokenStream = (id: string, tokens: AsyncIterable<string>) =>
   host?.streamTokens(id, tokens) ?? Promise.resolve();
 const stopTokenStream = () => host?.stopTokenStream();
 const setConversationId = (id: string | null) => host?.setConversationId(id) ?? Promise.resolve();
+const getConversationId = () => host?.getConversationId() ?? null;
 const scrollToBottom = () => (viewportRef.value as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();
 const focusInput = () => (composerRef.value as unknown as { focus?: () => void })?.focus?.();
 const isStreaming = () => host?.isStreaming ?? false;
@@ -259,7 +263,7 @@ const getComposer = () => (composerRef.value as AparteComposer | undefined) ?? n
 defineExpose({
   appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
   appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
-  truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+  truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId, getConversationId,
   scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
 } satisfies AparteChatImperativeApi);
 </script>

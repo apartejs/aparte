@@ -159,12 +159,12 @@
   let lastTyping = isTyping;
   $: if (isTyping !== lastTyping) { lastTyping = isTyping; typingActive = isTyping; }
 
-  // Conversation id changes (initial value loaded by the host on bind).
-  let lastConv = conversationId;
-  $: if (conversationId !== lastConv) {
-    lastConv = conversationId;
-    void host?.setConversationId(conversationId ?? null);
-  }
+  // Conversation id changes (initial value loaded by the host on bind). The host opens it, unless
+  // it is the conversation the chat already shows or is creating — the id handed back from
+  // `conversationCreated` while the first reply streams. Through a function, so the statement
+  // depends on the prop alone: it runs before mount (no host yet), then on each new value.
+  function followConversation(next: string | null) { void host?.syncConversationId(next ?? null); }
+  $: followConversation(conversationId);
 
   // Reconcile bubbles after the rendered list changes (host queries the DOM).
   $: if (host && internalMessages) { void tick().then(() => host?.syncBubbles()); }
@@ -292,6 +292,7 @@
   export function setConversationId(id: string | null): Promise<void> {
     return host?.setConversationId(id) ?? Promise.resolve();
   }
+  export function getConversationId(): string | null { return host?.getConversationId() ?? null; }
   export function scrollToBottom() {
     (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();
   }
@@ -322,7 +323,7 @@
     return {
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
-      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId, getConversationId,
       scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }

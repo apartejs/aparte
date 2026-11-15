@@ -99,7 +99,7 @@ describe('createAparteChat', () => {
         addSegment: true, updateSegment: true, removeSegment: true, appendToSegment: true,
         getMessages: true, clearMessages: true,
         addBranch: true, addSiblingOf: true, truncateFrom: true, truncateResponsesAfter: true,
-        injectTokenStream: true, stopTokenStream: true, setConversationId: true,
+        injectTokenStream: true, stopTokenStream: true, setConversationId: true, getConversationId: true,
         scrollToBottom: true, focusInput: true, isStreaming: true, getViewport: true,
         getElement: true, getComposer: true,
     } satisfies Record<keyof AparteChatImperativeApi, true>;

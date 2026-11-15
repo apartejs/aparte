@@ -264,7 +264,9 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     const [, setIsStreaming] = useState(false);
 
     const hostRef = useRef<AparteChatHost | null>(null);
-    const lastConvRef = useRef<string | null>(conversationId);
+    // The prop as the host last received it: an effect runs once on mount too, and the host
+    // took the first value at creation. Whether a NEW value is one to open is the host's call.
+    const conversationPropRef = useRef<string | null>(conversationId);
 
     // Keep the latest prop callbacks in a ref so the host's stable binding — and the
     // listeners below — always call the current handlers without recreating either.
@@ -331,11 +333,13 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
     // off internally on the first streamed token.
     useEffect(() => { setTypingActive(isTyping); }, [isTyping]);
 
-    // Conversation id changes (the initial value is loaded by the host on bind).
+    // Conversation id changes (the initial value is loaded by the host on bind). The host opens
+    // it, unless it is the conversation the chat already shows or is creating — the id handed
+    // back from `onConversationCreated` while the first reply streams.
     useEffect(() => {
-        if (conversationId === lastConvRef.current) return;
-        lastConvRef.current = conversationId;
-        void hostRef.current?.setConversationId(conversationId ?? null);
+        if (conversationId === conversationPropRef.current) return;
+        conversationPropRef.current = conversationId;
+        void hostRef.current?.syncConversationId(conversationId ?? null);
     }, [conversationId]);
 
     // A send from the composer makes the next auto-scroll, the one that brings the user's
@@ -405,6 +409,7 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
         injectTokenStream: (id, tokens) => hostRef.current?.streamTokens(id, tokens) ?? Promise.resolve(),
         stopTokenStream: () => hostRef.current?.stopTokenStream(),
         setConversationId: (id) => hostRef.current?.setConversationId(id) ?? Promise.resolve(),
+        getConversationId: () => hostRef.current?.getConversationId() ?? null,
         scrollToBottom: () => (viewportRef.current as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(),
         focusInput: () => (composerRef.current as unknown as { focus?: () => void })?.focus?.(),
         isStreaming: () => hostRef.current?.isStreaming ?? false,

@@ -374,10 +374,46 @@ export class AparteChatHost {
 
     // ── conversation ───────────────────────────────────────────────────────
 
-    /** Load / switch the active conversation via the controller. */
+    /**
+     * Load / switch the active conversation via the controller. The same id again re-reads
+     * it from the manager: this is the imperative call, the one that means "open this now".
+     * A `conversationId` prop goes through {@link syncConversationId}.
+     */
     setConversationId(id: string | null): Promise<void> {
         this._conversationId = id;
         return this._controller?.setConversationId(id) ?? Promise.resolve();
+    }
+
+    /**
+     * Follow a wrapper's `conversationId` prop: open `id`, unless it is the conversation this
+     * chat already shows or is creating.
+     *
+     * The documented pattern gives the created conversation back to the chat — the prop set
+     * from `onConversationCreated`, or bound to the manager's `activeId`, which names the new
+     * conversation before the creation even resolves. That id arrives while the first reply
+     * streams, and opening it then re-read a conversation the manager did not hold the reply
+     * of yet: the transcript was replaced under the stream. Compared with the controller, not
+     * with the last prop: the person opens other conversations from the list without the prop
+     * hearing of it.
+     */
+    syncConversationId(id: string | null): Promise<void> {
+        const controller = this._controller;
+        if (!controller) {
+            this._conversationId = id;
+            return Promise.resolve();
+        }
+        if (id === controller.activeId || (id !== null && id === controller.pendingId)) return Promise.resolve();
+        return this.setConversationId(id);
+    }
+
+    /**
+     * The conversation this chat shows: the one it opened, or the one its first message is
+     * creating; `null` for a chat with none yet. Per chat, which the manager's single
+     * `activeId` cannot say once several chats share it.
+     */
+    getConversationId(): string | null {
+        const controller = this._controller;
+        return controller ? controller.activeId ?? controller.pendingId : this._conversationId;
     }
 
     private _unbindController?: () => void;

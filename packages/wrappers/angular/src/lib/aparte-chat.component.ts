@@ -223,15 +223,16 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
             if (next.length === 0 && !this._emitted.has(next)) untracked(() => this._host?.clearRenderCache());
         });
 
-        // [conversationId] drives the host; an echo of the id the host already holds
-        // (e.g. the one it just created and reported) is a no-op.
+        // [conversationId] drives the host, which takes the first value when it is created. The
+        // host opens a new id, unless it is the conversation the chat already shows or is
+        // creating: the id handed back from (conversationCreated), or from
+        // `ConversationManagerService.activeId`, which names the new conversation before the
+        // chat holds it — both arrive while the first reply streams. Asked of the host, not of
+        // a copy kept here: an `aparte-conversation-select` or `setConversationId()` moves the
+        // chat without this input hearing of it.
         effect(() => {
             const next = this.conversationIdInput() ?? null;
-            untracked(() => {
-                if (next === this._conversationId) return;
-                this._conversationId = next;
-                if (this._host) void this._host.setConversationId(next);
-            });
+            untracked(() => { if (this._host) void this._host.syncConversationId(next); });
         });
 
         // The host touches the DOM and the custom elements: browser only, never in a server
@@ -397,7 +398,6 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      * mid-stream aborts the previous request; `null` deselects.
      */
     readonly conversationIdInput = input<string | null | undefined>(undefined, { alias: 'conversationId' });
-    private _conversationId: string | null = null;
 
     /**
      * Instance {@link AparteConfig} for this chat. When set, aparté components
@@ -501,11 +501,8 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
 
         this._host = new AparteChatHost(binding, {
             layoutTransitionMs: this.layoutTransitionMs(),
-            conversationId: this._conversationId,
-            onConversationCreated: (id) => {
-                this._conversationId = id;
-                this.conversationCreated.emit(id);
-            },
+            conversationId: this.conversationIdInput() ?? null,
+            onConversationCreated: (id) => this.conversationCreated.emit(id),
             config: this.config(),
         });
         this._unbindHost = this._host.bind();
@@ -637,6 +634,14 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      */
     setConversationId(id: string | null): Promise<void> {
         return this._host?.setConversationId(id) ?? Promise.resolve();
+    }
+
+    /**
+     * The conversation this chat shows: the one it opened, or the one its first message is
+     * creating; `null` before either. Per chat, unlike `ConversationManagerService.activeId`.
+     */
+    getConversationId(): string | null {
+        return this._host?.getConversationId() ?? null;
     }
 
     private _observableToAsyncIterable(stream: Observable<string>): AsyncIterable<string> {

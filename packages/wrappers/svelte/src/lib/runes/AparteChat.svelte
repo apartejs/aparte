@@ -116,13 +116,14 @@
     typingActive = isTyping;
   });
 
-  // The conversation id drives the host; the initial one is handed over at bind.
-  let lastConv = untrack(() => conversationId);
+  // The conversation id drives the host; the initial one is handed over at bind (this effect's
+  // first run comes before onMount's, with no host yet). The host opens a new id, unless it is the
+  // conversation the chat already shows or is creating: the id handed back from
+  // `onconversationCreated`, or from `createConversations().activeId`, which names the new
+  // conversation before the chat holds it — both arrive while the first reply streams.
   $effect(() => {
     const next = conversationId;
-    if (next === lastConv) return;
-    lastConv = next;
-    untrack(() => { void host?.setConversationId(next ?? null); });
+    untrack(() => { void host?.syncConversationId(next ?? null); });
   });
 
   // The bubbles are rendered by this template; the host reconciles them after each change.
@@ -239,6 +240,7 @@
   }
   export function stopTokenStream() { host?.stopTokenStream(); }
   export function setConversationId(next: string | null): Promise<void> { return host?.setConversationId(next) ?? Promise.resolve(); }
+  export function getConversationId(): string | null { return host?.getConversationId() ?? null; }
   export function scrollToBottom() { (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(); }
   /** The `<aparte-chat-viewport>` element — the same accessor on all four wrappers. */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
@@ -259,7 +261,7 @@
     return {
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
-      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId, getConversationId,
       scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }
