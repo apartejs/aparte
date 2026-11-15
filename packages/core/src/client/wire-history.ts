@@ -264,7 +264,13 @@ const FAILS_AGAIN: ReadonlySet<string> = new Set([
  * the model is not shown.
  */
 function failedForGood(reply: AparteMessage, asked: readonly AparteMessage[]): boolean {
-    const code = [...(reply.segments ?? [])].reverse().find((s): s is AparteErrorSegment => s.type === 'error')?.code;
+    // The last error segment's code, read from the end without copying the array.
+    const segments = reply.segments ?? [];
+    let code: string | undefined;
+    for (let i = segments.length - 1; i >= 0; i--) {
+        const s = segments[i]!;
+        if (s.type === 'error') { code = (s as AparteErrorSegment).code; break; }
+    }
     if (code !== undefined && FAILS_AGAIN.has(code)) return true;
     return asked.some((m) => (m.attachments?.length ?? 0) > 0);
 }
