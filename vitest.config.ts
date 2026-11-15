@@ -216,7 +216,7 @@ const config = defineConfig({
         'packages/core/src/**': { lines: 95, statements: 95, functions: 96, branches: 92 },
         'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 95 },
         'packages/locales/all/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
-        'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
+        'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 95, branches: 95 },
         'packages/plugins/artifacts/src/**': { lines: 93, statements: 93, functions: 96, branches: 84 },
         'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 94, branches: 87 },
         // plugin-cards (2026-10-31): measured 99.07 / 94.87 / 98.84 over the kit and eleven cards.
@@ -225,7 +225,7 @@ const config = defineConfig({
         'packages/plugins/chartjs/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         'packages/plugins/compaction/src/**': { lines: 97, statements: 97, functions: 97, branches: 93 },
         // plugin-diff (2026-11-14): measured 98.97 / 91.62 / 97.84 when the package landed.
-        'packages/plugins/diff/src/**': { lines: 98, statements: 98, functions: 96, branches: 90 },
+        'packages/plugins/diff/src/**': { lines: 98, statements: 98, functions: 98, branches: 92 },
         // plugin-echarts (2026-10-31): measured 99.74 / 95.27 / 97.37 on a stand-in ECharts.
         'packages/plugins/echarts/src/**': { lines: 99, statements: 99, functions: 97, branches: 94 },
         // plugin-katex (2026-10-27): measured 100 / 91.48 / 100 on the real KaTeX.
@@ -233,7 +233,7 @@ const config = defineConfig({
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
         'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 85 },
-        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 85 },
+        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 89 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-subagents (2026-11-12): measured 100 / 92.99 / 98.48 when the package landed;
@@ -241,7 +241,7 @@ const config = defineConfig({
         'packages/plugins/subagents/src/**': { lines: 99, statements: 99, functions: 98, branches: 91 },
         'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-triggers (2026-11-09): the menu's placement needs a real layout, proved in e2e.
-        'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 92, branches: 88 },
+        'packages/plugins/triggers/src/**': { lines: 96, statements: 96, functions: 94, branches: 90 },
         // Measured 2026-11-01 when the package landed: 100 lines, 92.2 branches, 94.1 functions.
         'packages/plugins/storage-idb/src/**': { lines: 99, statements: 99, functions: 92, branches: 91 },
         // runner-ag-ui (2026-10-11): measured 98.79 / 100 / 85.71 with the review's tests and the wire's.
