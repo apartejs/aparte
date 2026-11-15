@@ -8,7 +8,7 @@
 
 Giving a chat back the conversation it just created (`conversationId` set from `onConversationCreated`, or bound to the conversation manager's `activeId`) no longer reloads it in the middle of the first reply. New: `getConversationId()` on every `<AparteChat>` says which conversation that chat shows.
 
-Nothing to change in your code; the pattern the conversation persistence guide documents now works as written:
+Do you have to touch your code? Only if a class of yours implements `AparteChatImperativeApi`: add `getConversationId()`. Otherwise nothing changes; the pattern the conversation persistence guide documents now works as written:
 
 ```tsx
 const [conversationId, setConversationId] = useState<string | null>(null);

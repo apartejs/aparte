@@ -76,8 +76,8 @@ export interface AparteToolApprovalRequestDetail {
     input: Record<string, unknown>;
     /** The sub-agent whose call this is; absent for the reply's own. */
     agentId?: string;
-    /** The reply the call belongs to. */
-    messageId: string;
+    /** The reply the call belongs to. Always set by core; optional so a detail built by hand still compiles. */
+    messageId?: string;
     /** The conversation the turn belongs to, as it was when the person acted. Absent when the chat has none. */
     conversationId?: string;
 }
