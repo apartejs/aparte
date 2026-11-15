@@ -22,7 +22,7 @@
  * `intHomeScore`) and what a model writes by hand — and `map` says the rest.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, webUrl } from '../kit/dom.js';
 import { formatDay, formatHour, formatNumber, toDate } from '../kit/format.js';
 import { intlTag, word, type CardWord } from '../kit/strings.js';
@@ -1281,7 +1281,7 @@ function createScoreCard(settings: Settings) {
 export const scoreCard = createScoreCard({ now: () => new Date() });
 
 /** Draw a tool's matches as this card — returns the function that stops it. */
-export function setupScoreCard(options: ScoreCardOptions = {}): () => void {
+export function setupScoreCard(options: ScoreCardOptions = {}): CardSetupHandle {
     const { now, ...rest } = options;
     return createScoreCard({ now: now ?? (() => new Date()) }).setup(rest);
 }

@@ -45,7 +45,7 @@
  * for anything longer.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, webUrl } from '../kit/dom.js';
 import { currencyCode, formatHour, formatNumber, formatWhen, toDate } from '../kit/format.js';
 import { sparkline } from '../kit/sparkline.js';
@@ -802,6 +802,7 @@ function rangesOf(ctx: CardContext, quote: Quote): HTMLElement | null {
         label: () => word(ctx.config, 'cardsStockRange', S.cardsStockRange),
     });
     if (!group) return null;
+    group.classList.add('aparte-segmented--block');
     // "1M" on the button, "1 month" to a screen reader.
     group.querySelectorAll('button').forEach((button, i) => ctx.bind(button, () => rangeText(ctx.config, ranges[i]!), 'aria-label'));
     return el('div', { class: 'aparte-stock__ranges' }, group);
@@ -943,6 +944,6 @@ export const stockCard = defineCard<StockData, StockVariant>({
 });
 
 /** Draw a tool's quotes as this card — returns the function that stops it. */
-export function setupStockCard(options: CardSetupOptions<StockData, StockVariant> = {}): () => void {
+export function setupStockCard(options: CardSetupOptions<StockData, StockVariant> = {}): CardSetupHandle {
     return stockCard.setup(options);
 }

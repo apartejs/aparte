@@ -18,7 +18,7 @@
  * covers the rest.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str, webUrl } from '../kit/dom.js';
 import { currencyCode, formatNumber, formatPrice, readPriceText, toDate } from '../kit/format.js';
 import { intlTag, word, type CardWord } from '../kit/strings.js';
@@ -1245,6 +1245,6 @@ export const orderCard = defineCard<OrderData, OrderVariant>({
 });
 
 /** Draw a tool's order or booking as this card — returns the function that stops it. */
-export function setupOrderCard(options: CardSetupOptions<OrderData, OrderVariant> = {}): () => void {
+export function setupOrderCard(options: CardSetupOptions<OrderData, OrderVariant> = {}): CardSetupHandle {
     return orderCard.setup(options);
 }

@@ -23,7 +23,7 @@
  */
 import type { AparteConfig } from '@aparte/core';
 import { carousel } from '../kit/carousel.js';
-import { defineCard, type CardAction, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardAction, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, safeUrl, str, webUrl } from '../kit/dom.js';
 import { formatNumber } from '../kit/format.js';
 import { intlTag, languageOf, word, type CardWord } from '../kit/strings.js';
@@ -361,6 +361,6 @@ export const itemsCard = defineCard<ItemsData, ItemsVariant>({
 });
 
 /** Draw a tool's list of things as this card — returns the function that stops it. */
-export function setupItemsCard(options: CardSetupOptions<ItemsData, ItemsVariant> = {}): () => void {
+export function setupItemsCard(options: CardSetupOptions<ItemsData, ItemsVariant> = {}): CardSetupHandle {
     return itemsCard.setup(options);
 }

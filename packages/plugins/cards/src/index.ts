@@ -23,6 +23,7 @@ export type {
     CardContext,
     CardDefinition,
     CardOrigin,
+    CardSetupHandle,
     CardSetupOptions,
 } from './kit/define.js';
 export { el, glyph, safeUrl, webUrl, num, str } from './kit/dom.js';

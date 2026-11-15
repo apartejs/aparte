@@ -440,6 +440,22 @@ setupWeatherCard({
 });
 ```
 
+### When the buttons depend on the page
+
+`actions` is asked once for each card, as it is drawn. When what it reads changes later (the person signs in, an item is saved), ask again: what `setup` returns is the function that takes the card off, and it also carries `refresh()`, which runs `actions(data, { origin })` again for every card of that setup still on the page and draws the buttons it returns, in place. The card, its controls and the focus stay as they are; a card that already left the page is not touched.
+
+```ts
+let signedIn = false;
+const weather = setupWeatherCard({
+  tool: 'get_weather',
+  actions: () => [signedIn ? { label: 'Save place', id: 'save' } : { label: 'Sign in to save', id: 'sign-in' }],
+});
+
+signedIn = true;
+weather.refresh();   // the buttons on screen now say "Save place"
+weather();           // takes the card off, as before
+```
+
 ## Cards that change in place
 
 A card can carry controls: the stock card's range buttons over its chart, a switch, a slider.

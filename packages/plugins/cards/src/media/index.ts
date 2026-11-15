@@ -22,7 +22,7 @@
  */
 import type { AparteConfig } from '@aparte/core';
 import { carousel } from '../kit/carousel.js';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, safeUrl, str, webUrl, type Loose } from '../kit/dom.js';
 import { formatNumber, formatUnit } from '../kit/format.js';
 import { KIT_WORDS, word, type CardWord } from '../kit/strings.js';
@@ -794,6 +794,6 @@ export const mediaCard = defineCard<MediaData, MediaVariant>({
 });
 
 /** Draw a tool's media as this card — returns the function that stops it. */
-export function setupMediaCard(options: MediaCardOptions = {}): () => void {
+export function setupMediaCard(options: MediaCardOptions = {}): CardSetupHandle {
     return mediaCard.setup(options);
 }

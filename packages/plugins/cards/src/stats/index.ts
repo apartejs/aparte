@@ -29,7 +29,7 @@
  * A `percent` figure's value follows the same rule.
  */
 import type { AparteConfig } from '@aparte/core';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, str } from '../kit/dom.js';
 import { currencyCode, formatNumber, formatUnit, formatWhen, toDate } from '../kit/format.js';
 import { sparkline } from '../kit/sparkline.js';
@@ -724,6 +724,6 @@ export const statsCard = defineCard<StatsData, StatsVariant>({
 });
 
 /** Draw a tool's key figures as this card — returns the function that stops it. */
-export function setupStatsCard(options: CardSetupOptions<StatsData, StatsVariant> = {}): () => void {
+export function setupStatsCard(options: CardSetupOptions<StatsData, StatsVariant> = {}): CardSetupHandle {
     return statsCard.setup(options);
 }

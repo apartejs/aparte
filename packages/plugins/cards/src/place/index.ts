@@ -21,7 +21,7 @@
  */
 import type { AparteConfig } from '@aparte/core';
 import { carousel } from '../kit/carousel.js';
-import { defineCard, type CardContext, type CardSetupOptions } from '../kit/define.js';
+import { defineCard, type CardContext, type CardSetupHandle, type CardSetupOptions } from '../kit/define.js';
 import { el, glyph, num, safeUrl, str, type Loose } from '../kit/dom.js';
 import { formatNumber, formatUnit } from '../kit/format.js';
 import { rating } from '../kit/rating.js';
@@ -1129,7 +1129,7 @@ export const placeCard = createPlaceCard({ builtIns: true, currencySymbol: '$', 
  * its Directions / Call / Website buttons beside the app's own `actions` unless `builtIns`
  * is `false`.
  */
-export function setupPlaceCard(options: PlaceCardOptions = {}): () => void {
+export function setupPlaceCard(options: PlaceCardOptions = {}): CardSetupHandle {
     const { currencySymbol, now, builtIns, mapTiles, mapAttribution, mapZoom, ...rest } = options;
     const tiles = str(mapTiles);
     const card = createPlaceCard({
