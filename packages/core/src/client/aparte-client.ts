@@ -7,10 +7,10 @@ import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
-import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
+import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { chatIdOf } from '../interop/chat-events.js';
-import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
+import type { AparteStreamRunner, AparteStreamRunEmitter, AparteStreamRunOptions, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment, AparteToolCallSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool, AparteApprovalRuling, AparteToolRun, AparteTurnContext } from '../types/tools.js';
@@ -839,6 +839,11 @@ export class AparteClient {
              * resume of a pause included.
              */
             conversationId?: string;
+            /**
+             * The person's message this turn answers, as it was sent — for a runner whose agent
+             * keeps its own memory (see `StreamRunOptions.userMessage`). Every run of the turn.
+             */
+            userMessage?: AparteStreamRunOptions['userMessage'];
             /** The sub-agents a resumed pause already named, by `agentId`: its run announces them no more. */
             agentNames?: ReadonlyMap<string, string>;
         },
@@ -960,7 +965,7 @@ export class AparteClient {
         const runOnce = async (): Promise<void> => {
             let result: AparteRunResult = opts?.resume
                 ? { usage: undefined, suspended: opts.resume }
-                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files, opts?.conversationId);
+                : await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController, undefined, opts?.files, opts?.conversationId, opts?.userMessage);
             // A server loop paused on calls only the page can answer: ask here — the
             // panel, the policy, a browser tool — then run again with the answers, into
             // the same bubble, under the same controller. The turn's lifecycle events
@@ -1013,7 +1018,7 @@ export class AparteClient {
                     targetElement, messageId, provider,
                     { ...baseRequest, messages },
                     authConfig, streamController, deferral,
-                    undefined, opts?.conversationId,
+                    undefined, opts?.conversationId, opts?.userMessage,
                 );
             }
             const usage = result.usage;
@@ -1210,13 +1215,16 @@ export class AparteClient {
         // sent only by a provider that decodes greedily without one. (`request.seed`
         // stays untouched: it is the caller's reproducibility knob, and writing one
         // here would defeat it.)
+        // The message this turn answers: the one retried, or the one the retried reply answered.
+        const asked = [...historyMessages].reverse().find((m) => m.role === 'user');
         await this._streamTurn(
             targetElement, newMessageId, provider,
             [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
-                ...this._turnMeta([...historyMessages].reverse().find((m) => m.role === 'user')),
+                ...this._turnMeta(asked),
                 ...(conversationId ? { conversationId } : {}),
+                ...(asked ? { userMessage: { content: messageWireText(asked), messageId: asked.id } } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1316,6 +1324,10 @@ export class AparteClient {
             authConfig, {
                 ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
                 ...(conversationId ? { conversationId } : {}),
+                userMessage: {
+                    content: editIdx >= 0 ? messageWireText(allMessages[editIdx]!) : String(newContent),
+                    messageId,
+                },
                 rebuild: async () => [
                     ...this._systemMessages(),
                     ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
@@ -1624,6 +1636,9 @@ export class AparteClient {
             });
             if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
         }
+        // The message just sent, as the chat shows it: the last one, whoever echoed it.
+        const shown = targetElement.getMessages?.().at(-1);
+        const sentId = shown?.role === 'user' ? shown.id : undefined;
 
         const messageId = uuid();
         const config = this._config.getModelConfig();
@@ -1701,6 +1716,7 @@ export class AparteClient {
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
                 ...this._turnMeta(event.detail),
                 ...(conversationId ? { conversationId } : {}),
+                userMessage: { content: this._userContent(content, fileParts), ...(sentId ? { messageId: sentId } : {}) },
             },
         );
     }
@@ -1721,13 +1737,15 @@ export class AparteClient {
             messages.push(...historyOption(viewportMessages));
         }
 
-        const userMsg: AparteChatMessage['content'] = (parts && parts.length > 0)
-            ? [{ type: 'text' as const, text: userContent }, ...parts]
-            : userContent;
-        messages.push({ role: 'user', content: userMsg });
+        messages.push({ role: 'user', content: this._userContent(userContent, parts) });
         // Applied once, to the final array: the history may end on a user turn (a failed
         // one, a compaction summary) that the new message now sits right after.
         return mergeAdjacentUserMessages(messages);
+    }
+
+    /** The message being sent, as the request carries it: the text, then the files inlined as parts. */
+    private _userContent(text: string, parts?: AparteContentPart[]): AparteChatMessage['content'] {
+        return parts && parts.length > 0 ? [{ type: 'text' as const, text }, ...parts] : text;
     }
 
     private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
@@ -1853,6 +1871,8 @@ export class AparteClient {
         files?: readonly File[],
         // The conversation the turn belongs to — on a resume as on the first run.
         conversationId?: string,
+        // The person's message the turn answers, as it was sent.
+        userMessage?: AparteStreamRunOptions['userMessage'],
     ): Promise<AparteRunResult> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1892,7 +1912,7 @@ export class AparteClient {
         // shapes, one per copy, invisible to a parity suite precisely because they
         // differed. One loop, one shape.
         const runner = this.options.streamRunner ?? runStreamAgent;
-        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files, conversationId);
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController, deferral, files, conversationId, userMessage);
     }
 
     /**
@@ -1915,6 +1935,7 @@ export class AparteClient {
         deferral?: StreamDeferral,
         files?: readonly File[],
         conversationId?: string,
+        userMessage?: AparteStreamRunOptions['userMessage'],
     ): Promise<AparteRunResult> {
         const signal = streamController.signal;
 
@@ -2049,6 +2070,7 @@ export class AparteClient {
             ...(deferral ? { deferral } : {}),
             ...(files && files.length > 0 ? { files } : {}),
             ...(conversationId ? { conversationId } : {}),
+            ...(userMessage ? { userMessage } : {}),
             baseRequest,
             transportCall,
             toolLookup,

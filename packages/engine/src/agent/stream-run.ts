@@ -190,6 +190,20 @@ export interface StreamRunOptions {
      */
     conversationId?: string;
     /**
+     * The person's message this run answers, as it was sent this turn: the text typed on a
+     * send (with the files the client inlined, as parts), the retried message on a retry, the
+     * new text on an edit. `messageId` is that message's id in the chat, when the chat has it.
+     * Left out on the resume of a pause saved in a conversation, which answers no new message.
+     * Opaque to the loop, like `conversationId`.
+     *
+     * It is not always the last user message of `baseRequest.messages`. That history is the
+     * model's, and after a turn that failed on the way the client joins the failed message to
+     * the next one, so a model that reads the whole history hears both. A runner whose agent
+     * keeps its own memory and is sent only the new message (n8n's Chat Trigger) reads this
+     * instead, or it sends the failed message a second time.
+     */
+    userMessage?: { content: StreamAgentMessage['content']; messageId?: string };
+    /**
      * The files the person attached to the message this run answers, as they were
      * picked. Opaque to the loop, like `providerId`: a runner that sends the turn
      * elsewhere and uploads files itself needs them (n8n's Chat Trigger takes them as
