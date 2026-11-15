@@ -26,12 +26,13 @@ export interface SegmentedOptions {
 /** A row of choices, one pressed (`aria-pressed`). `null` when nothing would answer it. */
 export function segmented(ctx: CardContext, { name, options, value, label }: SegmentedOptions): HTMLElement | null {
     if (!ctx.live || options.length === 0) return null;
-    const group = el('div', { class: 'aparte-segmented aparte-segmented--sm', attrs: { role: 'group' } });
+    // The recipe draws it; the card's own names stay on it, so a stylesheet written against them still finds it.
+    const group = el('div', { class: 'aparte-segmented aparte-segmented--sm aparte-rich-card__segmented', attrs: { role: 'group' } });
     if (label) ctx.bind(group, label, 'aria-label');
     for (const option of options) {
         const pressed = option.value === value;
         const button = el('button', {
-            class: 'aparte-segmented__item',
+            class: 'aparte-segmented__item aparte-rich-card__segment',
             attrs: { type: 'button', 'aria-pressed': pressed ? 'true' : 'false', 'data-card-key': `${name}:${option.value}` },
         });
         if (typeof option.label === 'function') ctx.bind(button, option.label);
