@@ -189,7 +189,8 @@ export class AparteSuggestions extends HTMLElement {
         window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (!this.isConnected) return;
         if (name === 'suggestions') {
             this._readAttribute();
@@ -328,6 +329,14 @@ export class AparteSuggestions extends HTMLElement {
     }
 
     private _render(): void {
+        // Drawn again on every assignment, and a wrapper assigns on every render of the app around
+        // it: the chip the keyboard was on keeps the focus (the chip with the same text, else the
+        // one at its place), and the row its scroll.
+        const was = this.querySelector<HTMLElement>('.aparte-suggestions');
+        const chips = was ? [...was.querySelectorAll<HTMLElement>('.aparte-suggestion')] : [];
+        const focused = chips.findIndex((chip) => chip === document.activeElement);
+        const focusedText = focused >= 0 ? chips[focused]!.textContent : null;
+        const scroll = was?.scrollLeft ?? 0;
         this.replaceChildren();
         if (this._suggestions.length === 0) {
             this.setAttribute('data-empty', '');
@@ -350,6 +359,10 @@ export class AparteSuggestions extends HTMLElement {
             row.appendChild(button);
         }
         this.appendChild(row);
+        row.scrollLeft = scroll;
+        if (focused < 0) return;
+        const next = [...row.children] as HTMLElement[];
+        (next.find((chip) => chip.textContent === focusedText) ?? next[Math.min(focused, next.length - 1)])?.focus();
     }
 
     private _sending = false;
