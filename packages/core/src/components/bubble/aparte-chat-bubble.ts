@@ -2552,7 +2552,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       const written = a.display === 'label' || a.display === 'both' || icon === '';
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `aparte-btn${written ? '' : ' aparte-btn--icon'} aparte-btn--sm aparte-action-btn aparte-action-custom`;
+      btn.className = 'aparte-btn aparte-btn--sm aparte-action-btn aparte-action-custom';
+      if (!written) btn.classList.add('aparte-btn--icon');
       btn.dataset['action'] = `custom:${a.id}`;
       btn.innerHTML = icon;
       if (written) {
