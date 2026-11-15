@@ -134,6 +134,7 @@ describe('@aparte/core public API', () => {
             "toolRefusal",
             "unregisterSegmentRenderer",
             "uuid",
+            "withoutAbandonedTurns",
           ]
         `);
     });

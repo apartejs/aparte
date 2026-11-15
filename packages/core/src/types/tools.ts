@@ -5,7 +5,7 @@
 
 import type { AparteToolCallSegment } from './segments.js';
 import type { AparteIconName } from '../config/icon-provider.js';
-import type { StreamToolRun } from '@aparte/engine';
+import type { AparteTurnContext as StreamTurnContext, StreamToolRun } from '@aparte/engine';
 
 /** Definition of a tool the AI can call */
 export interface AparteTool {
@@ -76,7 +76,25 @@ export interface AparteToolApprovalRequestDetail {
     input: Record<string, unknown>;
     /** The sub-agent whose call this is; absent for the reply's own. */
     agentId?: string;
+    /** The reply the call belongs to. */
+    messageId: string;
+    /** The conversation the turn belongs to, as it was when the person acted. Absent when the chat has none. */
+    conversationId?: string;
 }
+
+/**
+ * The turn a callback is called for: `{ conversationId, messageId, targetId }` — the
+ * conversation open in the chat when the person acted (absent when it has none), the reply
+ * the turn writes into, the chat's id. Handed to `approvalResolver`, an approval policy and
+ * `requestInterceptor`, and on the server to `approvalPolicy` and `prepareRequest`
+ * (`{ messageId, conversationId }`, as the page sent them). Engine's type, under core's name.
+ *
+ * @example
+ * new AparteClient({
+ *   approvalResolver: (call, signal, { conversationId }) => cards.ask(conversationId, call, signal),
+ * });
+ */
+export type AparteTurnContext = StreamTurnContext;
 
 /** A tool call emitted by the AI during streaming */
 export interface AparteToolCall {
@@ -110,10 +128,18 @@ export interface AparteApprovalRuling {
  *
  * Pure and synchronous: it is evaluated once to decide whether the call pauses at all
  * (so an allowed call never flashes "awaiting approval") and once to answer.
+ *
+ * The third argument is the turn — `{ conversationId, messageId, targetId }` — for a rule
+ * that depends on the conversation (a workspace that allows writes in one project only).
  */
 export type AparteApprovalPolicy = (
     call: AparteToolCall,
     tool: AparteTool | undefined,
+    /**
+     * The turn the call belongs to — its conversation, its reply, its chat. Absent when the
+     * call is ruled outside a turn (`config.ruleOnToolCall(call)` called by hand).
+     */
+    turn?: AparteTurnContext,
 ) => AparteApprovalRuling | undefined;
 
 /** Result returned after a tool handler resolves */

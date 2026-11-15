@@ -48,9 +48,9 @@ the first signing and all verifying.
 
 | Option | What it does |
 | --- | --- |
-| `approvalPolicy` | rules on each call, as `setApprovalPolicy` does in the page |
+| `approvalPolicy(call, tool, turn)` | rules on each call, as `setApprovalPolicy` does in the page; `turn` is `{ messageId, conversationId }`, as the page sent them |
 | `clientTools` | whether the page's own tools are accepted: `true` (the default), `false`, or a list of names |
-| `prepareRequest(request, req)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it |
+| `prepareRequest(request, req, turn)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it. `turn` is `{ messageId, conversationId }`, as the page sent them |
 | `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
 | `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default; a tool's own `maxTurns` applies too |
 | `parallelTools` | run together the calls of one reply whose tools say `parallel: true`, `true` by default; `false` runs every call one after another |
@@ -213,6 +213,44 @@ The id comes from the browser: it names a conversation and proves nothing about 
 journal opened by it, a file named after it, a row keyed on it — check first, against who is
 calling, that they may. With a route per conversation, `authorize` sees the route and can answer
 before anything runs.
+
+### After a failed turn
+
+A server that compares the history it is sent with its own journal, to tell a new message from a
+retry or an edit, can rely on one rule: each request starts with the messages of the request
+before it. A turn that failed changes the history once, in the next request, and never again.
+
+What it changes depends on the code of the turn's error, the one the reply's error segment carries
+(`AparteErrorSegment.code`):
+
+- **The same request could get past it** — the network, a 5xx, a rate limit, a key, a Stop before
+  the first token: the message that failed is kept, and the next request sends it joined to the
+  new message, with a blank line between them. The failed reply itself is never sent.
+- **The same request would fail again** — `USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
+  `USAGE_BAD_REQUEST`: the message is left out of every later request, with every message that went
+  out with it, or the conversation could not go on.
+- **The message carried files**: it is left out too. The history sends a message's text and never
+  the files a send read, so the next request would ask about a file the model is not shown.
+
+The person sends U1 and the turn fails on the network, then sends U2, then U3:
+
+```ts
+// The messages of the request for U2:
+const forU2 = [{ role: 'user', content: 'U0' }, { role: 'assistant', content: 'A0' }, { role: 'user', content: 'U1\n\nU2' }];
+// The request for U3 starts with them:
+const forU3 = [...forU2, { role: 'assistant', content: 'A2' }, { role: 'user', content: 'U3' }];
+```
+
+Had U1 failed with `PROVIDER_POLICY`, the request for U2 would end on `{ role: 'user', content: 'U2' }`.
+Send, retry, edit and the resume of a paused turn follow the same rule, and so do the context gauge
+and a compaction. `withoutAbandonedTurns`, from `@aparte/core`, applies it to a transcript:
+
+```ts
+import { withoutAbandonedTurns, type AparteMessage } from '@aparte/core';
+
+declare const transcript: AparteMessage[];
+const stillSent = withoutAbandonedTurns(transcript); // the messages a later request still sends
+```
 
 ## Approvals across the network
 

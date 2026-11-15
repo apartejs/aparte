@@ -165,6 +165,15 @@ export interface AparteElicitationRequest {
      */
     allowOther?: boolean;
     /**
+     * The conversation the request belongs to: the one open in the chat when the person
+     * acted, which a presenter of the app's own files the request under. Core's approval
+     * question carries it, and so does a tool handler that passes its context's
+     * `conversationId`. Absent when the chat has none.
+     */
+    conversationId?: string;
+    /** The reply the request belongs to, when a turn asks it — core's approval question carries it. */
+    messageId?: string;
+    /**
      * Aborts the request — the panel closes and the promise REJECTS with
      * {@link AparteElicitationAbortError}. Pass a tool handler's signal so a
      * client-side timeout or a stopped turn tears the panel down instead of leaving

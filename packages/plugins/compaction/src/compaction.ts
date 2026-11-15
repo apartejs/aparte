@@ -33,7 +33,7 @@
  */
 
 import {
-    aparteGlobalConfig, contentToText, estimateWireTokens, historyFromCheckpoint, measureContext, resolveConfig,
+    aparteGlobalConfig, contentToText, estimateWireTokens, historyFromCheckpoint, measureContext, resolveConfig, withoutAbandonedTurns,
     type AparteConfig, type AparteMessage, type AparteChatMessage, type AparteChatRequest, type AparteStreamEvent,
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
     type AparteCollectCommandsEventDetail, type AparteCompactEventDetail, type AparteCompactStartEventDetail, type AparteCompactor,
@@ -373,23 +373,39 @@ const inFlight = (message: AparteMessage): boolean => message.status === 'stream
 function defaultSelector(
     config: AparteConfig, keepWithoutWindow: number, windowOf: () => number | undefined,
 ): (messages: AparteMessage[], limits?: CompactionLimits) => CompactionSelection<AparteMessage> {
+    // The messages of the list being selected that a request still sends: one whose reply
+    // failed for good is in none (core's `withoutAbandonedTurns`), so it weighs nothing.
+    let sent: ReadonlySet<AparteMessage> | undefined;
     const budgeted: CompactionSelector = createCompactionSelector({
         contextWindow: windowOf,
         systemPrompt: () => config.resolveSystemPrompt(),
         tools: () => config.getTools(),
-        estimate: (message: CompactableMessage) => estimateWireTokens([message as AparteMessage]),
+        estimate: (message: CompactableMessage) =>
+            (sent && !sent.has(message as AparteMessage) ? 0 : estimateWireTokens([message as AparteMessage])),
     });
     return (messages, limits) => {
-        if (windowOf()) return budgeted(messages, limits);
+        if (windowOf()) {
+            sent = new Set(withoutAbandonedTurns(messages));
+            try {
+                return budgeted(messages, limits);
+            } finally {
+                sent = undefined;
+            }
+        }
         const cut = Math.max(0, messages.length - keepWithoutWindow);
         return { keep: messages.slice(cut), drop: messages.slice(0, cut) };
     };
 }
 
-/** The turns that reach the summariser: the dropped ones as transcript lines, minus what is in flight or says nothing. */
-const summarisable = (drop: AparteMessage[]): AparteChatMessage[] =>
+/**
+ * The turns that reach the summariser: the dropped ones as transcript lines, minus what is in
+ * flight, what says nothing, and what no request sends any more (`sent`, from core's
+ * `withoutAbandonedTurns` over the whole view: whether a message is abandoned is decided by a
+ * reply that can sit past the cut).
+ */
+const summarisable = (drop: AparteMessage[], sent?: ReadonlySet<AparteMessage>): AparteChatMessage[] =>
     drop
-        .filter((m) => !inFlight(m))
+        .filter((m) => !inFlight(m) && (!sent || sent.has(m)))
         .map((m) => ({ role: m.role, content: transcriptForSummary(m) }))
         .filter((m) => contentToText(m.content).length > 0);
 
@@ -462,7 +478,8 @@ const withSummarySoFar = (turns: AparteChatMessage[], summary: string): AparteCh
  * on an assistant turn, which meant a host appending its own messages (no `status` at
  * all — the shape the docs teach) had its replies kept out of the summary without ever
  * reaching the summariser. A turn that ended in an error is summarised too: the user
- * read it, and the model should know it happened.
+ * read it, and the model should know it happened — unless it failed for good (too long,
+ * refused by a policy): no request sends it any more, and neither does the summary.
  */
 function buildRequest(
     turns: AparteChatMessage[], summarySoFar: string | undefined, prompt: string, modelId: string, maxTokens: number,
@@ -581,13 +598,14 @@ function summaryAnswerCap(config: AparteConfig, contextWindow: number | undefine
  */
 function fitOldest(
     drop: AparteMessage[], prompt: string, contextWindow: number, maxTokens: number, baseTokens: number, scale: number,
+    sent?: ReadonlySet<AparteMessage>,
 ): number {
     const room = contextWindow - maxTokens - DEFAULT_COMPACTION_CONFIG.reservedThinking - DEFAULT_COMPACTION_CONFIG.safetyMargin;
     // `scale` is how far the heuristic undercounts this conversation, so the request is priced
     // in the tokens the model will count, the way the selection is.
     let used = scale * (estimateTokens(askFor(prompt, baseTokens > 0)) + baseTokens);
     for (let i = 0; i < drop.length; i++) {
-        used += scale * summarisable([drop[i]!]).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
+        used += scale * summarisable([drop[i]!], sent).reduce((sum, m) => sum + estimateTokens(contentToText(m.content)), 0);
         if (used > room) return i;
     }
     return drop.length;
@@ -598,6 +616,8 @@ interface Plan {
     target: CompactionTarget;
     /** Summarised by this compaction, oldest first. */
     drop: AparteMessage[];
+    /** The messages of the view a request still sends (`withoutAbandonedTurns`): what the summary may read. */
+    sent: ReadonlySet<AparteMessage>;
     /** The first message kept — a user message, the one the checkpoint will sit on. */
     holder: AparteMessage;
     /** The summary the previous checkpoint holds, and how many messages it stands for. */
@@ -874,6 +894,10 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             ? { summary: holderOfPrevious.contextSummary.summary, count: holderOfPrevious.contextSummary.count }
             : undefined;
         const view = checkpointed.messages.filter((m) => !exclude.has(m.id));
+        // What a request still sends of it: a message whose reply failed for good is in none,
+        // so the summary does not read it either. Over the whole view, since the reply that
+        // decides it can sit past the cut.
+        const sent: ReadonlySet<AparteMessage> = new Set(withoutAbandonedTurns(view));
 
         // How far the heuristic undercounts this conversation: the selection, the summary
         // request and the room for the turn being prepared are all priced with it, in the
@@ -911,7 +935,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         const baseTokens = base ? estimateTokens(base.base) : 0;
         // Your own `summarize` is not trimmed to the window — the sizing is yours.
         const fit = (n: number): number =>
-            contextWindow && !options.summarize ? fitOldest(view.slice(0, n), prompt, contextWindow, maxTokens, baseTokens, scale) : n;
+            contextWindow && !options.summarize ? fitOldest(view.slice(0, n), prompt, contextWindow, maxTokens, baseTokens, scale, sent) : n;
 
         // The turns that do not fit the summary request are not summarised now, not lost: they
         // stay verbatim after the checkpoint, and the next compaction takes them.
@@ -937,7 +961,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         return {
             kind: 'plan',
             plan: {
-                target, drop, holder, ...(previous ? { previous } : {}),
+                target, drop, sent, holder, ...(previous ? { previous } : {}),
                 ...(holderOfPrevious ? { previousHolderId: holderOfPrevious.id } : {}),
                 firstRequest, maxTokens, prompt,
             },
@@ -1005,7 +1029,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             if (planned.messageId) messageId = planned.messageId;
             return fail(planned.error);
         }
-        const { target, drop, holder, previous, previousHolderId, firstRequest, maxTokens, prompt } = planned.plan;
+        const { target, drop, sent, holder, previous, previousHolderId, firstRequest, maxTokens, prompt } = planned.plan;
         messageId = holder.id;
         // The same range twice is the loop the hysteresis exists to prevent.
         const range = `${drop[0]!.id}..${drop[drop.length - 1]!.id}`;
@@ -1027,7 +1051,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
         // the first request we appended to it (see above): it would copy the block into its
         // own answer, and the block would be there twice.
         const summarySoFar = previous ? splitFirstRequest(previous.summary).base : undefined;
-        const turns = alternating(summarisable(drop));
+        const turns = alternating(summarisable(drop, sent));
         // Nothing to read: the turns being summarised say nothing a summary could carry.
         // Paying a model to summarise an empty transcript and then standing the answer in
         // for the conversation is worse than doing nothing.
@@ -1177,7 +1201,7 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             // What a person asking now would get: a manual request, no turn being prepared.
             const planned = plan(request.target, id, new Set(), 'manual');
             if (planned.kind !== 'plan') return null;
-            return { messages: planned.plan.drop.length, tokens: estimateWireTokens(planned.plan.drop) };
+            return { messages: planned.plan.drop.length, tokens: estimateWireTokens(planned.plan.drop.filter((m) => planned.plan.sent.has(m))) };
         },
     };
 

@@ -56,7 +56,7 @@ conversation so far, the `tool` messages answering the last calls included, as `
 | `transportCall(request)` | calls the model with the request of each turn |
 | `toolLookup(name)` | the handler of a tool, `(call, signal) => Promise<{ content, structuredContent? }>` |
 | `toolConfigLookup(name)` | a tool's `maxTurns`, `needsApproval`, `external` and [`parallel`](#several-calls-in-one-reply) |
-| `approvalResolver(call, signal)` | answers a call that needs approval: `{ approved, payload?, instruction?, reason? }` |
+| `approvalResolver(call, signal)` | answers a call that needs approval with `{ approved, payload?, instruction?, reason?, by? }`. `call.agent` names the sub-agent whose call it is, absent for the run's own; `by` says who refused (`'person'`, `'policy'`), so the row says it right. Under `AparteClient`, your resolver also receives the turn as a third argument, `{ conversationId, messageId, targetId }` ([tools](/guides/tools/#decide-in-code)) |
 | `emitter(event)` | receives every event of the run |
 | `signal` | stops the run |
 | `maxTurns`, `toolTimeoutMs` | the turns of one run, ten by default, and a tool's time, five minutes by default |

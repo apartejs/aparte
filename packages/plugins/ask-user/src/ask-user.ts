@@ -273,7 +273,11 @@ export const askUserHandler: AparteToolHandler = async (call, signal, context): 
     // `{ action: 'cancel' }`. Letting it propagate is the same outcome with one fewer
     // place to get it wrong — and the conversion existing here is what showed the
     // rejection was the right shape for the primitive.
-    const result = await requestUserInput({ message, schema, signal, target: context?.target });
+    // The conversation too: a presenter of the app's own files the question under it.
+    const result = await requestUserInput({
+        message, schema, signal, target: context?.target,
+        ...(context?.conversationId ? { conversationId: context.conversationId } : {}),
+    });
     if (result.action === 'accept') {
         return {
             toolCallId: call.id,

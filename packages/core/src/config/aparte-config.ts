@@ -43,6 +43,7 @@ import { applyLinkTarget, linkDecision, type AparteLinkDecision, type AparteLink
  */
 let heldImageNoted = false;
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
+import type { AparteTurnContext } from '../types/tools.js';
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 import { chatBoundaryOf } from '../utils/chat-boundary.js';
@@ -1427,11 +1428,12 @@ export class AparteConfig {
     /**
      * What the policy says about one call, with the tool's own `needsApproval` as the
      * answer when it has no opinion. The one place the two are combined, so the client's
-     * gate predicate and its approval channel cannot disagree.
+     * gate predicate and its approval channel cannot disagree. `turn` is handed to the
+     * policy as its third argument; the client passes the turn the call belongs to.
      */
-    ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling {
+    ruleOnToolCall(call: AparteToolCall, turn?: AparteTurnContext): AparteApprovalRuling {
         const tool = this._tools.get(call.name)?.tool;
-        const ruling = this._approvalPolicy?.(call, tool);
+        const ruling = this._approvalPolicy?.(call, tool, turn);
         if (ruling) return ruling;
         return { verdict: tool?.needsApproval ? 'ask' : 'allow' };
     }

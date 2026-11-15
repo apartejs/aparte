@@ -401,11 +401,13 @@ export function openSegmentIds(segments: readonly AparteSegment[]): string[] {
  * immediate paint and the coalesced write land on the same string twice, doubling
  * every streamed reply.
  */
-export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[]; status?: string }>(message: T): T {
+export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[]; status?: string; deferredCalls?: readonly unknown[] }>(message: T): T {
     if (!message.segments?.length) return { ...message };
     // A reply handed over while it streams (a host writing into it) keeps its running
     // calls; a finished one — every saved reply, which the save normalises — does not.
-    const live = message.status === 'streaming' || message.status === 'pending';
+    // Nor does one paused on a sub-agent's call (`deferredCalls`): the call that opened the
+    // sub-agent waits on the same pause, and a resume hands it back open.
+    const live = message.status === 'streaming' || message.status === 'pending' || (message.deferredCalls?.length ?? 0) > 0;
     return {
         ...message,
         segments: message.segments.reduce<AparteSegment[]>((acc, segment) => {

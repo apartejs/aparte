@@ -98,6 +98,7 @@ export type {
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
+    AparteDeferredCall,
     AparteComposerCaret,
     AparteBubbleActionName,
     AparteSegment,
@@ -341,6 +342,7 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 export { AparteClient } from './client/aparte-client.js';
 export { historyFromCheckpoint } from './context/checkpoint.js';
 export { estimateTokens, estimateWireTokens, measureContext } from './context/measure.js';
+export { withoutAbandonedTurns } from './client/wire-history.js';
 export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
@@ -405,6 +407,7 @@ export { formatDuration } from './utils/format-duration.js';
 export type { AparteHostHandlersConfig } from './types/models.js';
 export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
+export type { AparteTurnContext } from './types/tools.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';
