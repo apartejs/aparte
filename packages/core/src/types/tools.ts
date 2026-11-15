@@ -251,6 +251,27 @@ export interface AparteToolDisplay {
     icon?: AparteIconName | (string & {});
     /** What the call targets, after the label — see {@link AparteToolSummary}. */
     summary?: AparteToolSummary;
+    /**
+     * What the call would DO, drawn in the approval question — a diff for an edit, a message
+     * for a send — between the question and its buttons. Called with the call (name and
+     * input) when the approval is asked; an element is mounted as it is, a string goes through
+     * the config's HTML sanitizer (escape the call's values all the same), `null` or `''`
+     * draws nothing. Build it from the tool's input, never from text the model wrote to
+     * persuade: this is the decision's evidence. One that throws leaves the plain arguments.
+     */
+    approvalPreview?: (call: AparteToolCall) => HTMLElement | string | null;
+    /**
+     * A second line under the name: what the call is doing now, and once it is over what it
+     * did. Plain text; a function reads the call. Give it for the call's whole life, or
+     * never — a line that comes and goes changes the row's height. Wins over a tool-line
+     * provider's `activity`; one that throws leaves the provider's.
+     */
+    activity?: string | ((segment: AparteToolCallSegment) => string);
+    /**
+     * A short note after the state word ("3 hits"). Plain text; a function reads the call.
+     * Wins over a tool-line provider's `note`; one that throws leaves the provider's.
+     */
+    note?: string | ((segment: AparteToolCallSegment) => string);
     /** The arguments as a person reads them — see {@link AparteToolInputFormatter}. */
     formatInput?: AparteToolInputFormatter;
     /**
@@ -319,9 +340,9 @@ export type AparteToolDetails = (segment: AparteToolCallSegment, held?: HTMLElem
  * fills the default row with it; every field is plain text, never HTML, and every field is
  * optional.
  *
- * The app's display always wins, field by field: `label` and `target` are read only when
- * the display gives none, and `details` only when the display has no `details` key.
- * `activity` and `note` have no display field of their own.
+ * The app's display always wins, field by field: `label`, `target`, `activity` and `note`
+ * are read only when the display gives none, and `details` only when the display has no
+ * `details` key.
  */
 export interface AparteToolLine {
     /** What the call goes by, when the display declares no label. */

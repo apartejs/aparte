@@ -43,7 +43,7 @@ describe('the node entry', () => {
         stop();
         // The setup with the conversation under the line installs the same way.
         const again = setupSubagents({ details: 'transcript' }, config);
-        expect(config.getToolLineProvider()).toBeTypeOf('function');
+        expect(config.getToolLineProviders()).toHaveLength(1);
         again();
     });
 });

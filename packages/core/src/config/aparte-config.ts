@@ -470,6 +470,8 @@ export class AparteConfig {
     private _activityRenderers = new Map<string, AparteActivityRenderer>();
     /** What a plugin says about a call, read after the app's display — see {@link setToolLineProvider}. */
     private _toolLineProvider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null = null;
+    /** Providers added with `registerToolLineProvider`, asked in the order they were added. */
+    private _extraToolLineProviders: Array<(segment: AparteToolCallSegment) => AparteToolLine | undefined> = [];
     /** What a step is called on screen, by the name the run announces — see {@link registerStepLabel}. One entry per registration, so each remover takes back its own. */
     private _stepLabels = new Map<string, { label: AparteStepLabel }>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
@@ -2039,7 +2041,43 @@ export class AparteConfig {
         this._notify();
     }
 
-    /** The tool-line provider this config reads: its own, else the page's. */
+    /**
+     * Add a tool-line provider beside the one {@link AparteConfig.setToolLineProvider | setToolLineProvider()}
+     * holds, and return the function that removes it. The providers are asked in order — the
+     * app's `setToolLineProvider` first, then these in the order they were added — and the
+     * first one that answers a call wins, so a plugin registering its own never replaces the
+     * app's, nor another plugin's. Each call is a provider of its own, even with the same function.
+     * @example
+     * const release = aparteGlobalConfig.registerToolLineProvider((segment) =>
+     *     segment.toolCall.name === 'delegate' ? { activity: 'Reading the parser' } : undefined);
+     * release();
+     */
+    registerToolLineProvider(provider: (segment: AparteToolCallSegment) => AparteToolLine | undefined): () => void {
+        // Wrapped, so the same function handed in twice is two providers and one release leaves the other.
+        const entry: (segment: AparteToolCallSegment) => AparteToolLine | undefined = (segment) => provider(segment);
+        this._extraToolLineProviders.push(entry);
+        bumpRenderingVersion(this);
+        this._notify();
+        return () => {
+            const at = this._extraToolLineProviders.indexOf(entry);
+            if (at === -1) return;
+            this._extraToolLineProviders.splice(at, 1);
+            bumpRenderingVersion(this);
+            this._notify();
+        };
+    }
+
+    /**
+     * Every tool-line provider this config reads, in the order they are asked: its own
+     * (`setToolLineProvider`, then the registered ones), else the page's.
+     */
+    getToolLineProviders(): Array<(segment: AparteToolCallSegment) => AparteToolLine | undefined> {
+        const own = [...(this._toolLineProvider ? [this._toolLineProvider] : []), ...this._extraToolLineProviders];
+        if (own.length || this === aparteGlobalConfig) return own;
+        return aparteGlobalConfig.getToolLineProviders();
+    }
+
+    /** The tool-line provider `setToolLineProvider` set: this config's own, else the page's. */
     getToolLineProvider(): ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null {
         if (this._toolLineProvider || this === aparteGlobalConfig) return this._toolLineProvider;
         return aparteGlobalConfig._toolLineProvider;
@@ -2484,6 +2522,7 @@ export class AparteConfig {
         notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._toolLineProvider = null;
+        this._extraToolLineProviders = [];
         this._stepLabels.clear();
         this._streamBlocks.clear();
         this._runEventObservers = [];
