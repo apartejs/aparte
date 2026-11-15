@@ -125,10 +125,11 @@ export interface AparteChatRequest {
 }
 
 /**
- * The well-known keys of `AparteChatRequest._meta`. Two: `prefixSegments`, read by core's
- * client and not by the loop, and `compaction`, which `@aparte/plugin-compaction` sets for
- * a transport to route on; the rest of the bag is the consumer's (index signature).
- * An artifact is a plugin's convention, so no artifact key is defined here.
+ * The well-known keys of `AparteChatRequest._meta`: `prefixSegments`, read by core's client
+ * and not by the loop; `compaction`, which `@aparte/plugin-compaction` sets for a transport
+ * to route on; `tokens`, the sent message's; and `historySummary`, which core sets when the
+ * history opens with a checkpoint's summary. The rest of the bag is the consumer's (index
+ * signature). An artifact is a plugin's convention, so no artifact key is defined here.
  */
 export interface AparteRequestMeta {
     /**
@@ -146,6 +147,16 @@ export interface AparteRequestMeta {
     compaction?: true;
     /** The tokens of the message being sent, with what the app put in their `data`. */
     tokens?: AparteMessageToken[];
+    /**
+     * Set by core when the history starts at a checkpoint: what it opens with in place of
+     * the turns before it, the summary under its preamble, exactly as the first `user`
+     * message (its first text part, when its content is parts) begins with it. That
+     * message is the summary alone, or the summary then, after a blank line, the person's
+     * next message, joined to it because a strict chat template refuses two user turns in
+     * a row. A backend that keeps its own history tells the summary from what the person
+     * said by it, without recognising the text.
+     */
+    historySummary?: string;
     /** Consumer-specific context (open channel). */
     [key: string]: unknown;
 }

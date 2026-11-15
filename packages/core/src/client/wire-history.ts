@@ -21,6 +21,30 @@ export const COMPACTION_PREAMBLE =
 export const underPreamble = (text: string): string => `${COMPACTION_PREAMBLE}\n\n${text}`;
 
 /**
+ * The messages that open with a checkpoint's summary, and that opening. Beside the message
+ * rather than on it: a field on the message would reach every backend that hands
+ * `messages` to a model API as they are, and one that checks its input refuses a field it
+ * does not know. The request names it in `_meta.historySummary` instead.
+ */
+const summaries = new WeakMap<AparteChatMessage, string>();
+
+/** A checkpoint's summary as a history opens with it: a `user` message under the preamble, known as one. */
+export function summaryMessage(text: string): AparteChatMessage {
+    const message: AparteChatMessage = { role: 'user', content: underPreamble(text) };
+    summaries.set(message, message.content as string);
+    return message;
+}
+
+/** What a history opens with in place of the turns before its checkpoint, when it does: see `summaryMessage`. */
+export function historySummaryOf(messages: readonly AparteChatMessage[]): string | undefined {
+    for (const message of messages) {
+        const summary = summaries.get(message);
+        if (summary !== undefined) return summary;
+    }
+    return undefined;
+}
+
+/**
  * Merge ADJACENT `user` messages into one, so the roles a model receives alternate.
  *
  * Strict chat templates (Gemma 2/3, Mistral, llama.cpp with `--jinja`, vLLM) reject two
@@ -44,13 +68,14 @@ export function mergeAdjacentUserMessages(messages: AparteChatMessage[]): Aparte
         const prev = out[out.length - 1];
         if (m.role !== 'user' || prev?.role !== 'user') {
             out.push(m);
-        } else if (typeof prev.content === 'string' && typeof m.content === 'string') {
-            out[out.length - 1] = { ...prev, content: `${prev.content}\n\n${m.content}` };
         } else {
-            out[out.length - 1] = {
-                ...prev,
-                content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)],
-            };
+            const merged: AparteChatMessage = typeof prev.content === 'string' && typeof m.content === 'string'
+                ? { ...prev, content: `${prev.content}\n\n${m.content}` }
+                : { ...prev, content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)] };
+            // A summary joined to the next message still opens it.
+            const summary = summaries.get(prev);
+            if (summary !== undefined) summaries.set(merged, summary);
+            out[out.length - 1] = merged;
         }
     }
     return out;

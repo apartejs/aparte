@@ -155,6 +155,7 @@ describe('the client and the compactor', () => {
             expect(sent).toContain('question u2');
             expect(sent, 'what the summary stands for is not sent').not.toContain('question u1');
             expect(sent).toContain('question u3');
+            expect(seen[0]!._meta?.historySummary, 'the rebuilt request names the summary it now opens with').toContain(checkpoint.summary);
         });
 
         it('sends the history as built when it resolves false', async () => {
@@ -352,6 +353,8 @@ describe('the client and the compactor', () => {
             expect(sentText(seen[0]!)).toContain('question u1');
             expect(sentText(seen[1]!), 'the second request is the smaller one').not.toContain('question u1');
             expect(sentText(seen[1]!)).toContain(checkpoint.summary);
+            expect(seen[0]!._meta?.historySummary, 'the first request had no summary').toBeUndefined();
+            expect(seen[1]!._meta?.historySummary).toContain(checkpoint.summary);
 
             expect(reply().id, 'the same reply, not a new one').toBe(assistant!.id);
             expect(reply().status).toBe('completed');
