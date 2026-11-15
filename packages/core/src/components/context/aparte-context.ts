@@ -385,7 +385,8 @@ export class AparteContext extends HTMLElement {
         this._stopListeningWhileOpen();
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (name === 'used') {
             const n = Number(this.getAttribute('used'));
             this._used = this.hasAttribute('used') && Number.isFinite(n) && n >= 0 ? n : null;

@@ -41,7 +41,10 @@ export class AparteProgressSpinner extends HTMLElement {
     private get _circ(): number { return 2 * Math.PI * this._r; }
 
     connectedCallback(): void { this._render(); }
-    attributeChangedCallback(): void { this._render(); }
+    attributeChangedCallback(_name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
+        this._render();
+    }
 
     private _render(): void {
         const raw = this.getAttribute('value');

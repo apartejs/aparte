@@ -59,7 +59,8 @@ export class AparteOption extends HTMLElement {
         this._updateStatusDot();
     }
 
-    attributeChangedCallback(name: string): void {
+    attributeChangedCallback(name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (name === 'selected') {
             this._updateAriaSelected();
         }

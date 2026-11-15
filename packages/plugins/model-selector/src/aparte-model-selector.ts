@@ -303,7 +303,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         })();
     }
 
-    attributeChangedCallback(): void {
+    attributeChangedCallback(_name: string, previous: string | null, value: string | null): void {
+        if (previous === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (this.isConnected && !this._isLoading) {
             this._render();
         }
