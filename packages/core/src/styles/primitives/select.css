@@ -87,6 +87,12 @@ aparte-select[disabled] .aparte-select-trigger {
     grid-area: 1 / 1;
 }
 
+/* Generated content, not text: a test or a screen-reader-less reader of the trigger
+   sees the shown value only, and the stack still sets the width. */
+.aparte-select-label-sizer > span::before {
+    content: attr(data-label);
+}
+
 .aparte-select-chevron {
     --aparte-icon-size: var(--aparte-icon-size-sm);
     flex-shrink: 0;
