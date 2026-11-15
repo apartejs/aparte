@@ -370,9 +370,29 @@ export class AparteConversationList extends HTMLElement {
         return '';
     }
 
-    /** Set the list of conversations to display. Triggers a re-render. */
+    /**
+     * Set the list of conversations to display. Triggers a re-render — held while a row's menu is
+     * open or a title is being renamed, and run when that ends.
+     *
+     * A host assigns this on every manager change, and a wrapper on every render of the app around
+     * it, often the very array the list holds (mutated in place, so it is drawn again rather than
+     * skipped). A render replaces the rows, and with them the open menu and the field being typed
+     * in: those are the reader's, so the rows wait for them, as they wait for a press to land.
+     */
     set conversations(items: AparteConversationListItem[]) {
         this._conversations = Array.isArray(items) ? items : [];
+        if ((this._renaming && !this._renaming.done) || this.querySelector('[data-menu-for]')) {
+            this._renderAfterMenu = true;
+            return;
+        }
+        this._render();
+    }
+
+    /** A render held by an open menu or a rename (see `conversations`): run once it is over. */
+    private _renderAfterMenu = false;
+    private _renderHeld(): void {
+        if (!this._renderAfterMenu || !this.isConnected) return;
+        this._renderAfterMenu = false;
         this._render();
     }
 
@@ -429,6 +449,7 @@ export class AparteConversationList extends HTMLElement {
             this._renderAfterPress = true;
             return;
         }
+        this._renderAfterMenu = false;
         // The menus and the rename input live inside the rows; a render replaces them.
         this._releaseMenus();
         this._renaming = null;
@@ -751,7 +772,10 @@ export class AparteConversationList extends HTMLElement {
                 margin: VIEWPORT_MARGIN,
                 align: 'end',
                 onOpen: () => this._fillMenu(row, menu),
-                onClose: () => menu.remove(),
+                onClose: () => {
+                    menu.remove();
+                    this._renderHeld();
+                },
             }));
         }
         const context = this._contextMenu ??= this._newMenu();
@@ -765,7 +789,10 @@ export class AparteConversationList extends HTMLElement {
                 if (!row || !this.contains(row) || target.closest('[data-rename-id], [data-menu-for]')) return false;
                 return this._fillMenu(row, context);
             },
-            onClose: () => context.remove(),
+            onClose: () => {
+                context.remove();
+                this._renderHeld();
+            },
         }));
     }
 
