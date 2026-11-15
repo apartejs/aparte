@@ -154,6 +154,66 @@ aparteGlobalConfig.setModelConfig({ defaultProvider: 'openai', defaultModel: 'gp
 A model the page selects with `setModelConfig` wins over `defaultModel`; `prepareRequest` runs
 after it.
 
+## One route and one journal per conversation
+
+A server that keeps a journal for each conversation has to know which conversation a turn belongs
+to. Each turn carries it: `conversationId`, on the run beside `messageId`, is the id of the
+conversation open in the chat when the person sent the message — the one the chat's
+[conversation manager](/guides/conversation-persistence/) has open, or the one a first message
+creates. A chat with no conversation sends none. Give `endpoint` a function and the route follows
+the conversation:
+
+```ts
+import { AparteClient, createAgentStreamRunner } from '@aparte/core';
+
+new AparteClient({
+  streamRunner: createAgentStreamRunner({
+    endpoint: ({ conversationId }) => (conversationId ? `/api/agent/c/${conversationId}` : '/api/agent'),
+  }),
+}).start();
+```
+
+The function receives the run's options and is called for every request: a person who opens
+another conversation sends the next turn to that conversation's route, and a paused run resumes on
+the route it started on, so answer the same for the same turn. The runner also puts the id in the
+body, and the handler gives it to a server tool as `context.conversationId`, beside
+`context.request`:
+
+```ts
+import { createAparteAgentHandler } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+declare function isSignedIn(req: Request): boolean;
+declare function ownsConversation(req: Request | undefined, conversationId: string): Promise<boolean>;  // yours
+declare function appendToJournal(conversationId: string, text: string): Promise<void>;                  // yours
+
+export const POST = createAparteAgentHandler({
+  providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
+  authorize: (req) => isSignedIn(req),
+  secret: process.env.AGENT_SECRET!,
+  tools: [{
+    tool: {
+      name: 'note',
+      description: 'Write a note in this conversation\'s journal.',
+      inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    },
+    handler: async (call, _signal, context) => {
+      const id = context?.conversationId;
+      if (!id || !(await ownsConversation(context?.request, id))) {
+        return { toolCallId: call.id, content: 'There is no conversation to write in.' };
+      }
+      await appendToJournal(id, String(call.input.text));
+      return { toolCallId: call.id, content: 'Noted.' };
+    },
+  }],
+});
+```
+
+The id comes from the browser: it names a conversation and proves nothing about who owns it. A
+journal opened by it, a file named after it, a row keyed on it — check first, against who is
+calling, that they may. With a route per conversation, `authorize` sees the route and can answer
+before anything runs.
+
 ## Approvals across the network
 
 A server tool with `needsApproval: true`, or a call the server's `approvalPolicy` answers `ask`,
@@ -268,7 +328,8 @@ for the reply it paused. Three things it does not do:
 
 - **It does not make a tool's input safe.** The model chose the arguments; a tool checks the
   caller's rights itself. Its handler gets the request being served as `context.request` — for a
-  call answered after a pause, the request that resumed the run.
+  call answered after a pause, the request that resumed the run — and the conversation the page
+  says the turn is in as `context.conversationId`, which is the page's word and no proof.
 - **It does not prove a person approved.** The browser sends the decision, so a caller holding the
   ticket can approve any call it names: `needsApproval` asks a person, and the handler still checks
   the caller's rights.
@@ -327,6 +388,7 @@ NDJSON, one event per line: the [engine's run events](/guides/engine/) as they a
 when the run fails after the stream began. A server tool that throws ends the run: the page shows
 the call as failed — `The tool failed.` — then the reply fails, and the error itself goes to your
 server's log; to let the model read a failure and go on, return it as `content`. An error before
-the stream is JSON with an HTTP status. The body is `{ v: 1, providerId?, messageId, request,
-clientTools, resume? }`, which the runner builds. Among the 400s, two concern tools: a
-`toolChoice` that names a tool, and a history ending on unanswered calls with no `resume` ticket.
+the stream is JSON with an HTTP status. The body is `{ v: 1, providerId?, messageId,
+conversationId?, request, clientTools, resume? }`, which the runner builds. Among the 400s, two
+concern tools: a `toolChoice` that names a tool, and a history ending on unanswered calls with no
+`resume` ticket.

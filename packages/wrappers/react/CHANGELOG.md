@@ -1,5 +1,61 @@
 # @aparte/react
 
+## 1.9.0
+
+### Minor Changes
+
+- d4a7249: `<AparteChat>` now takes a callback for every event of the chat — `onLinkClick`, `onRetry`, `onFeedback`, `onMessageDone`… — and each callback receives the event after its detail, so `event.preventDefault()` works.
+
+  ```tsx
+  <AparteChat
+    onLinkClick={(detail, event) => {
+      event.preventDefault();
+      navigate(detail.href);
+    }}
+  />
+  ```
+
+  Do you have to touch your code? No. `onMessageSent` and `onAction` keep their names, and their first argument is still the detail: a callback written for it alone still fits.
+
+  - **Every event.** The props are generated from the events `<aparte-chat>` declares, 23 today: the composer's (`onMessageSent`, `onStop`, `onComposerChange`, `onActionClick`), the transcript's and each message's (`onPathChanged`, `onRetry`, `onEdit`, `onFeedback`, `onLinkClick`…) and the turn's (`onMessageStart`, `onMessageDone`, `onMessageError`…). A prop is the event's name without `aparte-`, in camelCase, after `on` — save `aparte-send`, which is `onMessageSent`, and `aparte-cancel`, which is `onStop`. An event the chat gains becomes a prop with no change to this package.
+  - **Cancelling.** `aparte-link-click` is cancelable: `event.preventDefault()` in `onLinkClick` keeps the browser from following the link, so the app can route it itself.
+  - **Why.** The component exposed two of the chat's events; the rest could only be reached through a DOM listener on its root, and `preventDefault()` through none of its props.
+  - **Weight.** 5.2 KB gzip, up 0.5 KB: the table of the 23 events the component listens for.
+
+- df764c4: Every element of core now has a React component — `<AparteConversationList>`, `<AparteLauncher>`, `<AparteSplit>`… — with its properties as props and its events as `onXxx` callbacks, the same under React 18 and 19.
+
+  ```tsx
+  <AparteConversationList
+    conversations={history.activeConversations}
+    active-id={history.activeId}
+    onConversationDelete={(detail) => void history.delete(detail.id)}
+  />
+  ```
+
+  Do you have to touch your code? No. The raw tags keep working, typed as they were. Two typing changes can show an error in code that was already wrong: **Vue now checks a multi-word attribute** (`:active-id="5"` passed unchecked, because Vue looks a kebab-case attribute up by its camelCase name) **and types the events** a tag sends, and **every attribute now accepts `null`** to remove it, in React, Vue and Svelte, so `active-id={history.activeId}`, a `string | null`, compiles as written.
+
+  - **24 components.** One per element but the chat, whose component stays `<AparteChat>`, named `Aparte` and the tag in Pascal case, each with an `Aparte…Props` type. Generated from the manifest like the Angular directives: an element, an attribute or an event added to core reaches React with no edit. A table of them is in the [wrapper reference](https://apartejs.dev/reference/wrappers/).
+  - **A callback is `(detail, event)`**, as `<AparteChat>`'s are: the detail first, so a handler written for it alone still fits, and the event second, where `event.preventDefault()` is. The conversation list's rename, pin, archive and delete are cancelable, and `manage` stands down when one is cancelled. A callback that changes takes no new listener.
+  - **Why not the raw tag.** React 18 writes a property as the text `[object Object]` and listens to no event; React 19 sets a prop as a property when the element has one of that name and as an attribute when it does not. A component writes its props itself after the render — attributes through `applyElementProps`, properties by assignment, events with `addEventListener` — and only the ones whose value changed. A presence attribute takes a `boolean` there (`flat`, `manage={false}`), where the raw tag has to write `''`.
+  - **Server rendering.** An element carries `defer-hydration` until React has hydrated it, as `<AparteChat>`'s root does, and an attribute an element reads once, at connect (`framework-managed` on the viewport), is in its first markup, not applied after.
+  - **Vue and Svelte.** Both already set a property an element has and listen to its events at runtime (a test mounts the raw list in each); what they lacked was the types. A property such as the list's `conversations` is now typed in both, and Vue declares each tag's events as emits, from a file generated from the manifest (`--element-members`). A presence attribute written bare in a Vue template, `<aparte-select searchable>`, is accepted as it is, and `false` is not. `@aparte/core` widens `AparteAttrValue` to accept `null`.
+  - **Weight.** `@aparte/react` goes from 5.4 KB to 7.3 KB gzip (+1.9 KB): a table row for each of the 24 components, and the one function behind them. An app pays for the ones it imports, and `<AparteChat>` is one of them: its definition has no side effect, so `useAparteEvent` alone bundles to 0.6 KB gzip and `<AparteConversationList>` alone to 1.1 KB (esbuild over the published file). A bundle of `<AparteConversationList>` alone holds one `createAparteElement` call and none of the other 23 components' names, and a bundle of all of them holds 24 (esbuild, `sideEffects: false` and a `/* @__PURE__ */` on each). The package's budget in `size-budget.json` rises from 5.5 to 7.75 KB.
+
+- b2a427c: New `useAparteEvent(ref, type, handler)` listens to an event `<AparteChat>` has no prop for — a plugin's `aparte-subagent-open`, or your own — and the chat's ref now has `getElement()` and `getComposer()`.
+
+  ```tsx
+  const chat = useAparteChat();
+  useAparteEvent(chat.ref, "aparte-subagent-open", (event) =>
+    openPanel(event.detail),
+  );
+  ```
+
+  Do you have to touch your code? No. `UseAparteChat` now extends `AparteChatImperativeApi`, so it carries every method of it, these two included.
+
+  - **Typed.** The event is typed by `HTMLElementEventMap`, which every plugin package augments: `event.detail` needs no cast.
+  - **No resubscribe.** The latest handler is called; a new function takes no new subscription. It unsubscribes on unmount.
+  - **Where to call it.** In the component that renders the chat, so the ref is set when its effect runs. The target can also be an element.
+
 ## 1.8.0
 
 ## 1.7.0

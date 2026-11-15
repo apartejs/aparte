@@ -10,6 +10,7 @@ guide:
 
 import Cards from '../../../components/content/Cards.astro';
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 ## Give the chat a height
 
@@ -114,6 +115,9 @@ In React, Vue, Svelte and Angular it is the chat component's `className` or `cla
 
 ## Put a preview beside the chat
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```html
 <div class="page">
   <nav class="pane-switch">
@@ -139,6 +143,121 @@ In React, Vue, Svelte and Angular it is the chat component's `className` or `cla
   });
 </script>
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { AparteChat, useAparteEvent } from '@aparte/react';
+
+export function Workspace() {
+  const split = useRef<HTMLElement>(null);
+
+  useAparteEvent(split, 'aparte-split-resize', (event) => {
+    localStorage.setItem('split-position', String(event.detail.position));
+  });
+
+  return (
+    <div className="page">
+      <nav className="pane-switch">
+        <button className="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>
+        <button className="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>
+      </nav>
+      <aparte-split ref={split} position={localStorage.getItem('split-position') ?? '38'}>
+        <AparteChat />
+        <section className="aparte-split__pane">your preview</section>
+      </aparte-split>
+    </div>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat } from '@aparte/vue';
+
+const saved = localStorage.getItem('split-position') ?? '38';
+const remember = (event: CustomEvent<{ position: number }>) =>
+  localStorage.setItem('split-position', String(event.detail.position));
+</script>
+
+<template>
+  <div class="page">
+    <nav class="pane-switch">
+      <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>
+      <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>
+    </nav>
+    <aparte-split :position="saved" @aparte-split-resize="remember">
+      <AparteChat />
+      <section class="aparte-split__pane">your preview</section>
+    </aparte-split>
+  </div>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+
+  const saved = localStorage.getItem('split-position') ?? '38';
+</script>
+
+<div class="page">
+  <nav class="pane-switch">
+    <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>
+    <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>
+  </nav>
+  <aparte-split position={saved} onaparte-split-resize={(event) => localStorage.setItem('split-position', String(event.detail.position))}>
+    <AparteChat />
+    <section class="aparte-split__pane">your preview</section>
+  </aparte-split>
+</div>
+```
+
+On Svelte 4, write the event as `on:aparte-split-resize={…}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent, AparteSplitDirective } from '@aparte/angular';
+
+@Component({
+  selector: 'app-workspace',
+  standalone: true,
+  imports: [AparteChatComponent, AparteSplitDirective],
+  template: `
+    <div class="page">
+      <nav class="pane-switch">
+        <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>
+        <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>
+      </nav>
+      <aparte-split [position]="saved" (splitResize)="remember($event.position)">
+        <aparte-chat></aparte-chat>
+        <section class="aparte-split__pane">your preview</section>
+      </aparte-split>
+    </div>
+  `,
+})
+export class WorkspaceComponent {
+  readonly saved = localStorage.getItem('split-position') ?? '38';
+
+  remember(position: number) {
+    localStorage.setItem('split-position', String(position));
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 ```css
 .page { display: flex; flex-direction: column; height: 100dvh; }

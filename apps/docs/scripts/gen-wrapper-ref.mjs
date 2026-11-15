@@ -19,13 +19,25 @@ import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { IMPLEMENTATIONS, readWrapperSlots, readWrapperCallbacks } from '../../../scripts/wrapper-surface.mjs';
+import { IMPLEMENTATIONS, callbackRow, readWrapperSlots, readWrapperCallbacks, readChatCallbacks } from '../../../scripts/wrapper-surface.mjs';
+import { CHAT_TAG, readChatEvents } from '../../../scripts/chat-surface.mjs';
+import { bindingName, readElements, readNativeEventNames, readReactComponents } from '../../../scripts/gen-element-bindings.mjs';
+import bindings from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../src/content/docs/reference/wrappers.md');
 
+const CORE = resolve(here, '../../../packages/core');
+const REACT_BARREL = resolve(here, '../../../packages/wrappers/react/src/index.ts');
+
 const slots = readWrapperSlots();
-const callbacks = readWrapperCallbacks();
+/*
+ * The chat's events are generated into each wrapper from `<aparte-chat>`'s `@fires`, so the ones
+ * every component also takes as a callback (`messageSent`, `action`) are read from core's
+ * manifest, under the name the generator gives them; the host's own callbacks from React's props.
+ */
+const chatEvents = readChatEvents().map((ev) => ({ ...ev, binding: bindingName(CHAT_TAG, ev.name, bindings) }));
+const callbacks = [...readChatCallbacks(chatEvents), ...readWrapperCallbacks()];
 const frameworks = Object.values(IMPLEMENTATIONS);
 const esc = (s) => String(s ?? '').replace(/\|/g, '\\|');
 
@@ -115,6 +127,14 @@ the payload directly. Svelte has a callback prop, with the payload, and a compon
 \`on:messageSent\` and the rest — with it under \`event.detail\`. The runes component has the
 callback prop only, under the same name: Svelte 5 has no component events.
 
+\`messageSent\` and \`action\` are events of the chat, and so is every other event \`<aparte-chat>\`
+declares: each reaches the component the same way, under the event's name without \`aparte-\`, in
+camelCase — \`onLinkClick\`, \`@link-click\`, \`on:linkClick\`, \`(linkClick)\`, \`onlinkClick\` — save
+\`aparte-send\`, which is \`messageSent\`, and \`aparte-cancel\`, which is \`stop\`. A callback for an
+event of the chat receives the payload, then the DOM event, so \`event.preventDefault()\` is in
+reach; in Angular the output carries the payload, and \`(aparte-link-click)\` on \`<aparte-chat>\`
+binds the DOM event itself.
+
 `;
 
 /*
@@ -135,7 +155,79 @@ for (const cb of callbacks) {
     md += `\n### \`${cb.name}\`\n\n${cb.summary || '_(undocumented — add a JSDoc comment to the React prop.)_'}\n`;
 }
 
+/*
+ * The events of the chat, from the same manifest and the same naming function the wrappers are
+ * generated from — so a row here is the spelling the component really has, a rename included.
+ * Written as HTML for the reason the callbacks' table is.
+ */
+const cancelables = chatEvents.filter((ev) => ev.cancelable).map((ev) => ev.name);
 md += `
+## Events
+
+Every event \`<aparte-chat>\` declares reaches each component, so none of them needs a
+\`querySelector\`. The first column is the DOM event, which is what you see in the browser's
+tools and in the [events reference](/reference/events/); the rest is how each framework spells it.
+Every handler receives the payload, then the DOM event. In Angular the output carries the payload
+alone: to cancel an event there, bind the DOM event itself, \`(aparte-link-click)="…"\`, on
+\`<aparte-chat>\`.
+
+<table tabindex="0" aria-label="The events of the chat in the five components">
+<thead><tr><th>Event</th><th>Payload</th><th>Cancelable</th><th>React</th><th>Vue</th><th>Svelte 4 syntax</th><th>Svelte 5 syntax</th><th>Angular</th></tr></thead>
+<tbody>
+`;
+for (const ev of chatEvents) {
+    const row = callbackRow({ name: ev.binding, payload: '', summary: '' });
+    const cells = [ev.name, ev.detail ?? 'none', ev.cancelable ? 'yes' : 'no', row.react, row.vue, row.svelte, row.svelteRunes, row.angular];
+    md += `<tr>${cells.map((c) => `<td><code>${html(c)}</code></td>`).join('')}</tr>\n`;
+}
+md += `</tbody>\n</table>\n`;
+
+md += `
+A cancelable event can be stopped: \`event.preventDefault()\` keeps the browser from doing what
+it was about to do, so your code can do it instead. ${cancelables.length ? `Cancelable today: ${cancelables.map((n) => `\`${n}\``).join(', ')}` : 'None is cancelable today'}.
+\`aparte-link-click\` is how an app routes a link a reply contains.
+
+### Events the chat does not name
+
+An event a plugin sends (\`aparte-subagent-open\`, \`aparte-artifact-open\`…), or one of your own,
+has no row above and still arrives: the parts of the chat send their events up to its root, so
+one listener there hears all of them. Each framework has a short way to put one.
+
+React, with the chat's ref (the handler is typed from the plugin's event, with no cast):
+
+\`\`\`tsx
+const chat = useAparteChat();
+useAparteEvent(chat.ref, 'aparte-subagent-open', (event) => openPanel(event.detail.runId));
+\`\`\`
+
+Vue, the event's DOM name on \`<AparteChat>\`:
+
+\`\`\`vue
+<AparteChat @aparte-subagent-open="(event) => openPanel(event.detail.runId)" />
+\`\`\`
+
+Svelte 5 syntax, the same name as a prop:
+
+\`\`\`svelte
+<AparteChat onaparte-subagent-open={(event) => openPanel(event.detail.runId)} />
+\`\`\`
+
+Svelte 4 syntax, the chat's root element, once it is mounted:
+
+\`\`\`svelte
+<AparteChat bind:this={chat} />
+<script>
+  onMount(() => chat.getElement()?.addEventListener('aparte-subagent-open', (event) => openPanel(event.detail.runId)));
+</script>
+\`\`\`
+
+Angular, the DOM binding on \`<aparte-chat>\`:
+
+\`\`\`html
+<aparte-chat (aparte-subagent-open)="openPanel($any($event).detail.runId)"></aparte-chat>
+\`\`\`
+
+@@COMPONENTS@@
 ## Two things this table does not cover
 
 **A custom bubble** is a render hook, not a slot: React takes a \`renderBubble\` function,
@@ -187,6 +279,39 @@ The day a second wrapper needs that theme listener with a disposer of its own,
 \`applyThemeMode\` moves into \`@aparte/core\` and all four call it — one implementation, four
 idioms. Until then it lives where its one caller is.
 `;
+
+/*
+ * Every element of core as a React component, from the manifest and the naming function the
+ * components are generated from: a row here is the component, the props type and the callback the
+ * package really exports, a rename included. Written as HTML for the reason the callbacks' table is.
+ */
+const components = readReactComponents(CORE, readElements(CORE), bindings, {
+    native: readNativeEventNames(),
+    configPath: 'packages/core/element-bindings.config.mjs',
+    barrelArg: REACT_BARREL,
+});
+const cell = (items) => (items.length ? items.map((i) => `<code>${html(i)}</code>`).join(', ') : '—');
+let table = `
+## A React component for every element
+
+\`@aparte/react\` exports one component per element of core, the chat apart: its component is
+\`<AparteChat>\`. A component is the element with its props bound for React: the tag's attributes by
+the names the tag has, its properties (\`conversations\`) as props, and an \`on…\` callback for each
+event, called with the payload and then the DOM event, like the chat's. They are generated from the
+manifest, so an element or an event added to core reaches them with no edit. Each element's page,
+under [Components](/components/), shows its component beside the other frameworks' tags, and
+[Any element, typed](/frameworks/react/#any-element-typed) says how they behave under React 18 and 19.
+
+<table tabindex="0" aria-label="The React component of each element of core">
+<thead><tr><th>Component</th><th>Element</th><th>Props type</th><th>Properties</th><th>Callbacks</th></tr></thead>
+<tbody>
+`;
+for (const c of components) {
+    table += `<tr><td><code>${c.component}</code></td><td><code>&lt;${c.tag}&gt;</code></td><td><code>${c.props}</code></td>`
+        + `<td>${cell(c.properties.map((p) => p.name))}</td><td>${cell(c.events.map((e) => e.prop))}</td></tr>\n`;
+}
+table += '</tbody>\n</table>\n';
+md = md.replace('@@COMPONENTS@@\n', table);
 
 mkdirSync(dirname(OUT), { recursive: true });
 const wrote = writeIfChanged(OUT, md);

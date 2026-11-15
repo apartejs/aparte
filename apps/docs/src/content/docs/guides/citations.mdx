@@ -27,6 +27,11 @@ people already read them:
 Nothing is drawn for a reply that cites nothing. No favicon is fetched: an icon service would
 learn which sites your replies cite, so a source is shown by its domain, as text.
 
+A source's link, in the card or in the list, is a link of the reply: it opens in a new tab, and
+before it does the chat fires the same cancelable `aparte-link-click` as for a link in the text,
+the card's included although the card is drawn outside the message
+([Route the links a model writes](/guides/markdown/#route-the-links-a-model-writes)).
+
 ## Where the sources come from
 
 The providers that receive citations read them on their own:

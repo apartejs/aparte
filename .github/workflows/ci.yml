@@ -276,7 +276,8 @@ jobs:
 
       # The same build as files, for the browser jobs: they run in Playwright's container,
       # which has no zstd, so the cache saved above (zstd) is a miss there. What a build
-      # leaves is the three outputs nx declares: dist, its stamp, and generated sources.
+      # leaves is the three outputs nx declares: dist, its stamp, and generated sources
+      # (Svelte's under src/lib, the directory its build packages).
       - name: Hand the built files to the browser jobs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -285,6 +286,7 @@ jobs:
             packages/**/dist/
             packages/**/.dist-stamp
             packages/**/src/generated/
+            packages/**/src/lib/generated/
             !packages/**/node_modules/**
           include-hidden-files: true
           retention-days: 1
@@ -384,6 +386,12 @@ jobs:
       # snippets, the headline composition among them, because nothing compiled them.
       - name: Compile the docs' self-contained snippets
         run: pnpm check:doc-snippets
+
+      # An example that hears an event on an element, or looks up the chat, runs only in the
+      # vanilla element: each one shows the five frameworks or says why it cannot. Reads the
+      # built manifest of core, which is where the wrappers' binding names come from.
+      - name: Check the docs' examples show every framework
+        run: pnpm check:doc-frameworks
 
       - name: Check published READMEs
         run: pnpm check:readmes

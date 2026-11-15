@@ -8,6 +8,7 @@ catalog:
 ---
 
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="attachments" />
 
@@ -39,6 +40,9 @@ accepts drops, and `<aparte-composer-attachments>` shows what is waiting. See
 
 ## Usage
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import { filesToAttachments } from '@aparte/core';
 import type { AparteSendEventDetail } from '@aparte/core';
@@ -49,6 +53,88 @@ chat.addEventListener('aparte-send', (e) => {
   const attachments = filesToAttachments(files); // what a message carries
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { AparteChat } from '@aparte/react';
+import { filesToAttachments } from '@aparte/core';
+
+export function Chat() {
+  return (
+    <AparteChat
+      attachments
+      onMessageSent={({ files = [] }) => {
+        const attachments = filesToAttachments(files); // what a message carries
+      }}
+    />
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat } from '@aparte/vue';
+import { filesToAttachments } from '@aparte/core';
+import type { AparteSendEventDetail } from '@aparte/core';
+
+function onMessageSent({ files = [] }: AparteSendEventDetail) {
+  const attachments = filesToAttachments(files); // what a message carries
+}
+</script>
+
+<template>
+  <AparteChat attachments @message-sent="onMessageSent" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import { filesToAttachments } from '@aparte/core';
+  import type { AparteSendEventDetail } from '@aparte/core';
+
+  function onMessageSent({ files = [] }: AparteSendEventDetail) {
+    const attachments = filesToAttachments(files); // what a message carries
+  }
+</script>
+
+<AparteChat attachments onmessageSent={onMessageSent} />
+```
+
+On Svelte 4, the event is `on:messageSent={(e) => onMessageSent(e.detail)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { filesToAttachments } from '@aparte/core';
+import type { AparteSendEventDetail } from '@aparte/core';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat attachments (messageSent)="onMessageSent($event)"></aparte-chat>`,
+})
+export class ChatComponent {
+  onMessageSent({ files = [] }: AparteSendEventDetail) {
+    const attachments = filesToAttachments(files); // what a message carries
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 A message from your store sets them with `bubble.setAttachments()`, or the `attachments` field
 of the message you append.

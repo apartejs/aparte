@@ -1,5 +1,56 @@
 # @aparte/svelte
 
+## 1.9.0
+
+### Minor Changes
+
+- df764c4: Every element of core now has a React component — `<AparteConversationList>`, `<AparteLauncher>`, `<AparteSplit>`… — with its properties as props and its events as `onXxx` callbacks, the same under React 18 and 19.
+
+  ```tsx
+  <AparteConversationList
+    conversations={history.activeConversations}
+    active-id={history.activeId}
+    onConversationDelete={(detail) => void history.delete(detail.id)}
+  />
+  ```
+
+  Do you have to touch your code? No. The raw tags keep working, typed as they were. Two typing changes can show an error in code that was already wrong: **Vue now checks a multi-word attribute** (`:active-id="5"` passed unchecked, because Vue looks a kebab-case attribute up by its camelCase name) **and types the events** a tag sends, and **every attribute now accepts `null`** to remove it, in React, Vue and Svelte, so `active-id={history.activeId}`, a `string | null`, compiles as written.
+
+  - **24 components.** One per element but the chat, whose component stays `<AparteChat>`, named `Aparte` and the tag in Pascal case, each with an `Aparte…Props` type. Generated from the manifest like the Angular directives: an element, an attribute or an event added to core reaches React with no edit. A table of them is in the [wrapper reference](https://apartejs.dev/reference/wrappers/).
+  - **A callback is `(detail, event)`**, as `<AparteChat>`'s are: the detail first, so a handler written for it alone still fits, and the event second, where `event.preventDefault()` is. The conversation list's rename, pin, archive and delete are cancelable, and `manage` stands down when one is cancelled. A callback that changes takes no new listener.
+  - **Why not the raw tag.** React 18 writes a property as the text `[object Object]` and listens to no event; React 19 sets a prop as a property when the element has one of that name and as an attribute when it does not. A component writes its props itself after the render — attributes through `applyElementProps`, properties by assignment, events with `addEventListener` — and only the ones whose value changed. A presence attribute takes a `boolean` there (`flat`, `manage={false}`), where the raw tag has to write `''`.
+  - **Server rendering.** An element carries `defer-hydration` until React has hydrated it, as `<AparteChat>`'s root does, and an attribute an element reads once, at connect (`framework-managed` on the viewport), is in its first markup, not applied after.
+  - **Vue and Svelte.** Both already set a property an element has and listen to its events at runtime (a test mounts the raw list in each); what they lacked was the types. A property such as the list's `conversations` is now typed in both, and Vue declares each tag's events as emits, from a file generated from the manifest (`--element-members`). A presence attribute written bare in a Vue template, `<aparte-select searchable>`, is accepted as it is, and `false` is not. `@aparte/core` widens `AparteAttrValue` to accept `null`.
+  - **Weight.** `@aparte/react` goes from 5.4 KB to 7.3 KB gzip (+1.9 KB): a table row for each of the 24 components, and the one function behind them. An app pays for the ones it imports, and `<AparteChat>` is one of them: its definition has no side effect, so `useAparteEvent` alone bundles to 0.6 KB gzip and `<AparteConversationList>` alone to 1.1 KB (esbuild over the published file). A bundle of `<AparteConversationList>` alone holds one `createAparteElement` call and none of the other 23 components' names, and a bundle of all of them holds 24 (esbuild, `sideEffects: false` and a `/* @__PURE__ */` on each). The package's budget in `size-budget.json` rises from 5.5 to 7.75 KB.
+
+- d4a7249: `<AparteChat>` now sends every event of the chat — `on:linkClick` on the Svelte 4 component, `onlinkClick` on the runes one (`@aparte/svelte/runes`), and the same for `retry`, `feedback`, `messageDone`… — and `preventDefault()` on a cancelable one reaches the chat.
+
+  ```svelte
+  <!-- @aparte/svelte/runes -->
+  <AparteChat onlinkClick={(detail, event) => { event.preventDefault(); goto(detail.href); }} />
+
+  <!-- @aparte/svelte -->
+  <AparteChat on:linkClick={(event) => { event.preventDefault(); goto(event.detail.href); }} />
+  ```
+
+  Do you have to touch your code? No. `messageSent` and `action` keep their names on both components, as events and as the callback props `onmessageSent` and `onaction`, whose first argument is still the detail: a callback written for it alone still fits.
+
+  - **Every event.** The events are generated from the ones `<aparte-chat>` declares, 23 today: the composer's (`messageSent`, `stop`, `composerChange`, `actionClick`), the transcript's and each message's (`pathChanged`, `retry`, `edit`, `feedback`, `linkClick`…) and the turn's (`messageStart`, `messageDone`, `messageError`…). A name is the event's without `aparte-`, in camelCase — save `aparte-send`, which is `messageSent`, and `aparte-cancel`, which is `stop`. An event the chat gains reaches both components with no change to this package.
+  - **The runes component** takes a callback prop for each — `on` and the name, as Svelte spells it — called with the detail, then the DOM event.
+  - **The Svelte 4 component** dispatches a component event for each, the detail under `event.detail`. `preventDefault()` on it cancels the chat's event: `aparte-link-click` is cancelable, and cancelled it keeps the browser from following the link. `onmessageSent` and `onaction` stay, and now also receive the DOM event as their second argument.
+  - **Why.** Both components exposed two of the chat's events; the rest could only be reached through a DOM listener on their root.
+
+- b2a427c: Both `<AparteChat>` components expose `getElement()` and `getComposer()`, and the Svelte 5 one sets any `onaparte-*` attribute on its root, so a plugin's event is `onaparte-subagent-open={…}`.
+
+  ```svelte
+  <AparteChat onaparte-subagent-open={(event) => openPanel(event.detail)} />
+  ```
+
+  Do you have to touch your code? No. `AparteChatStore` (`createAparteChat()`) now extends `AparteChatImperativeApi`, so it carries every method of it.
+
+  - **Svelte 5.** What the component does not declare is spread on its root element, the chat's own callbacks excepted. The `onaparte-*` attributes are typed by `HTMLElementEventMap`, with an open `onaparte-${string}` for the rest.
+  - **Svelte 4.** `bind:this` the chat, then `getElement()?.addEventListener(…)` in `onMount`.
+
 ## 1.8.0
 
 ## 1.7.0

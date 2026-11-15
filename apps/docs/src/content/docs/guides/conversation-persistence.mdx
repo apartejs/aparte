@@ -218,6 +218,12 @@ are on screen. With a framework, let your `conversationId` follow those selectio
 `window.addEventListener('aparte-conversation-select', (e) => setConversationId(e.detail.id))` —
 so that a later `null` is a change the chat sees.
 
+A loop that runs elsewhere learns which conversation a turn is in: each turn carries the id of the
+one open when the person sent the message, read from the chat itself, so nothing here has to be
+mirrored into a variable for it. [Run the agent loop on your
+server](/guides/server-loop/#one-route-and-one-journal-per-conversation) routes by it, and an
+[AG-UI agent's](/providers/agent/ag-ui/#options) thread is it.
+
 ## Keep what was being typed
 
 With `keepDrafts`, leaving a conversation and coming back gives back what was in the composer:
@@ -253,10 +259,93 @@ two chats, `target="<the chat's id>"` on the list keeps a click, and the menu, t
 
 Without `manage`, the list only announces each gesture, and you carry it out:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 list?.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
 list?.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { useAparteEvent, useConversationManager } from '@aparte/react';
+
+export function Conversations() {
+  const cm = useConversationManager();   // after cm.init(adapter)
+  const list = useRef<HTMLElement>(null);
+
+  useAparteEvent(list, 'aparte-conversation-rename', (e) => cm.manager?.updateTitle(e.detail.id, e.detail.title));
+  useAparteEvent(list, 'aparte-conversation-delete', (e) => cm.manager?.delete(e.detail.id));
+
+  return <aparte-conversation-list ref={list} />;
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { useConversationManager } from '@aparte/vue';
+
+const cm = useConversationManager();   // after cm.init(adapter)
+</script>
+
+<template>
+  <aparte-conversation-list
+    @aparte-conversation-rename="(e) => cm.manager?.updateTitle(e.detail.id, e.detail.title)"
+    @aparte-conversation-delete="(e) => cm.manager?.delete(e.detail.id)"
+  />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { createConversations } from '@aparte/svelte/runes';
+
+  const cm = createConversations();   // after cm.init(adapter)
+</script>
+
+<aparte-conversation-list
+  onaparte-conversation-rename={(e) => cm.manager?.updateTitle(e.detail.id, e.detail.title)}
+  onaparte-conversation-delete={(e) => cm.manager?.delete(e.detail.id)}
+></aparte-conversation-list>
+```
+
+On Svelte 4, write the same events as `on:aparte-conversation-rename={…}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, inject } from '@angular/core';
+import { AparteConversationListDirective, ConversationManagerService } from '@aparte/angular';
+
+@Component({
+  selector: 'app-conversations',
+  standalone: true,
+  imports: [AparteConversationListDirective],
+  template: `
+    <aparte-conversation-list
+      (conversationRename)="cm.manager?.updateTitle($event.id, $event.title)"
+      (conversationDelete)="cm.manager?.delete($event.id)"
+    ></aparte-conversation-list>
+  `,
+})
+export class ConversationsComponent {
+  readonly cm = inject(ConversationManagerService);   // after cm.init(adapter)
+}
+```
+
+</TabItem>
+</Tabs>
 
 The others are `-pin`, `-unpin`, `-archive` and `-unarchive`, each with `{ id }`. Under `manage`
 they still come first and can be cancelled, which takes back that one gesture.

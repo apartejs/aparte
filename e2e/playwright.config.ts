@@ -154,6 +154,10 @@ const AGENTS_SDK_SERVER = {
 };
 
 const SMOKE = /framework-smoke\.spec\.ts/;
+// The testing contract (`guides/testing.mdx` shows this file): type, send, wait, read, stop and a
+// failed turn, reached through the contract's hooks and nothing else. On every example, because the
+// whole claim is that the same lines drive all of them.
+const TESTING_GUIDE = /testing-guide\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /vanilla-dist\.spec\.ts/;
 const AXE = /a11y\.spec\.ts/;
@@ -244,6 +248,14 @@ const SEGMENT_META = /segment-metadata\.spec\.ts/;
 // custom-property behaviour. jsdom cannot host it at all: it does not substitute
 // `var()`, so every assertion in that spec passes there on a broken stylesheet.
 const THEMING = /theming\.spec\.ts/;
+// `hidden` on a kit element, whatever whitespace separates its classes. `vanilla-dist`
+// only: it has core's stylesheet as published and minified, which is where an escape in a
+// selector string could be rewritten into another character, and a page with no skin. The
+// `vanilla` example's shared stylesheet carries a bare `[hidden] { display: none }` of its
+// own, under which everything this spec hides is hidden whatever core's rule says, so there
+// the spec would pass on any stylesheet. Source-shape tests were green while a tab and a
+// newline did not work; only an engine can say.
+const HIDDEN_ATTRIBUTE = /hidden-attribute\.spec\.ts/;
 // The shell layouts: <aparte-split> dragged, arrowed and stacked, and the application
 // shell's drawer. `vanilla` only, because it is the app that HAS the layouts
 // (`?layout=split`, `?layout=shell`) — and it is the whole point of them: a pointer
@@ -286,6 +298,11 @@ const SUBAGENTS = /[\\/]subagents\.spec\.ts$/;
 // An agent's activity drawn by the renderer the site registers for its type, updated in place.
 // Core's own drawing, the same everywhere: vanilla carries it.
 const ACTIVITY = /[\\/]activity\.spec\.ts$/;
+// The links a reply holds (#205): a new tab by default, same-site ones included, and the app's
+// handler routing a same-site one under `?links=route`. On every example: the handler is each
+// framework's own spelling of `aparte-link-click`, which is the variable. Anchored, so it does
+// not also match a spec that merely ends in `links`.
+const LINKS = /[\\/]links\.spec\.ts$/;
 // An edit drawn by `@aparte/plugin-diff` under its tool's line, and a comment on a line sent back
 // as a review. On vanilla and React: the reply is core's in one and mirrored by a framework in
 // the other, and the element holds the reader's comment across what each does to a message.
@@ -330,25 +347,25 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // `<aparte-chat>`, core's own default composition), which is exactly where the
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
-    k === 'vanilla-dist' ? [DEMO, THEMING] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, PLUGIN_DIFF, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, PLUGIN_DIFF, ...DEEP] :
+    k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
+    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, ACTIVITY, PLUGIN_DIFF, LINKS, ...DEEP] :
+    k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, PLUGIN_DIFF, LINKS, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS] :
+    k === 'svelte5' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS] :
+    k === 'svelte4' ? [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, LINKS] :
     // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
     // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
     // set it before the element is inserted, so only Angular proves the viewport follows it.
-    [SMOKE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, ...(k === 'angular' ? [OVERLAY] : [])];
+    [SMOKE, TESTING_GUIDE, REAL, AXE, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

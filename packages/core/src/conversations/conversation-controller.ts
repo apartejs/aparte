@@ -12,6 +12,7 @@ import type { AparteConfig } from '../config/aparte-config.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
 import { tellConversationStatus, type AparteConversationStatus } from './conversation-status.js';
+import { offerOpenConversation } from './open-conversation.js';
 
 /**
  * Abstract binding between a chat UI and the conversation lifecycle.
@@ -94,6 +95,8 @@ export interface AparteConversationControllerOptions {
  *   - Lazily create a conversation on the first user `aparte-send` if none active.
  *   - Persist updates triggered by `aparte-path-changed` (branch nav, retry, edit).
  *   - Dispatch `aparte-abort` when the active conversation changes mid-stream.
+ *   - Leave the open conversation readable on the host while bound, so `AparteClient` can say
+ *     which conversation each turn belongs to (`StreamRunOptions.conversationId`).
  *
  * Usage:
  * ```ts
@@ -172,6 +175,19 @@ export class AparteConversationController {
     /** The current active conversation id (null when none selected). */
     get activeId(): string | null {
         return this._activeId;
+    }
+
+    /**
+     * The conversation a message sent now belongs to: the open one, or — for the first
+     * message of a chat — the one that send is creating. `createNew()` makes it the
+     * manager's active conversation synchronously, so the client, which hears the send
+     * right after this controller does, already finds it there; this controller's own id
+     * follows once the conversation is saved. `_ensureConversationAndPersist` reads the
+     * same two places to decide where the message is saved, so a turn is carried to the
+     * conversation its message was written in.
+     */
+    private _openId(): string | null {
+        return this._activeId ?? this._manager()?.activeId ?? null;
     }
 
     /**
@@ -405,15 +421,23 @@ export class AparteConversationController {
         // vanilla path (manager registered first) exactly as it was.
         this._bound = true;
         this._manager();
+        // So the client, which sits beside the chat and not in it, can say which
+        // conversation a turn belongs to (`StreamRunOptions.conversationId`).
+        this._withdrawOpenConversation = offerOpenConversation(host, () => this._openId());
 
         return () => this.unbind();
     }
+
+    /** Takes the open-conversation reader off the host (see `bind`). */
+    private _withdrawOpenConversation: (() => void) | null = null;
 
     /** Detach event listeners. */
     /** Release handle for the hydration-retry subscription (see setConversationId). */
     private _stopHydrationRetry: (() => void) | null = null;
 
     unbind(): void {
+        this._withdrawOpenConversation?.();
+        this._withdrawOpenConversation = null;
         // Unbound FIRST: `_persistActive()` below resolves the manager, and while
         // bound that resolution would re-subscribe during teardown.
         this._bound = false;

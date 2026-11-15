@@ -35,9 +35,12 @@ import { mdxSafe } from './mdx-safe.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readCatalogue } from './lib/catalogue.mjs';
+import { bindingName, readElements, readNativeEventNames, readReactComponents } from '../../../scripts/gen-element-bindings.mjs';
+import bindingConfig from '../../../packages/core/element-bindings.config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CEM = resolve(here, '../../../packages/core/dist/custom-elements.json');
+const CORE_DIR = resolve(here, '../../../packages/core');
 const CONTENT = resolve(here, '../src/content/docs/components');
 const PLUGIN_DIR = resolve(here, '../../../packages/plugins');
 const PARTIALS = resolve(here, '../src/generated/element-api');
@@ -258,9 +261,11 @@ function cssTable(decl, h) {
  *
  * The docs used to be vanilla-only with a link out, which made a reader in React translate every
  * snippet in their head. Nothing here is invented: the syntax comes from the four hand-written
- * framework pages, and the Angular Output name from the rule `scripts/gen-element-bindings.mjs`
- * already applies — `camel(event.replace(/^aparte-/, ''))`, `aparte-select-change` →
- * `selectChange`. If that rule changes, this follows it.
+ * framework pages, and the Angular Output name from `bindingName`, the function
+ * `scripts/gen-element-bindings.mjs` names the generated outputs with — `aparte-select-change` →
+ * `selectChange`, and a rename the bindings config declares (the composer's `aparte-cancel` →
+ * `stop`) included. It is IMPORTED, not copied: a copy of the rule had no renames, and printed
+ * `(cancel)`, the binding the generator refuses.
  *
  * `syncKey="framework"` is Starlight's own: the reader picks once and the choice follows them
  * across every page of the site, which is the "choose your framework at the top" behaviour
@@ -270,7 +275,6 @@ function cssTable(decl, h) {
  * what makes the claim checkable rather than asserted.
  */
 const camel = (s) => s.replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
-const outputName = (event) => camel(event.replace(/^aparte-/, ''));
 
 /**
  * `tag -> the class `@aparte/angular` actually exports for it`.
@@ -321,6 +325,20 @@ function angularSymbols() {
 const ANGULAR = angularSymbols();
 
 /**
+ * `tag -> the React component @aparte/react exports for it`: `{ component, properties, events }`,
+ * read from the manifest by the function that generates the components, so a tab names a
+ * component and a callback that exist. Absent for the chat, whose component is hand-written, and
+ * for a plugin's element, which core's wrapper does not type.
+ */
+const REACT_COMPONENTS = new Map(
+  readReactComponents(CORE_DIR, readElements(CORE_DIR), bindingConfig, {
+    native: readNativeEventNames(),
+    configPath: 'packages/core/element-bindings.config.mjs',
+    barrelArg: resolve(here, '../../../packages/wrappers/react/src/index.ts'),
+  }).map((c) => [c.tag, c]),
+);
+
+/**
  * `bare`: the tabs alone, for a catalogue page that writes its own heading and sentence.
  * `plugin`: the element ships in a plugin, not core — `{ pkg, react, vue, svelte, angular }`, each
  * binding true (the Angular one, the class name) when the package publishes that subpath. Core's
@@ -366,19 +384,50 @@ function frameworkTabs(decl, { bare = false, plugin = null } = {}) {
     ? `Declared through \`SvelteHTMLElements\`${plugin ? ' by the import above' : ''}, so \`svelte-check\` covers the attributes and the \`on:\` handlers.`
     : `${noBinding('Svelte')}: a template accepts the tag, and \`svelte-check\` does not check its attributes.`;
 
-  md += `<TabItem label="React">\n\n${subpath('react')}\`\`\`tsx\n${openTag(plain)}\n\`\`\`\n\n${reactTyping}${bool ? ` A presence attribute takes \`''\`, never \`true\` — React stringifies it, and \`${attr.name}={false}\` would render \`${attr.name}="false"\`, which \`hasAttribute\` reads as on.` : ''}${ev ? ' Events reach you by ref, typed through the DOM.' : ''}\n\n</TabItem>\n`;
+  // A core element has a component: its tab shows that, because the raw tag leaves a property
+  // and every event to a ref and an effect (React 18 has no prop form for either). A plugin's
+  // element, and the chat, keep the tag.
+  const react = plugin ? undefined : REACT_COMPONENTS.get(tag);
+  if (react) {
+    const callback = react.events.find((e) => e.detail) ?? react.events[0];
+    const props = [
+      attr ? (bool ? attr.name : `${attr.name}="…"`) : null,
+      react.properties[0] ? `${react.properties[0].name}={${react.properties[0].name}}` : null,
+      callback ? `${callback.prop}={${callback.detail ? '(detail) => use(detail)' : '() => onIt()'}}` : null,
+    ].filter(Boolean);
+    const jsx = props.length > 1
+      ? `<${react.component}\n${props.map((p) => `  ${p}`).join('\n')}\n/>`
+      : `<${react.component}${props.length ? ` ${props[0]}` : ''} />`;
+    md += `<TabItem label="React">\n\n\`\`\`tsx\nimport { ${react.component} } from '@aparte/react';\n\n${jsx}\n\`\`\`\n\n`
+      + `\`<${react.component}>\` takes the tag's attributes as props by the names the tag has${bool ? `, a presence attribute as \`true\` or \`''\` to set and \`false\`, \`null\` or \`undefined\` to remove` : ''}`
+      + `${react.properties.length ? `, \`${react.properties[0].name}\` as a property` : ''}`
+      + `${callback ? `, and each event as an \`onXxx\` callback called with \`(detail, event)\`` : ''}. `
+      + `It works the same under React 18 and 19: [Any element, typed](/frameworks/react/#any-element-typed).\n\n</TabItem>\n`;
+  } else {
+    md += `<TabItem label="React">\n\n${subpath('react')}\`\`\`tsx\n${openTag(plain)}\n\`\`\`\n\n${reactTyping}${bool ? ` A presence attribute takes \`''\`, never \`true\` — React stringifies it, and \`${attr.name}={false}\` would render \`${attr.name}="false"\`, which \`hasAttribute\` reads as on.` : ''}${ev ? ' Events reach you by ref, typed through the DOM.' : ''}\n\n</TabItem>\n`;
+  }
 
-  md += `<TabItem label="Vue">\n\n${subpath('vue')}\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\n${vueTyping}${bool ? ` A presence attribute takes \`''\` to set and \`null\` to remove, never \`false\`.` : ''}\n\n</TabItem>\n`;
+  md += `<TabItem label="Vue">\n\n${subpath('vue')}\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\n${vueTyping}${bool ? ` A presence attribute takes \`''\` to set, or none at all (\`${attr.name}\`), and \`null\` to remove, never \`false\`.` : ''}\n\n</TabItem>\n`;
 
   md += `<TabItem label="Svelte">\n\n${subpath('svelte')}\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\n${svelteTyping}${bool ? ` A presence attribute takes \`''\`, never \`false\`.` : ''}\n\n</TabItem>\n`;
 
   const ngSymbol = plugin ? plugin.angular : ANGULAR.get(tag);
   const ngKind = ngSymbol?.endsWith('Component') ? 'component' : 'directive';
+  // A generated directive names its Output after the event (`aparte-select-change` →
+  // `(selectChange)`), and emits the detail. A hand-written component names its own, so the
+  // derived name can be one it does not have: `<aparte-chat>` printed `(send)`, which binds a
+  // DOM `send` event nothing dispatches. Its host IS the element, so the DOM event itself is
+  // the binding sure to reach it — and `$event` is then the event, not its detail.
+  const ngEvent = !ev
+    ? ''
+    : ngKind === 'component'
+      ? `(${ev.name})="${detail ? 'use($event.detail)' : 'onIt()'}"`
+      : `(${bindingName(tag, ev.name, bindingConfig)})="${detail ? 'use($event)' : 'onIt()'}"`;
   md += `<TabItem label="Angular">\n\n${
     ngSymbol
       ? `\`\`\`ts\nimport { ${ngSymbol} } from '${plugin ? `${plugin.pkg}/angular` : '@aparte/angular'}';\n\`\`\`\n\n`
       : `${plugin ? noBinding('Angular') : '`@aparte/angular` declares nothing for this tag'}, so an Angular template needs \`CUSTOM_ELEMENTS_SCHEMA\` to accept it — and \`[x]="v"\` will write a PROPERTY, which is a silent no-op on a read-only accessor.\n\n`
-  }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\n${
+  }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ngEvent ? `\n  ${ngEvent}` : ''}></${tag}>\n\`\`\`\n\n${
     ngSymbol
       ? `A standalone ${ngKind} whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.`
       : `Written as a plain custom element.`

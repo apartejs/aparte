@@ -230,7 +230,7 @@ let checkpointIds = 0;
  * @attr {string} content - Plain text content, for a bubble with no segments.
  * @attr {number | string} timestamp - Epoch milliseconds or a date string; a numeric string is read as milliseconds.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
- * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
+ * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight. Whoever set it, the element takes it off when the reply ends, so `[streaming]` never matches a finished reply. A test asks `[aria-busy="true"]` on the message instead, which every framework draws the same way.
  * @attr {string} data-checkpoint - `pending` or `failed`: what a compaction is doing to this message, which it will carry as a checkpoint. The viewport and the framework host set it from `aparte-compact-start` / `-error` and take it off again; the bubble draws the separator's "Summarising the context…" or Retry from it. Read it, do not write it.
  * @attr {string} data-checkpoint-reason - Why the compaction failed, beside `data-checkpoint="failed"`: the separator gives it as the failure's tooltip and to screen readers. Set and cleared with `data-checkpoint`; read it, do not write it.
  * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
@@ -344,6 +344,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _content = '';
   private _tokens: readonly AparteMessageToken[] | undefined;
   private _streaming = false;
+  /** The element is taking its own `streaming` attribute off: the change says what the state already does. */
+  private _clearingStreamingAttr = false;
   private _segments: AparteSegment[] = [];
   private _role: AparteBubbleRole = 'assistant';
   private _attachments: AparteAttachment[] = [];
@@ -770,6 +772,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // The chat's own config may draw a call or a segment with another renderer than the
       // global config these rows were drawn under (a card it declares): those rows follow.
       this._redrawSegmentsWhoseRendererChanged();
+      // It may also label a step another way than the page's: one already open is shown again
+      // with the labels of the config this bubble resolves to now.
+      if (this.isConnected) this._updateWaiting();
     });
   }
 
@@ -842,7 +847,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         if (this.getAttribute('data-checkpoint') === 'failed') this._updateCheckpoint();
         break;
       case 'streaming':
-        this._updateStreaming(newValue !== null && newValue !== 'false');
+        if (!this._clearingStreamingAttr) this._updateStreaming(newValue !== null && newValue !== 'false');
         break;
       case 'name':
         this._updateName();
@@ -1835,8 +1840,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (!el) return;
     el.hidden = !waiting;
     // The step the agent is on, beside the dots: the visible words are hidden from a screen
-    // reader, which hears them from the label instead — once, as they change.
-    const step = waiting ? this._step : null;
+    // reader, which hears them from the label instead — once, as they change. The words are
+    // the label the chat's config holds for the step's name (`registerStepLabel`), else the
+    // name itself: `_step` keeps the name the run announced, and is read here at every draw,
+    // so a label or a language switch changes what an open step says.
+    const step = waiting && this._step ? this._cfg.getStepLabel(this._step) ?? this._step : null;
     let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
     if (!words && step) {
       // A shell of the app's own may not have it: added where the default shell has it.
@@ -2284,8 +2292,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * A link the MODEL wrote is about to be followed. Announced as a cancelable event
    * before the browser acts, so a host can route it — an external browser, a
    * confirmation, an embedded view — without intercepting the DOM. With
-   * no listener the browser follows it, which the sanitizer has already made open in
-   * a new tab for an external URL; `preventDefault()` on the event cancels the click.
+   * no listener the browser follows it, where the config's link target sent it (a new
+   * tab by default, `setLinkTarget`); `preventDefault()` on the event cancels the click.
    *
    * Only anchors inside the message body: the action bar and the branch picker are
    * buttons, and an attachment tile is its own event.
@@ -2896,6 +2904,25 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // the cards a mounted renderer holds (it checks the version itself).
     if (wasStreaming && !streaming && this._segments.length > 0) this._redrawIfStale();
     this._syncTurns();
+    if (!streaming) this._dropStreamingAttribute();
+  }
+
+  /**
+   * A reply in flight is declared with `streaming`, and it ends as `updateMessage({ status })`
+   * — which moved the state and left the attribute. A vanilla viewport writes it on the bubble
+   * it appends for a reply on its way and nothing took it off, so every finished reply of a
+   * transcript still matched `[streaming]`. It comes off here, once the state is off.
+   * `streaming="false"` is left alone: it already says so.
+   */
+  private _dropStreamingAttribute(): void {
+    const value = this.getAttribute('streaming');
+    if (value === null || value === 'false') return;
+    this._clearingStreamingAttr = true;
+    try {
+      this.removeAttribute('streaming');
+    } finally {
+      this._clearingStreamingAttr = false;
+    }
   }
 }
 

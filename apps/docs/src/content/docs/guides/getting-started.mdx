@@ -14,6 +14,7 @@ guide:
 import Cards from '../../../components/content/Cards.astro';
 import Code from '../../../components/content/Code.astro';
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import { CORE_VERSION } from '../../../data/core-version';
 
 :::tip[On React, Vue, Svelte or Angular?]
@@ -174,6 +175,9 @@ own URLs. Give every `@aparte/*` URL the same version, so the page loads a singl
 
 ## Stream from your own code
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 const chat = document.querySelector('aparte-chat');
 let n = 0;
@@ -190,9 +194,118 @@ chat?.addEventListener('aparte-send', async (event) => {
 });
 ```
 
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { AparteChat, useAparteChat } from '@aparte/react';
+import { uuid } from '@aparte/core';
+
+declare function yourStream(prompt: string): AsyncIterable<string>;   // your endpoint, worker or websocket
+
+export function Chat() {
+  const chat = useAparteChat();
+
+  return (
+    <AparteChat
+      ref={chat.ref}
+      messages={chat.messages}
+      onMessagesChange={chat.setMessages}
+      onMessageSent={async ({ content }) => {
+        const id = uuid();
+        chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+        await chat.ref.current?.injectTokenStream(id, yourStream(content));
+      }}
+    />
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import { uuid } from '@aparte/core';
+
+declare function yourStream(prompt: string): AsyncIterable<string>;   // your endpoint, worker or websocket
+
+const chat = useAparteChat();
+
+async function onMessageSent({ content }: { content: string }) {
+  const id = uuid();
+  chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  await chat.injectTokenStream(id, yourStream(content));
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @message-sent="onMessageSent" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import { uuid } from '@aparte/core';
+
+  declare function yourStream(prompt: string): AsyncIterable<string>;   // your endpoint, worker or websocket
+
+  let chat = $state<AparteChatImperativeApi>();
+
+  async function onMessageSent({ content }: { content: string }) {
+    if (!chat) return;
+    const id = uuid();
+    chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    await chat.injectTokenStream(id, yourStream(content));
+  }
+</script>
+
+<AparteChat bind:this={chat} onmessageSent={onMessageSent} />
+```
+
+On Svelte 4, the component from `@aparte/svelte` takes `on:messageSent={(e) => onMessageSent(e.detail)}`
+and `let chat: AparteChatImperativeApi | null = null;`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { uuid } from '@aparte/core';
+import type { AparteSendEventDetail } from '@aparte/core';
+
+declare function yourStream(prompt: string): AsyncIterable<string>;   // your endpoint, worker or websocket
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (messageSent)="onMessageSent($event)"></aparte-chat>`,
+})
+export class ChatComponent {
+  readonly chat = viewChild.required(AparteChatComponent);
+
+  async onMessageSent({ content }: AparteSendEventDetail) {
+    const id = uuid();
+    this.chat().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    await this.chat().injectTokenStream(id, yourStream(content));
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
 When the reply comes from something aparté does not talk to — your endpoint, a worker, a
 websocket — leave the client out and drive the chat yourself: `aparte-send` fires when the person
-sends, you add their message, and the viewport takes the reply token by token.
+sends, you add their message, and the viewport takes the reply token by token. The framework
+packages add the person's message for you, so their handler starts the reply and streams into it.
 [Use your own loop](/guides/bring-your-own-loop/) goes further: reasoning, tool calls, stopping.
 
 ## Next

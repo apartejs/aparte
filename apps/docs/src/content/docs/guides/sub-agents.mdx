@@ -10,6 +10,7 @@ guide:
 
 import Cards from '../../../components/content/Cards.astro';
 import Variant from '../../../components/catalog/Variant.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 A sub-agent is an agent another agent hands part of its work to: it gets one task, works on it with
 its own model calls and its own tools, and reports back. Its work is not the reply, so the chat keeps
@@ -348,6 +349,29 @@ back when it ends.
 A step shows while it lasts and nothing more. It is not kept in the reply, not saved with the
 conversation and not sent to the model. Once the reply has text, or ends, it is gone.
 
+**A key in the person's language:** a server often names a step with a stable key — `slot-wait`,
+`restore`, `reread` — while the page knows the language. `registerStepLabel` maps the key to the
+words, and the waiting indicator, what a screen reader hears in place of "Typing" and a sub-agent's
+line all show them. A name without a label shows as it is. The label is text, or a function of the
+locale, asked again at every change of it, so a step that is open follows a language switch:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerStepLabel('slot-wait', 'Waiting for a free slot…');
+
+// A function is told the locale, and asked again when it changes.
+const off = aparteGlobalConfig.registerStepLabel('reread', ({ locale }) =>
+  locale.tag?.startsWith('fr') ? 'Relecture de la conversation…' : 'Re-reading the conversation…');
+
+off(); // takes the label off: the name shows again
+```
+
+It is configuration, not a component, so it reads the same under every framework: register it on
+`aparteGlobalConfig`, or on the config you give one chat (a framework's `config` prop), which then
+reads its own labels only. Only what is shown is labelled: `config.observeRunEvents` still hears
+`step-start` with `reread`, so a mark of the step that you keep holds the key, not the label.
+
 **An AG-UI agent:** nothing to do. `STEP_STARTED` and `STEP_FINISHED` are shown as they arrive, a
 sub-agent's by its `subagentRunId`, and a step the agent leaves open closes when its run ends.
 
@@ -412,6 +436,9 @@ chat as each sub-agent starts, carries the three:
 </aparte-split>
 ```
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```ts
 import { setupSubagents } from '@aparte/plugin-subagents';
 
@@ -425,6 +452,111 @@ document.getElementById('chat')!.addEventListener('aparte-subagent-start', (even
   split.removeAttribute('single');
 });
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useState } from 'react';
+import { AparteChat, useAparteChat, useAparteEvent } from '@aparte/react';
+import { setupSubagents } from '@aparte/plugin-subagents';   // its events join HTMLElementEventMap
+
+setupSubagents();
+
+export function Workspace() {
+  const chat = useAparteChat();
+  const [shown, setShown] = useState<{ messageId: string; agentId: string }>();
+
+  useAparteEvent(chat.ref, 'aparte-subagent-start', (event) =>
+    setShown({ messageId: event.detail.messageId, agentId: event.detail.agentId }));
+
+  return (
+    <aparte-split position="50" single={shown ? undefined : ''}>
+      <AparteChat id="chat" ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />
+      {shown && <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId} />}
+    </aparte-split>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat } from '@aparte/vue';
+import { setupSubagents } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+const shown = ref<{ messageId: string; agentId: string }>();
+</script>
+
+<template>
+  <aparte-split position="50" :single="shown ? undefined : ''">
+    <AparteChat id="chat" @aparte-subagent-start="(event) => (shown = event.detail)" />
+    <aparte-subagent-view v-if="shown" for="chat" :message-id="shown.messageId" :agent-id="shown.agentId" />
+  </aparte-split>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import { setupSubagents } from '@aparte/plugin-subagents';
+
+  setupSubagents();
+
+  let shown = $state<{ messageId: string; agentId: string }>();
+</script>
+
+<aparte-split position="50" single={shown ? undefined : ''}>
+  <AparteChat id="chat" onaparte-subagent-start={(event) => (shown = event.detail)} />
+  {#if shown}
+    <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId}></aparte-subagent-view>
+  {/if}
+</aparte-split>
+```
+
+On Svelte 4, `bind:this` the chat and listen on `chat.getElement()` in `onMount`
+([Svelte](/frameworks/svelte/#control-it-from-code)).
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
+import { AparteChatComponent, AparteSplitDirective } from '@aparte/angular';
+import { setupSubagents } from '@aparte/plugin-subagents';
+import type { AparteSubagentStartEventDetail } from '@aparte/plugin-subagents';
+
+setupSubagents();
+
+@Component({
+  selector: 'app-workspace',
+  standalone: true,
+  imports: [AparteChatComponent, AparteSplitDirective],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <aparte-split position="50" [single]="!shown()">
+      <aparte-chat id="chat" (aparte-subagent-start)="shown.set($any($event).detail)"></aparte-chat>
+      @if (shown(); as agent) {
+        <aparte-subagent-view for="chat" [attr.message-id]="agent.messageId" [attr.agent-id]="agent.agentId"></aparte-subagent-view>
+      }
+    </aparte-split>
+  `,
+})
+export class WorkspaceComponent {
+  readonly shown = signal<AparteSubagentStartEventDetail | null>(null);
+}
+```
+
+</TabItem>
+</Tabs>
 
 It follows the sub-agent live, shows the saved conversation after a reload, and draws nothing until
 there is something to show. `aparte-subagent-end` says how each one ended. The
@@ -475,9 +607,11 @@ view, and they open in the same view. Without `open`, the line has no button and
 Without a split, pass `onOpen` and `onClose` and show the view your own way (a tab, a drawer).
 `disconnect()` undoes all of it.
 
-The plugin ships no framework binding: the element is a plain tag in every framework. A Vue or
-Svelte template accepts it as it is, and Angular with `CUSTOM_ELEMENTS_SCHEMA` on the component
-that hosts it (bind with `[attr.message-id]`). In a React `.tsx` file, declare the tag once:
+In a framework the element is a plain tag, and the plugin's events reach the chat's root like any
+other: each wrapper hears them by the event's own name (`useAparteEvent`, `@aparte-…`,
+`onaparte-…`, `(aparte-…)`), as the tabs above do. A Vue or Svelte template accepts the tag as it
+is, and Angular with `CUSTOM_ELEMENTS_SCHEMA` on the component that hosts it (bind with
+`[attr.message-id]`). In a React `.tsx` file, declare the tag once:
 
 ```ts
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
@@ -495,31 +629,8 @@ declare module 'react' {
 }
 ```
 
-{/* doc-check: skip excerpt — the tag is declared in JSX as in the fence above */}
-```tsx
-import { useEffect, useRef, useState } from 'react';
-import { AparteChat } from '@aparte/react';
-import { setupSubagents } from '@aparte/plugin-subagents';
-
-setupSubagents();
-
-export function Workspace() {
-  const box = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState<{ messageId: string; agentId: string }>();
-  useEffect(() => {
-    const onStart = (event: HTMLElementEventMap['aparte-subagent-start']) =>
-      setShown({ messageId: event.detail.messageId, agentId: event.detail.agentId });
-    box.current?.addEventListener('aparte-subagent-start', onStart);
-    return () => box.current?.removeEventListener('aparte-subagent-start', onStart);
-  }, []);
-  return (
-    <div ref={box} className="workspace">
-      <AparteChat id="chat" />
-      {shown && <aparte-subagent-view for="chat" message-id={shown.messageId} agent-id={shown.agentId} />}
-    </div>
-  );
-}
-```
+`connectSubagentView` takes elements, not tags: in a framework, pass `chat.getElement()` for the chat
+and a ref (`useRef`, `bind:this`, `viewChild`) for each of the other two, once they are mounted.
 
 ## Approvals
 

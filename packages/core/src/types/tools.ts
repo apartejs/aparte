@@ -163,6 +163,15 @@ export interface AparteToolContext {
      */
     request?: Request;
     /**
+     * The id of the conversation the turn belongs to — in the page, the one open in the chat
+     * when the person sent the message; on the server, the one the page said it sent it in
+     * (`createAparteAgentHandler` reads it from the request). Absent when the chat has none.
+     *
+     * On the server it comes from the browser: it names a conversation, it does not prove the
+     * caller owns it. Check that against who is calling (`request`) before opening anything by it.
+     */
+    conversationId?: string;
+    /**
      * The chat element this turn belongs to. Pass it as `target` to
      * `requestUserInput` (or to anything else that resolves a config from the DOM)
      * and the right instance answers.

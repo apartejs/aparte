@@ -35,6 +35,7 @@ import {
     applyImagePolicy, compileImagePolicy, decideImageAddress, forgetShownImages, imageHost, rememberShownImage, sameImagePolicy, shownImagesOf,
     type AparteImageDecision, type AparteImagePolicy, type HeldImageWords, type ImageDecider,
 } from './image-policy.js';
+import { applyLinkTarget, linkDecision, type AparteLinkDecision, type AparteLinkTarget } from './link-target.js';
 
 /**
  * Whether the page has already been told why a picture waits for a click: once per page, not
@@ -46,6 +47,7 @@ import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 import { chatBoundaryOf } from '../utils/chat-boundary.js';
 import { ToolTable } from './tool-table.js';
+import type { AparteStepLabel } from './step-label.js';
 import type { AparteStreamRunEvent, StreamAdapterTarget } from '../client/stream-adapter.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
@@ -361,6 +363,8 @@ export class AparteConfig {
     private _imageDecider: ImageDecider = compileImagePolicy([]);
     /** Whether the app named an image policy, the default included; see `decideImage`. */
     private _imagePolicyNamed = false;
+    // Where the links a reply holds open (`link-target.ts`): by default every one in a new tab.
+    private _linkTarget: AparteLinkTarget = 'new-tab';
     private _systemPromptTemplate?: string;
     private _systemPromptVarsProvider?: AparteSystemPromptVarsProvider;
     private _statusRenderer?: AparteStatusRenderer;
@@ -466,6 +470,8 @@ export class AparteConfig {
     private _activityRenderers = new Map<string, AparteActivityRenderer>();
     /** What a plugin says about a call, read after the app's display — see {@link setToolLineProvider}. */
     private _toolLineProvider: ((segment: AparteToolCallSegment) => AparteToolLine | undefined) | null = null;
+    /** What a step is called on screen, by the name the run announces — see {@link registerStepLabel}. One entry per registration, so each remover takes back its own. */
+    private _stepLabels = new Map<string, { label: AparteStepLabel }>();
     /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
     private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
@@ -720,9 +726,11 @@ export class AparteConfig {
      * zero-dependency allowlist sanitizer.
      *
      * The function you pass REPLACES the built-in one, chat rules included: no
-     * `aparte-` classes, no layout styles, no form controls, external links in a new
-     * tab. DOMPurify's defaults hold none of the four, so chain it in front of
-     * `defaultSanitizer` rather than in its place (the example below).
+     * `aparte-` classes, no layout styles, no form controls. DOMPurify's defaults hold
+     * none of the three, so chain it in front of `defaultSanitizer` rather than in its
+     * place (the example below). Where a link opens ({@link AparteConfig.setLinkTarget | setLinkTarget})
+     * and which pictures load ({@link AparteConfig.setImagePolicy | setImagePolicy}) are
+     * applied after it, whichever it is.
      *
      * @param sanitizer A sanitizer function, or `null` to DISABLE sanitization.
      *   Disabling exposes you to XSS from LLM-authored content — only do so for
@@ -754,16 +762,20 @@ export class AparteConfig {
     }
 
     /**
-     * Run the active sanitizer over provider-produced HTML, then the image policy
-     * ({@link AparteConfig.setImagePolicy | setImagePolicy}): a picture the policy does not let
-     * load comes back as a link that loads it on a click. Public so a streaming-markdown
-     * provider (which appends DOM directly, bypassing `renderMarkdown`) can apply the same
-     * rules. The image policy runs whichever sanitizer is set, none included, so replacing it
-     * does not turn a reply's pictures back into requests the reader never made.
+     * Run the active sanitizer over provider-produced HTML, then the link target
+     * ({@link AparteConfig.setLinkTarget | setLinkTarget}): every link gets the `target` and
+     * `rel` it opens with; then the image policy ({@link AparteConfig.setImagePolicy | setImagePolicy}):
+     * a picture the policy does not let load comes back as a link that loads it on a click.
+     * Public so a streaming-markdown provider (which appends DOM directly, bypassing
+     * `renderMarkdown`) can apply the same rules. Both run whichever sanitizer is set, none
+     * included, so replacing it does not send a reply's links back into the chat's own frame,
+     * nor turn its pictures back into requests the reader never made.
      */
     sanitizeHtml(html: string): string {
         const clean = this._sanitizer ? this._sanitizer(html) : html;
-        return applyImagePolicy(clean, (url) => this.decideImage(url), () => this._heldImageWords());
+        // Links before pictures: the link a held picture becomes is core's, not the model's.
+        const linked = applyLinkTarget(clean, this._linkTarget);
+        return applyImagePolicy(linked, (url) => this.decideImage(url), () => this._heldImageWords());
     }
 
     /**
@@ -847,6 +859,49 @@ export class AparteConfig {
             named: (host, alt) => this.t('imageLoadNamed').replace('{host}', () => host).replace('{alt}', () => alt),
             icon: this.getIcon('image'),
         };
+    }
+
+    /**
+     * Where the links a reply holds open — in its Markdown, its sources, a document it wrote.
+     * `'new-tab'`, the default, opens every one in a new tab, same-site ones included;
+     * `'external-only'` opens a link to another site in a new tab and keeps a same-site one in
+     * the page, as before 1.9. Either way a link to `#…`, `mailto:`, `tel:` or `sms:` is left as
+     * written, a new tab goes with `rel="noopener noreferrer"`, and the `target` the model wrote
+     * does not choose. What is on screen is drawn again.
+     *
+     * In a single-page app or an Electron window, a same-site link followed in place replaces
+     * the whole app, the conversation with it. To route a link yourself — your router, a pane,
+     * the system browser — cancel the chat's `aparte-link-click`, whichever mode is set.
+     *
+     * @example aparteGlobalConfig.setLinkTarget('external-only');
+     */
+    setLinkTarget(mode: AparteLinkTarget): void {
+        // The same mode again changes nothing, so it redraws nothing.
+        if (mode === this._linkTarget) return;
+        this._linkTarget = mode;
+        bumpRenderingVersion(this);
+        this._notify();
+    }
+
+    /** Where the links a reply holds open: {@link AparteConfig.setLinkTarget | setLinkTarget}'s mode, `'new-tab'` by default. */
+    getLinkTarget(): AparteLinkTarget {
+        return this._linkTarget;
+    }
+
+    /**
+     * Where a link to `href` opens under this config's link target: `{ target: '_blank', rel:
+     * 'noopener noreferrer' }` for a new tab, `{}` for the page itself. For a plugin that draws
+     * links itself, as `@aparte/plugin-streaming-markdown` does: set what it returns, and no
+     * `target` of your own. It does not judge whether the address is safe to link —
+     * `isSafeUrl` does.
+     *
+     * @example
+     * const link = document.createElement('a');
+     * link.href = url;
+     * Object.assign(link, aparteGlobalConfig.decideLink(url));
+     */
+    decideLink(href: string): AparteLinkDecision {
+        return linkDecision(this._linkTarget, href);
     }
 
     /**
@@ -2063,6 +2118,63 @@ export class AparteConfig {
     }
 
     /**
+     * Say how a step is called on screen, in place of the name a run announced. A server that
+     * streams `step-start { name }` sends a stable key — `slot-wait`, `restore`, `reread` —
+     * and the page knows the person's language: this maps one to the other, wherever a step is
+     * shown (the waiting indicator, which a screen reader reads in place of "Typing", and a
+     * sub-agent's line). A name nobody labelled shows as it always did: itself, because core
+     * never makes a label up.
+     *
+     * The label is text, never HTML, or a function of the locale, asked at every draw and on
+     * every config change — so a language switch changes the words of a step that is open.
+     * One that throws, or says nothing, leaves the name. One label per name, per config:
+     * registering a name again replaces its label, and a chat with a config of its own reads
+     * that config's labels, as it reads its tool displays.
+     *
+     * Only what is shown is labelled. The step keeps the name the run announced — for
+     * {@link observeRunEvents}, for the target, for everything an app stores — and is never
+     * saved with the reply. Registering tells the chats on the page, so a label reaches a step
+     * that is open. Returns the function that takes the label off again (it changes nothing
+     * once another registration has replaced it).
+     *
+     * @example
+     * aparteGlobalConfig.registerStepLabel('slot-wait', 'Waiting for a free slot…');
+     *
+     * @example
+     * // In the person's language, and live: a switch of the locale relabels a step that is open.
+     * aparteGlobalConfig.registerStepLabel('reread', ({ locale }) =>
+     *     locale.tag?.startsWith('fr') ? 'Relecture de la conversation…' : 'Re-reading the conversation…');
+     */
+    registerStepLabel(name: string, label: AparteStepLabel): () => void {
+        const entry = { label };
+        this._stepLabels.set(name, entry);
+        this._notify();
+        return () => {
+            // Only its own: a registration that was replaced, or forgotten by `reset()`, cannot
+            // take back the one that came after it.
+            if (this._stepLabels.get(name) !== entry) return;
+            this._stepLabels.delete(name);
+            this._notify();
+        };
+    }
+
+    /**
+     * The words shown for a step named `name`, or `undefined` when none are registered, they
+     * say nothing, or the function that gives them throws — then the name itself is shown. A
+     * function label is asked here, with the locale as it is now.
+     */
+    getStepLabel(name: string): string | undefined {
+        const entry = this._stepLabels.get(name);
+        if (!entry) return undefined;
+        try {
+            const text = typeof entry.label === 'function' ? entry.label({ name, locale: this._locale }) : entry.label;
+            return typeof text === 'string' && text.trim() ? text.trim() : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
      * prose becomes the segment `toSegment` builds, streamed delta by delta.
      *
@@ -2320,7 +2432,7 @@ export class AparteConfig {
 
     /**
      * Put the configuration back to its defaults: the providers and the selected model,
-     * the tools with their renderers and summaries, the tool-line provider, the renderers and render hooks, the
+     * the tools with their renderers and summaries, the tool-line provider, the step labels, the renderers and render hooks, the
      * Markdown and highlight providers, the code-language renderers, the sanitizer, the system prompt, the locale, icons,
      * avatars, actions and host handlers, the conversation manager, the question presenters
      * and their queue, the run-event observers. Three things stay: the transport, the key sources added with
@@ -2360,6 +2472,7 @@ export class AparteConfig {
         this._imageDecider = compileImagePolicy([]);
         this._imagePolicyNamed = false;
         forgetShownImages(this);
+        this._linkTarget = 'new-tab';
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
         this._fetchedModels.clear();
@@ -2371,6 +2484,7 @@ export class AparteConfig {
         notifyRenderersChanged(this);
         this._toolDisplays.clear();
         this._toolLineProvider = null;
+        this._stepLabels.clear();
         this._streamBlocks.clear();
         this._runEventObservers = [];
         this._modelConfig = {};

@@ -13,7 +13,15 @@ import type { AparteMessage, AparteSegment } from '../types.js';
  * // <AparteChat :ref="chat.chatRef" :messages="chat.messages.value"
  * //   @messages-change="chat.onMessagesChange" />
  */
-export function useAparteChat(initial: AparteMessage[] = []) {
+export interface UseAparteChat extends AparteChatImperativeApi {
+    messages: Ref<AparteMessage[]>;
+    /** The component ref: `:ref="chat.chatRef"`. */
+    chatRef: Ref<AparteChatImperativeApi | null>;
+    /** Wire to `@messages-change`. */
+    onMessagesChange: (messages: AparteMessage[]) => void;
+}
+
+export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
     const messages = ref<AparteMessage[]>([...initial]) as Ref<AparteMessage[]>;
     const chatRef = ref<AparteChatImperativeApi | null>(null);
     const c = () => chatRef.value;
@@ -47,5 +55,7 @@ export function useAparteChat(initial: AparteMessage[] = []) {
         focusInput: () => c()?.focusInput(),
         /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
         getViewport: (): HTMLElement | null => c()?.getViewport() ?? null,
+        getElement: (): HTMLElement | null => c()?.getElement() ?? null,
+        getComposer: () => c()?.getComposer() ?? null,
     };
 }

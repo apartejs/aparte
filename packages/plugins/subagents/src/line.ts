@@ -76,7 +76,8 @@ function callLine(call: AparteToolCallSegment, config: AparteConfig): string {
 
 /**
  * What it is doing now: the call running or waiting, as that call's row names it; else the
- * step it announced and is still on ("Reading the parser"); else its LATEST call, the last one
+ * step it announced and is still on ("Reading the parser"), in the words the app registered
+ * for its name (`registerStepLabel`) or as the name itself; else its LATEST call, the last one
  * that finished. Only a call open at that instant used to count,
  * and with fast tools the line never said anything: the call was over before the next draw.
  * The caller asks only while the sub-agent runs or waits, so a finished call reads as the
@@ -90,7 +91,7 @@ function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | un
         if (isOpenCall(segment)) return callLine(segment, config);
         latest ??= segment as AparteToolCallSegment;
     }
-    if (step) return step;
+    if (step) return config.getStepLabel(step) ?? step;
     return latest ? callLine(latest, config) : '';
 }
 

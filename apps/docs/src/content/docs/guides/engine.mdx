@@ -51,6 +51,7 @@ conversation so far, the `tool` messages answering the last calls included, as `
 | Option | What it is |
 | --- | --- |
 | `messageId` | the id of the reply this run writes; the loop does not read it, a runner that forwards the run does |
+| `conversationId` | the id of the conversation the run belongs to — the one open in the chat when the person sent the message, left out when the chat has none; the loop does not read it, a runner that sends the run elsewhere does ([a route or a thread per conversation](/guides/server-loop/#one-route-and-one-journal-per-conversation)) |
 | `baseRequest` | the first request: its `messages` and `modelId`, the tools, `toolChoice` |
 | `transportCall(request)` | calls the model with the request of each turn |
 | `toolLookup(name)` | the handler of a tool, `(call, signal) => Promise<{ content, structuredContent? }>` |
@@ -87,7 +88,7 @@ turns are back to `'auto'`.
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
 | `agent-start` | a sub-agent begins: `{ agentId, name, description, toolCallId, parentAgentId }`, the call that opened it and the sub-agent it runs under, when there is one |
 | `agent-end` | a sub-agent ends, once: `{ agentId, status, result, error }`, `status` being `'done'`, `'failed'`, `'waiting'` or `'stopped'` |
-| `step-start`, `step-end` | a named step of the work begins and ends: `{ name, agentId }`. The loop passes on what the model's stream, a runner or a sub-agent announces; steps may nest and overlap, and one ends the latest open step of its name |
+| `step-start`, `step-end` | a named step of the work begins and ends: `{ name, agentId }`. The loop passes on what the model's stream, a runner or a sub-agent announces; steps may nest and overlap, and one ends the latest open step of its name. The page shows a name as the label you registered for it, or as it is: [a key in the person's language](/guides/sub-agents/#steps) |
 | `activity` | structured progress the agent reports: `{ id, activityType, content, agentId }`, the content whole each time. The loop passes it on; a later one with the same `id` updates it in place, drawn by the [renderer of its type](/guides/activity/) and never sent to the model |
 | `run-aborted` | the run was stopped; `run-done` follows |
 | `run-done` | the run ends, with its usage |

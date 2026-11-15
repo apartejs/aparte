@@ -22,6 +22,7 @@ import {
     runWithConfig,
     subscribeConfigChange,
     type AparteConfig,
+    type AparteLinkClickEventDetail,
     type AparteMessage,
     type AparteSegment,
 } from '@aparte/core';
@@ -111,6 +112,7 @@ const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement
  * @attr {boolean} closable - A pane of its own: the sub-agent's name and a Close button above its conversation, and Escape inside it closes too. Both only say so (`aparte-subagent-view-close`): the app, or `connectSubagentView`, folds the pane.
  *
  * @fires {CustomEvent} aparte-subagent-view-close - The Close button, or Escape inside a `closable` view. The view does not hide itself: the app owns the layout. Bubbles.
+ * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link the sub-agent wrote is about to be followed. Sent on the chat (`for` or `chat`; the view itself when it names none), as a message sends its own, so the listener that routes a reply's links routes these. Cancelable: `preventDefault()` keeps the browser from navigating. Under a line, inside the reply, the message sends it.
  *
  * @cssprop [--aparte-subagent-indent=var(--aparte-space-6)] - The space between the rule down the leading edge and the conversation, in a standalone view.
  *
@@ -170,6 +172,31 @@ export class AparteSubagentView extends ElementBase {
         if (!this._matches(write)) return;
         this._draw(write.anchor, this._sourceConfig());
     };
+    /**
+     * A link the sub-agent wrote is a link of the conversation, and beside the chat no message
+     * hears a click on it: the view announces it on its chat, as a message announces its own,
+     * so the app's one listener there routes it — a same-site link followed in place replaces
+     * the page. Under a line, or anywhere else inside a message, the view is in the reply and the
+     * message announces it.
+     */
+    private readonly _onClick = (event: MouseEvent): void => {
+        if (fed.has(this) || this.closest('aparte-chat-bubble')) return;
+        const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+        if (!anchor || !this.contains(anchor)) return;
+        const detail: AparteLinkClickEventDetail = { href: anchor.getAttribute('href') ?? '', anchor, messageId: this.getAttribute('message-id') };
+        if (!this._announce(detail)) event.preventDefault();
+    };
+    /**
+     * An announcement made inside the view — a source's link, which core says on the chip it
+     * stands for — goes on to the chat too, unless the chat is around the view already.
+     */
+    private readonly _onInnerLinkClick = (event: Event): void => {
+        if (fed.has(this) || event.target === this) return;
+        const chat = this._chatTarget();
+        if (chat === this || (typeof Node !== 'undefined' && chat instanceof Node && chat.contains(this))) return;
+        event.stopPropagation();
+        if (!this._announce((event as CustomEvent<AparteLinkClickEventDetail>).detail)) event.preventDefault();
+    };
 
     // ── What the app sets ──────────────────────────────────────────────────
 
@@ -202,6 +229,8 @@ export class AparteSubagentView extends ElementBase {
         ensureStyles();
         this._build();
         this.addEventListener('keydown', this._onKeydown);
+        this.addEventListener('click', this._onClick);
+        this.addEventListener('aparte-link-click', this._onInnerLinkClick);
         this._stopRenderers ??= onRenderersChange(this._onRenderers);
         if (!fed.has(this)) {
             this._listen();
@@ -215,6 +244,8 @@ export class AparteSubagentView extends ElementBase {
 
     disconnectedCallback(): void {
         this.removeEventListener('keydown', this._onKeydown);
+        this.removeEventListener('click', this._onClick);
+        this.removeEventListener('aparte-link-click', this._onInnerLinkClick);
         this._unlisten();
         this._stopWatching?.();
         this._stopWatching = null;
@@ -252,6 +283,24 @@ export class AparteSubagentView extends ElementBase {
     private _sourceConfig(): AparteConfig {
         const source = this._source();
         return resolveConfig(typeof Element !== 'undefined' && source instanceof Element ? source : this);
+    }
+
+    /** Where the chat hears what the view says: its element, or the one an app's handle names (`getElement()`), else the view. */
+    private _chatTarget(): EventTarget {
+        const source = this._source();
+        if (typeof Element !== 'undefined' && source instanceof Element) return source;
+        const named = (source as { getElement?: () => Element | null } | null)?.getElement?.();
+        return named ?? this;
+    }
+
+    /** Say on the chat that a link is about to be followed: `false` when a listener cancelled it. */
+    private _announce(detail: AparteLinkClickEventDetail): boolean {
+        return this._chatTarget().dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            detail,
+        }));
     }
 
     /** A write from this view's chat: the run's target is the chat, inside it, or named by its id. */

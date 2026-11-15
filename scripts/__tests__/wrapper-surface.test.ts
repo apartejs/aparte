@@ -25,10 +25,15 @@ import {
     DATA_PROP_ALIASES,
     IMPLEMENTATIONS,
     SOURCES,
+    readChatCallbacks,
     readWrapperCallbacks,
     readWrapperDataProps,
     readWrapperSlots,
 } from '../wrapper-surface.mjs';
+import { CHAT_EVENT_PROOFS } from '../wrapper-surface.mjs';
+import { CHAT_TAG, readChatEvents } from '../chat-surface.mjs';
+import { bindingName } from '../gen-element-bindings.mjs';
+import bindings from '../../packages/core/element-bindings.config.mjs';
 
 const CALLBACKS = readWrapperCallbacks();
 
@@ -54,12 +59,28 @@ function withoutDispatch(src: string, key: string, name: string): string {
 }
 
 describe('the wrapper callback proofs', () => {
-    it('reads all six callbacks off the React interface', () => {
-        // The floor: a parser that found nothing would make every row below vacuous.
+    it('reads the four host callbacks off the React interface', () => {
+        // The floor: a parser that found nothing would make every row below vacuous. The
+        // chat's events — `onMessageSent` and `onAction` among them — are generated into
+        // `AparteChatEventProps`, which the interface extends, and proven per wrapper by its
+        // coverage test, from core's manifest.
         expect(CALLBACKS.map((c) => c.name)).toEqual([
-            'messageSent', 'action', 'messagesChange',
-            'messageAppended', 'typingChange', 'conversationCreated',
+            'messagesChange', 'messageAppended', 'typingChange', 'conversationCreated',
         ]);
+    });
+
+    it('keeps `messageSent` and `action` on the reference page, read from the manifest', () => {
+        // The two chat events every component also takes as a callback: the Svelte-4-syntax
+        // one declares a callback prop for them alone, and dispatches the rest.
+        const events = readChatEvents().map((ev: { name: string }) => ({ ...ev, binding: bindingName(CHAT_TAG, ev.name, bindings) }));
+        const rows = readChatCallbacks(events);
+        expect(rows.map((r: { react: string }) => r.react)).toEqual(['onMessageSent', 'onAction']);
+        expect(rows[0]).toMatchObject({
+            vue: '@message-sent', svelte: 'on:messageSent', angular: '(messageSent)', svelteRunes: 'onmessageSent',
+            payload: 'AparteSendEventDetail',
+        });
+        expect(rows[1]).toMatchObject({ payload: 'AparteActionEventDetail' });
+        for (const row of rows) expect(row.summary.length).toBeGreaterThan(0);
     });
 
     for (const key of Object.keys(DISPATCH_LINE)) {
@@ -226,7 +247,73 @@ describe('the wrapper data-prop and render-hook proofs', () => {
 });
 
 /**
- * The runes component's slots are snippet props. A snippet taken out of `$props()` and
+ * The chat's events reach each component by one structure, and that structure is the proof:
+ * the component imports the table (or the base class) generated from core's manifest, walks it,
+ * and puts a listener on the root for each entry. Remove any of the three and an event stops
+ * arriving with no error anywhere, which is what each row below does to a copy of the source.
+ *
+ * The events themselves are not read here (this guard runs before any build); each wrapper's
+ * coverage test proves them one by one, from the manifest.
+ */
+describe('the chat event forwarding proofs', () => {
+    const KEYS = ['react', 'vue', 'svelte', 'svelteRunes', 'angular'] as const;
+    const without = (src: string, re: RegExp): string => src.split(/\r?\n/).filter((l) => !re.test(l)).join('\n');
+
+    /** What each wrapper must lose for the proof to say no: its import, its loop, its listener. */
+    const MUTATIONS: Record<string, Record<string, (src: string) => string>> = {
+        react: {
+            'the import of the generated table': (s) => without(s, /generated\/chat-events/),
+            'the loop over the table': (s) => s.replace('APARTE_CHAT_EVENT_BINDINGS.map(', '[].map('),
+            'the listener on the root': (s) => without(s, /addEventListener\(\s*type\b/),
+        },
+        vue: {
+            'the import of the generated table': (s) => without(s, /generated\/chat-events/),
+            'the loop over the table': (s) => s.replace('APARTE_CHAT_EVENT_BINDINGS.map(', '[].map('),
+            'the listener on the root': (s) => without(s, /addEventListener\(\s*type\b/),
+        },
+        svelte: {
+            'the import of the generated table': (s) => without(s, /generated\/chat-events/),
+            'the loop over the table': (s) => s.replace('APARTE_CHAT_EVENT_BINDINGS.map(', '[].map('),
+            'the listener on the root': (s) => without(s, /addEventListener\(\s*type\b/),
+        },
+        svelteRunes: {
+            'the import of the generated table': (s) => without(s, /generated\/chat-events/),
+            'the loop over the table': (s) => s.replace('APARTE_CHAT_EVENT_BINDINGS.map(', '[].map('),
+            'the listener on the root': (s) => without(s, /addEventListener\(\s*type\b/),
+        },
+        angular: {
+            'the import of the generated base': (s) => without(s, /generated\/chat-events/),
+            'the `extends`': (s) => s.replace(/extends AparteChatEvents\b/, ''),
+            'the forwarder call': (s) => s.replace(/this\.forwardChatEvents\(/, 'noop('),
+        },
+    };
+
+    for (const key of KEYS) {
+        describe(CHAT_EVENT_PROOFS[key].label, () => {
+            const src = readFileSync(SOURCES[key], 'utf8');
+
+            it('proves the forwarding today', () => {
+                expect(CHAT_EVENT_PROOFS[key].proves(src)).toBe(true);
+            });
+
+            for (const [what, mutate] of Object.entries(MUTATIONS[key]!)) {
+                it(`refuses it once ${what} is gone`, () => {
+                    const sabotaged = mutate(src);
+                    expect(sabotaged, 'the mutation found its target').not.toBe(src);
+                    expect(CHAT_EVENT_PROOFS[key].proves(sabotaged)).toBe(false);
+                });
+            }
+
+            it('does not take a comment for the forwarding', () => {
+                const commented = Object.values(MUTATIONS[key]!)[1]!(src);
+                expect(CHAT_EVENT_PROOFS[key].proves(`// ${src.split('\n').join('\n// ')}\n${commented}`)).toBe(false);
+            });
+        });
+    }
+});
+
+/**
+ * The runes component's slots are snippet props.A snippet taken out of `$props()` and
  * never passed to `{@render}` is the Svelte 5 form of a slot nobody declared: the caller's
  * markup goes nowhere, with no error.
  */

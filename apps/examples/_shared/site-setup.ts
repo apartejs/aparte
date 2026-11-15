@@ -60,6 +60,7 @@ import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolve
 import { DELEGATE, delegateLabel, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
 import { DIFF_SCENARIOS, setupDiffReview } from './diff-review';
+import { LINK_SCENARIOS } from './links';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -191,6 +192,8 @@ async function run(): Promise<SiteSetup> {
                 ...ACTIVITY_SCENARIOS,
                 // An edit shown as a diff, and a review of it (diff-review.ts).
                 ...DIFF_SCENARIOS,
+                // A reply holding a same-site link, another site's and an in-page one (links.ts).
+                ...LINK_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,

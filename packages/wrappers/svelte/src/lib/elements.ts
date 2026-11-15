@@ -16,9 +16,16 @@
 // Events come from the DOM map PLUS core's proxy list, because the map omits the five
 // detail-less events on purpose and narrowing the tags removed the catch-all that used
 // to accept them. See `AparteSvelteHandlers` below.
+//
+// A property-only member — `conversations` on the list — is typed from
+// `generated/element-members.ts`, written from the manifest like the registry: it is not an
+// attribute, so the registry cannot say it, and Svelte sets a property the element has, so
+// `conversations={rows}` works at runtime. Until it was typed, a template that bound it did not
+// compile.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { HTMLAttributes } from 'svelte/elements';
 import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs, AparteUiEventName } from '@aparte/core';
+import type { AparteElementProperties } from './generated/element-members.js';
 
 /**
  * Svelte's `on:` handlers, for every event aparté dispatches.
@@ -59,6 +66,7 @@ export type AparteSvelteElements = {
     [K in AparteElementTagName]:
         HTMLAttributes<HTMLElement>
         & AparteTemplateAttrs<AparteElementAttributes[K]>
+        & AparteElementProperties[K]
         & AparteSvelteHandlers;
 };
 

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi } from '@aparte/core';
-  import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi, type AparteComposer } from '@aparte/core';
+  import type { AparteMessage, AparteSegment } from '../types.js';
   import type { AparteChatProps } from './types.js';
+  import { APARTE_CHAT_EVENT_BINDINGS } from '../generated/chat-events.js';
 
   /*
    * The Svelte 5 chat: the same host, the same markup and the same rules as the
@@ -35,12 +36,12 @@
     composer,
     toolbar,
     bubble,
-    onmessageSent,
-    onaction,
     onmessagesChange,
     onmessageAppended,
     ontypingChange,
     onconversationCreated,
+    // What is left is the chat's event callbacks (`AparteChatEventCallbacks`), read by name.
+    ...rest
   }: AparteChatProps = $props();
 
   // A caller-supplied id wins, so `scopeToTargetId` has something to match; otherwise one
@@ -146,15 +147,29 @@
     toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
   });
 
-  function handleSend(event: Event) {
+  // A send from the composer makes the next auto-scroll, the one that brings the user's bubble
+  // in, a smooth one. `onmessageSent` is called below, with every other event.
+  function handleSend() {
     (viewportRef as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-    onmessageSent?.((event as CustomEvent<AparteSendEventDetail>).detail);
   }
 
-  // Custom bubble actions bubble to the root as `aparte-action`.
-  function handleAction(event: Event) {
-    onaction?.((event as CustomEvent<AparteActionEventDetail>).detail);
-  }
+  // Every event of the chat, from the table generated out of `<aparte-chat>`'s own list: one
+  // listener per event on the root, where they all arrive (the parts' bubble up to it, the
+  // turn's lifecycle is sent on it). Each reads its callback off the props as they are NOW and
+  // hands it the detail, then the event, which is what puts `preventDefault()` in reach. Added
+  // once the host is bound, so the host's own listeners on the root run first and a callback
+  // reads the chat as the event left it.
+  type Callback = ((detail: unknown, event: Event) => void) | undefined;
+  const forwarded = APARTE_CHAT_EVENT_BINDINGS.map(({ type, callback }) => ({
+    type,
+    listener: (event: Event) => (rest[callback] as Callback)?.((event as CustomEvent).detail, event),
+  }));
+
+  // What `rest` holds beyond the chat's own callbacks goes on the root element: an event core
+  // has no callback for — `onaparte-subagent-open={…}`, a plugin's — is Svelte 5's event
+  // attribute there, and heard where every event of the chat arrives.
+  const own = new Set<string>(APARTE_CHAT_EVENT_BINDINGS.map((b) => b.callback));
+  const rootAttrs = $derived(Object.fromEntries(Object.entries(rest).filter(([key]) => !own.has(key))));
 
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
@@ -195,10 +210,11 @@
     });
     const unbind = host.bind();
     host.syncBubbles();
-    rootRef?.addEventListener('aparte-action', handleAction);
+    const root = rootRef;
+    for (const { type, listener } of forwarded) root?.addEventListener(type, listener);
     return () => {
       unsubscribeLocale();
-      rootRef?.removeEventListener('aparte-action', handleAction);
+      for (const { type, listener } of forwarded) root?.removeEventListener(type, listener);
       unbind();
       host = null;
     };
@@ -226,6 +242,14 @@
   export function scrollToBottom() { (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(); }
   /** The `<aparte-chat-viewport>` element — the same accessor on all four wrappers. */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
+  /**
+   * The chat's root element (`div[data-aparte-chat]`), where every event of the chat arrives.
+   * An event core has no callback for — a plugin's — is `onaparte-some-event={…}` on the chat,
+   * which lands here; this is the same element for `addEventListener`.
+   */
+  export function getElement(): HTMLElement | null { return rootRef ?? null; }
+  /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+  export function getComposer(): AparteComposer | null { return (composerRef as AparteComposer | undefined) ?? null; }
   export function focusInput() { (composerRef as unknown as { focus?: () => void })?.focus?.(); }
   export function isStreaming(): boolean { return host?.isStreaming ?? false; }
 
@@ -236,12 +260,13 @@
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
       truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-      scrollToBottom, focusInput, isStreaming, getViewport,
+      scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }
 </script>
 
 <div
+  {...rootAttrs}
   class="aparte-chat-container {className}"
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}

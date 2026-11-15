@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { aparteGlobalConfig, renderCodeLanguages } from '@aparte/core';
+import { AparteConfig, aparteGlobalConfig, renderCodeLanguages } from '@aparte/core';
 import { setupStreamingMarkdownProvider } from './index.js';
 import { MATH_CORPUS, type MathCase } from '../../marked/src/__tests__/math-corpus.js';
 
@@ -120,15 +120,56 @@ describe('@aparte/plugin-streaming-markdown — external links while the message
         });
     }
 
-    it('leaves a same-site link in this tab', () => {
-        const a = anchor('[docs](/docs/page)');
-        expect(a.getAttribute('target')).toBeNull();
-        expect(a.getAttribute('rel')).toBeNull();
+    /*
+     * A same-site link followed in place replaces the page the chat lives in — in a single-page
+     * app or an Electron window, the whole app (#205). It opens in a new tab like any other, from
+     * the chunk its address arrives in: the settled render gives it the same target, so nothing
+     * moves when the reply ends.
+     */
+    it('opens a same-site link in a new tab too, from the chunk its address arrives in', () => {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target)!;
+        r.write('Open [package');
+        r.write('.json](package');
+        r.write('.json) and [docs](/docs/page) here');
+        const [file, docs] = Array.from(target.querySelectorAll('a'));
+        expect(file!.getAttribute('href')).toBe('package.json');
+        expect(file!.getAttribute('target')).toBe('_blank');
+        expect(file!.getAttribute('rel')).toBe('noopener noreferrer');
+        expect(docs!.getAttribute('target')).toBe('_blank');
+        r.end();
     });
 
-    it('leaves an in-page anchor alone', () => {
-        const a = anchor('[top](#top)');
-        expect(a.getAttribute('target')).toBeNull();
+    it("keeps a same-site link in this tab under setLinkTarget('external-only'), as the settled render does", () => {
+        aparteGlobalConfig.setLinkTarget('external-only');
+        try {
+            const a = anchor('[docs](/docs/page)');
+            expect(a.getAttribute('target')).toBeNull();
+            expect(a.getAttribute('rel')).toBeNull();
+            expect(anchor('[ok](https://example.com/page)').getAttribute('target')).toBe('_blank');
+        } finally {
+            aparteGlobalConfig.setLinkTarget('new-tab');
+        }
+    });
+
+    it('gives each link what the config decides, the config the chat was set up with', () => {
+        const config = new AparteConfig();
+        setupStreamingMarkdownProvider(config);
+        config.setLinkTarget('external-only');
+        const target = document.createElement('div');
+        const r = config.createStreamingMarkdownRenderer(target)!;
+        r.write('[docs](/docs/page)');
+        r.end();
+        expect(target.querySelector('a')!.getAttribute('target')).toBeNull();
+        expect(anchor('[docs](/docs/page)').getAttribute('target'), 'the page-wide config still opens it in a new tab').toBe('_blank');
+    });
+
+    it('leaves an in-page anchor, a mail and a phone link alone', () => {
+        for (const markdown of ['[top](#top)', '[mail](mailto:a@b.c)', '[call](tel:+15550100)']) {
+            const a = anchor(markdown);
+            expect(a.getAttribute('target'), markdown).toBeNull();
+            expect(a.getAttribute('rel'), markdown).toBeNull();
+        }
     });
 
     it('sets nothing on a link whose href was refused — there is no href to open', () => {

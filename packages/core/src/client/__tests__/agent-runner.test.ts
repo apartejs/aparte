@@ -149,3 +149,56 @@ describe('createAgentStreamRunner', () => {
         expect(calls.map((c) => (c.init.headers as Record<string, string>)['authorization'])).toEqual(['Bearer 1', 'Bearer 2']);
     });
 });
+
+/*
+ * A server that keeps a journal per conversation has to know which conversation a turn
+ * is in. The client puts the id on the run (`conversationId`, beside `messageId`); the
+ * runner sends it, and lets the address follow it.
+ */
+describe('createAgentStreamRunner: the conversation of the turn', () => {
+    const done = () => new Response(ndjson({ type: 'run-start' }, { type: 'run-done' }));
+
+    it('sends the conversation id in the body, beside the message id', async () => {
+        const { fetch, calls } = fakeFetch(done);
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch })(options({ conversationId: 'c-7' }).opts);
+        expect(calls[0]!.body).toMatchObject({ messageId: 'm1', conversationId: 'c-7' });
+    });
+
+    it('sends none when the turn belongs to no conversation', async () => {
+        const { fetch, calls } = fakeFetch(done);
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch })(options().opts);
+        expect('conversationId' in calls[0]!.body).toBe(false);
+    });
+
+    it('takes the address from a function of the turn, called for each run', async () => {
+        const { fetch, calls } = fakeFetch(done);
+        const turns: AparteStreamRunOptions[] = [];
+        const runner = createAgentStreamRunner({
+            endpoint: (turn) => { turns.push(turn); return `/api/agent/c/${turn.conversationId}`; },
+            fetch,
+        });
+        const first = options({ conversationId: 'c-7' }).opts;
+        await runner(first);
+        await runner(options({ conversationId: 'c-8', messageId: 'm2' }).opts);
+        expect(calls.map((c) => c.url)).toEqual(['/api/agent/c/c-7', '/api/agent/c/c-8']);
+        // It is handed the run's own options: the id, the message, and the rest of what a run has.
+        expect(turns[0]).toBe(first);
+        expect(turns[1]).toMatchObject({ conversationId: 'c-8', messageId: 'm2' });
+    });
+
+    it('goes back to the same address for the resume of a paused run', async () => {
+        const { fetch, calls } = fakeFetch(done);
+        const runner = createAgentStreamRunner({ endpoint: ({ conversationId }) => `/api/agent/c/${conversationId}`, fetch });
+        await runner(options({ conversationId: 'c-7' }).opts);
+        await runner(options({ conversationId: 'c-7', deferral: { token: 'T', outcomes: {} } }).opts);
+        expect(calls.map((c) => c.url)).toEqual(['/api/agent/c/c-7', '/api/agent/c/c-7']);
+        expect(calls[1]!.body).toMatchObject({ conversationId: 'c-7', resume: { ticket: 'T' } });
+    });
+
+    it('lets a function that fails fail the run, and does not call the server', async () => {
+        const { fetch, calls } = fakeFetch(done);
+        const runner = createAgentStreamRunner({ endpoint: () => { throw new Error('no conversation, no route'); }, fetch });
+        await expect(runner(options().opts)).rejects.toThrow('no conversation, no route');
+        expect(calls).toEqual([]);
+    });
+});

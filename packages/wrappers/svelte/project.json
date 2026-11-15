@@ -4,6 +4,12 @@
     "sourceRoot": "packages/wrappers/svelte/src",
     "projectType": "library",
     "targets": {
+        "gen": {
+            "//": "The chat's event bindings land under `src/lib`, the directory `svelte-package` packages, so they ship with the components that import them. Declared here because the default output (`{projectRoot}/src/generated`) is not where they are: a cache hit would then restore nothing, and every job that replays the build would run the tests without the file.",
+            "outputs": [
+                "{projectRoot}/src/lib/generated"
+            ]
+        },
         "build": {
             "executor": "nx:run-script",
             "outputs": [

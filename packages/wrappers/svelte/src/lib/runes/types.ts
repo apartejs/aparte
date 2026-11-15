@@ -1,14 +1,31 @@
 import type { Snippet } from 'svelte';
 import type { AparteConfig, AparteTypeToFocus } from '@aparte/core';
-import type { AparteActionEventDetail, AparteMessage, AparteSendEventDetail } from '../types.js';
+import type { AparteMessage } from '../types.js';
+import type { AparteChatEventCallbacks } from '../generated/chat-events.js';
 
 /**
  * The props of the Svelte 5 `<AparteChat>`: the same surface as the other three wrappers,
  * in runes — `messages` is bindable, the five places for your own markup are snippets, and
- * every event is a callback prop.
+ * every event is a callback prop. The chat's events — `onmessageSent`, `onlinkClick`,
+ * `onretry`… — are generated from `<aparte-chat>`'s own list ({@link AparteChatEventCallbacks}):
+ * each receives the event's detail, then the event. Declared here are the data, the snippets
+ * and what the host reports back (`onmessagesChange` and the three after it).
  */
-export interface AparteChatProps {
-    /** The host element's `id`, and therefore the `targetId` every event this chat carries. Generated when omitted. */
+/**
+ * The events a plugin adds to `HTMLElementEventMap` (`aparte-subagent-open`…) as the event
+ * attributes Svelte 5 gives them — `onaparte-subagent-open={(event) => …}` — typed by that map.
+ */
+type AparteElementEventAttributes = {
+    [K in Extract<keyof HTMLElementEventMap, `aparte-${string}`> as `on${K}`]?: (event: HTMLElementEventMap[K]) => void;
+};
+
+export interface AparteChatProps extends AparteChatEventCallbacks, AparteElementEventAttributes {
+    /**
+     * Any other `onaparte-*` event — a plugin's whose package is not imported, or your own. The
+     * attribute is set on the chat's root element (`getElement()`), where the event arrives.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any event's detail
+    [event: `onaparte-${string}`]: ((event: CustomEvent<any>) => void) | undefined;    /** The host element's `id`, and therefore the `targetId` every event this chat carries. Generated when omitted. */
     id?: string;
     /** The messages on the active path. Bindable: `bind:messages` keeps yours in step with what the chat does. */
     messages?: AparteMessage[];
@@ -53,10 +70,6 @@ export interface AparteChatProps {
     /** Each message, drawn by you. */
     bubble?: Snippet<[AparteMessage]>;
 
-    /** The person sent a message. It is already in the thread: do not add it again. */
-    onmessageSent?: (detail: AparteSendEventDetail) => void;
-    /** A custom bubble action was clicked. */
-    onaction?: (detail: AparteActionEventDetail) => void;
     /**
      * The active path changed. With `bind:messages` you rarely need it. Without `bind:`, a parent
      * that keeps the list writes it back here — `onmessagesChange={(m) => (msgs = m)}` — in the

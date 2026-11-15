@@ -19,6 +19,7 @@ catalog:
 
 import Variant from '../../../components/catalog/Variant.astro';
 import Anatomy from '../../../components/catalog/Anatomy.astro';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 import Usage from '../../../generated/api/elements/aparte-composer.usage.mdx';
 import ComposerApi from '../../../generated/api/elements/aparte-composer.api.mdx';
 import InputApi from '../../../generated/api/elements/aparte-composer-input.api.mdx';
@@ -96,7 +97,11 @@ API below.
 
 Enter sends and Shift+Enter starts a new line; `submit-on-enter="false"` swaps the two. A
 button of your own can send or stop through `composer.submit()`, which cancels instead while a
-reply streams:
+reply streams. In a framework chat, `getComposer()` hands you the composer, and `aparte-composer-change`
+is the chat's `composerChange`:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
 ```js
 composer.addEventListener('aparte-composer-change', (e) => {
@@ -106,6 +111,124 @@ composer.addEventListener('aparte-composer-change', (e) => {
 });
 myButton.addEventListener('click', () => composer.submit());
 ```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useState } from 'react';
+import { AparteChat, useAparteChat } from '@aparte/react';
+
+export function Chat() {
+  const chat = useAparteChat();
+  const [button, setButton] = useState({ label: 'Send', disabled: true });
+
+  return (
+    <>
+      <AparteChat
+        ref={chat.ref}
+        messages={chat.messages}
+        onMessagesChange={chat.setMessages}
+        onComposerChange={({ state }) => {
+          const { streaming, disabled, value, attachments } = state;
+          setButton({
+            label: streaming ? 'Stop' : 'Send',
+            disabled: disabled || (!streaming && !value.trim() && attachments.length === 0),
+          });
+        }}
+      />
+      <button disabled={button.disabled} onClick={() => chat.getComposer()?.submit()}>{button.label}</button>
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import type { AparteComposerChangeEventDetail } from '@aparte/core';
+
+const chat = useAparteChat();
+const button = ref({ label: 'Send', disabled: true });
+
+function onComposerChange({ state }: AparteComposerChangeEventDetail) {
+  const { streaming, disabled, value, attachments } = state;
+  button.value = {
+    label: streaming ? 'Stop' : 'Send',
+    disabled: disabled || (!streaming && !value.trim() && attachments.length === 0),
+  };
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @composer-change="onComposerChange" />
+  <button :disabled="button.disabled" @click="chat.getComposer()?.submit()">{{ button.label }}</button>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import type { AparteComposerChangeEventDetail } from '@aparte/core';
+
+  let chat = $state<AparteChatImperativeApi>();
+  let button = $state({ label: 'Send', disabled: true });
+
+  function onComposerChange({ state }: AparteComposerChangeEventDetail) {
+    const { streaming, disabled, value, attachments } = state;
+    button = {
+      label: streaming ? 'Stop' : 'Send',
+      disabled: disabled || (!streaming && !value.trim() && attachments.length === 0),
+    };
+  }
+</script>
+
+<AparteChat bind:this={chat} oncomposerChange={onComposerChange} />
+<button disabled={button.disabled} onclick={() => chat?.getComposer()?.submit()}>{button.label}</button>
+```
+
+On Svelte 4, the event is `on:composerChange={(e) => onComposerChange(e.detail)}`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type { AparteComposerChangeEventDetail } from '@aparte/core';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `
+    <aparte-chat (composerChange)="onComposerChange($event)"></aparte-chat>
+    <button [disabled]="button.disabled" (click)="chat().getComposer()?.submit()">{{ button.label }}</button>
+  `,
+})
+export class ChatComponent {
+  readonly chat = viewChild.required(AparteChatComponent);
+  button = { label: 'Send', disabled: true };
+
+  onComposerChange({ state }: AparteComposerChangeEventDetail) {
+    const { streaming, disabled, value, attachments } = state;
+    this.button = {
+      label: streaming ? 'Stop' : 'Send',
+      disabled: disabled || (!streaming && !value.trim() && attachments.length === 0),
+    };
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 A letter typed after a click or a selection in the chat goes to the input: someone who selects a
 few words of a reply to copy them goes on typing without clicking the input again. Only when the
@@ -175,7 +298,10 @@ Undo knows about them.
 
 ## Accessibility
 
-- The field is a multi-line `textbox`, named by its placeholder.
+- The field is a multi-line `textbox` whose accessible name is its placeholder, so a test finds it
+  with `getByRole('textbox', { name })` — not `getByPlaceholder`, which needs a `placeholder`
+  attribute the field does not have — and a screen reader reads the same words.
+  [Testing your chat](/guides/testing/) lists the other hooks a test can use.
 - The send button's name follows what it does: Send, Stop while a reply streams, Submit when a
   question panel is open. All three are locale keys (`sendButton`, `stopButton`, `submitButton`).
 - Enter never sends in the middle of an IME composition, so confirming a Chinese or Japanese

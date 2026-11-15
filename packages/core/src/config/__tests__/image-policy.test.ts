@@ -224,7 +224,8 @@ describe('sanitizeHtml applies the policy after the sanitizer', () => {
         const cfg = new AparteConfig();
         cfg.setHtmlSanitizer(null);
         vi.spyOn(console, 'warn').mockImplementation(() => {});
-        expect(cfg.sanitizeHtml('<p><a href=x>link</a></p>')).toBe('<p><a href=x>link</a></p>');
+        // An in-page link: the link target, which runs before this pass, leaves it as written.
+        expect(cfg.sanitizeHtml('<p><a href=#x>link</a></p>')).toBe('<p><a href=#x>link</a></p>');
         expect(cfg.sanitizeHtml('<img onerror=x>')).toBe('<img onerror=x>');
     });
 });

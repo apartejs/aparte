@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteTypeToFocus, uuid } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types.js';
+  import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventDetails } from './generated/chat-events.js';
 
   /**
    * The host element's `id`, and therefore the `targetId` every event this chat
@@ -88,12 +89,17 @@
    * Svelte 5 documents `createEventDispatcher` as deprecated and recommends callback
    * props; a Svelte 4 consumer keeps `on:` and sees nothing change, a Svelte 5 one
    * never writes `on:` on a component. Both routes fire for the same occurrence, in
-   * this order: the callback, then the event.
+   * this order: the callback, then the event. Every event of the chat is a component
+   * event (`on:linkClick`…); these two are also callbacks, as they were before the rest
+   * existed — the runes component (`@aparte/svelte/runes`) has a callback for each.
    */
-  /** User submitted a message from the composer — see `messageSent` below for the append rule. */
-  export let onmessageSent: ((detail: AparteSendEventDetail) => void) | undefined = undefined;
-  /** A custom bubble action (registerBubbleAction) was clicked. */
-  export let onaction: ((detail: AparteActionEventDetail) => void) | undefined = undefined;
+  /**
+   * A message was sent from the composer; it is already in the thread, so do not append it
+   * again. The payload, then the DOM event.
+   */
+  export let onmessageSent: ((detail: AparteSendEventDetail, event: CustomEvent<AparteSendEventDetail>) => void) | undefined = undefined;
+  /** A custom button of a message's action bar (`registerAction()`) was pressed. The payload, then the DOM event. */
+  export let onaction: ((detail: AparteActionEventDetail, event: CustomEvent<AparteActionEventDetail>) => void) | undefined = undefined;
   /** Active path changed — the list to bind back to `messages`. */
   export let onmessagesChange: ((messages: AparteMessage[]) => void) | undefined = undefined;
   /** One message was appended. */
@@ -103,16 +109,13 @@
   /** The host created a conversation id (persistence). */
   export let onconversationCreated: ((id: string) => void) | undefined = undefined;
 
-  const dispatch = createEventDispatcher<{
-    /**
-     * User submitted a message from the composer. It is **appended to the
-     * thread automatically** (optimistic UI) before this fires — do NOT add it
-     * again (uncontrolled → duplicates; controlled → mirror into your own
-     * `messages`). For side-effects: scroll, analytics, send.
-     */
-    messageSent: AparteSendEventDetail;
-    /** A custom bubble action (registerBubbleAction) was clicked — typed aparte-action. */
-    action: AparteActionEventDetail;
+  /*
+   * Every event of the chat — `on:messageSent`, `on:linkClick`, `on:retry`… — carries its
+   * detail (`AparteChatEventDetails`, generated from `<aparte-chat>`'s own list); the four below
+   * are what the host reports back, which no DOM event carries. A listener's `preventDefault()`
+   * on a cancelable one reaches the element that sent it.
+   */
+  const dispatch = createEventDispatcher<AparteChatEventDetails & {
     /** Active path changed (branch nav/edit/retry/streaming) — bind back to `messages`. */
     messagesChange: AparteMessage[];
     messageAppended: AparteMessage;
@@ -186,19 +189,30 @@
     toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
   }
 
-  function handleSend(event: Event) {
+  // A send from the composer makes the next auto-scroll, the one that brings the user's bubble
+  // in, a smooth one. `messageSent` is dispatched below, with every other event.
+  function handleSend() {
     (viewportRef as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-    const detail = (event as CustomEvent<AparteSendEventDetail>).detail;
-    onmessageSent?.(detail);
-    dispatch('messageSent', detail);
   }
 
-  // Custom bubble actions bubble to the root as `aparte-action` — dispatch typed.
-  function handleAction(event: Event) {
-    const detail = (event as CustomEvent<AparteActionEventDetail>).detail;
-    onaction?.(detail);
-    dispatch('action', detail);
-  }
+  // Every event of the chat, from the table generated out of `<aparte-chat>`'s own list: one
+  // listener per event on the root, where they all arrive (the parts' bubble up to it, the
+  // turn's lifecycle is sent on it). The two callback props go first, as they always did; the
+  // component event carries the detail and says whether a listener cancelled it, and a
+  // cancelled one is cancelled at its source. Added once the host is bound, so the host's own
+  // listeners on the root run first and a listener reads the chat as the event left it.
+  const send = dispatch as (type: string, detail: unknown, options: { cancelable: boolean }) => boolean;
+  type Callback = ((detail: unknown, event: Event) => void) | undefined;
+  const callbackFor = (name: string): Callback =>
+    (name === 'messageSent' ? onmessageSent : name === 'action' ? onaction : undefined) as Callback;
+  const forwarded = APARTE_CHAT_EVENT_BINDINGS.map(({ type, name, cancelable }) => ({
+    type,
+    listener: (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      callbackFor(name)?.(detail, event);
+      if (!send(name, detail, { cancelable })) event.preventDefault();
+    },
+  }));
 
   onMount(() => {
     // The elements a server render left waiting are upgraded first: the host talks to them.
@@ -235,13 +249,13 @@
     });
     teardown = host.bind();
     host.syncBubbles();
-    rootRef?.addEventListener('aparte-action', handleAction);
+    for (const { type, listener } of forwarded) rootRef?.addEventListener(type, listener);
   });
 
   onDestroy(() => {
     unsubscribeLocale?.();
     unsubscribeLocale = null;
-    rootRef?.removeEventListener('aparte-action', handleAction);
+    for (const { type, listener } of forwarded) rootRef?.removeEventListener(type, listener);
     teardown?.();
     teardown = null;
     host = null;
@@ -287,6 +301,14 @@
    * wrappers.
    */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
+  /**
+   * The chat's root element (`div[data-aparte-chat]`), where every event of the chat arrives —
+   * so where to listen for one core has no `on:` for, a plugin's: `bind:this` the chat, then
+   * `getElement()?.addEventListener('aparte-some-event', …)` in `onMount`.
+   */
+  export function getElement(): HTMLElement | null { return rootRef ?? null; }
+  /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+  export function getComposer(): AparteComposer | null { return (composerRef as AparteComposer | undefined) ?? null; }
   export function focusInput() {
     (composerRef as unknown as { focus?: () => void })?.focus?.();
   }
@@ -301,7 +323,7 @@
       appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
       appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
       truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-      scrollToBottom, focusInput, isStreaming, getViewport,
+      scrollToBottom, focusInput, isStreaming, getViewport, getElement, getComposer,
     };
   }
 </script>

@@ -58,6 +58,39 @@ export const KIT_DEMOS: DemoEntry[] = [
 </p>
 <button class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--block" type="button">Block, the full width</button>`,
     },
+    {
+        id: 'kit-button-busy',
+        title: 'A busy button',
+        html: `<!-- aria-busy marks the wait. The spinner takes the icon's size and the button's ink. -->
+<p>
+  <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" aria-busy="true">
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Loading…
+  </button>
+  <button class="aparte-btn aparte-btn--primary aparte-btn--outline" type="button" aria-busy="true">
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Loading…
+  </button>
+  <!-- disabled as well, when a second click must do nothing. -->
+  <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" aria-busy="true" disabled>
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Loading…
+  </button>
+</p>
+<p>
+  <button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" aria-busy="true">
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Small
+  </button>
+  <button class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--lg" type="button" aria-busy="true">
+    <span class="aparte-spinner" aria-hidden="true"></span>
+    Large
+  </button>
+  <button class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--circle aparte-btn--icon" type="button" aria-busy="true" aria-label="Sending">
+    <span class="aparte-spinner" aria-hidden="true"></span>
+  </button>
+</p>`,
+    },
 
     // ── Field ─────────────────────────────────────────────────────────────────
     {

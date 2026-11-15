@@ -14,6 +14,8 @@ export type { AparteChatImperativeApi } from '@aparte/core';
 // Idiomatic ergonomics: a hook that owns the messages state + component ref.
 export { useAparteChat } from './hooks/useAparteChat.js';
 export type { UseAparteChat } from './hooks/useAparteChat.js';
+// The generic path: an event core has no prop for (a plugin's, or your own), typed by HTMLElementEventMap.
+export { useAparteEvent } from './hooks/useAparteEvent.js';
 
 // Annex: client lifecycle, reactive conversation manager, universal proxy.
 export { useAparteClient } from './hooks/useAparteClient.js';
@@ -22,6 +24,11 @@ export { useConversationManager } from './hooks/useConversationManager.js';
 export type { UseConversationManager } from './hooks/useConversationManager.js';
 export { AparteUi } from './components/AparteUi.js';
 export type { AparteUiProps } from './components/AparteUi.js';
+// A component for every other element of core — `<AparteConversationList>`, `<AparteSplit>`,
+// `<AparteLauncher>`… — with its properties as props and its events as `onXxx` callbacks, under
+// React 18 and 19 alike. Generated from the manifest (`scripts/gen-element-bindings.mjs`), so an
+// element or an event added to core reaches here with no edit; `<AparteChat>` stays the chat's.
+export * from './generated/element-components.js';
 // Your components in tool calls and segments, through portals.
 export { AparteToolUI, AparteSegmentUI } from './components/AparteToolUI.js';
 export type { AparteToolUIProps, AparteSegmentUIProps } from './components/AparteToolUI.js';
@@ -92,10 +99,11 @@ type AparteTagProps<T> =
  * one removed from it stops being valid JSX. Listing them by hand is what let nine of
  * eighteen be the whole story.
  *
- * Events are not here on purpose. React has no prop form for a custom event, so a
- * consumer reaches them by ref — and `HTMLElementEventMap` is already augmented by
+ * Events are not here on purpose. React has no prop form for a custom event, so on a raw tag
+ * a consumer reaches them by ref — and `HTMLElementEventMap` is already augmented by
  * `@aparte/core`, so `el.addEventListener('aparte-select-change', e => e.detail.value)`
- * is typed with nothing further from this package.
+ * is typed with nothing further from this package. The component of the same element
+ * (`<AparteSelect onSelectChange={…}>`) takes them as props.
  */
 type AparteIntrinsicElements = {
     [K in AparteElementTagName]: AparteTagProps<AparteElementAttributes[K]>;

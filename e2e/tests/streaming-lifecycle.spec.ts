@@ -42,12 +42,16 @@ test('the send button becomes a stop button while streaming, and back after', as
     await page.goto('/');
 
     await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
+    await expect(chat.sendAct).toHaveAttribute('data-act', 'send');
 
     await chat.send('stop button probe');
     await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 15_000 });
+    // The same thing, as the testing contract says it: what the button does now.
+    await expect(chat.sendAct).toHaveAttribute('data-act', 'stop');
 
     await expect(chat.lastReply).toContainText(MOCK_REPLY_MARK, { timeout: 20_000 });
     await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
+    await expect(chat.sendAct).toHaveAttribute('data-act', 'send');
 });
 
 test('cancelling mid-stream stops the turn and leaves the composer usable', async ({ page }) => {

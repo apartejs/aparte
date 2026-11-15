@@ -163,6 +163,11 @@ lists, creates, archives and pins saved conversations as reactive state once you
 `init(adapter)` with your storage adapter, and the chat switches between them through
 `conversationId` ([Save conversations](/guides/conversation-persistence/)).
 
+`getElement()` is the chat's root element and `getComposer()` its `<aparte-composer>`. An event the
+chat has no callback for — a plugin's, such as `aparte-subagent-open` — is Svelte 5's event
+attribute on `<AparteChat>`, `onaparte-subagent-open={(event) => …}`, set on that root. In the
+Svelte 4 component, `bind:this` the chat and call `getElement()?.addEventListener(…)` in `onMount`.
+
 ## Any element, typed
 
 ```svelte

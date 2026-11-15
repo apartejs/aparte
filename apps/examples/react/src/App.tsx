@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AparteChat, AparteUi, useAparteChat } from '@aparte/react';
 import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
 import { mountModelSelector } from '../../_shared/site-setup';
+import { routeLink } from '../../_shared/links';
 import {
     WELCOME_SUGGESTIONS,
     createSiteManager,
@@ -141,6 +142,10 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
                         overlayComposer={overlay}
                         attachments
                         placeholder="Ask ChatClone"
+                        // A link the model wrote, before the browser follows it: under
+                        // `?links=route` a same-site one is the app's to open (the shared
+                        // `routeLink`), so the event is cancelled; another site keeps its new tab.
+                        onLinkClick={(detail, event) => { if (routeLink(detail.href)) event.preventDefault(); }}
                         // The toolbar row under the composer: the approval switch, and the
                         // model selector too under `?selector=toolbar`. `<AparteUi>` rather
                         // than a raw `<aparte-approval-mode>` tag — the plugin ships no

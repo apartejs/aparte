@@ -171,6 +171,10 @@ relabels in its `relabel` callback instead, called on every change.
 The status line the framework components show while `isTyping` is set reads their `typingText`
 prop, and without one the locale's `typing` key, like `<aparte-chat-status>` itself.
 
+A step an agent announces (*Reading the parser*) is shown as the server sent it. To show a key such
+as `reread` in the person's language, label it with
+[`registerStepLabel`](/guides/sub-agents/#steps), which takes text or a function of the locale.
+
 ## What stays in English
 
 The words the model reads stay in English whatever the locale, since they are part of the request,

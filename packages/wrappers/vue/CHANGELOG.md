@@ -1,5 +1,58 @@
 # @aparte/vue
 
+## 1.9.0
+
+### Minor Changes
+
+- df764c4: Every element of core now has a React component — `<AparteConversationList>`, `<AparteLauncher>`, `<AparteSplit>`… — with its properties as props and its events as `onXxx` callbacks, the same under React 18 and 19.
+
+  ```tsx
+  <AparteConversationList
+    conversations={history.activeConversations}
+    active-id={history.activeId}
+    onConversationDelete={(detail) => void history.delete(detail.id)}
+  />
+  ```
+
+  Do you have to touch your code? No. The raw tags keep working, typed as they were. Two typing changes can show an error in code that was already wrong: **Vue now checks a multi-word attribute** (`:active-id="5"` passed unchecked, because Vue looks a kebab-case attribute up by its camelCase name) **and types the events** a tag sends, and **every attribute now accepts `null`** to remove it, in React, Vue and Svelte, so `active-id={history.activeId}`, a `string | null`, compiles as written.
+
+  - **24 components.** One per element but the chat, whose component stays `<AparteChat>`, named `Aparte` and the tag in Pascal case, each with an `Aparte…Props` type. Generated from the manifest like the Angular directives: an element, an attribute or an event added to core reaches React with no edit. A table of them is in the [wrapper reference](https://apartejs.dev/reference/wrappers/).
+  - **A callback is `(detail, event)`**, as `<AparteChat>`'s are: the detail first, so a handler written for it alone still fits, and the event second, where `event.preventDefault()` is. The conversation list's rename, pin, archive and delete are cancelable, and `manage` stands down when one is cancelled. A callback that changes takes no new listener.
+  - **Why not the raw tag.** React 18 writes a property as the text `[object Object]` and listens to no event; React 19 sets a prop as a property when the element has one of that name and as an attribute when it does not. A component writes its props itself after the render — attributes through `applyElementProps`, properties by assignment, events with `addEventListener` — and only the ones whose value changed. A presence attribute takes a `boolean` there (`flat`, `manage={false}`), where the raw tag has to write `''`.
+  - **Server rendering.** An element carries `defer-hydration` until React has hydrated it, as `<AparteChat>`'s root does, and an attribute an element reads once, at connect (`framework-managed` on the viewport), is in its first markup, not applied after.
+  - **Vue and Svelte.** Both already set a property an element has and listen to its events at runtime (a test mounts the raw list in each); what they lacked was the types. A property such as the list's `conversations` is now typed in both, and Vue declares each tag's events as emits, from a file generated from the manifest (`--element-members`). A presence attribute written bare in a Vue template, `<aparte-select searchable>`, is accepted as it is, and `false` is not. `@aparte/core` widens `AparteAttrValue` to accept `null`.
+  - **Weight.** `@aparte/react` goes from 5.4 KB to 7.3 KB gzip (+1.9 KB): a table row for each of the 24 components, and the one function behind them. An app pays for the ones it imports, and `<AparteChat>` is one of them: its definition has no side effect, so `useAparteEvent` alone bundles to 0.6 KB gzip and `<AparteConversationList>` alone to 1.1 KB (esbuild over the published file). A bundle of `<AparteConversationList>` alone holds one `createAparteElement` call and none of the other 23 components' names, and a bundle of all of them holds 24 (esbuild, `sideEffects: false` and a `/* @__PURE__ */` on each). The package's budget in `size-budget.json` rises from 5.5 to 7.75 KB.
+
+- d4a7249: `<AparteChat>` now emits every event of the chat — `@link-click`, `@retry`, `@feedback`, `@message-done`… — and each listener receives the event after its detail, so `event.preventDefault()` works.
+
+  ```vue
+  <AparteChat
+    @link-click="
+      (detail, event) => {
+        event.preventDefault();
+        router.push(detail.href);
+      }
+    "
+  />
+  ```
+
+  Do you have to touch your code? No. `@message-sent` and `@action` keep their names, and their first argument is still the detail: a listener written for it alone still fits.
+
+  - **Every event.** The emits are generated from the events `<aparte-chat>` declares, 23 today: the composer's (`@message-sent`, `@stop`, `@composer-change`, `@action-click`), the transcript's and each message's (`@path-changed`, `@retry`, `@edit`, `@feedback`, `@link-click`…) and the turn's (`@message-start`, `@message-done`, `@message-error`…). An emit is the event's name without `aparte-` — save `aparte-send`, which is `messageSent`, and `aparte-cancel`, which is `stop`. An event the chat gains becomes an emit with no change to this package.
+  - **Cancelling.** `aparte-link-click` is cancelable: `event.preventDefault()` in `@link-click` keeps the browser from following the link, so the app can route it itself.
+  - **Why.** The component emitted two of the chat's events; a listener for any other fell through to its root `div` as a DOM listener under the wrong name, and heard nothing.
+  - **Weight.** 5.7 KB gzip, up 0.5 KB: the table of the 23 events the component listens for.
+
+- b2a427c: `<AparteChat>` exposes `getElement()` and `getComposer()`, and `@aparte-some-event` on it hears a plugin's event; `useAparteChat()` returns both too.
+
+  ```vue
+  <AparteChat @aparte-subagent-open="openPanel($event.detail)" />
+  ```
+
+  Do you have to touch your code? No. `useAparteChat`'s return type is now the exported `UseAparteChat`, which extends `AparteChatImperativeApi`.
+
+  - **How.** An event the chat does not declare as an emit falls through to its root element, where every event of the chat arrives; a test pins it.
+
 ## 1.8.0
 
 ## 1.7.0

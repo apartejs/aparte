@@ -18,7 +18,7 @@
 import { contextConfig } from '../config/index.js';
 import { isSafeUrl } from '../config/sanitize.js';
 import type { AparteConfig } from '../config/aparte-config.js';
-import type { AparteCitation, AparteSource, AparteTextSegment } from '../types/index.js';
+import type { AparteCitation, AparteLinkClickEventDetail, AparteSource, AparteTextSegment } from '../types/index.js';
 
 const CHIP_CLASS = 'aparte-citation';
 const MARKER_CLASS = 'aparte-citation-marker';
@@ -47,6 +47,28 @@ let focused: { root: Element; chip: HTMLElement; at: number } | null = null;
 function webUrl(source: AparteSource): string | undefined {
     const url = source.url?.trim();
     return url && /^https?:\/\//i.test(url) && isSafeUrl(url, 'a') ? url : undefined;
+}
+
+/**
+ * A source's link: its address, where the chat's link target opens it (`decideLink`), and the
+ * words that say a new tab when it opens one.
+ */
+function sourceLink(url: string, title: string, config: AparteConfig, newTabWords: string): HTMLAnchorElement {
+    const link = document.createElement('a');
+    link.href = url;
+    const opens = config.decideLink(url);
+    if (opens.target) link.target = opens.target;
+    if (opens.rel) link.rel = opens.rel;
+    link.textContent = title;
+    // A source's own words, in their own direction, as a message's are.
+    link.dir = 'auto';
+    if (opens.target === '_blank') {
+        const hint = document.createElement('span');
+        hint.className = 'aparte-sr-only';
+        hint.textContent = ` ${newTabWords}`;
+        link.append(hint);
+    }
+    return link;
 }
 
 /** The domain a source is shown by — `www.` dropped — or its title when it has no web address. */
@@ -539,19 +561,10 @@ function drawCard(): void {
     const url = webUrl(source);
     const title = source.title || sourceDomain(source) || source.url || '';
     if (url) {
-        const link = document.createElement('a');
+        const link = sourceLink(url, title, config, locale.opensInNewTab ?? '(opens in a new tab)');
         link.className = 'aparte-citation-card__title';
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
         link.dataset.aparteCardPart = 'link';
-        link.textContent = title;
-        // A source's own words, in their own direction, as a message's are.
-        link.dir = 'auto';
-        const hint = document.createElement('span');
-        hint.className = 'aparte-sr-only';
-        hint.textContent = ` ${locale.opensInNewTab ?? '(opens in a new tab)'}`;
-        link.append(hint);
+        link.addEventListener('click', announceLink);
         body.append(link);
     } else {
         const plain = document.createElement('p');
@@ -585,6 +598,30 @@ function drawCard(): void {
         if (back && !(back as HTMLButtonElement).disabled) back.focus();
         else (el.querySelector<HTMLElement>('.aparte-citation-card__pager button:not([disabled])') ?? el.querySelector<HTMLElement>('a'))?.focus();
     }
+}
+
+/**
+ * A source's link in the card is a link the reply holds, and the card is mounted beside the
+ * transcript, outside the message: the message never sees a click in it, so the card announces
+ * it as the message announces its own — `aparte-link-click`, cancelable — on the chip, which is
+ * in the message, so the event reaches the chat's root wherever the card is mounted.
+ */
+function announceLink(event: MouseEvent): void {
+    const chip = card?.chip;
+    const anchor = event.currentTarget as HTMLAnchorElement;
+    if (!chip?.isConnected) return;
+    const detail: AparteLinkClickEventDetail = {
+        href: anchor.getAttribute('href') ?? '',
+        anchor,
+        messageId: chip.closest('aparte-chat-bubble')?.getAttribute('message-id') ?? null,
+    };
+    const announced = chip.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        detail,
+    }));
+    if (!announced) event.preventDefault();
 }
 
 function pagerButton(label: string, icon: string, part: string, disabled: boolean, act: () => void): HTMLButtonElement {
@@ -647,17 +684,8 @@ export function renderSourceList(container: HTMLElement, after: Element, sources
         const title = s.title || domain || s.url || '';
         const url = webUrl(s);
         if (url) {
-            const link = document.createElement('a');
-            link.href = url;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = title;
-            link.dir = 'auto';
-            const hint = document.createElement('span');
-            hint.className = 'aparte-sr-only';
-            hint.textContent = ` ${hintText}`;
-            link.append(hint);
-            item.append(link);
+            // In the message: the message announces a click on it, as on any link it holds.
+            item.append(sourceLink(url, title, config, hintText));
         } else {
             item.append(Object.assign(document.createElement('span'), { textContent: title, dir: 'auto' }));
         }

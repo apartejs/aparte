@@ -177,6 +177,10 @@ drive the chat from a loop of yours ([Your own loop](/guides/bring-your-own-loop
 one — and the chat switches between them through `conversation-id`
 ([Save conversations](/guides/conversation-persistence/)).
 
+`chat.getElement()` is the chat's root element and `chat.getComposer()` its `<aparte-composer>`.
+An event the chat has no emit for — a plugin's, such as `aparte-subagent-open` — is written
+`@aparte-subagent-open="onOpen"` on `<AparteChat>`: it falls through to that root.
+
 ## Any element, typed
 
 ```vue

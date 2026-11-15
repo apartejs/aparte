@@ -4,6 +4,7 @@ import '@aparte/core'; // registers the <aparte-*> custom elements
 // module, and the static shell painted bare until then.
 import { connectArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
 import { mountModelSelector, setupSite } from '../../_shared/site-setup';
+import { routeLink } from '../../_shared/links';
 import { wireShell } from './shell';
 
 // The setup every example shares — the locale, the renderers and the markdown, the
@@ -189,6 +190,13 @@ async function main(): Promise<void> {
     // every raw-core host wrote — and whoever forgot shipped a chat where the person
     // cannot see what they typed, which is exactly why the client took the job.
     const chat = document.querySelector('aparte-chat');
+
+    // A link the model wrote, before the browser follows it: under `?links=route` a same-site
+    // one is the app's to open (the shared `routeLink`), so the event is cancelled; another site
+    // keeps its new tab. One listener on the chat hears every message's links.
+    chat?.addEventListener('aparte-link-click', (event) => {
+        if (routeLink(event.detail.href)) event.preventDefault();
+    });
 
     // The site around the chat: the conversation list, new chat, the theme toggle, the
     // settings dialog — over the library's own conversation chain.

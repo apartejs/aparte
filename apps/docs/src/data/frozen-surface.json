@@ -27,6 +27,7 @@
       "attributes": [
         "attachments",
         "center-empty",
+        "data-aparte-chat",
         "data-empty",
         "data-glide",
         "disabled",
@@ -116,7 +117,9 @@
     },
     "aparte-composer-send": {
       "package": "@aparte/core",
-      "attributes": []
+      "attributes": [
+        "data-act"
+      ]
     },
     "aparte-composer-toolbar": {
       "package": "@aparte/core",
@@ -785,11 +788,36 @@
     ],
     "@aparte/react": [
       "AparteChat",
+      "AparteChatBubble",
+      "AparteChatStatus",
+      "AparteChatViewport",
+      "AparteComposer",
+      "AparteComposerAction",
+      "AparteComposerAddAttachment",
+      "AparteComposerAttachments",
+      "AparteComposerCancel",
+      "AparteComposerInput",
+      "AparteComposerSend",
+      "AparteComposerToolbar",
+      "AparteContext",
+      "AparteConversationList",
+      "AparteElicitation",
+      "AparteIcon",
+      "AparteLauncher",
+      "AparteOptgroup",
+      "AparteOption",
+      "AparteProgressSpinner",
+      "AparteScrollRail",
       "AparteSegmentUI",
+      "AparteSelect",
+      "AparteSidebar",
+      "AparteSplit",
+      "AparteSuggestions",
       "AparteToolUI",
       "AparteUi",
       "useAparteChat",
       "useAparteClient",
+      "useAparteEvent",
       "useConversationManager"
     ],
     "@aparte/runner-ag-ui": [
@@ -808,6 +836,15 @@
       "createAparteChat",
       "createAparteClient",
       "createConversationManager"
+    ],
+    "@aparte/svelte/runes": [
+      "AparteChat",
+      "AparteConversations",
+      "AparteSegmentUI",
+      "AparteToolUI",
+      "AparteUi",
+      "createAparteClient",
+      "createConversations"
     ],
     "@aparte/vue": [
       "AparteChat",
@@ -1484,5 +1521,591 @@
     "--aparte-z-dropdown",
     "--aparte-z-floating",
     "--aparte-z-raised"
-  ]
+  ],
+  "wrappers": {
+    "components": {
+      "react": {
+        "slots": [
+          "aboveComposer",
+          "composer",
+          "emptyState",
+          "toolbar"
+        ],
+        "dataProps": [
+          "attachments",
+          "centerWhenEmpty",
+          "className",
+          "config",
+          "conversationId",
+          "disabled",
+          "elicitation",
+          "isTyping",
+          "layoutTransitionMs",
+          "loading",
+          "messages",
+          "overlayComposer",
+          "placeholder",
+          "renderBubble",
+          "style",
+          "submitOnEnter",
+          "typeToFocus",
+          "typingText"
+        ],
+        "hostCallbacks": [
+          "onConversationCreated",
+          "onMessageAppended",
+          "onMessagesChange",
+          "onTypingChange"
+        ],
+        "chatEvents": [
+          "onAction",
+          "onActionClick",
+          "onAttachmentPreview",
+          "onComposerChange",
+          "onConversationLoaded",
+          "onEdit",
+          "onFeedback",
+          "onFeedbackReason",
+          "onLinkClick",
+          "onMessageAborted",
+          "onMessageDone",
+          "onMessageError",
+          "onMessageInfo",
+          "onMessagePaused",
+          "onMessageResumed",
+          "onMessageSent",
+          "onMessageStart",
+          "onPathChanged",
+          "onResetDone",
+          "onRetry",
+          "onSegmentUpdate",
+          "onStop",
+          "onToolApprovalRequest"
+        ]
+      },
+      "vue": {
+        "slots": [
+          "above-composer",
+          "composer",
+          "empty-state",
+          "toolbar"
+        ],
+        "dataProps": [
+          "attachments",
+          "bubble",
+          "centerWhenEmpty",
+          "class",
+          "config",
+          "conversationId",
+          "disabled",
+          "elicitation",
+          "isTyping",
+          "layoutTransitionMs",
+          "loading",
+          "messages",
+          "overlayComposer",
+          "placeholder",
+          "style",
+          "submitOnEnter",
+          "typeToFocus",
+          "typingText"
+        ],
+        "hostCallbacks": [
+          "@conversation-created",
+          "@message-appended",
+          "@messages-change",
+          "@typing-change"
+        ],
+        "chatEvents": [
+          "@action",
+          "@action-click",
+          "@attachment-preview",
+          "@composer-change",
+          "@conversation-loaded",
+          "@edit",
+          "@feedback",
+          "@feedback-reason",
+          "@link-click",
+          "@message-aborted",
+          "@message-done",
+          "@message-error",
+          "@message-info",
+          "@message-paused",
+          "@message-resumed",
+          "@message-sent",
+          "@message-start",
+          "@path-changed",
+          "@reset-done",
+          "@retry",
+          "@segment-update",
+          "@stop",
+          "@tool-approval-request"
+        ]
+      },
+      "svelte": {
+        "slots": [
+          "above-composer",
+          "composer",
+          "empty-state",
+          "toolbar"
+        ],
+        "dataProps": [
+          "attachments",
+          "bubble",
+          "centerWhenEmpty",
+          "class",
+          "config",
+          "conversationId",
+          "disabled",
+          "elicitation",
+          "isTyping",
+          "layoutTransitionMs",
+          "loading",
+          "messages",
+          "overlayComposer",
+          "placeholder",
+          "style",
+          "submitOnEnter",
+          "typeToFocus",
+          "typingText"
+        ],
+        "hostCallbacks": [
+          "on:conversationCreated",
+          "on:messageAppended",
+          "on:messagesChange",
+          "on:typingChange"
+        ],
+        "chatEvents": [
+          "on:action",
+          "on:actionClick",
+          "on:attachmentPreview",
+          "on:composerChange",
+          "on:conversationLoaded",
+          "on:edit",
+          "on:feedback",
+          "on:feedbackReason",
+          "on:linkClick",
+          "on:messageAborted",
+          "on:messageDone",
+          "on:messageError",
+          "on:messageInfo",
+          "on:messagePaused",
+          "on:messageResumed",
+          "on:messageSent",
+          "on:messageStart",
+          "on:pathChanged",
+          "on:resetDone",
+          "on:retry",
+          "on:segmentUpdate",
+          "on:stop",
+          "on:toolApprovalRequest",
+          "onaction",
+          "onmessageSent"
+        ]
+      },
+      "angular": {
+        "slots": [
+          "above-composer",
+          "composer",
+          "empty-state",
+          "toolbar"
+        ],
+        "dataProps": [
+          "attachments",
+          "bubbleTemplate",
+          "centerWhenEmpty",
+          "config",
+          "containerClass",
+          "containerStyle",
+          "conversationId",
+          "disabled",
+          "elicitation",
+          "isTyping",
+          "layoutTransitionMs",
+          "loading",
+          "messages",
+          "overlayComposer",
+          "placeholder",
+          "submitOnEnter",
+          "typeToFocus",
+          "typingText"
+        ],
+        "hostCallbacks": [
+          "(conversationCreated)",
+          "(messageAppended)",
+          "(messagesChange)",
+          "(typingChange)"
+        ],
+        "chatEvents": [
+          "(action)",
+          "(actionClick)",
+          "(attachmentPreview)",
+          "(composerChange)",
+          "(conversationLoaded)",
+          "(edit)",
+          "(feedback)",
+          "(feedbackReason)",
+          "(linkClick)",
+          "(messageAborted)",
+          "(messageDone)",
+          "(messageError)",
+          "(messageInfo)",
+          "(messagePaused)",
+          "(messageResumed)",
+          "(messageSent)",
+          "(messageStart)",
+          "(pathChanged)",
+          "(resetDone)",
+          "(retry)",
+          "(segmentUpdate)",
+          "(stop)",
+          "(toolApprovalRequest)"
+        ]
+      },
+      "svelteRunes": {
+        "slots": [
+          "aboveComposer",
+          "composer",
+          "emptyState",
+          "toolbar"
+        ],
+        "dataProps": [
+          "attachments",
+          "bubble",
+          "centerWhenEmpty",
+          "class",
+          "config",
+          "conversationId",
+          "disabled",
+          "elicitation",
+          "isTyping",
+          "layoutTransitionMs",
+          "loading",
+          "messages",
+          "overlayComposer",
+          "placeholder",
+          "style",
+          "submitOnEnter",
+          "typeToFocus",
+          "typingText"
+        ],
+        "hostCallbacks": [
+          "onconversationCreated",
+          "onmessageAppended",
+          "onmessagesChange",
+          "ontypingChange"
+        ],
+        "chatEvents": [
+          "onaction",
+          "onactionClick",
+          "onattachmentPreview",
+          "oncomposerChange",
+          "onconversationLoaded",
+          "onedit",
+          "onfeedback",
+          "onfeedbackReason",
+          "onlinkClick",
+          "onmessageAborted",
+          "onmessageDone",
+          "onmessageError",
+          "onmessageInfo",
+          "onmessagePaused",
+          "onmessageResumed",
+          "onmessageSent",
+          "onmessageStart",
+          "onpathChanged",
+          "onresetDone",
+          "onretry",
+          "onsegmentUpdate",
+          "onstop",
+          "ontoolApprovalRequest"
+        ]
+      }
+    },
+    "imperativeApi": [
+      "addBranch",
+      "addSegment",
+      "addSiblingOf",
+      "appendMessage",
+      "appendToSegment",
+      "clearMessages",
+      "focusInput",
+      "getComposer",
+      "getElement",
+      "getMessages",
+      "getViewport",
+      "injectTokenStream",
+      "isStreaming",
+      "removeSegment",
+      "scrollToBottom",
+      "setConversationId",
+      "stopTokenStream",
+      "truncateFrom",
+      "truncateResponsesAfter",
+      "updateLastMessage",
+      "updateMessage",
+      "updateSegment"
+    ],
+    "angularDirectives": {
+      "aparte-chat-bubble": {
+        "inputs": [
+          "content",
+          "dataCheckpointReason",
+          "messageId",
+          "messageRole",
+          "name",
+          "streaming",
+          "timestamp"
+        ],
+        "outputs": [
+          "action",
+          "attachmentPreview",
+          "branchNavigate",
+          "edit",
+          "feedback",
+          "feedbackReason",
+          "linkClick",
+          "messageInfo",
+          "retry"
+        ]
+      },
+      "aparte-chat-status": {
+        "inputs": [
+          "text",
+          "visible"
+        ],
+        "outputs": []
+      },
+      "aparte-chat-viewport": {
+        "inputs": [
+          "dataBusy",
+          "frameworkManaged",
+          "loading",
+          "maxRenderedBubbles",
+          "scrollThreshold"
+        ],
+        "outputs": [
+          "pathChanged",
+          "resetDone",
+          "segmentUpdate"
+        ]
+      },
+      "aparte-composer": {
+        "inputs": [
+          "dataModelGated",
+          "dataPanelActive",
+          "dataPanelMode",
+          "disabled",
+          "placeholder",
+          "submitOnEnter",
+          "target",
+          "typeToFocus"
+        ],
+        "outputs": [
+          "composerChange",
+          "send",
+          "stop"
+        ]
+      },
+      "aparte-composer-action": {
+        "inputs": [
+          "actionId",
+          "disabled",
+          "icon",
+          "label"
+        ],
+        "outputs": [
+          "actionClick"
+        ]
+      },
+      "aparte-composer-add-attachment": {
+        "inputs": [
+          "accept",
+          "disabled",
+          "multiple"
+        ],
+        "outputs": []
+      },
+      "aparte-composer-attachments": {
+        "inputs": [],
+        "outputs": [
+          "attachmentPreview"
+        ]
+      },
+      "aparte-composer-cancel": {
+        "inputs": [],
+        "outputs": []
+      },
+      "aparte-composer-input": {
+        "inputs": [
+          "disabled",
+          "maxHeight",
+          "minHeight",
+          "placeholder"
+        ],
+        "outputs": [
+          "composerSubmit"
+        ]
+      },
+      "aparte-composer-send": {
+        "inputs": [],
+        "outputs": []
+      },
+      "aparte-composer-toolbar": {
+        "inputs": [],
+        "outputs": []
+      },
+      "aparte-context": {
+        "inputs": [
+          "danger",
+          "dataCompact",
+          "dataEmpty",
+          "dataLevel",
+          "target",
+          "used",
+          "variant",
+          "warn",
+          "window"
+        ],
+        "outputs": [
+          "contextThreshold"
+        ]
+      },
+      "aparte-conversation-list": {
+        "inputs": [
+          "activeId",
+          "conversations",
+          "flat",
+          "loading",
+          "manage",
+          "target"
+        ],
+        "outputs": [
+          "conversationArchive",
+          "conversationDelete",
+          "conversationPin",
+          "conversationRename",
+          "conversationSelect",
+          "conversationUnarchive",
+          "conversationUnpin"
+        ]
+      },
+      "aparte-elicitation": {
+        "inputs": [],
+        "outputs": []
+      },
+      "aparte-icon": {
+        "inputs": [
+          "name"
+        ],
+        "outputs": []
+      },
+      "aparte-launcher": {
+        "inputs": [
+          "breakpoint",
+          "header",
+          "heading",
+          "label",
+          "maximizable",
+          "maximized",
+          "open",
+          "subheading"
+        ],
+        "outputs": [
+          "launcherToggle"
+        ]
+      },
+      "aparte-optgroup": {
+        "inputs": [
+          "collapsed",
+          "collapsible",
+          "label",
+          "loading"
+        ],
+        "outputs": [
+          "optgroupToggle"
+        ]
+      },
+      "aparte-option": {
+        "inputs": [
+          "dataStatus",
+          "disabled",
+          "selected",
+          "value"
+        ],
+        "outputs": []
+      },
+      "aparte-progress-spinner": {
+        "inputs": [
+          "value"
+        ],
+        "outputs": []
+      },
+      "aparte-scroll-rail": {
+        "inputs": [
+          "dataEmpty",
+          "every",
+          "target"
+        ],
+        "outputs": [
+          "scrollRailJump"
+        ]
+      },
+      "aparte-select": {
+        "inputs": [
+          "disabled",
+          "open",
+          "placeholder",
+          "searchable",
+          "value"
+        ],
+        "outputs": [
+          "selectChange",
+          "selectClose",
+          "selectOpen"
+        ]
+      },
+      "aparte-sidebar": {
+        "inputs": [
+          "breakpoint",
+          "collapsed",
+          "dataDrawer"
+        ],
+        "outputs": [
+          "sidebarToggle"
+        ]
+      },
+      "aparte-split": {
+        "inputs": [
+          "breakpoint",
+          "collapsed",
+          "dataMoving",
+          "dataStacked",
+          "disabled",
+          "label",
+          "orientation",
+          "pane",
+          "position",
+          "primary",
+          "single"
+        ],
+        "outputs": [
+          "splitResize"
+        ]
+      },
+      "aparte-suggestions": {
+        "inputs": [
+          "answers",
+          "dataEmpty",
+          "emptyOnly",
+          "mode",
+          "suggestions",
+          "target"
+        ],
+        "outputs": [
+          "suggestion"
+        ]
+      }
+    }
+  }
 }

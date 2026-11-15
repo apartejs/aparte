@@ -19,8 +19,9 @@
    */
   import { onMount } from 'svelte';
   import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
-  import type { AparteConversationList, AparteConversationListItem } from '@aparte/core';
+  import type { AparteConversationList, AparteConversationListItem, AparteLinkClickEventDetail } from '@aparte/core';
   import { mountModelSelector } from '../../_shared/site-setup';
+  import { routeLink } from '../../_shared/links';
   import {
     WELCOME_SUGGESTIONS,
     createSiteManager,
@@ -117,6 +118,13 @@
     void comp?.setConversationId(null);
     comp?.focusInput();
   }
+
+  // A link the model wrote, before the browser follows it: under `?links=route` a same-site
+  // one is the app's to open (the shared `routeLink`), so the event is cancelled; another site
+  // keeps its new tab.
+  function onLinkClick(detail: AparteLinkClickEventDetail, event: CustomEvent<AparteLinkClickEventDetail>) {
+    if (routeLink(detail.href)) event.preventDefault();
+  }
 </script>
 
 <div class="aparte-app-shell" id="chat-view">
@@ -164,7 +172,7 @@
 
   <main class="aparte-app-shell__main">
     {#if FRAMEWORK_CARD}<FrameworkWeatherCard />{/if}
-    <AparteChat bind:this={comp} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone">
+    <AparteChat bind:this={comp} centerWhenEmpty overlayComposer={overlay} attachments placeholder="Ask ChatClone" onlinkClick={onLinkClick}>
       {#snippet emptyState()}
         <div class="welcome" id="welcome">
           <div class="welcome__body">

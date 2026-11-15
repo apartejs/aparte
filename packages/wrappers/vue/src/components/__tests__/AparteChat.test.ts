@@ -187,12 +187,13 @@ describe('AparteChat.vue', () => {
 
         const composer = wrapper.element.querySelector('aparte-composer')!;
         const detail = { content: 'New message', timestamp: Date.now() };
+        const event = new CustomEvent('aparte-send', { detail, bubbles: true, composed: true });
 
-        composer.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+        composer.dispatchEvent(event);
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        expect(wrapper.emitted('messageSent')).toBeTruthy();
-        expect(wrapper.emitted('messageSent')![0][0]).toEqual(detail);
+        // Once, with the detail and then the event.
+        expect(wrapper.emitted('messageSent')).toEqual([[detail, event]]);
     });
 
     it('emits action for a bubbling aparte-action DOM event', async () => {

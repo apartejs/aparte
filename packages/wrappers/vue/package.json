@@ -1,6 +1,6 @@
 {
   "name": "@aparte/vue",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "homepage": "https://apartejs.dev/frameworks/vue/",
   "description": "Vue 3 AI chat component built on Web Components: connect your backend, approve tool calls, draw results as interactive cards. <AparteChat> plus composables.",
   "type": "module",
@@ -32,10 +32,11 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "gen": "node ../../../scripts/gen-element-bindings.mjs packages/core --chat-vue packages/wrappers/vue/src/generated --element-members packages/wrappers/vue/src/generated"
   },
   "peerDependencies": {
-    "@aparte/core": ">=1.8.0 <2.0.0",
+    "@aparte/core": ">=1.9.0 <2.0.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {

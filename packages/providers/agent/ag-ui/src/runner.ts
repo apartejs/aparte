@@ -30,10 +30,14 @@ export interface AgUiRunnerOptions {
     /** For a cross-origin endpoint that authenticates by cookie. */
     credentials?: RequestCredentials;
     /**
-     * The AG-UI thread a turn runs in. Give the conversation's id when the agent keeps
-     * state per thread (Agno's session); a function receives the run's options. A paused
+     * The AG-UI thread a turn runs in; a function receives the run's options. A paused
      * run is always resumed in its own thread, whatever this returns.
-     * @default a new thread per turn — the agent gets the whole history every time
+     *
+     * Left out, the thread is the conversation the turn belongs to (`opts.conversationId`):
+     * an agent that keeps state per thread (Agno's session) keeps it per conversation, and
+     * the runner sends back the state it last reported in that conversation. A chat with no
+     * conversation open has no id to use, and each of its turns gets a new thread.
+     * @default the turn's conversation id — or a new thread per turn when the chat has none, and the agent gets the whole history every time
      */
     threadId?: string | ((opts: AparteStreamRunOptions) => string);
     /** `RunAgentInput.forwardedProps`: settings your agent reads from the request. */
@@ -123,8 +127,24 @@ function readTicket(token: string | undefined): Ticket | undefined {
 /** What a run leaves the turn that ran it: its thread, whether it paused, how to close its steps. */
 interface Track {
     threadId?: string;
+    /** The thread belongs to a conversation or was named by the app: it outlives the turn. */
+    stable?: boolean;
     suspended: boolean;
     closeSteps?: () => void;
+}
+
+/**
+ * How many threads the runner remembers a state, or interrupts left unanswered, for. An app
+ * that names a new thread for every turn would otherwise add an entry per turn for as long as
+ * the page lived; the most recently used are kept, so a conversation in use keeps its own.
+ */
+const THREADS_KEPT = 64;
+
+/** Set `key` as the most recently used of `map`, letting the oldest go past `THREADS_KEPT`. */
+function remember<V>(map: Map<string, V>, key: string, value: V): void {
+    map.delete(key);
+    map.set(key, value);
+    while (map.size > THREADS_KEPT) map.delete(map.keys().next().value as string);
 }
 
 /** The run's own events. */
@@ -274,9 +294,9 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
     const flatten = peer !== undefined && compareVersions(peer, [0, 0, 39]) <= 0;
     // The agent's state, per thread: what its last snapshot and deltas left, sent back as
     // the next run's `state`. A thread minted for one turn is forgotten when the turn ends
-    // — only a resume reuses it.
+    // — only a resume reuses it. One the app named, or a conversation's, is kept: it is the
+    // thread of the next turn too. Both maps hold the `THREADS_KEPT` most recently used.
     const states = new Map<string, unknown>();
-    const stableThread = options.threadId !== undefined;
     /** Interrupts a finished run left that the page could not answer, per thread: cancelled on its next run. */
     const unanswered = new Map<string, string[]>();
     const runOnce = async (opts: AparteStreamRunOptions, track: Track): Promise<Usage | undefined> => {
@@ -285,10 +305,15 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         const request = opts.baseRequest as AparteChatRequest;
         const ticket = readTicket(opts.deferral?.token);
         const outcomes = opts.deferral?.outcomes ?? {};
+        // A paused run resumes where it paused. Else the app's own word, else the turn's
+        // conversation — the protocol's thread IS a conversation — else a thread for this turn.
+        const conversation = opts.conversationId || undefined;
         const threadId = ticket?.threadId
             ?? (typeof options.threadId === 'function' ? options.threadId(opts) : options.threadId)
+            ?? conversation
             ?? `aparte-${uuid()}`;
         track.threadId = threadId;
+        track.stable = options.threadId !== undefined || conversation !== undefined;
         const runId = `aparte-run-${uuid()}`;
         const interrupted = new Set((ticket?.interrupts ?? []).map((i) => i.toolCallId));
 
@@ -324,6 +349,8 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         // sub-agents TanStack announced: any other agent keeps its sub-agents' work itself, and
         // gets the history and the answers alone.
         messages.push(...subagentMessages(pausedAgents, answers));
+        // A thread in use is the newest, even when the agent reports no state this turn.
+        if (states.has(threadId)) remember(states, threadId, states.get(threadId));
         const left = ticket ? [] : (unanswered.get(threadId) ?? []);
         unanswered.delete(threadId);
         const resume = ticket?.interrupts.length
@@ -803,10 +830,10 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                 // exactly as the parent's does — its `subagentRunId` is provenance, and the
                 // protocol forbids withholding the update because a sub-agent sent it.
                 case 'STATE_SNAPSHOT':
-                    states.set(threadId, event['snapshot']);
+                    remember(states, threadId, event['snapshot']);
                     break;
                 case 'STATE_DELTA':
-                    states.set(threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
+                    remember(states, threadId, applyStateDelta(states.has(threadId) ? states.get(threadId) : {}, event['delta'], warn));
                     break;
                 case 'RUN_FINISHED': {
                     // Not the end of the stream: TanStack AI closes each model step with a
@@ -954,7 +981,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
             track.suspended = true;
             emit({ type: 'run-suspended', pending, ...(usage ? { usage } : {}), ticket: JSON.stringify(next) } as Suspended);
         } else {
-            if (unanswerable.length && stableThread) unanswered.set(threadId, unanswerable);
+            if (unanswerable.length && track.stable) remember(unanswered, threadId, unanswerable);
             emit({ type: 'run-done', ...(usage ? { usage } : {}) });
         }
         return usage;
@@ -966,7 +993,7 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
         } finally {
             // A thread minted for one turn is forgotten when the turn ends, however it ends —
             // done, failed or stopped — unless it paused, since only a resume reuses it.
-            if (track.threadId && !stableThread && !track.suspended) states.delete(track.threadId);
+            if (track.threadId && !track.stable && !track.suspended) states.delete(track.threadId);
             // A stream refused or cut mid-way: the steps it left open go out with it.
             track.closeSteps?.();
         }

@@ -41,7 +41,9 @@ import type { AparteComposerCaret, AparteComposerToken, AparteMessageToken } fro
  *   `getValue()`.
  *
  * @attr {boolean} disabled - Makes the field non-editable; the composer's own `disabled` also reaches it.
- * @attr {string} placeholder - Placeholder text (fallback: reads from aparte-composer)
+ * @attr {string} placeholder - Placeholder text (fallback: reads from aparte-composer). It is also the
+ *   field's accessible name: the field is a `role="textbox"` whose `aria-label` is this text, and it has
+ *   no `placeholder` attribute, so a test finds it with `getByRole('textbox', { name })`, not `getByPlaceholder`.
  * @attr {number} max-height - Max height in px before scroll (default: 200)
  * @attr {number} min-height - Min height in px. When omitted, the stylesheet's
  *                      min-height governs (44px in aparte.css) — so themes can

@@ -14,6 +14,8 @@ export const attributeCount = elements.reduce((n, e) => n + e.attributes.length,
 export const exportRows = Object.entries(frozen.exports);
 export const exportCount = exportRows.reduce((n, [, names]) => n + names.length, 0);
 export const eventCount = frozen.events.typed.length + frozen.events.names.length;
+export const wrapperMethods = frozen.wrappers.imperativeApi;
+export const wrapperNames = { react: 'React', vue: 'Vue', svelte: 'Svelte 4 syntax', svelteRunes: 'Svelte 5 syntax (runes)', angular: 'Angular' };
 export const codeList = (names) => names.map((name, i) => (<span key={name}>{i > 0 ? ', ' : ''}<code>{name}</code></span>));
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -27,6 +29,7 @@ and what its documentation says it does, until the next major version.
 | element tags and the attributes they document | the methods of an element or of an exported class |
 | event names | the fields of an interface, an event's `detail` included |
 | the functions, classes and constants a package's main entry exports, and each card's entry of `@aparte/plugin-cards` (`/weather`, `/stock`…), which is that package's API | type names, and what any other subpath entry exports (`/icons`, `/core`, `/react`…) |
+| what the chat component of each framework gives you: its slots, its props, its callbacks, the events it passes on, and the methods of its ref or instance; the inputs and outputs of Angular's element directives; the exports of `@aparte/svelte/runes` | what a wrapper does behind those names, and the types of what it hands you |
 | the keys of `AparteLocale` | the keys a plugin adds to the locale |
 | `--aparte-*` token names | a token's default value; class names, the kit's included; default colours, spacing and English labels; the docs, the example apps, `@aparte/docs-mcp` |
 
@@ -81,11 +84,12 @@ release that shipped it; four of them came in a patch.
 1.0.0 then removed what the beta had marked deprecated; the [changelog](/changelog/) lists each
 name with its replacement.
 
-## Changes of default in 1.0
+## Changes of default since 1.0
 
 | Release | What changed | What to change |
 | --- | --- | --- |
 | 1.0.0 | Pictures a model or a tool chose no longer load by themselves. `data:` and `blob:` pictures do; any other is shown as a link that names its host and loads on a click (a card shows one "Show images" button). A held picture is not fetched while a reply streams either, and every picture that loads goes with `referrerpolicy="no-referrer"`. | `aparteGlobalConfig.setImagePolicy(['self', 'https://cdn.example.com'])` for your own sources, or `['*']` for the earlier behaviour ([the policy](/guides/markdown/#pictures-a-reply-can-load)). |
+| 1.9.0 | Every link a reply holds opens in a new tab, same-site ones included; only a link to another site did. A `#…`, `mailto:`, `tel:` or `sms:` link stays as written. | `aparteGlobalConfig.setLinkTarget('external-only')` keeps same-site links in the page ([the links](/guides/markdown/#route-the-links-a-model-writes)). |
 
 ## The elements
 
@@ -123,6 +127,38 @@ and {frozen.events.names.length} that carry no `detail` — {codeList(frozen.eve
     <p>{codeList(names)}</p>
   </details>
 ))}
+
+## The wrappers
+
+The chat component of React, Vue, Svelte 4 syntax, Svelte 5 syntax (`@aparte/svelte/runes`) and
+Angular keeps, by name: its slots, its data props, its host callbacks, and one binding for every
+event of the chat ([the list](/reference/wrappers/#events)). Each is spelled the way that framework
+writes it, so a deprecation notice names what you typed. The
+**{wrapperMethods.length}** methods every one of them hands out are frozen as well, and so are the
+inputs and outputs of the **{Object.keys(frozen.wrappers.angularDirectives).length}** generated
+Angular directives.
+
+{Object.entries(frozen.wrappers.components).map(([key, c]) => (
+  <details key={key}>
+    <summary><code>{wrapperNames[key]}</code> — {c.slots.length + c.dataProps.length + c.hostCallbacks.length + c.chatEvents.length}</summary>
+    <p>Slots: {codeList(c.slots)}</p>
+    <p>Props: {codeList(c.dataProps)}</p>
+    <p>Callbacks: {codeList(c.hostCallbacks)}</p>
+    <p>Events: {codeList(c.chatEvents)}</p>
+  </details>
+))}
+
+<details>
+  <summary>The methods of the ref, the instance or the component</summary>
+  <p>{codeList(wrapperMethods)}</p>
+</details>
+
+<details>
+  <summary>The Angular directives</summary>
+  {Object.entries(frozen.wrappers.angularDirectives).map(([tag, d]) => (
+    <p key={tag}><code>{tag}</code> — inputs: {d.inputs.length ? codeList(d.inputs) : 'none'}; outputs: {d.outputs.length ? codeList(d.outputs) : 'none'}</p>
+  ))}
+</details>
 
 ## The locale keys
 

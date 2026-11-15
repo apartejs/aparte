@@ -12,6 +12,7 @@ import {
     AparteComposerSendDirective,
     AparteComposerCancelDirective,
     AparteComposerToolbarDirective,
+    AparteContextDirective,
     AparteElicitationDirective,
 } from '../../generated/element.directives';
 
@@ -260,7 +261,7 @@ describe('the element directives', () => {
         <aparte-chat-status [visible]="true" text="Working"></aparte-chat-status>
 
         <aparte-composer placeholder="Ask" target="t" [disabled]="true" [submitOnEnter]="false"
-            (send)="seen['send'] = true" (cancel)="seen['cancel'] = true"
+            (send)="seen['send'] = true" (stop)="seen['stop'] = true"
             (composerChange)="seen['composerChange'] = true"></aparte-composer>
 
         <aparte-composer-input placeholder="Ask" [disabled]="true" [maxHeight]="200" [minHeight]="44"
@@ -300,7 +301,7 @@ describe('the element directives', () => {
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
 
         <aparte-context [window]="1000" [warn]="0.7" [danger]="0.95" target="t" variant="ring" [used]="10"
-            (contextThreshold)="seen['contextThreshold'] = true" (compact)="seen['compact'] = true"></aparte-context>
+            (contextThreshold)="seen['contextThreshold'] = true"></aparte-context>
 
         <aparte-launcher [open]="true" label="Help" breakpoint="40rem" [header]="false"
             heading="Kilnhouse support" subheading="Usually answers in a minute" maximizable="panel" [maximized]="true"
@@ -425,7 +426,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-chat-bubble', 'aparte-branch-navigate', 'branchNavigate'],
         ['aparte-chat-bubble', 'aparte-attachment-preview', 'bubblePreview'],
         ['aparte-composer', 'aparte-send', 'send'],
-        ['aparte-composer', 'aparte-cancel', 'cancel'],
+        ['aparte-composer', 'aparte-cancel', 'stop'],
         ['aparte-composer', 'aparte-composer-change', 'composerChange'],
         ['aparte-composer-input', 'aparte-composer-submit', 'composerSubmit'],
 
@@ -442,7 +443,6 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-conversation-pin', 'conversationPin'],
         ['aparte-conversation-list', 'aparte-conversation-unpin', 'conversationUnpin'],
         ['aparte-context', 'aparte-context-threshold', 'contextThreshold'],
-        ['aparte-context', 'aparte-compact', 'compact'],
         ['aparte-launcher', 'aparte-launcher-toggle', 'launcherToggle'],
         ['aparte-scroll-rail', 'aparte-scroll-rail-jump', 'scrollRailJump'],
         ['aparte-sidebar', 'aparte-sidebar-toggle', 'sidebarToggle'],
@@ -453,6 +453,44 @@ describe('the element directives, across the whole surface', () => {
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {
         at(tag).dispatchEvent(new CustomEvent(event, { detail: { id: 'x', value: 'x', modelId: 'm' } }));
         expect(fixture.componentInstance.seen[key]).toBe(true);
+    });
+
+    /*
+     * An event the element sends on `window` gets no Output: a host listener would never
+     * hear it, so the Output would be a binding that never fires. `<aparte-context>`'s
+     * `(compact)` was one — its Retry sends `aparte-compact` on `window` — and this row
+     * table used to "prove" it by dispatching on the element, which core never does.
+     * `windowDispatched` in core's bindings config names these, and `check-event-map` holds
+     * it equal to the source; the live Output beside each one keeps the check from passing
+     * on a directive that has none at all.
+     */
+    it.each([
+        ['aparte-context', 'compact', 'contextThreshold', AparteContextDirective],
+        ['aparte-chat-bubble', 'compact', 'retry', AparteChatBubbleDirective],
+        ['aparte-chat-bubble', 'compactDone', 'retry', AparteChatBubbleDirective],
+        ['aparte-composer', 'abort', 'send', AparteComposerDirective],
+        ['aparte-composer', 'messageAborted', 'send', AparteComposerDirective],
+    ] as const)('%s has no (%s) Output: the event goes out on window', (tag, windowOnly, live, Directive) => {
+        const directive = fixture.debugElement.query((d) => d.name === tag).injector.get<object>(Directive);
+        expect(live in directive).toBe(true);
+        expect(windowOnly in directive).toBe(false);
+    });
+
+    /*
+     * `(x)` in an Angular template listens to the DOM event `x` AND subscribes to the output
+     * `x`. The composer's Stop output used to be `cancel`, a native event that bubbles — a
+     * file input fires it when its picker closes with no choice — so `(cancel)` ran for the
+     * Stop button and for every native `cancel` beneath it. The generator now refuses an
+     * output named like a DOM event, and the composer's is `(stop)`.
+     */
+    it('does not run (stop) for a native cancel bubbling out of the composer', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        at('aparte-composer').appendChild(input);
+        input.dispatchEvent(new Event('cancel', { bubbles: true }));
+        expect(fixture.componentInstance.seen['stop']).toBeUndefined();
+        at('aparte-composer').dispatchEvent(new CustomEvent('aparte-cancel', { bubbles: true }));
+        expect(fixture.componentInstance.seen['stop']).toBe(true);
     });
 
     /*

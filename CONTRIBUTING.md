@@ -191,8 +191,11 @@ makes the work good is what makes it hard to scan, and only the ORDER fixes that
 The names on [What will not change under you](https://apartejs.dev/reference/stability/) are a
 snapshot, `apps/docs/src/data/frozen-surface.json`, that `scripts/frozen-surface.mjs` takes from
 the built tree — the custom-elements manifests, the typed event map, the built barrels,
-`AparteLocale`, and core's stylesheets and source for the tokens — and `pnpm check:frozen-surface`
-re-measures it in the gate and on every pull request. Both commands read `dist/`, so build first:
+`AparteLocale`, core's stylesheets and source for the tokens, and the wrappers (the slots, props,
+callbacks and chat events of the five chat components, `AparteChatImperativeApi`, and the inputs and
+outputs of the generated Angular directives) — and `pnpm check:frozen-surface` re-measures it in
+the gate and on every pull request. Both commands read `dist/` and the generated wrapper files, so
+build first:
 
 ```bash
 pnpm build                  # both read dist/ — a package without one drops out of the snapshot
@@ -202,7 +205,7 @@ pnpm frozen:update          # re-take the snapshot, then commit it with the chan
 
 A `note:` line in their output means a package was not measured: the snapshot is incomplete.
 
-- **An addition** — a new element, attribute, event, export, locale key or token — is allowed, and
+- **An addition** — a new element, attribute, event, export, locale key, token or wrapper binding — is allowed, and
   the guard fails until the snapshot is re-taken: run `pnpm frozen:update` and commit the JSON
   with the change.
 - **A removal or a rename** takes two pull requests: a notice in a minor, the removal in the next

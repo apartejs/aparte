@@ -4,6 +4,7 @@ import {
     CUSTOM_ELEMENTS_SCHEMA,
     ElementRef,
     Injector,
+    NgZone,
     OnDestroy,
     PLATFORM_ID,
     ViewChild,
@@ -29,15 +30,15 @@ import { Observable } from 'rxjs';
 import type {
     AparteMessage,
     AparteSegment,
-    AparteSendEventDetail,
     AparteChatHostBinding,
     AparteConfig,
-    AparteActionEventDetail,
     AparteChatImperativeApi,
+    AparteComposer,
     AparteTypeToFocus,
 } from '@aparte/core';
 import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
 import { AparteBubbleDirective } from './aparte-bubble.directive';
+import { AparteChatEvents } from '../generated/chat-events';
 
 /**
  * AparteChatComponent — the Angular wrapper (19.2 to 21, zone or zoneless)
@@ -62,7 +63,10 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
     // underneath ours (its own check can't see our children — they render later).
     // `defer-hydration` until the host is built, in the server render and while the browser
     // hydrates it: core's elements — this host among them — leave the server's DOM alone.
-    host: { 'framework-managed': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
+    // `data-aparte-chat` is the marker React, Vue and Svelte put on the root they render, so
+    // `[data-aparte-chat]` finds the chat in all five. Core writes it on connect too, but a
+    // server render never connects the element: declared here, the HTML the server sends has it.
+    host: { 'framework-managed': '', 'data-aparte-chat': '', '[attr.defer-hydration]': "hydrating() ? '' : null" },
     template: `
     <div
       class="aparte-chat-container"
@@ -130,7 +134,7 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
         [attr.disabled]="disabled() || waiting() ? '' : null"
         [attr.submit-on-enter]="submitOnEnter() ? null : 'false'"
         [attr.type-to-focus]="typeToFocus() === 'chat' ? null : typeToFocus()"
-        (aparte-send)="onAparteSend($event)"
+        (aparte-send)="onAparteSend()"
       >
         <!-- Custom composer via [slot='composer']; falls back to the default
              shell (input · send + footer slots, plus the attachment primitives
@@ -189,8 +193,9 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
     }
   `]
 })
-export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChatImperativeApi {
+export class AparteChatComponent extends AparteChatEvents implements AfterViewInit, OnDestroy, AparteChatImperativeApi {
     constructor() {
+        super();
         // Reactive effect to reconcile bubbles when the messages signal updates.
         // Debounced with requestAnimationFrame so rapid token bursts only trigger
         // one sync per paint frame instead of N syncs for N tokens.
@@ -242,6 +247,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
     private elementRef = inject(ElementRef);
     private readonly _injector = inject(Injector);
+    private readonly _zone = inject(NgZone);
     private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     /**
@@ -417,20 +423,12 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly bubbleDirective = contentChild(AparteBubbleDirective);
 
     // ── Outputs ────────────────────────────────────────────────────────────
+    //
+    // Every event of the chat — `(messageSent)`, `(linkClick)`, `(retry)`… — is an output of
+    // `AparteChatEvents`, the base generated from `<aparte-chat>`'s `@fires`, and reaches it
+    // through `forwardChatEvents` once the host exists. What is declared here is what the
+    // host reports back to the framework, which no DOM event carries.
 
-    /**
-     * User submitted a message from the composer. It is **appended to the thread
-     * automatically** (optimistic UI) before this fires — do NOT add it again in
-     * the handler (uncontrolled → duplicates; controlled → mirror it into your
-     * own `[messages]`). For side-effects: scroll, analytics, send.
-     */
-    readonly messageSent = output<AparteSendEventDetail>();
-    /**
-     * Emitted when a custom bubble action (registered via
-     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
-     * wrapper over the bubbling `aparte-action` DOM event. Switch on `$event.actionId`.
-     */
-    readonly action = output<AparteActionEventDetail>();
     /** Emitted when messages are updated internally (e.g. by AparteClient) */
     readonly messagesChange = output<AparteMessage[]>();
     /** Emitted when a message is added internally (e.g. by appendMessage) */
@@ -457,6 +455,8 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /** The framework-agnostic chat-host orchestrator (created after the first render, in the browser). */
     private _host?: AparteChatHost;
     private _unbindHost?: () => void;
+    /** Takes the chat's event listeners off the host again. */
+    private _offChatEvents?: () => void;
     /** QueryList.changes subscription — released in ngOnDestroy so SPA route
      *  churn doesn't leak a live subscription per mount. */
     private _bubbleRefsSub?: { unsubscribe(): void };
@@ -510,19 +510,16 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
         });
         this._unbindHost = this._host.bind();
 
-        // Custom bubble actions bubble to the host as `aparte-action`; surface them as
-        // the typed `action` output. (addEventListener, not @HostListener: Angular
-        // parses a colon in the event name as a `target:event` global target.)
-        host.addEventListener('aparte-action', this._onAction);
+        // Every chat event, on its output: listened to outside the zone, and emitted inside
+        // it only to an output somebody binds — `aparte-segment-update` comes once per
+        // token. After `bind()`, so the host's own listeners on the root run first and a
+        // handler reads the chat as the event left it (a finished reply's usage recorded).
+        this._offChatEvents = this.forwardChatEvents(host, this._zone);
 
         // Re-reconcile bubbles whenever Angular's @for materialises/destroys them.
         this._host.syncBubbles();
         this._bubbleRefsSub = this.bubbleRefs.changes.subscribe(() => this._host?.syncBubbles());
     }
-
-    private readonly _onAction = (event: Event): void => {
-        this.action.emit((event as CustomEvent<AparteActionEventDetail>).detail);
-    };
 
     ngOnDestroy(): void {
         this._destroyed = true;
@@ -532,7 +529,8 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
             cancelAnimationFrame(this._syncRafId);
             this._syncRafId = null;
         }
-        (this.elementRef.nativeElement as HTMLElement).removeEventListener('aparte-action', this._onAction);
+        this._offChatEvents?.();
+        this._offChatEvents = undefined;
         this._bubbleRefsSub?.unsubscribe();
         this._bubbleRefsSub = undefined;
         this._unbindHost?.();
@@ -583,6 +581,14 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * wrappers.
      */
     getViewport(): HTMLElement | null { return this.viewportRef?.nativeElement ?? null; }
+    /**
+     * The host `<aparte-chat>` element, where every event of the chat arrives. An event core
+     * has no output for — a plugin's — is `(aparte-some-event)` on the tag in your template, or
+     * `addEventListener` on this.
+     */
+    getElement(): HTMLElement | null { return (this.elementRef.nativeElement as HTMLElement | undefined) ?? null; }
+    /** The chat's `<aparte-composer>` element, for its methods and the events it sends. */
+    getComposer(): AparteComposer | null { return (this.inputRef?.nativeElement as AparteComposer | undefined) ?? null; }
     /** Focus the composer input. */
     focusInput(): void {
         (this.inputRef?.nativeElement as unknown as { focus?: () => void })?.focus?.();
@@ -692,12 +698,13 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
         };
     }
 
-    /** Handle aparte-send event from the composer Web Component. */
-    onAparteSend(event: Event): void {
-        const detail = (event as CustomEvent<AparteSendEventDetail>).detail;
-        // Smooth-scroll the next auto-scroll (when Angular adds the user bubble).
+    /**
+     * The composer sent: the next auto-scroll, the one that brings the user's bubble in, is a
+     * smooth one. `(messageSent)` is emitted by `forwardChatEvents`, on the host, like every
+     * other chat event — emitting it here too would call a handler twice per send.
+     */
+    onAparteSend(): void {
         (this.viewportRef?.nativeElement as unknown as { requestSmoothScroll?: () => void })
             ?.requestSmoothScroll?.();
-        this.messageSent.emit(detail);
     }
 }
