@@ -7,6 +7,18 @@ import { registerAllComponents } from '@aparte/core';
 // Real aparté elements — the whole point is that they are attribute-driven.
 registerAllComponents();
 
+/** Records what it is told: each attribute change it hears, and each assignment of `items`. */
+class FxProbe extends HTMLElement {
+    static get observedAttributes(): string[] { return ['mode']; }
+    heard: string[] = [];
+    sets = 0;
+    private _items: unknown = null;
+    get items(): unknown { return this._items; }
+    set items(value: unknown) { this._items = value; this.sets++; }
+    attributeChangedCallback(name: string): void { this.heard.push(name); }
+}
+if (!customElements.get('fx-probe')) customElements.define('fx-probe', FxProbe);
+
 describe('AparteUiComponent', () => {
     beforeEach(async () => {
         await TestBed.configureTestingModule({ imports: [AparteUiComponent] }).compileComponents();
@@ -45,6 +57,28 @@ describe('AparteUiComponent', () => {
         (fixture.componentRef as any).setInput('props', { disabled: false });
         fixture.detectChanges();
         expect(el.hasAttribute('disabled')).toBe(false);
+    });
+
+    // A prop bag handed again — a new object with the same values. The element hears an attribute
+    // only when its value changes, and gets the object again every time (it may have been
+    // mutated in place), so its setter can keep its state.
+    it('handed an equal prop bag, writes no attribute again and hands the object again', async () => {
+        const items = ['a'];
+        const fixture = TestBed.createComponent(AparteUiComponent);
+        (fixture.componentRef as any).setInput('name', 'fx-probe');
+        (fixture.componentRef as any).setInput('props', { mode: 'ask', items });
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const el = fixture.nativeElement.querySelector('fx-probe') as FxProbe;
+        expect(el.heard).toEqual(['mode']);
+        const sets = el.sets;
+        (fixture.componentRef as any).setInput('props', { mode: 'ask', items });
+        fixture.detectChanges();
+        expect(el.heard).toEqual(['mode']);
+        expect(el.sets).toBe(sets + 1);
+        (fixture.componentRef as any).setInput('props', { mode: 'auto', items });
+        fixture.detectChanges();
+        expect(el.heard).toEqual(['mode', 'mode']);
     });
 
     it('hands objects over as properties (an attribute cannot carry them)', async () => {

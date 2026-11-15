@@ -12,6 +12,39 @@ import { registerAllComponents, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 registerAllComponents();
 afterEach(cleanup);
 
+/** Records what it is told: each attribute change it hears, and each assignment of `items`. */
+class FxProbe extends HTMLElement {
+    static get observedAttributes(): string[] { return ['mode']; }
+    heard: string[] = [];
+    sets = 0;
+    private _items: unknown = null;
+    get items(): unknown { return this._items; }
+    set items(value: unknown) { this._items = value; this.sets++; }
+    attributeChangedCallback(name: string): void { this.heard.push(name); }
+}
+if (!customElements.get('fx-probe')) customElements.define('fx-probe', FxProbe);
+
+// A prop bag handed again — Svelte 4's `items = items`, or a new object with the same values.
+// The element hears an attribute only when its value changes, and gets the object again every
+// time (it may have been mutated in place), so its setter can keep its state.
+describe('<AparteUi> handed an equal prop bag', () => {
+    it('writes no attribute again and hands the object again', async () => {
+        const items = ['a'];
+        const { container, component } = render(AparteUi, { props: { name: 'fx-probe', props: { mode: 'ask', items } } });
+        await tick();
+        const el = container.querySelector('fx-probe') as FxProbe;
+        expect(el.heard).toEqual(['mode']);
+        const sets = el.sets;
+        (component as any).$set({ props: { mode: 'ask', items } });
+        await tick();
+        expect(el.heard).toEqual(['mode']);
+        expect(el.sets).toBe(sets + 1);
+        (component as any).$set({ props: { mode: 'auto', items } });
+        await tick();
+        expect(el.heard).toEqual(['mode', 'mode']);
+    });
+});
+
 describe("<AparteUi> on <aparte-launcher>", () => {
     it('turns the header OFF with the string on false, and passes the rest of its props', async () => {
         // `header` is ON by default: removing it on `false` would have drawn the header.

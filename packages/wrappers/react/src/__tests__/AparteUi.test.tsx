@@ -7,6 +7,18 @@ import { registerAllComponents } from '@aparte/core';
 // Real aparté elements — the whole point is that they are attribute-driven.
 registerAllComponents();
 
+/** Records what it is told: each attribute change it hears, and each assignment of `items`. */
+class FxProbe extends HTMLElement {
+    static get observedAttributes(): string[] { return ['mode']; }
+    heard: string[] = [];
+    sets = 0;
+    private _items: unknown = null;
+    get items(): unknown { return this._items; }
+    set items(value: unknown) { this._items = value; this.sets++; }
+    attributeChangedCallback(name: string): void { this.heard.push(name); }
+}
+if (!customElements.get('fx-probe')) customElements.define('fx-probe', FxProbe);
+
 describe('AparteUi', () => {
     beforeEach(() => cleanup());
 
@@ -43,6 +55,22 @@ describe('AparteUi', () => {
         const el = container.querySelector('aparte-chat-bubble') as HTMLElement;
         expect((el as unknown as { someData: unknown }).someData).toBe(payload);
         expect(el.hasAttribute('someData')).toBe(false);
+    });
+
+    // An inline `props={{ … }}` is a new object on every render. The element hears an attribute
+    // only when its value changes, and gets an object property again every time — it may have
+    // been mutated in place — so its setter can keep what the person was doing.
+    it('re-rendered with an equal prop bag, writes no attribute again and hands the object again', () => {
+        const items = ['a'];
+        const { container, rerender } = render(<AparteUi name="fx-probe" props={{ mode: 'ask', items }} />);
+        const el = container.querySelector('fx-probe') as FxProbe;
+        expect(el.heard).toEqual(['mode']);
+        const sets = el.sets;
+        rerender(<AparteUi name="fx-probe" props={{ mode: 'ask', items }} />);
+        expect(el.heard).toEqual(['mode']);
+        expect(el.sets).toBe(sets + 1);
+        rerender(<AparteUi name="fx-probe" props={{ mode: 'auto', items }} />);
+        expect(el.heard).toEqual(['mode', 'mode']);
     });
 
     it('exposes the element and forwards a DEFAULT_EVENTS event', () => {

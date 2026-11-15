@@ -105,6 +105,22 @@ const settle = async (): Promise<void> => {
     for (let i = 0; i < 3; i++) await new Promise<void>((resolve) => setTimeout(resolve, 0));
 };
 
+/**
+ * Wait until nothing moves under `el` any more: what an earlier write set off (a timer, a frame)
+ * must land before the write under test, or it is counted against it. A loaded machine runs the
+ * same timers later, which is how a fixed number of ticks went red on one run in three hundred.
+ */
+async function quiet(el: HTMLElement): Promise<void> {
+    for (let round = 0; round < 20; round++) {
+        const observer = new MutationObserver(() => {});
+        observer.observe(el, { attributes: true, childList: true, characterData: true, subtree: true });
+        await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        const moved = observer.takeRecords().length > 0;
+        observer.disconnect();
+        if (!moved) return;
+    }
+}
+
 /** Where `node` sits under `root`, as the tags and indexes down to it: the same place after a redraw. */
 function placeOf(root: Node, node: Node | null): string | null {
     if (!node || !root.contains(node)) return null;
@@ -179,10 +195,8 @@ export function describeElementContract(manifest: string, fixtures: Record<strin
             if (attributes.length) {
                 it.each(attributes.map((a) => [a.name, a] as const))(`<${tag}> [%s] written again changes nothing`, async (_name, attr) => {
                     const el = await mount(tag);
-                    if (!el.hasAttribute(attr.name)) {
-                        el.setAttribute(attr.name, sampleOf(attr));
-                        await settle();
-                    }
+                    if (!el.hasAttribute(attr.name)) el.setAttribute(attr.name, sampleOf(attr));
+                    await quiet(el);
                     const value = el.getAttribute(attr.name)!;
                     const changed = await mutationsDuring(el, attr.name, () => el.setAttribute(attr.name, value));
                     expect(changed, `<${tag}> reacted to ${attr.name}="${value}", the value it already had`).toEqual([]);
@@ -197,7 +211,7 @@ export function describeElementContract(manifest: string, fixtures: Record<strin
                 it.each(properties.map((name) => [name] as const))(`<${tag}>.%s assigned again keeps the state`, async (name) => {
                     const el = await mount(tag);
                     await fixtures[tag]?.use?.(el);
-                    await settle();
+                    await quiet(el);
                     const record = el as unknown as Record<string, unknown>;
                     const value = record[name];
                     const focus = placeOf(el, document.activeElement);
