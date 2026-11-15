@@ -46,7 +46,7 @@
   on:aparte-retry={(e) => note(e.detail.messageId)}
   on:aparte-branch-navigate={(e) => note(String(e.detail.direction))}></aparte-chat-bubble>
 
-<aparte-conversation-list on:aparte-conversation-select={(e) => note(e.detail.id)}></aparte-conversation-list>
+<aparte-conversation-list on:aparte-conversation-select={(e) => note(String(e.detail.id))}></aparte-conversation-list>
 
 <aparte-optgroup label="g" on:aparte-optgroup-toggle={(e) => note(String(e.detail.collapsed))}></aparte-optgroup>
 
