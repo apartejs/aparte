@@ -133,7 +133,6 @@ interface Track {
     closeSteps?: () => void;
 }
 
-/** The run's own events. */
 /**
  * How many threads the runner remembers a state, or interrupts left unanswered, for. An app
  * that names a new thread for every turn would otherwise add an entry per turn for as long as
@@ -148,6 +147,7 @@ function remember<V>(map: Map<string, V>, key: string, value: V): void {
     while (map.size > THREADS_KEPT) map.delete(map.keys().next().value as string);
 }
 
+/** The run's own events. */
 const PARENT = '';
 
 /** What an event says of its owner: nothing for the run's own, its `agentId` for a sub-agent's. */

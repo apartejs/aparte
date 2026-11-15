@@ -16,6 +16,6 @@ createAgUiRunner({ endpoint: '/agui', threadId: () => `aparte-${crypto.randomUUI
 ```
 
 - **What the agent sees.** The conversation's id as `threadId`, where it saw a random one, on every turn of that conversation.
-- **State.** The state the agent last reported in a conversation is sent back as the next run's `state`, as it already was for an app that named its thread. Another conversation starts from `{}`.
+- **State.** The state the agent last reported in a conversation is sent back as the next run's `state`, as it already was for an app that named its thread. Another conversation starts from `{}`. The runner keeps the state of the 64 threads used most recently: past that, the oldest one starts from `{}` again.
 - **Interrupts.** One the page could not answer is cancelled on the conversation's next run, as it already was for a named thread.
 - **A pause** still resumes in the thread it paused in, whatever the conversation says.
