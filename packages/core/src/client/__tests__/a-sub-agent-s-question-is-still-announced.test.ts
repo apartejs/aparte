@@ -47,7 +47,7 @@ describe('a sub-agent\'s question', () => {
     it('is announced once, with its agentId and the chat it belongs to', () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         const { asked, updates } = askFromAChild(new AparteConfig());
-        expect(asked).toEqual([{ targetId: 'chat-1', toolCallId: 'c2', toolName: 'delete_file', input: { path: 'a' }, agentId: 'a1' }]);
+        expect(asked).toEqual([{ targetId: 'chat-1', toolCallId: 'c2', toolName: 'delete_file', input: { path: 'a' }, agentId: 'a1', messageId: 'm1' }]);
         // No row of the reply is marked for it: the call is not the reply's.
         expect(updates.filter(([id]) => id === 'tool-c2')).toEqual([]);
     });

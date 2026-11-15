@@ -405,6 +405,7 @@ export { formatDuration } from './utils/format-duration.js';
 export type { AparteHostHandlersConfig } from './types/models.js';
 export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
+export type { AparteTurnContext } from './types/tools.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';

@@ -349,6 +349,22 @@ export interface StreamDeferral {
 }
 
 /**
+ * The turn a callback is called for: what an app files a decision, a request or a log line
+ * under. Handed by `AparteClient` to `approvalResolver`, an approval policy and
+ * `requestInterceptor`, and by `createAparteAgentHandler` to its `approvalPolicy` and
+ * `prepareRequest` — read when the person acted, so a conversation opened since does not
+ * move it.
+ */
+export interface AparteTurnContext {
+    /** The conversation the turn belongs to: the one open in the chat when the person acted. Absent when the chat has none. */
+    conversationId?: string;
+    /** The reply the turn writes into — `StreamRunOptions.messageId`. */
+    messageId: string;
+    /** The id of the chat element the turn renders into. Absent on a server, and for a chat with no id. */
+    targetId?: string;
+}
+
+/**
  * Resolves a human-in-the-loop approval (mirrors core's
  * `AparteToolApprovalResolver`). Injected so the loop stays headless.
  *

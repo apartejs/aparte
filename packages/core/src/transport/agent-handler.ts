@@ -2,7 +2,7 @@ import { runStreamAgent, unansweredTail } from '@aparte/engine';
 import type { StreamChatRequest, StreamDeferredOutcome, StreamRunEvent } from '@aparte/engine';
 import type { AparteChatRequest, AparteStreamEvent } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteApprovalPolicy, AparteTool, AparteToolCall, AparteToolHandler } from '../types/tools.js';
+import type { AparteApprovalPolicy, AparteTool, AparteToolCall, AparteToolHandler, AparteTurnContext } from '../types/tools.js';
 import type { AparteTransport } from './types.js';
 import { AparteDirectTransport } from './direct-transport.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
@@ -51,7 +51,10 @@ export interface AparteAgentHandlerOptions {
     tools?: readonly AparteAgentTool[];
     /** The vendor key for a providerId, from env or a secret store. */
     resolveKey?: (providerId: string) => string | undefined | Promise<string | undefined>;
-    /** Server-side rules, per call: `allow`, `ask`, `deny` (refused without asking). */
+    /**
+     * Server-side rules, per call: `allow`, `ask`, `deny` (refused without asking). Its third
+     * argument is the turn: `{ messageId, conversationId }`, as the page sent them.
+     */
     approvalPolicy?: AparteApprovalPolicy;
     /**
      * Accept tools the browser declares and runs itself (`ask_user`). `true` by default;
@@ -63,9 +66,10 @@ export interface AparteAgentHandlerOptions {
      * Rewrite the request before the run — impose your system prompt, drop messages. The
      * resume checks read what it returns: the loop runs on that, not on what the browser sent.
      * So do the tools: one you remove from `request.tools` does not run, even if the model
-     * names it.
+     * names it. The third argument is the turn — `{ messageId, conversationId }`, as the page
+     * sent them: the conversation names one, it proves nothing about who owns it.
      */
-    prepareRequest?: (request: AparteChatRequest, req: Request) => AparteChatRequest | Promise<AparteChatRequest>;
+    prepareRequest?: (request: AparteChatRequest, req: Request, turn: AparteTurnContext) => AparteChatRequest | Promise<AparteChatRequest>;
     /** How many model turns one run may take before it stops. @default 10 */
     maxTurns?: number;
     /** How long one tool call may run, in milliseconds, before it is abandoned. @default 300000 (5 minutes) */
@@ -219,7 +223,9 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
             ...(!body.request.modelId && options.defaultModel ? { modelId: options.defaultModel } : {}),
             tools: [...[...tools.values()].map((t) => t.tool), ...clientTools],
         };
-        if (options.prepareRequest) request = await options.prepareRequest(request, req);
+        // The turn, as the page names it: its reply, and its conversation when one is open.
+        const turn: AparteTurnContext = { messageId: body.messageId, ...(conversationId ? { conversationId } : {}) };
+        if (options.prepareRequest) request = await options.prepareRequest(request, req, turn);
         // A tool runs only if the request the model was given still lists it. A host that
         // hides `admin_wipe` from a user in `prepareRequest` means it: a local or compatible
         // model can name any tool, and the static map would have run it.
@@ -262,7 +268,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
 
         const key = await options.resolveKey?.(providerId);
         const external = new Set(clientTools.map((t) => t.name));
-        const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool);
+        const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool, turn);
 
         const run = new AbortController();
         if (req.signal.aborted) run.abort();

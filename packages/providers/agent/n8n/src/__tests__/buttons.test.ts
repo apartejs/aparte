@@ -32,6 +32,17 @@ describe('setupN8nButtons', () => {
         expect(result).toEqual({ toolCallId: 'n8n-buttons-1', content: 'No thanks', structuredContent: { index: 1, text: 'No thanks' } });
     });
 
+    it('asks under the conversation of the turn, which an app files the question under', async () => {
+        const asked: AparteElicitationRequest[] = [];
+        aparteGlobalConfig.setElicitationPresenter(async (request) => {
+            asked.push(request);
+            return { action: 'accept', content: { option: '0' } };
+        });
+        setupN8nButtons();
+        await aparteGlobalConfig.getToolHandler(N8N_BUTTONS_TOOL)!(call, new AbortController().signal, { conversationId: 'c1' });
+        expect(asked[0]).toMatchObject({ conversationId: 'c1' });
+    });
+
     it("answers with the person's own words when they write instead of choosing", async () => {
         aparteGlobalConfig.setElicitationPresenter(async () => ({ action: 'accept', content: { instruction: ' Tomorrow instead ' } }));
         setupN8nButtons();

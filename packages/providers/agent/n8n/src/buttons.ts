@@ -60,6 +60,7 @@ export function setupN8nButtons(config: AparteConfig = aparteGlobalConfig): void
             allowOther: !input.blockUserInput,
             signal,
             ...(context?.target ? { target: context.target } : {}),
+            ...(context?.conversationId ? { conversationId: context.conversationId } : {}),
         });
         const content = answer.action === 'accept' ? (answer.content as { option?: string; instruction?: string } | undefined) : undefined;
         const written = content?.instruction?.trim();

@@ -322,6 +322,7 @@ export { estimateTokens, estimateWireTokens, measureContext } from './context/me
 export { withoutAbandonedTurns } from './client/wire-history.js';
 export type { AparteContextMeasure, AparteContextMeasureInput } from './context/measure.js';
 export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
+export type { AparteTurnContext } from './types/tools.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export { toolRefusal, runSubAgent, startSubAgent } from './client/stream-adapter.js';
 export type { AparteRunEventContext, AparteRunEventObserver } from './config/aparte-config.js';

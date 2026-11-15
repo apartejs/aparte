@@ -403,6 +403,20 @@ describe('createAparteAgentHandler', () => {
             expect(contexts.map((c) => c.conversationId)).toEqual(['c-42']);
         });
 
+        it('hands prepareRequest and the approval policy the turn: its reply and its conversation', async () => {
+            const turns: unknown[] = [];
+            const { provider } = scriptedProvider(callsReadFile, [{ type: 'done' }]);
+            await lines(await handlerWith(provider, {
+                tools: [readFile],
+                prepareRequest: (request, _req, turn) => { turns.push(['prepare', turn]); return request; },
+                approvalPolicy: (_call, _tool, turn) => { turns.push(['policy', turn]); return { verdict: 'allow' }; },
+            })(post(firstBody({ conversationId: 'c-42' }))));
+            const turn = { messageId: 'm1', conversationId: 'c-42' };
+            expect(turns[0]).toEqual(['prepare', turn]);
+            expect(turns.slice(1).length).toBeGreaterThan(0);
+            for (const seen of turns.slice(1)) expect(seen).toEqual(['policy', turn]);
+        });
+
         it('400 when the conversation id is not a string', async () => {
             const { provider, requests } = scriptedProvider();
             const res = await handlerWith(provider, { tools: [readFile] })(post(firstBody({ conversationId: 7 })));
