@@ -78,25 +78,22 @@ The element also dispatches `aparte-approval-mode-change` with `{ mode, previous
 `/approval` command does the same, from the composer. Nothing is
 remembered across a reload: keep `getMode()` wherever you keep preferences.
 
-The plugin ships no framework binding. In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the
-component that hosts the tag; Vue and Svelte accept it as it is. In a React `.tsx` file the tag
-is a compile error until you declare it once:
+The plugin exports `approvalModeElement`, its element's spec, and every framework binds it as
+it binds [any plugin's element](/frameworks/elements/#your-own-element-or-a-plugins): a typed component in React, the tag typed in Vue and
+Svelte, `CUSTOM_ELEMENTS_SCHEMA` in Angular.
 
-```ts
-import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+import { createAparteElement } from '@aparte/react';
+import { approvalModeElement } from '@aparte/plugin-approval';
 
-declare module 'react' {
-  namespace JSX {
-    interface IntrinsicElements {
-      'aparte-approval-mode': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>;
-    }
-  }
-}
+const ApprovalMode = createAparteElement(approvalModeElement);
+
+<ApprovalMode labels={{ ask: 'Ask first' }} onApprovalModeChange={(detail) => save(detail.mode)} />
 ```
 
-[Your own element, or a plugin's](/frameworks/elements/#react-vue-and-svelte-type-the-tag-from-your-own-package)
-covers the rule for any plugin's element. The class is exported as `AparteApprovalMode`, for
-the type of a `ref`.
+`labels` is a property, which the component assigns. The class is exported as
+`AparteApprovalMode`, for the type of a `ref`.
 
 ## Customize
 

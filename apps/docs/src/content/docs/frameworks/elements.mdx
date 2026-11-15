@@ -250,96 +250,119 @@ these details now carries.
 
 ## Your own element, or a plugin's
 
-Core types its own elements only: an element is typed by whoever owns it. A plugin ships its
-bindings — `import '@aparte/plugin-model-selector/react'`, or `/vue`, `/svelte`, `/angular`, types
-the [model selector](/components/model-selector/) — and an element of yours is typed through one of
-two mechanisms.
-
-### React, Vue and Svelte: type the tag from your own package
-
 <Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import type { AparteElementSpec } from '@aparte/core';
+
+// The element's description, for every framework at once. A plugin generates its own.
+export const myWidgetElement: AparteElementSpec<
+  { label?: string; compact?: boolean },                          // its attributes
+  { items?: string[] },                                           // what it takes only as a property
+  { 'my-widget-pick': { name: 'pick'; detail: { value: string } } } // its events, and the name each binds under
+> = {
+  tag: 'my-widget',
+  attributes: ['label', 'compact'],
+  properties: ['items'],
+  events: [['my-widget-pick', 'pick']],
+  initial: [],
+};
+```
+
+Plain HTML needs no binding: write the attributes, assign the properties, listen for the events.
+
+</TabItem>
 <TabItem label="React">
 
-{/* doc-check: skip augments 'react', a module the snippet compiler does not load */}
-```ts
-import type * as React from 'react';
-import type { AparteTemplateAttrs } from '@aparte/core';
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+import { createAparteElement } from '@aparte/react';
+import { approvalModeElement } from '@aparte/plugin-approval';
 
-interface MyWidgetAttributes { label?: string; compact?: boolean }
+// Once, at module level.
+const ApprovalMode = createAparteElement(approvalModeElement);
 
-declare module 'react' {
-  namespace JSX {
-    interface IntrinsicElements {
-      'my-widget': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & AparteTemplateAttrs<MyWidgetAttributes>;
-    }
-  }
-}
+<ApprovalMode labels={{ ask: 'Ask first' }} onApprovalModeChange={(detail) => save(detail.mode)} />
 ```
+
+The component is the kind `@aparte/react` generates for core's elements: attributes by their HTML
+names, properties as props (`labels` is assigned, not stringified), a callback per event called
+with the detail, then the event, and the element as its ref. `AparteSpecElementProps<typeof spec>` is the type of
+its props, for a component of your own around it.
 
 </TabItem>
 <TabItem label="Vue">
 
 {/* doc-check: skip augments 'vue', which the snippet compiler has no resolution for */}
 ```ts
-import type { AparteTemplateAttrs } from '@aparte/core';
-
-interface MyWidgetAttributes { label?: string; compact?: boolean }
+import type { AparteVueElement } from '@aparte/vue';
+import type { approvalModeElement } from '@aparte/plugin-approval';
 
 declare module 'vue' {
-  interface GlobalComponents {
-    'my-widget': import('vue').DefineComponent<AparteTemplateAttrs<MyWidgetAttributes>>;
-  }
+  interface GlobalComponents { 'aparte-approval-mode': AparteVueElement<typeof approvalModeElement> }
 }
 ```
+
+Then `<aparte-approval-mode :labels="labels" @aparte-approval-mode-change="(e) => save(e.detail.mode)" />`
+checks, `e.detail` typed.
 
 </TabItem>
 <TabItem label="Svelte">
 
 {/* doc-check: skip augments 'svelte/elements', which the snippet compiler has no resolution for */}
 ```ts
-import type { HTMLAttributes } from 'svelte/elements';
-import type { AparteTemplateAttrs } from '@aparte/core';
-
-interface MyWidgetAttributes { label?: string; compact?: boolean }
+import type { AparteSvelteElement } from '@aparte/svelte';
+import type { approvalModeElement } from '@aparte/plugin-approval';
 
 declare module 'svelte/elements' {
-  interface SvelteHTMLElements {
-    'my-widget': HTMLAttributes<HTMLElement> & AparteTemplateAttrs<MyWidgetAttributes> & {
-      'on:my-widget-change'?: (e: CustomEvent<{ value: string }>) => void;
-    };
-  }
+  interface SvelteHTMLElements { 'aparte-approval-mode': AparteSvelteElement<typeof approvalModeElement> }
 }
 ```
+
+Then `<aparte-approval-mode labels={labels} on:aparte-approval-mode-change={(e) => save(e.detail.mode)} />`
+checks, in Svelte 4 and 5 (`onaparte-approval-mode-change` in runes mode).
+
+</TabItem>
+<TabItem label="Angular">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```ts
+import { CUSTOM_ELEMENTS_SCHEMA, Component } from '@angular/core';
+import '@aparte/plugin-approval';
+
+@Component({
+  selector: 'app-toolbar',
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<aparte-approval-mode [labels]="labels" (aparte-approval-mode-change)="save($event.detail.mode)" />`,
+})
+export class ToolbarComponent {
+  labels = { ask: 'Ask first' };
+  save(mode: string) { console.info(mode); }
+}
+```
+
+`CUSTOM_ELEMENTS_SCHEMA` is Angular's own answer for an element it has no directive for: `[labels]`
+sets the property, `(aparte-approval-mode-change)` listens for the DOM event. To write an attribute
+the way core's directives do — `true` as a presence attribute, `false` removing it — call
+`applyElementProps(element, { compact: true })` from `@aparte/core`.
 
 </TabItem>
 </Tabs>
 
-The three learn a tag through module augmentation, from a `.d.ts` of your own package, the
-framework's own HTML attributes beside yours. For an event, augment `HTMLElementEventMap` with its
-detail type: React reads it by ref and Angular through your directive's output, both typed from
-that map, and Svelte from the `on:` entry above.
+Core types its own elements; every other element is typed by whoever owns it. A plugin exports an
+`AparteElementSpec` for each of its elements, generated from its manifest — `approvalModeElement`
+(`@aparte/plugin-approval`), `modelSelectorElement`, `triggersElement`, `diffElement`,
+`subagentViewElement`, `askUserElement`, and `artifactPanelElement` from
+`@aparte/plugin-artifacts/panel` — and every wrapper binds a spec the same way, a third party's as
+well as ours. A spec is data and defines nothing: import the package that defines the element too.
+Its types ride on the value, so `AparteSpecAttributes`, `AparteSpecProperties` and
+`AparteSpecEvents` read them off `typeof spec`, and `AparteElementSpecEvent` /
+`AparteElementSpecEvents` type a spec's events when you write one.
 
-### Angular: a directive of your own
-
-```ts
-import { Directive, ElementRef, Input, booleanAttribute, inject } from '@angular/core';
-import { applyElementProps } from '@aparte/core';
-
-@Directive({ selector: 'my-widget', standalone: true })
-export class MyWidget {
-  private readonly host = inject(ElementRef<HTMLElement>);
-  @Input() set label(v: string | undefined) { this.write('label', v); }
-  @Input({ transform: booleanAttribute }) set compact(v: boolean) { this.write('compact', v); }
-  private write(name: string, value: unknown): void {
-    applyElementProps(this.host.nativeElement, { [name]: value });
-  }
-}
-```
-
-`applyElementProps` is core's rule for writing a value to an element — an attribute, a presence
-attribute or a property — which is what makes `compact` land as `compact=""` and `false` remove
-it. A hyphenated tag nothing defines mounts empty and upgrades when its definition arrives, so the
-types promise a shape, not a definition: import the package that defines the element.
+The model selector's framework entries (`@aparte/plugin-model-selector/react`, `/vue`, `/svelte`,
+`/angular`) still work, and are deprecated in favour of its spec.
 
 For a one-off with no types, `AparteUi` — `<aparte-ui>`, `AparteUiComponent`, in Angular — mounts
 any element by name and sets its `props`. It forwards core's events only, so name your element's

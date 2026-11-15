@@ -1,7 +1,6 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
+import { AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import type { AparteConversationListItem, AparteLinkClickEventDetail } from '@aparte/core';
 import { APARTE_ELEMENT_DIRECTIVES, AparteChatComponent } from '@aparte/angular';
-import { AparteApprovalModeElement } from './plugin-elements';
 import { mountModelSelector } from '../../../_shared/site-setup';
 import { routeLink } from '../../../_shared/links';
 import {
@@ -44,15 +43,17 @@ function resolveOverlayComposer(): boolean {
  * at all, because `manage` on the element lets the list carry them out on the manager
  * registered with `setConversationManager()`.
  *
- * No CUSTOM_ELEMENTS_SCHEMA: every element of core is claimed by its directive from
- * `@aparte/angular` (APARTE_ELEMENT_DIRECTIVES), and the one plugin element is claimed by
- * a few lines of our own (./plugin-elements). So the template is CHECKED — a misspelt tag
- * or an attribute the element does not have fails the build instead of rendering nothing.
+ * Every element of core is claimed by its directive from `@aparte/angular`
+ * (APARTE_ELEMENT_DIRECTIVES), so its attributes and outputs are typed. A plugin's element —
+ * `<aparte-approval-mode>` here — ships no Angular code, and `CUSTOM_ELEMENTS_SCHEMA` is what
+ * lets the template hold it, as Angular's own documentation says for any custom element. Its
+ * properties bind as `[labels]="…"` and its events as `(aparte-approval-mode-change)="…"`.
  */
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, AparteApprovalModeElement, FrameworkWeatherCardComponent],
+    imports: [AparteChatComponent, ...APARTE_ELEMENT_DIRECTIVES, FrameworkWeatherCardComponent],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA],
     template: `
         <div class="aparte-app-shell" id="chat-view">
             <aparte-sidebar>
@@ -126,7 +127,7 @@ function resolveOverlayComposer(): boolean {
                     <!-- The toolbar row under the composer: the approval switch, exactly like
                          vanilla's <aparte-composer-toolbar> child — the model selector lands
                          there too under ?selector=toolbar (ngAfterViewInit below). The tag is
-                         a plugin's; AparteApprovalModeElement claims it for this template. -->
+                         a plugin's, which CUSTOM_ELEMENTS_SCHEMA lets this template hold. -->
                     <aparte-approval-mode slot="toolbar"></aparte-approval-mode>
                 </aparte-chat>
             </main>

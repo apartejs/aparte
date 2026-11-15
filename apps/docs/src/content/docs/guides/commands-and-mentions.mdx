@@ -34,8 +34,14 @@ Then give it its triggers, by property. In a framework, the same property throug
 
 {/* doc-check: skip excerpt — one template line per framework */}
 ```tsx
-// React, in the chat's `toolbar`
-<AparteUi name="aparte-triggers" props={{ triggers }} />
+// React: a component made from the plugin's spec, once, at module level
+import { createAparteElement } from '@aparte/react';
+import { triggersElement } from '@aparte/plugin-triggers';
+
+const Triggers = createAparteElement(triggersElement);
+
+// in the chat's `toolbar`
+<Triggers triggers={triggers} />
 ```
 
 {/* doc-check: skip excerpt — one template line per framework */}
