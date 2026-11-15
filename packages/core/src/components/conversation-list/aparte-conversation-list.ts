@@ -426,11 +426,14 @@ export class AparteConversationList extends HTMLElement {
      * pill — and returns `null` for a row with nothing to say. An element goes in as it is;
      * a string is text, never markup. It sits BESIDE the title button, not inside it, so it
      * may hold a button or a link of its own, with its own accessible name. Setting it draws
-     * the rows again; it is read on every render after that.
+     * the rows again, held like `conversations` while a menu is open or a title is being
+     * renamed; the same function handed again draws nothing. It is read on every render after that.
      */
     set renderMeta(fn: AparteConversationMetaRenderer | null) {
-        this._renderMeta = typeof fn === 'function' ? fn : null;
-        this._render();
+        const next = typeof fn === 'function' ? fn : null;
+        if (next === this._renderMeta) return;
+        this._renderMeta = next;
+        this._renderUnlessHeld();
     }
 
     get renderMeta(): AparteConversationMetaRenderer | null {

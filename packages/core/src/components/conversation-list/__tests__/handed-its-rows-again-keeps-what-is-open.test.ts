@@ -8,7 +8,10 @@ import { describe, it, expect, afterEach } from 'vitest';
 import '../aparte-conversation-list.js';
 import type { AparteConversationListItem } from '../aparte-conversation-list.js';
 
-type ListEl = HTMLElement & { conversations: AparteConversationListItem[] };
+type ListEl = HTMLElement & {
+    conversations: AparteConversationListItem[];
+    renderMeta: ((item: AparteConversationListItem) => HTMLElement | string | null) | null;
+};
 
 function mount(items: AparteConversationListItem[]): ListEl {
     const el = document.createElement('aparte-conversation-list') as ListEl;
@@ -83,5 +86,34 @@ describe('rows handed again', () => {
 
         input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         expect(rowOf(el, 'a').querySelector('input')).toBeNull();
+    });
+
+    it('keep an open menu and a rename when handed the same renderMeta again', () => {
+        const items = [{ id: 'a', title: 'One' }, { id: 'b', title: 'Two' }];
+        const el = mount(items);
+        const meta = (): string => 'x';
+        el.renderMeta = meta;
+        const menu = openMenu(el, 'a');
+        el.renderMeta = meta;
+        expect(el.querySelector('[role="menu"]')).toBe(menu);
+
+        choose(el, 'rename');
+        const input = rowOf(el, 'a').querySelector<HTMLInputElement>('input.aparte-conv-item__input')!;
+        input.value = 'Half typed';
+        el.renderMeta = meta;
+        expect(rowOf(el, 'a').querySelector('input')).toBe(input);
+        expect(input.value).toBe('Half typed');
+    });
+
+    it('hold a new renderMeta while a menu is open, and draw it once the menu closes', () => {
+        const items = [{ id: 'a', title: 'One' }];
+        const el = mount(items);
+        const menu = openMenu(el, 'a');
+        el.renderMeta = () => 'shared';
+        expect(el.querySelector('[role="menu"]')).toBe(menu);
+        expect(el.querySelector('.aparte-conv-item__meta')).toBeNull();
+
+        menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(el.querySelector('.aparte-conv-item__meta')?.textContent).toBe('shared');
     });
 });
