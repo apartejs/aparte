@@ -25,7 +25,17 @@ export interface AparteConversationListItem {
     archivedAt?: number;
     /** When set, the row sits in the "Pinned" group first, and its menu offers unpin. */
     pinnedAt?: number;
+    /**
+     * The group the row sits in, named by the app (a project, a folder). A row that carries
+     * one is grouped by it, before pinning and dates; the groups come first, in order of
+     * first appearance, and the items without one fall to the date groups below. `flat`
+     * still renders no heading.
+     */
+    group?: { key: string; label: string };
 }
+
+/** What `renderMeta` is: an element, text, or `null` for a row with nothing to say. */
+export type AparteConversationMetaRenderer = (item: AparteConversationListItem) => HTMLElement | string | null;
 
 export interface AparteConversationSelectDetail {
     id: string;
@@ -380,6 +390,43 @@ export class AparteConversationList extends HTMLElement {
         return this._conversations;
     }
 
+    private _renderMeta: AparteConversationMetaRenderer | null = null;
+
+    /**
+     * Draws something of the app's after a row's title — a shared mark, a count, a status
+     * pill — and returns `null` for a row with nothing to say. An element goes in as it is;
+     * a string is text, never markup. It sits BESIDE the title button, not inside it, so it
+     * may hold a button or a link of its own, with its own accessible name. Setting it draws
+     * the rows again; it is read on every render after that.
+     */
+    set renderMeta(fn: AparteConversationMetaRenderer | null) {
+        this._renderMeta = typeof fn === 'function' ? fn : null;
+        this._render();
+    }
+
+    get renderMeta(): AparteConversationMetaRenderer | null {
+        return this._renderMeta;
+    }
+
+    /** Puts what `renderMeta` returns after each row's title. Rows are strings, so this runs on the built DOM. */
+    private _applyMeta(): void {
+        const draw = this._renderMeta;
+        if (!draw) return;
+        const byId = new Map(this._conversations.map((c) => [c.id, c]));
+        for (const row of this.querySelectorAll<HTMLElement>('[data-conv-id]')) {
+            const item = byId.get(row.dataset['convId'] ?? '');
+            const select = row.querySelector('.aparte-conv-item__select');
+            if (!item || !select) continue;
+            const made = draw(item);
+            if (made === null || made === undefined || made === '') continue;
+            const slot = document.createElement('span');
+            slot.className = 'aparte-conv-item__meta';
+            if (typeof made === 'string') slot.textContent = made;
+            else slot.append(made);
+            select.after(slot);
+        }
+    }
+
     // ─── Rendering ────────────────────────────────────────────────────────
 
     /**
@@ -493,6 +540,7 @@ export class AparteConversationList extends HTMLElement {
         } else {
             this.innerHTML = groups;
         }
+        this._applyMeta();
         this._applyFilter();
         this._wireMenus();
         if (!restore) return;
@@ -571,7 +619,7 @@ export class AparteConversationList extends HTMLElement {
      */
     private _groups(): ConversationGroup[] {
         const items = this._conversations;
-        if (this.hasAttribute('flat') || !items.some(c => typeof c.updatedAt === 'number')) {
+        if (this.hasAttribute('flat') || !items.some(c => typeof c.updatedAt === 'number' || c.group)) {
             return [{ key: 'all', label: null, items }];
         }
         const now = new Date();
@@ -586,7 +634,19 @@ export class AparteConversationList extends HTMLElement {
             }
             g.items.push(item);
         };
+        const named = new Map<string, ConversationGroup>();
         for (const c of items) {
+            if (c.group) {
+                // The app's own group wins over pinning and dates, and has a map of its own so
+                // a group called 'today' cannot be mistaken for the date bucket.
+                let g = named.get(c.group.key);
+                if (!g) {
+                    g = { key: c.group.key, label: c.group.label, items: [] };
+                    named.set(c.group.key, g);
+                }
+                g.items.push(c);
+                continue;
+            }
             if (c.pinnedAt) { push('pinned', this._t('conversationGroupPinned'), c); continue; }
             const at = c.updatedAt;
             if (typeof at !== 'number') { push('undated', null, c); continue; }
@@ -611,7 +671,7 @@ export class AparteConversationList extends HTMLElement {
             .sort((a, b) => b.localeCompare(a))
             .map(k => buckets.get(k)!);
         const undated = buckets.get('undated');
-        return [...fixed, ...months, ...(undated ? [undated] : [])];
+        return [...named.values(), ...fixed, ...months, ...(undated ? [undated] : [])];
     }
 
     private _renderGroup(group: ConversationGroup): string {

@@ -186,6 +186,17 @@
   opacity: 0.85;
 }
 
+/* What the app draws after a title (`renderMeta`): a mark, a count. It keeps its own
+   size and never takes the title's room; an app's button in it wears the button recipe. */
+.aparte-conv-item__meta {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-xs);
+}
+
 /* The `⋯`: one quiet button per row, shown by hover, by focus, on the active row and
    while its menu is open — never a permanent control, and never a red one. What the
    recipe gives (shape, states, focus ring) it keeps; only the size and the resting
