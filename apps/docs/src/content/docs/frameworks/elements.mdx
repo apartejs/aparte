@@ -145,6 +145,109 @@ type EveryTag = AparteElementTagName;   // 'aparte-chat' | 'aparte-select' | …
 `AparteSidebarAttributes`, `AparteSplitAttributes`, `AparteSuggestionsAttributes` — and
 `AparteNoAttributes` types the elements that observe none.
 
+## Which chat an event came from
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+// One listener for the page: each event names its chat.
+document.addEventListener('aparte-approval-mode-change', (e) => {
+  savePreference(e.detail.targetId ?? 'default', e.detail.mode);
+});
+
+declare function savePreference(chat: string, mode: string): void;
+```
+
+</TabItem>
+<TabItem label="React">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+useEffect(() => {
+  const onAction = (e: Event) => {
+    const { targetId, action } = (e as CustomEvent).detail;
+    if (targetId === chatId) runAction(action);
+  };
+  document.addEventListener('aparte-card-action', onAction);
+  return () => document.removeEventListener('aparte-card-action', onAction);
+}, [chatId]);
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```vue
+<script setup lang="ts">
+const props = defineProps<{ chatId: string }>();
+function onAction(e: CustomEvent) {
+  if (e.detail.targetId === props.chatId) runAction(e.detail.action);
+}
+onMounted(() => document.addEventListener('aparte-card-action', onAction as EventListener));
+onUnmounted(() => document.removeEventListener('aparte-card-action', onAction as EventListener));
+</script>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```svelte
+<script lang="ts">
+  export let chatId: string;
+  function onAction(e: CustomEvent) {
+    if (e.detail.targetId === chatId) runAction(e.detail.action);
+  }
+</script>
+
+<svelte:document on:aparte-card-action={onAction} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```ts
+@HostListener('document:aparte-card-action', ['$event'])
+onAction(e: CustomEvent) {
+  if (e.detail.targetId === this.chatId) this.runAction(e.detail.action);
+}
+```
+
+</TabItem>
+</Tabs>
+
+An event a chat's content or its composer's toolbar sends carries `targetId`, the `id` of the chat
+it came from, as the turn's lifecycle events always have: a message's buttons, links and branch
+arrows, the composer's state and its buttons, a suggestion, the model selector, the approval mode, a
+card's action and change, a diff comment, an artifact opened, a command chosen. A page with several
+chats listens once, on the document, and acts on the right one. The id is the chat host's — the
+`<aparte-chat>` element, or the root a React, Vue or Svelte chat renders, which takes the `id` you
+give the component — or the `target` a composer placed outside its chat names. A chat with no id
+names none, and the detail carries no `targetId`.
+
+```ts
+import { chatIdOf, dispatchChatEvent } from '@aparte/core';
+
+class MyWidget extends HTMLElement {
+  pick(value: string): void {
+    // { value, targetId } — targetId when the widget sits in a chat with an id.
+    dispatchChatEvent(this, 'my-widget-pick', { value });
+  }
+}
+
+const chat = chatIdOf(document.querySelector('my-widget')); // 'support', or undefined
+```
+
+`chatIdOf(el)` is the rule core uses everywhere it needs an element's chat: the `target` of the
+nearest aparté element that names one, else the id of the nearest chat host that has one, across a
+shadow root. `dispatchChatEvent(el, type, detail, { cancelable })` dispatches a bubbling, composed
+event stamped with it, keeps a `targetId` the detail already has, and returns what `dispatchEvent`
+returns — `false` when a listener cancelled it. An element of yours, or a plugin's, uses them to send
+its events the way core's elements do. Its detail type can extend `AparteChatScoped`, the `targetId?: string` every one of
+these details now carries.
+
 ## Your own element, or a plugin's
 
 Core types its own elements only: an element is typed by whoever owns it. A plugin ships its

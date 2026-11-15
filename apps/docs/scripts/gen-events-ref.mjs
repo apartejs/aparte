@@ -175,6 +175,8 @@ for (const file of sources) {
     };
     // The lifecycle helper: the chat host, bubbling, stamped with `targetId`.
     for (const m of src.matchAll(/dispatchLifecycleEvent\(\s*[\w.]+,\s*'(aparte-[\w-]+)'/g)) add(m[1], 'host');
+    // The chat-event helper: the element it is handed, bubbling, stamped with its chat's `targetId`.
+    for (const m of src.matchAll(/dispatchChatEvent(?:<[^>(]*>)?\(\s*[\w.]+,\s*'(aparte-[\w-]+)'/g)) add(m[1], 'element');
     for (const m of src.matchAll(/(window|document|this|\w+)\.dispatchEvent\(\s*new CustomEvent[^(]*\(\s*'(aparte-[\w-]+)'/g)) {
         add(m[2], m[1] === 'window' ? 'window' : 'element');
     }
@@ -262,7 +264,7 @@ const GROUPS = [
     {
         id: 'element',
         title: 'On the element',
-        lead: 'Dispatched by the element itself and bubbling, so a listener on any ancestor — including `document` — receives them. This is where an intent lives: the user pressed something, and your app decides what it means.',
+        lead: 'Dispatched by the element itself and bubbling, so a listener on any ancestor — including `document` — receives them. This is where an intent lives: the user pressed something, and your app decides what it means. The ones a chat\x27s content or its composer sends carry `targetId`, the id of the chat they came from, when that chat has one.',
         of: (name) => primary(name) === 'element' || (!where.has(name) && declared.has(name)),
     },
     {

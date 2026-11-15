@@ -26,22 +26,6 @@ export interface CheckpointWatcherOptions {
 }
 
 /**
- * The id of the chat `el` belongs to: the nearest `<aparte-chat>` or `[data-aparte-chat]`
- * above it that HAS one, `undefined` for an unnamed chat. The same climb the bubble, the
- * composer and the gauge make for their own events, so an event naming a chat and an element
- * answering for it agree about which is which.
- */
-export function chatIdOf(el: Element): string | undefined {
-    let node: Element | null = el.parentElement;
-    while (node) {
-        const isHost = node.tagName.toLowerCase() === 'aparte-chat' || node.hasAttribute('data-aparte-chat');
-        if (isHost && node.id) return node.id;
-        node = node.parentElement;
-    }
-    return undefined;
-}
-
-/**
  * Says on the bubble what a compaction is doing to the message it will sit on.
  *
  * A checkpoint is written onto the first message the model keeps verbatim, and the

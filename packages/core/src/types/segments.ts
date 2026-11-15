@@ -3,6 +3,8 @@
  * Extensible segment types for rich message content
  */
 
+import type { AparteChatScoped } from '../interop/chat-events.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Base Segment Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -583,7 +585,7 @@ export type AparteSegmentMount<T extends AparteSegmentBase = AparteSegmentBase> 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Event when segment content is updated during streaming */
-export interface AparteSegmentUpdateEventDetail {
+export interface AparteSegmentUpdateEventDetail extends AparteChatScoped {
     messageId: string;
     segmentId: string;
     content: string;

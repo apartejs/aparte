@@ -64,6 +64,7 @@ import type { AparteFeedbackReasonEventDetail } from '../../types/index.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { isSafeUrl } from '../../config/sanitize.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
 import { restoreContext } from '../../context/restore.js';
 import { buildCheckpointSeparator, type CheckpointKind } from './checkpoint-separator.js';
 
@@ -876,10 +877,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       dismiss: this._cfg.t('feedbackReasonDismiss'),
       onPick: (reason) => {
         panel.remove();
-        this.dispatchEvent(new CustomEvent<AparteFeedbackReasonEventDetail>('aparte-feedback-reason', {
-          bubbles: true, composed: true,
-          detail: { messageId, reason },
-        }));
+        dispatchChatEvent<AparteFeedbackReasonEventDetail>(this, 'aparte-feedback-reason', { messageId, reason });
       },
       onClose: () => panel.remove(),
     });
@@ -2211,10 +2209,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       const open = (): void => {
         const url = tile.querySelector<HTMLImageElement>('.aparte-thumbnail__image')?.src ?? tile.dataset['url'];
         if (!url) return;
-        this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
-          bubbles: true, composed: true,
-          detail: { url, name: tile.getAttribute('title') ?? '', type: tile.dataset['type'] ?? '' },
-        }));
+        dispatchChatEvent(this, 'aparte-attachment-preview', { url, name: tile.getAttribute('title') ?? '', type: tile.dataset['type'] ?? '' });
       };
       tile.addEventListener('click', open);
       tile.addEventListener('keydown', (e) => {
@@ -2281,11 +2276,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (!messageId) return;
     const detail: AparteBranchNavigateEventDetail = { messageId, direction };
     // Tree-based navigation: let the viewport handle the branch switch
-    this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
-      bubbles: true,
-      composed: true,
-      detail,
-    }));
+    dispatchChatEvent(this, 'aparte-branch-navigate', detail);
   };
 
   /**
@@ -2307,12 +2298,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       anchor,
       messageId: this.getAttribute('message-id'),
     };
-    const announced = this.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
-      bubbles: true,
-      composed: true,
-      cancelable: true,
-      detail,
-    }));
+    const announced = dispatchChatEvent(this, 'aparte-link-click', detail, { cancelable: true });
     if (!announced) event.preventDefault();
   };
 
@@ -2639,9 +2625,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         role: this._role,
         targetId: this._resolveTargetId(),
       };
-      this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte-action', {
-        bubbles: true, composed: true, detail,
-      }));
+      dispatchChatEvent(this, 'aparte-action', detail);
       this._cfg.getActions('bubble').find(x => x.id === actionId)?.onClick?.(e);
       return;
     }
@@ -2697,10 +2681,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         const value: AparteFeedbackEventDetail['value'] = action === 'feedback-positive' ? 'positive' : 'negative';
         btn.setAttribute('data-submitted', '');
         const detail: AparteFeedbackEventDetail = { messageId, value };
-        this.dispatchEvent(new CustomEvent<AparteFeedbackEventDetail>('aparte-feedback', {
-          bubbles: true, composed: true,
-          detail,
-        }));
+        dispatchChatEvent(this, 'aparte-feedback', detail);
         if (value === 'negative') this._askFeedbackReason(messageId);
         else this.querySelector('.aparte-feedback-reasons')?.remove();
         break;
@@ -2711,10 +2692,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
           messageId,
           usage: this._usage ?? undefined,
         };
-        this.dispatchEvent(new CustomEvent<AparteMessageInfoEventDetail>('aparte-message-info', {
-          bubbles: true, composed: true,
-          detail,
-        }));
+        dispatchChatEvent(this, 'aparte-message-info', detail);
         break;
       }
     }
@@ -2832,21 +2810,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   private _resolveTargetId(): string | undefined {
-    // Walk up to the chat host element with an id. Angular's wrapper root IS the
-    // `<aparte-chat>` element (its component selector); the plain-root wrappers
-    // (React/Vue/Svelte) render a `<div class="aparte-chat-container" data-aparte-chat
-    // id="…">` instead — so match `[data-aparte-chat]` too. Without this, retry/edit
-    // resolved to `undefined` outside Angular and AparteClient's fallback hit the
-    // bare `<aparte-chat-viewport>` (a different message store) → retry regenerated
-    // into the void.
-    let el: HTMLElement | null = this.parentElement;
-    while (el) {
-      const tag = el.tagName?.toLowerCase();
-      const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
-      if (isHost && el.id) return el.id;
-      el = el.parentElement;
-    }
-    return undefined;
+    // The chat host with an id above: Angular's wrapper root IS the `<aparte-chat>` element
+    // (its component selector); the plain-root wrappers (React/Vue/Svelte) render a
+    // `[data-aparte-chat]` div instead, which `chatIdOf` matches too. Without it, retry/edit
+    // resolved to `undefined` outside Angular and AparteClient's fallback hit the bare
+    // `<aparte-chat-viewport>` (a different message store) → retry regenerated into the void.
+    return chatIdOf(this);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

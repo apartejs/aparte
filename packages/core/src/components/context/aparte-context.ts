@@ -10,6 +10,7 @@ import { measureContext, usageTokens, type AparteContextMeasure } from '../../co
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { chatIdOf } from '../../interop/chat-events.js';
 
 /** How full the window is, against the two thresholds. */
 export type AparteContextLevel = 'ok' | 'warn' | 'danger';
@@ -415,15 +416,7 @@ export class AparteContext extends HTMLElement {
 
     /** The chat this gauge watches: `target`, else the chat host above it — the composer's rule. */
     private _ownTargetId(): string | undefined {
-        const attr = this.getAttribute('target');
-        if (attr) return attr;
-        let node: HTMLElement | null = this.parentElement;
-        while (node) {
-            const isHost = node.tagName.toLowerCase() === 'aparte-chat' || node.hasAttribute('data-aparte-chat');
-            if (isHost && node.id) return node.id;
-            node = node.parentElement;
-        }
-        return undefined;
+        return chatIdOf(this);
     }
 
     private _isMine(targetId?: string): boolean {

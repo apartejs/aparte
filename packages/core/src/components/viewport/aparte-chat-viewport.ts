@@ -32,7 +32,8 @@ import {
     isTerminalStatus,
 } from '../../utils/segments.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
-import { CheckpointStateWatcher, chatIdOf } from '../../context/checkpoint-state.js';
+import { CheckpointStateWatcher } from '../../context/checkpoint-state.js';
+import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
 
 /**
  * An assistant reply handed over as a markdown string, split the way the stream would
@@ -605,11 +606,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         // Dispatch segment update event
-        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEventDetail>('aparte-segment-update', {
-            bubbles: true,
-            composed: true,
-            detail: { messageId, segmentId, content: chunk, append: true }
-        }));
+        dispatchChatEvent<AparteSegmentUpdateEventDetail>(this, 'aparte-segment-update', { messageId, segmentId, content: chunk, append: true });
 
         // Notify bubble
         this._notifyBubble(messageId, 'appendToSegment', chunk, segmentId);
@@ -1591,11 +1588,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _dispatchPathChanged(messages: AparteMessage[], siblings: AparteSiblingInfo[]): void {
         const detail: ApartePathChangedEventDetail = { messages, siblings };
-        this.dispatchEvent(new CustomEvent<ApartePathChangedEventDetail>('aparte-path-changed', {
-            bubbles: true,
-            composed: true,
-            detail,
-        }));
+        dispatchChatEvent(this, 'aparte-path-changed', detail);
     }
 
     private _autoScroll(): void {
