@@ -69,6 +69,36 @@ aparte-sidebar,
   min-width: var(--aparte-sidebar-width);
 }
 
+/* A rail: `collapsed="rail"` folds the column to `--aparte-sidebar-rail-width` instead of
+   to nothing. It stays in the flow and stays usable — the element does not make it inert.
+   What stays is what the app marked `data-rail` (a header with the toggle, a nav of icon
+   buttons, the account's avatar); every other direct child is hidden, and inside a marked
+   child the `.aparte-sidebar__label` and `.aparte-sidebar__brand` texts are. As a drawer
+   a rail means nothing: the drawer is open or off-screen. */
+.aparte-sidebar[collapsed='rail']:not([data-drawer]) {
+  width: var(--aparte-sidebar-rail-width);
+  border-inline-end-width: var(--aparte-border-width);
+  /* A rail's icons carry tooltips to its end side, which the column's clip would cut. */
+  overflow: visible;
+}
+
+.aparte-sidebar[collapsed='rail']:not([data-drawer]) > * {
+  min-width: 0;
+}
+
+.aparte-sidebar[collapsed='rail']:not([data-drawer]) > :not([data-rail]) {
+  display: none;
+}
+
+.aparte-sidebar[collapsed='rail']:not([data-drawer]) :is(.aparte-sidebar__label, .aparte-sidebar__brand) {
+  display: none;
+}
+
+.aparte-sidebar[collapsed='rail']:not([data-drawer]) > [data-rail] {
+  padding-inline: var(--aparte-space-3);
+  justify-content: center;
+}
+
 .aparte-sidebar__header {
   display: flex;
   align-items: center;

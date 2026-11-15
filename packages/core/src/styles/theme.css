@@ -377,6 +377,7 @@
 
   /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
+  --aparte-sidebar-rail-width: 56px;
   --aparte-app-header-height: 48px;
   --aparte-scrim: rgba(0, 0, 0, 0.35);
   /* The split's primary pane and the bounds it moves between. Any length or
@@ -409,6 +410,9 @@
   --aparte-duration-base: 0.15s;
   --aparte-duration-slow: 0.2s;
   --aparte-duration-slower: 0.3s;
+  /* How long a hovered or focused anchor waits before its tooltip shows
+     (`.aparte-tooltip-anchor--hover`): long enough that crossing a rail does not flash. */
+  --aparte-tooltip-delay: 400ms;
   --aparte-duration-spin: 0.7s;
   --aparte-duration-pulse: 1.2s;
   /* One sweep of the shimmer across a running label (display/shimmer.css). */
