@@ -594,3 +594,23 @@ describe('createAgUiRunner: pauses and resumes', () => {
         ]);
     });
 });
+
+describe('createAgUiRunner: who wrote a message', () => {
+    it("sends a message's name on the user and assistant messages AG-UI gives a place for it", async () => {
+        const f = fakeFetch(sse(started, finished()));
+        await run(f.fetch, {
+            baseRequest: {
+                messages: [
+                    { role: 'user', content: 'hi', name: 'Alex' },
+                    { role: 'assistant', content: 'Marie here.', name: 'Marie' },
+                    { role: 'user', content: 'ok' },
+                ],
+                modelId: 'x', stream: true,
+            },
+        } as never).done;
+        const sent = f.bodies[0]!['messages'] as { role: string; name?: string }[];
+        expect(sent[0]).toMatchObject({ role: 'user', name: 'Alex' });
+        expect(sent[1]).toMatchObject({ role: 'assistant', name: 'Marie' });
+        expect(sent[2]!.name).toBeUndefined();
+    });
+});
