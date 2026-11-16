@@ -23,12 +23,18 @@ export interface AparteChatImperativeApi {
      */
     appendMessage: (message: AparteMessage, options?: { historical?: boolean }) => void;
     updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
+    /**
+     * Set or append the content of the turn's message. This method, `addSegment`,
+     * `updateSegment`, `removeSegment` and `appendToSegment` write into the message
+     * being streamed while a turn runs — even when the app appended another message
+     * after it — and into the last message otherwise.
+     */
     updateLastMessage: (content: string, options?: { append?: boolean }) => void;
     addSegment: (segment: AparteSegment) => void;
     updateSegment: (segmentId: string, updates: Partial<AparteSegment>) => void;
     removeSegment: (segmentId: string) => void;
     /**
-     * Append text to a segment of the last message — the streaming path for a
+     * Append text to a segment of the turn's message — the streaming path for a
      * thinking block, a tool pill, or any segment that grows token by token.
      *
      * Each chunk is written straight into the bubble, and the framework's message

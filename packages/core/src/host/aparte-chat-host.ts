@@ -194,6 +194,13 @@ function sameValue(a: unknown, b: unknown): boolean {
  */
 const RENDERED_FIELDS = ['content', 'segments', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction'] as const;
 
+/** A copy of `messages` with the one at `index` replaced: a turn's message is not always the last. */
+function withMessageAt(messages: AparteMessage[], index: number, message: AparteMessage): AparteMessage[] {
+    const next = [...messages];
+    next[index] = message;
+    return next;
+}
+
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
     private readonly options: AparteChatHostOptions;
@@ -242,7 +249,7 @@ export class AparteChatHost {
      * doubled. `base` is captured before the paint, so whoever mutates the shared
      * object in between cannot change the result.
      */
-    private readonly _segmentBuffer = new Map<string, { base: string; text: string }>();
+    private readonly _segmentBuffer = new Map<string, { messageId: string; segmentId: string; base: string; text: string }>();
     /** {@link streamTokens} text written to the bubble, awaiting the same sync. */
     private _tokenBuffer: { messageId: string; text: string } | null = null;
     /** Handle of the scheduled coalesced sync, or null when none is pending. */
@@ -641,28 +648,29 @@ export class AparteChatHost {
         this._bubbleById(messageId)?.setStep?.(name);
     }
 
-    /** Append/replace the last message content (streaming text). */
+    /**
+     * Append/replace the content of the turn's message (streaming text): the message
+     * being streamed while a turn runs, else the last one.
+     */
     updateLastMessage(content: string, options?: { append?: boolean }): void {
         if (options?.append) this.binding.onTypingChange?.(false);
-        const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
-        if (!last) return;
-        if (this._isOrphan(last.id)) return;
+        const target = this._turnTarget();
+        if (!target) return;
+        const { message: last, index } = target;
         const newContent = options?.append ? (last.content || '') + content : content;
-        const next = [...msgs.slice(0, -1), { ...last, content: newContent }];
+        const next = withMessageAt(this.binding.getMessages(), index, { ...last, content: newContent });
         this.binding.setMessages(next);
         this._report(next);
     }
 
-    /** Add a segment to the last message (immediate bubble + state sync). */
+    /** Add a segment to the turn's message (immediate bubble + state sync). */
     addSegment(segment: AparteSegment): void {
         this._flushStreamState(); // buffered chunks belong before a new segment
-        const before = this.binding.getMessages();
-        const target = before[before.length - 1];
-        if (target && this._isOrphan(target.id)) return;
+        const target = this._turnTarget();
+        if (!target && this._streamingId !== null) return;
         this.binding.onTypingChange?.(false);
-        const msgs = before;
-        const last = target;
+        const msgs = this.binding.getMessages();
+        const last = target?.message;
 
         // Stamped before the bubble is told, because the bubble is told FIRST here
         // (that ordering is deliberate — the paint must not wait on a list rebuild).
@@ -678,51 +686,53 @@ export class AparteChatHost {
             )
             : segment;
         this._streamBubble(last?.id)?.addSegment?.(stamped);
-        if (!last) return;
+        if (!target || !last) return;
         const segments = [...(last.segments || []), stamped];
-        const next = [...msgs.slice(0, -1), { ...last, segments }];
+        const next = withMessageAt(msgs, target.index, { ...last, segments });
         this.binding.setMessages(next);
         this._report(next);
     }
 
-    /** Update a segment in the last message in place. */
+    /** Update a segment in the turn's message in place. */
     updateSegment(segmentId: string, updates: Partial<AparteSegment>): void {
         this._flushStreamState(); // an update must not overwrite buffered text
+        const target = this._turnTarget();
+        if (!target && this._streamingId !== null) return;
         const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
-        if (last && this._isOrphan(last.id)) return;
+        const last = target?.message;
         const current = last?.segments?.find((s) => s.id === segmentId);
         // Same ordering trap as `addSegment`: the bubble is written first, so the
         // `endedAt` has to be computed before that write, not after it.
         const stamped = current ? stampSegmentOnUpdate(current, updates) : updates;
         this._streamBubble(last?.id)?.updateSegment?.(segmentId, stamped);
-        if (!last || !last.segments) return;
+        if (!target || !last || !last.segments) return;
         const segments = last.segments.map((s) =>
             s.id === segmentId ? mergeSegmentUpdate(s, stamped) : s,
         );
-        const next = [...msgs.slice(0, -1), { ...last, segments }];
+        const next = withMessageAt(msgs, target.index, { ...last, segments });
         this.binding.setMessages(next);
         this._report(next);
     }
 
-    /** Remove a transient segment (a status row the host added itself). */
+    /** Remove a transient segment (a status row the host added itself) from the turn's message. */
     removeSegment(segmentId: string): void {
         this._flushStreamState();
-        this._streamBubble(this.binding.getMessages().at(-1)?.id)?.removeSegment?.(segmentId);
-        const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
-        if (!last?.segments) return;
+        const target = this._turnTarget();
+        if (!target && this._streamingId !== null) return;
+        this._streamBubble(target?.message.id)?.removeSegment?.(segmentId);
+        const last = target?.message;
+        if (!target || !last?.segments) return;
         const segments = last.segments.filter((s) => s.id !== segmentId);
         if (segments.length === last.segments.length) return;
         // `index` is a position: a removal has to close the gap it left.
         renumberSegments(segments);
-        const next = [...msgs.slice(0, -1), { ...last, segments }];
+        const next = withMessageAt(this.binding.getMessages(), target.index, { ...last, segments });
         this.binding.setMessages(next);
         this._report(next);
     }
 
     /**
-     * Append text to a segment's content in the last message — the streaming path
+     * Append text to a segment's content in the turn's message — the streaming path
      * for thinking blocks, tool pills and any segment that grows token by token.
      *
      * Two writes, deliberately asymmetric:
@@ -737,19 +747,19 @@ export class AparteChatHost {
      * {@link _flushStreamState}), so ordering is never observable.
      */
     appendToSegment(segmentId: string, content: string): void {
-        const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
+        const target = this._turnTarget();
+        const last = target?.message;
         if (!last || !last.segments) return;
-        if (this._isOrphan(last.id)) return;
 
         // (2a) Record where this batch starts — BEFORE the paint below, which writes
         // into the segment object the list shares. See {@link _segmentBuffer}.
-        let buffered = this._segmentBuffer.get(segmentId);
+        const key = `${last.id}\u0000${segmentId}`;
+        let buffered = this._segmentBuffer.get(key);
         if (!buffered) {
             const segment = last.segments.find((s) => s.id === segmentId);
             const base = segment && 'content' in segment ? (segment as { content?: string }).content ?? '' : '';
-            buffered = { base, text: '' };
-            this._segmentBuffer.set(segmentId, buffered);
+            buffered = { messageId: last.id, segmentId, base, text: '' };
+            this._segmentBuffer.set(key, buffered);
         }
         buffered.text += content;
 
@@ -811,10 +821,20 @@ export class AparteChatHost {
         }
 
         if (pending) {
-            const last = msgs[msgs.length - 1];
-            if (last?.segments) {
-                const segments = last.segments.map((s) => {
-                    const buffered = pending.get(s.id);
+            // By the message each chunk was written for, like the tokens above: a
+            // message appended meanwhile is not the one the stream belongs to.
+            const byMessage = new Map<string, Map<string, { base: string; text: string }>>();
+            for (const entry of pending.values()) {
+                let entries = byMessage.get(entry.messageId);
+                if (!entries) byMessage.set(entry.messageId, (entries = new Map()));
+                entries.set(entry.segmentId, entry);
+            }
+            for (const [messageId, entries] of byMessage) {
+                const index = msgs.findIndex((m) => m.id === messageId);
+                const target = index === -1 ? undefined : msgs[index];
+                if (!target?.segments) continue;
+                const segments = target.segments.map((s) => {
+                    const buffered = entries.get(s.id);
                     // Absolute, not `s.content + chunk`: `s` may be the object the
                     // paint already appended to (they are shared), so adding the
                     // chunk again is what doubled every chunk.
@@ -829,7 +849,7 @@ export class AparteChatHost {
                         ...stampSegmentActivity(s),
                     } as AparteSegment;
                 });
-                msgs = [...msgs.slice(0, -1), { ...last, segments }];
+                msgs = withMessageAt(msgs, index, { ...target, segments });
                 changed = true;
             }
         }
@@ -1099,9 +1119,21 @@ export class AparteChatHost {
 
     // ── internals ──────────────────────────────────────────────────────────
 
-    /** Orphan-stream guard: a stream is in flight but the last msg isn't it. */
-    private _isOrphan(lastId: string): boolean {
-        return this._streamingId !== null && lastId !== this._streamingId;
+    /**
+     * The message a turn's writes go to, and where it sits in the list. While a turn
+     * runs, the message being streamed — never another one, not even the last: an app
+     * may append a message mid-turn (an advisor's reply, a notice), and a list swapped
+     * under a stream no longer holds its message, whose late writes are then dropped
+     * rather than moved. With no turn running, the last message, as before.
+     */
+    private _turnTarget(): { message: AparteMessage; index: number } | null {
+        const msgs = this.binding.getMessages();
+        if (this._streamingId !== null) {
+            const index = msgs.findIndex((m) => m.id === this._streamingId);
+            return index === -1 ? null : { message: msgs[index]!, index };
+        }
+        const index = msgs.length - 1;
+        return index === -1 ? null : { message: msgs[index]!, index };
     }
 
     private _vp(): ViewportApi | null {
