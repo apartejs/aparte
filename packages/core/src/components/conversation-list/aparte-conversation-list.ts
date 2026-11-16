@@ -109,6 +109,8 @@ function rowSelector(attr: string, id: string): string {
 }
 
 const DAY = 864e5;
+/** The glyphs a row draws: an icon set that changes one of them is a change the list draws. */
+const LIST_GLYPHS = ['more', 'edit', 'pin', 'archive', 'unarchive', 'trash'] as const;
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
@@ -324,12 +326,33 @@ export class AparteConversationList extends HTMLElement {
      * and the group headings come from the locale, so without this the list stayed in
      * the previous language until something else happened to re-render it. Only OUR
      * config.
+     *
+     * Only for what the list draws from it, and held like any render asked from outside.
+     * The event goes out for every change of the config (a provider registered, a model
+     * selected, a tool display), and redrawing on each of them detached a row menu open
+     * under the pointer and lost a title being renamed, when an app registered its models
+     * a second after launch.
      */
     private _onConfigChange = (e: Event): void => {
         const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
         if (detail?.config && detail.config !== resolveConfig(this)) return;
-        this._render();
+        const now = this._configDrawn();
+        const drawn = this._drawnWith;
+        if (drawn && drawn.locale === now.locale && drawn.glyphs === now.glyphs) return;
+        this._renderUnlessHeld();
     };
+
+    /** What the last render read from the config: its words and its glyphs. */
+    private _drawnWith: { locale: object; glyphs: string } | null = null;
+
+    /** The locale the list's words come from, and the glyphs it draws. */
+    private _configDrawn(): { locale: object; glyphs: string } {
+        const cfg = resolveConfig(this);
+        return {
+            locale: cfg.getLocale(),
+            glyphs: LIST_GLYPHS.map((name) => cfg.getIcon(name)).join('\n'),
+        };
+    }
 
     /**
      * `aparte-conversation-status`, on `window`: the controller's, a list's, or an app's own.
@@ -514,6 +537,7 @@ export class AparteConversationList extends HTMLElement {
             return;
         }
         this._renderAfterMenu = false;
+        this._drawnWith = this._configDrawn();
         // The menus and the rename input live inside the rows; a render replaces them.
         this._releaseMenus();
         this._renaming = null;
