@@ -23,6 +23,8 @@
 export type {
     AparteBubbleRole,
     AparteMessage,
+    AparteAuthor,
+    AparteMessageKind,
     AparteContextSummary,
     AparteCompactor,
     AparteCompactorRequest,
@@ -372,6 +374,7 @@ import './types/element-map.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
+export { isModelReply, authorTypeOf } from './utils/is-model-reply.js';
 export { escapeHtml, escapeAttr } from './utils/escape.js';
 // Same reasoning as the browser barrel: the gate script and the customization
 // guide both tell a renderer author to use `cssEscape` for a selector, so it has to
