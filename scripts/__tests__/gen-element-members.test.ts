@@ -169,12 +169,9 @@ describe('on the real manifest', () => {
         expect(real).toHaveLength(25);
     });
 
-    it('finds the properties a template has to bind: the list the issue could not bind, its row hook, and the composer\'s name for Stop', () => {
+    it('finds the properties a template has to bind: the list the issue could not bind, and its row hook', () => {
         const withProperties = real.filter((m) => m.properties.length);
-        expect(withProperties.map((m) => [m.tag, m.properties.map((p) => p.name)])).toEqual([
-            ['aparte-composer', ['stopLabel']],
-            ['aparte-conversation-list', ['conversations', 'renderMeta']],
-        ]);
+        expect(withProperties.map((m) => [m.tag, m.properties.map((p) => p.name)])).toEqual([['aparte-conversation-list', ['conversations', 'renderMeta']]]);
     });
 });
 

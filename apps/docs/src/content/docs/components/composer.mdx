@@ -102,14 +102,15 @@ of your own can queue with `composer.queue()`, and `queued` in the composer's st
 waits, as `AparteQueuedMessage[]`.
 
 Stop's accessible name and tooltip are the locale's `stopButton`, "Stop". When your app knows what
-a stop would interrupt, say so for this reply, on this chat's composer only:
+a stop would interrupt, say so on this chat's composer only, with its `stop-label` attribute or the
+`stopLabel` property that writes it:
 
 ```js
 composer.stopLabel = 'Stop the sub-agents'; // `chat.getComposer()` in a framework chat
+composer.stopLabel = null; // the locale's word again, once the run it named is over
 ```
 
-It goes back to `null`, the locale's word, when the reply ends. The
-[sub-agents guide](/guides/sub-agents/#name-the-stop-button) shows it following the sub-agents
+The [sub-agents guide](/guides/sub-agents/#name-the-stop-button) shows it following the sub-agents
 that run.
 
 ## Usage

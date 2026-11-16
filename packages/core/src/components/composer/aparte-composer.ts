@@ -168,6 +168,9 @@ export interface AparteComposerChangeEventDetail extends AparteChatScoped {
  *   add-attachment and `<aparte-composer-action>` buttons each read it. What you put in
  *   the toolbar is yours to disable.
  * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
+ * @attr {string} stop-label - What the Stop button says it stops — its accessible name and its
+ *   tooltip — in place of the locale's `stopButton`: "Stop the sub-agents". This chat's only;
+ *   remove it to go back to the locale's word. The `stopLabel` property mirrors it.
  * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
  *   default); set it to the string `"false"` to swap them. Read lazily by the
  *   `submitOnEnter` getter rather than observed.
@@ -265,8 +268,6 @@ export class AparteComposer extends HTMLElement {
 
     /** The messages written during a reply, waiting for it to end — see {@link queue}. */
     private _queue: AparteQueuedMessage[] = [];
-    /** See {@link stopLabel}. */
-    private _stopLabel: string | null = null;
     /** Unique per composer, for the ids that name each queued message to its buttons. */
     private readonly _queueIdBase = `aparte-queued-${++queueIds}`;
 
@@ -317,7 +318,7 @@ export class AparteComposer extends HTMLElement {
     }
 
     static get observedAttributes(): string[] {
-        return ['placeholder', 'disabled', 'target'];
+        return ['placeholder', 'disabled', 'target', 'stop-label'];
     }
 
     /** Stops the document listeners of `type-to-focus`; null while disconnected. */
@@ -359,6 +360,9 @@ export class AparteComposer extends HTMLElement {
         if (_old === value) return; // the same string is no news: a wrapper re-applying its props writes it again
         if (name === 'disabled') {
             this._emit('disabled-change', { disabled: value !== null });
+        }
+        if (name === 'stop-label') {
+            this._emit('stop-label-change', { stopLabel: this.stopLabel });
         }
         if (name === 'placeholder') {
             // Pushed, not merely readable: the input reads this element's placeholder
@@ -427,22 +431,22 @@ export class AparteComposer extends HTMLElement {
     }
 
     /**
-     * What the Stop button says it stops, for the reply in flight: its accessible name and its
-     * tooltip, in place of the locale's `stopButton`. For an app that knows what a stop would
-     * interrupt — "Stop the sub-agents", "Stop the download". `null` (the default) is the
-     * locale's word. Set it while the reply runs; it goes back to `null` when the reply ends,
-     * so a name never outlives the run it described. This chat's composer only, where
-     * `extendLocale({ stopButton })` would rename every chat sharing the config.
+     * What the Stop button says it stops: its accessible name and its tooltip, in place of the
+     * locale's `stopButton`. For an app that knows what a stop would interrupt — "Stop the
+     * sub-agents", "Stop the download". `null` (the default) is the locale's word. The
+     * `stop-label` attribute is the state and this property writes it, so a framework binding
+     * and a script reach the same thing; set it back to `null` when the run it named is over.
+     * This chat's composer only, where `extendLocale({ stopButton })` would rename every chat
+     * sharing the config.
      */
     get stopLabel(): string | null {
-        return this._stopLabel;
+        const label = this.getAttribute('stop-label');
+        return label?.trim() ? label : null;
     }
 
     set stopLabel(label: string | null) {
-        const next = label?.trim() ? label : null;
-        if (next === this._stopLabel) return;
-        this._stopLabel = next;
-        this._emit('stop-label-change', { stopLabel: next });
+        if (label?.trim()) this.setAttribute('stop-label', label);
+        else this.removeAttribute('stop-label');
     }
 
     /** The messages waiting for the reply to end, first to go first. A copy. */
@@ -1054,8 +1058,6 @@ export class AparteComposer extends HTMLElement {
         if (!this._isForThisComposer(e) || !this._isForThisTurn(e)) return;
         this._streamingMessageId = null;
         this._streaming = false;
-        // The run it named is over.
-        this.stopLabel = null;
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends
         if (this._panelActive) this._evictPanel();
