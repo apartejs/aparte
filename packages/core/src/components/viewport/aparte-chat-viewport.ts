@@ -646,13 +646,20 @@ export class AparteChatViewport extends HTMLElement {
         //
         // `AparteChatHost` has had `_isOrphan` for exactly this, which is why the
         // framework wrappers were protected and the raw viewport — the documented
-        // vanilla quick start — was not. Refusing, like the host does, rather than
-        // routing: losing the tail is visible, writing it onto someone else's message
-        // is not.
+        // vanilla quick start — was not.
+        //
+        // One open turn on the active path is unambiguous: an app appended a message
+        // after it (an advisor's reply, a notice) and the turn keeps writing into its
+        // own message. Anything else is refused rather than routed — a turn that left
+        // the path, or two open turns (a retry superseded one): losing the tail is
+        // visible, writing it onto someone else's message is not.
         const head = this._repo.headId;
-        const streaming = this._streamingMessageId();
-        if (streaming !== null && streaming !== head) return null;
-        return head;
+        const open = this._repo.getAllMessages().filter((m) => (m as { isStreaming?: boolean }).isStreaming);
+        if (open.length === 0) return head;
+        if (open.length > 1) return null;
+        const streaming = open[0]!.id;
+        if (streaming === head) return head;
+        return this._repo.getMessages().some((m) => m.id === streaming) ? streaming : null;
     }
 
     /**
@@ -1066,12 +1073,13 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Update the last message content, optionally appending.
-     * Implements the same contract as the Angular wrapper's updateLastMessage(),'
+     * Update the content of the turn's message, optionally appending: the message being
+     * streamed while a turn runs, else the last one — the same resolution as the
+     * 1-argument segment writes. Implements the same contract as the wrappers' host,
      * making aparte-chat-viewport a fully standalone streaming target for aparte-client.
      */
     updateLastMessage(content: string, options?: { append?: boolean }): void {
-        const lastId = this._repo.headId;
+        const lastId = this._activeMessageId();
         if (!lastId) return;
         if (options?.append) {
             this.appendToken(lastId, content);
