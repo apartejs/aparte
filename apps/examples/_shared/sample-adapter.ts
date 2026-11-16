@@ -26,6 +26,12 @@ const slow = params.has('slow');
  * a wait, which a timer cannot promise on a busy machine.
  */
 const held = params.has('held');
+/**
+ * `?persist`: what is saved survives a reload of the tab (sessionStorage) — for a test that
+ * reloads. Without it every reload starts from the samples again.
+ */
+const persist = params.has('persist');
+const STORE = 'aparte-examples:conversations';
 const holding: Array<() => void> = [];
 if (held) (window as unknown as { __aparteRelease: () => void }).__aparteRelease = () => { for (const go of holding.splice(0)) go(); };
 
@@ -38,11 +44,24 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => {
 /** Somewhere between `min` and `max`, so two loads never take the same time. */
 const between = (min: number, max: number): number => min + Math.random() * (max - min);
 
+/** The conversations a previous load of this tab saved, under `?persist`. */
+function stored(): [string, AparteConversation][] | null {
+    if (!persist) return null;
+    try {
+        const raw = sessionStorage.getItem(STORE);
+        return raw ? JSON.parse(raw) as [string, AparteConversation][] : null;
+    } catch { return null; }
+}
+
 export function createSampleAdapter(): AparteStorageAdapter {
     // Copies of the samples, so a rename or a delete in this session never touches them.
     const rows = new Map<string, AparteConversation>(
-        SAMPLE_CONVERSATIONS.map((c): [string, AparteConversation] => [c.id, { ...c, createdAt: c.updatedAt ?? Date.now(), updatedAt: c.updatedAt ?? Date.now(), messages: [...c.messages] }]),
+        stored() ?? SAMPLE_CONVERSATIONS.map((c): [string, AparteConversation] => [c.id, { ...c, createdAt: c.updatedAt ?? Date.now(), updatedAt: c.updatedAt ?? Date.now(), messages: [...c.messages] }]),
     );
+    const keep = (): void => {
+        if (!persist) return;
+        try { sessionStorage.setItem(STORE, JSON.stringify([...rows])); } catch { /* full or private: this page only */ }
+    };
     const meta = ({ messages: _m, tree: _t, ...rest }: AparteConversation): AparteConversationMeta => rest;
     return {
         async loadAll() {
@@ -57,7 +76,7 @@ export function createSampleAdapter(): AparteStorageAdapter {
             await wait(slow ? 60_000 : between(300, 800));
             return rows.get(id) ?? null;
         },
-        async save(conv) { rows.set(conv.id, conv); },
-        async delete(id) { rows.delete(id); },
+        async save(conv) { rows.set(conv.id, conv); keep(); },
+        async delete(id) { rows.delete(id); keep(); },
     };
 }
