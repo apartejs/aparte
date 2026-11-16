@@ -12,6 +12,7 @@
  */
 import type { AparteChatMessage, AparteContentPart, AparteErrorSegment, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
 import { AparteErrorCode } from '../types/errors.js';
+import { isModelReply } from '../utils/is-model-reply.js';
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 export const COMPACTION_PREAMBLE =
@@ -326,7 +327,9 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
             // A compaction summary (`compaction: true`) asks nothing: it stands for the turns
             // before it, and dropping it with a failed turn would lose them for good.
             if (!m.compaction) asked.push(m);
-        } else if (m.role === 'assistant') {
+        } else if (isModelReply(m)) {
+            // Only the model's reply settles the turn: a notice or an advisor's message
+            // between the question and a reply that failed for good does not save it.
             if (m.status !== 'error') {
                 asked = [];
             } else if (failedForGood(m, asked)) {
@@ -357,7 +360,8 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
  * (`estimateWireTokens`) read the same serialisation and cannot drift.
  */
 export function wireMessages(messages: AparteMessage[]): AparteChatMessage[] {
-    return withoutAbandonedTurns(messages)
+    // A notice ("Marie joined") is shown, never said to the model.
+    return withoutAbandonedTurns(messages.filter((m) => m.kind === undefined))
         .filter((m) => {
             if (m.role !== 'user' && m.role !== 'assistant') return false;
             return m.status !== 'error' && !isInFlight(m);

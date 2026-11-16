@@ -18,6 +18,7 @@ import { parseMarkdownToSegments } from '../../parsers/index.js';
 import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { isModelReply } from '../../utils/is-model-reply.js';
 import { presenceOn } from '../../utils/presence.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
@@ -46,7 +47,8 @@ import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
  * What it derived, it MARKS — see {@link markDerivedSegments}.
  */
 function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[]): AparteMessage {
-    if (message.role !== 'assistant' || message.segments?.length) return message;
+    // The model's grammar is the model's: an advisor's message and a notice keep their text.
+    if (!isModelReply(message) || message.segments?.length) return message;
     if (typeof message.content !== 'string' || !message.content.trim()) return message;
     const segments = parseMarkdownToSegments(message.content, { blocks });
     const onlyProse = segments.length <= 1 && segments.every((s) => s.type === 'text');

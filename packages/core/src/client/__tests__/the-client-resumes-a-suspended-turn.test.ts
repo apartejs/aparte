@@ -722,3 +722,44 @@ describe('a runner that calls the model elsewhere needs no provider in the page 
         expect(JSON.stringify(messages.at(-1))).toContain('no provider in the page');
     });
 });
+
+// A notice ("Marie joined") and an advisor's message sit on the assistant's side after the
+// AI's reply. What looks for that reply — to resume it, close its calls, regenerate it —
+// asks `isModelReply`, not the role: the paused reply is still the AI's last one.
+describe('a notice and a human message after the reply', () => {
+    const joined = (): AparteMessage[] => [
+        { id: 'n1', role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: 3 },
+        { id: 'h1', role: 'assistant', author: { name: 'Marie', type: 'human' }, content: 'I am looking at it.', timestamp: 4 },
+    ];
+
+    it('resumes the paused reply they follow (resumeDeferred)', async () => {
+        const { el } = chat([...pausedTranscript(), ...joined()]);
+        const r = runner(resumeApproved('c1'));
+        const { c } = client(el, r.run, { approvalResolver: async () => ({ approved: true }) });
+
+        expect(await c.resumeDeferred(el)).toBe(true);
+        expect(r.calls[0]!.messageId).toBe('a1');
+    });
+
+    it("closes the AI reply's paused calls when a new message is sent", async () => {
+        const { el, messages } = chat([...pausedTranscript(), ...joined()]);
+        const r = runner(finish);
+        const { c } = client(el, r.run);
+        await send(c, 'never mind');
+
+        expect(rowOf(messages, 'c1').status).toBe('aborted');
+        expect(rowOf(messages, 'c1').deferred).toBeUndefined();
+    });
+
+    it('refuses to regenerate a human message or a notice', async () => {
+        const { el } = chat([{ id: 'u1', role: 'user', content: 'hi', timestamp: 1 }, ...joined()]);
+        const r = runner(finish);
+        const { c } = client(el, r.run);
+        const retry = (messageId: string) =>
+            (c as unknown as { _handleRetry: (e: Event) => Promise<void> })._handleRetry(new CustomEvent('aparte-retry', { detail: { messageId } }));
+
+        await retry('h1');
+        await retry('n1');
+        expect(r.calls).toHaveLength(0);
+    });
+});

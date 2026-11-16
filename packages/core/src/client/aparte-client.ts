@@ -8,6 +8,7 @@ import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.j
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
 import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
+import { isModelReply } from '../utils/is-model-reply.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { chatIdOf } from '../interop/chat-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, AparteStreamRunOptions, StreamAdapterTarget } from './stream-adapter.js';
@@ -1188,6 +1189,9 @@ export class AparteClient {
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
         const retryIdx = allMessages.findIndex(m => m.id === messageId);
         const retryMsg = retryIdx >= 0 ? allMessages[retryIdx] : undefined;
+        // Only the model's words are regenerated: an advisor's message or a notice is not
+        // the AI's to rewrite, whoever sent the retry (the bubble, `/retry`, the app).
+        if (retryMsg && retryMsg.role === 'assistant' && !isModelReply(retryMsg)) return;
         // For user messages: include the user message in history (AI needs to see the question).
         // For assistant messages: exclude it (we are regenerating that response).
         const sliceEnd = retryMsg?.role === 'user' ? retryIdx + 1 : retryIdx;
@@ -2411,7 +2415,8 @@ export class AparteClient {
      */
     private _closeDeferred(targetElement: AparteChatTargetElement): void {
         const messages = targetElement.getMessages?.() ?? [];
-        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        // The AI's last reply, past a notice or an advisor's message that followed it.
+        const last = [...messages].reverse().find(isModelReply);
         const rows = Boolean(last?.segments?.some(isOpenDeferred));
         if (!last || (!rows && !last.deferredCalls?.length)) return;
         targetElement.updateMessage?.(last.id, {
@@ -2445,7 +2450,8 @@ export class AparteClient {
         const targetElement = (host ? this._asRenderTarget<HTMLElement>(host) : this._scanForTarget<HTMLElement>()) as AparteChatTargetElement | null;
         if (!targetElement) return false;
         const messages = targetElement.getMessages?.() ?? [];
-        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        // The AI's last reply, past a notice or an advisor's message that followed it.
+        const last = [...messages].reverse().find(isModelReply);
         const open = (last?.segments ?? []).filter(isOpenDeferred);
         // A sub-agent's paused calls: no row of the reply holds them, so the reply does.
         const kept = last?.deferredCalls ?? [];

@@ -1,4 +1,5 @@
 import type { AparteMessage } from '../types/index.js';
+import { isModelReply } from './is-model-reply.js';
 
 /**
  * Is this message waiting for a reply — i.e. should the bubble render as
@@ -16,10 +17,12 @@ import type { AparteMessage } from '../types/index.js';
  * Only silence is interpreted. An explicit `status` — including `'completed'` on an
  * empty message — is the application talking, and is believed.
  */
-export function isAwaitingReply(message: Pick<AparteMessage, 'role' | 'status' | 'content' | 'segments'>): boolean {
+export function isAwaitingReply(message: Pick<AparteMessage, 'role' | 'status' | 'content' | 'segments' | 'kind' | 'author'>): boolean {
     if (message.status === 'streaming' || message.status === 'pending') return true;
+    // Silence is read as a reply to come only from the model: an advisor's message with no
+    // text (a screenshot alone) or an empty notice is finished as it is.
     return message.status === undefined
-        && message.role === 'assistant'
+        && isModelReply(message)
         && !message.content?.trim()
         && !message.segments?.length;
 }

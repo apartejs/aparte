@@ -216,6 +216,13 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   opacity: 1;
 }
 
+/* The same when only notices ("Marie joined") follow it: a notice is not the last answer.
+   Its own rule: on an engine that does not know `:has()` the selector is dropped, and the
+   rule above still stands. */
+aparte-chat-bubble:not([data-kind]):not(:has(~ aparte-chat-bubble:not([data-kind]))) .aparte-message[data-role="assistant"]:not(.aparte-message-streaming) .aparte-action-bar {
+  opacity: 1;
+}
+
 /* Hide footer (action bar + branch picker) entirely while streaming */
 .aparte-message-streaming .aparte-footer {
   display: none;
