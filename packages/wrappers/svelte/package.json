@@ -1,6 +1,6 @@
 {
     "name": "@aparte/svelte",
-    "version": "1.11.0",
+    "version": "1.12.0",
     "homepage": "https://apartejs.dev/frameworks/svelte/",
     "description": "Svelte AI chat component built on Web Components: connect your backend, approve tool calls, draw results as interactive cards. Stores; Svelte 4 and 5.",
     "type": "module",
@@ -67,7 +67,7 @@
         "gen": "node ../../../scripts/gen-element-bindings.mjs packages/core --chat-svelte packages/wrappers/svelte/src/lib/generated --element-members packages/wrappers/svelte/src/lib/generated"
     },
     "peerDependencies": {
-        "@aparte/core": ">=1.11.0 <2.0.0",
+        "@aparte/core": ">=1.12.0 <2.0.0",
         "svelte": "^4.0.0 || ^5.20.0"
     },
     "devDependencies": {

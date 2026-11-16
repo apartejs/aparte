@@ -79,6 +79,7 @@ describe('@aparte/core public API', () => {
             "createAgentStreamRunner",
             "createAparteAgentHandler",
             "createAparteChatHandler",
+            "createModelCatalogue",
             "createSegmentList",
             "createStreamAdapter",
             "cssEscape",

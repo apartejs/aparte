@@ -731,9 +731,37 @@ function compact(ctx: CardContext, data: PlanData, progress: PlanProgress): Node
 
 function render(data: PlanData, ctx: CardContext<PlanVariant>): Node[] {
     const progress = planProgress(data);
-    if (ctx.variant === 'timeline') return timeline(ctx, data, progress);
-    if (ctx.variant === 'compact') return compact(ctx, data, progress);
-    return checklist(ctx, data, progress);
+    const nodes = ctx.variant === 'timeline' ? timeline(ctx, data, progress)
+        : ctx.variant === 'compact' ? compact(ctx, data, progress)
+            : checklist(ctx, data, progress);
+    foldEarlierCards(nodes[0]);
+    return nodes;
+}
+
+/** A plan is known by its title: the cards of one plan share it. */
+const planKey = (card: Element): string =>
+    card.querySelector('.aparte-plan__title, .aparte-plan__compact-title')?.textContent ?? '';
+
+/**
+ * An agent sends its plan again at each step, and each call draws a card: the earlier ones stayed
+ * whole, a step "in progress" still turning above the card that said it was done. So in a chat,
+ * the latest card of a plan is the plan, and every earlier one is folded to its header (what it
+ * said then), its steps and its motion given up (`data-plan-superseded`, plan.css). Read from the
+ * page once the card is in it, in the order of the conversation, so a reload, a redraw or a
+ * card drawn late all land on the same answer. Codex and Claude Code keep the earlier versions of
+ * a plan in the transcript too, still.
+ */
+function foldEarlierCards(from: Node | undefined): void {
+    if (!from) return;
+    queueMicrotask(() => {
+        const card = from.parentElement?.closest('.aparte-plan-card');
+        if (!card?.isConnected) return;
+        const scope: ParentNode = card.closest('aparte-chat, [data-aparte-chat]') ?? card.ownerDocument;
+        const all = [...scope.querySelectorAll('.aparte-plan-card')];
+        const latest = new Map<string, Element>();
+        for (const each of all) latest.set(planKey(each), each);
+        for (const each of all) each.toggleAttribute('data-plan-superseded', latest.get(planKey(each)) !== each);
+    });
 }
 
 function skeleton(partial: Partial<PlanData> | null, ctx: CardContext<PlanVariant>): Node[] {

@@ -32,6 +32,7 @@ import { isDefaultOn } from './default-on-attributes.js';
  */
 export const APARTE_DEFAULT_UI_EVENTS = [
     // <aparte-composer> and its parts
+    'aparte-before-send',
     'aparte-send',
     'aparte-cancel',
     'aparte-composer-change',

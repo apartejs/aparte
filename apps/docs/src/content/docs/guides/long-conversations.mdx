@@ -215,6 +215,25 @@ if (summary && typeof first?.content === 'string' && first.content.startsWith(su
 }
 ```
 
+A server that compacts its own history writes the checkpoint itself, on the message where its
+history resumes. When it summarised everything so far, the last answer included because keeping
+it would free nothing, there is no such message yet: put the checkpoint on that last answer and
+say the summary covers it too. The history then starts after it, the gauge stops counting it, and
+the separator is drawn under it:
+
+```ts
+import type { AparteMessage } from '@aparte/core';
+
+declare const lastAnswer: AparteMessage;
+declare const summary: string;
+declare const count: number; // the messages summarised, the last answer among them
+
+lastAnswer.contextSummary = { summary, count, createdAt: Date.now(), includesSelf: true };
+```
+
+`includesSelf` never covers the question being answered: on a last `user` message it reads as an
+ordinary checkpoint.
+
 A `history` function of your own (an `AparteClient` option) receives every message:
 `historyFromCheckpoint(messages)` from `@aparte/core` returns `{ summary, messages }`, the same cut the
 client makes. A bubble you draw yourself (`renderBubble` in React, the `bubble` slot in Vue and Svelte,

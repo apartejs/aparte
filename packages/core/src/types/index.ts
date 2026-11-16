@@ -19,6 +19,7 @@ export type {
     AparteContextSummary,
     AparteBubbleActionsConfig,
     AparteTurnSummaryOptions,
+    AparteTurnLabelContext,
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,

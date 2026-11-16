@@ -337,6 +337,178 @@ With [a turn's steps folded behind one line](/guides/tool-display/#fold-a-turn-b
 sub-agent drawn on its call's line folds with the turn's other steps. One with a line of its own
 stays in view, as a step that waits or failed does.
 
+## Where the sub-agents stand
+
+A reply that hands its work to several sub-agents can say where they stand above their lines:
+*3 sub-agents · 1 done, 2 running*. That line is the fold's, written by `subagentsTurnLabel`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupSubagents, subagentsTurnLabel } from '@aparte/plugin-subagents';
+
+setupSubagents();
+aparteGlobalConfig.setTurnSummary({ openWhileRunning: true, label: subagentsTurnLabel });
+```
+
+`openWhileRunning` keeps the fold open while they work, each line saying its own state under the
+count, and closes it once they are done. The line follows them as they end, in the chat's language,
+and is a polite live region, so a change is heard. Under two sub-agents the fold keeps core's line.
+A sub-agent that waits for the person, or that failed, stands out of the fold on its own line, where
+it has to be read, so the count is of the others.
+
+The words are locale keys with their plural forms, like `subagentsTools`: `subagentsCount`,
+`subagentsDone`, `subagentsRunning`, `subagentsWaiting`, `subagentsFailed` and `subagentsStopped`.
+To count a state of your own, a sub-agent waiting for a free slot say, write the line yourself:
+`label` gets the fold's steps, and `subagentOf` and `subagentStatus` read each one.
+
+### Name the Stop button
+
+The Stop button stops the whole reply, its sub-agents with it. While they work, the chat's composer
+can say so, and the word goes back to "Stop" when the last of them ends (a Stop ends them all):
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import '@aparte/plugin-subagents';
+
+const chat = document.getElementById('chat')!;
+let running = 0;
+
+chat.addEventListener('aparte-subagent-start', () => {
+  running += 1;
+  const composer = chat.querySelector('aparte-composer');
+  if (composer) composer.stopLabel = 'Stop the sub-agents';
+});
+chat.addEventListener('aparte-subagent-end', () => {
+  running = Math.max(0, running - 1);
+  const composer = chat.querySelector('aparte-composer');
+  if (composer && running === 0) composer.stopLabel = null;
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useRef } from 'react';
+import { AparteChat, useAparteChat, useAparteEvent } from '@aparte/react';
+import '@aparte/plugin-subagents';   // its events join HTMLElementEventMap
+
+export function Chat() {
+  const chat = useAparteChat();
+  const running = useRef(0);
+
+  useAparteEvent(chat.ref, 'aparte-subagent-start', () => {
+    running.current += 1;
+    const composer = chat.getComposer();
+    if (composer) composer.stopLabel = 'Stop the sub-agents';
+  });
+  useAparteEvent(chat.ref, 'aparte-subagent-end', () => {
+    running.current = Math.max(0, running.current - 1);
+    const composer = chat.getComposer();
+    if (composer && running.current === 0) composer.stopLabel = null;
+  });
+
+  return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} />;
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import '@aparte/plugin-subagents';
+
+const chat = useAparteChat();
+let running = 0;
+
+function started() {
+  running += 1;
+  const composer = chat.getComposer();
+  if (composer) composer.stopLabel = 'Stop the sub-agents';
+}
+function ended() {
+  running = Math.max(0, running - 1);
+  const composer = chat.getComposer();
+  if (composer && running === 0) composer.stopLabel = null;
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @aparte-subagent-start="started" @aparte-subagent-end="ended" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import '@aparte/plugin-subagents';
+
+  let chat = $state<AparteChatImperativeApi>();
+  let running = 0;
+
+  function started() {
+    running += 1;
+    const composer = chat?.getComposer();
+    if (composer) composer.stopLabel = 'Stop the sub-agents';
+  }
+  function ended() {
+    running = Math.max(0, running - 1);
+    const composer = chat?.getComposer();
+    if (composer && running === 0) composer.stopLabel = null;
+  }
+</script>
+
+<AparteChat bind:this={chat} onaparte-subagent-start={started} onaparte-subagent-end={ended} />
+```
+
+On Svelte 4, listen on `chat.getElement()` in `onMount`
+([Svelte](/frameworks/svelte/#control-it-from-code)).
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import '@aparte/plugin-subagents';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (aparte-subagent-start)="started()" (aparte-subagent-end)="ended()"></aparte-chat>`,
+})
+export class ChatComponent {
+  readonly chat = viewChild.required(AparteChatComponent);
+  private running = 0;
+
+  started() {
+    this.running += 1;
+    const composer = this.chat().getComposer();
+    if (composer) composer.stopLabel = 'Stop the sub-agents';
+  }
+
+  ended() {
+    this.running = Math.max(0, this.running - 1);
+    const composer = this.chat().getComposer();
+    if (composer && this.running === 0) composer.stopLabel = null;
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+`stopLabel` is the composer's, for this chat alone: `extendLocale({ stopButton })` would rename the
+Stop of every chat sharing the config.
+
 ## Steps
 
 An agent can say what stage of its work it is in — *Searching the repository*, *Reading the

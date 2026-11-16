@@ -257,6 +257,41 @@ chats, pass an element of one as the second argument, and the requests that name
 its presenter. `aparteGlobalConfig.removeElicitationPresenter(fn)` takes one back.
 `buildElicitationPanel` and `buildApprovalPanel` give you the built-in panel to place yourself.
 
+## Answer from outside the chat
+
+An app that gathers what waits for the person across conversations (an inbox, a notification
+with its own buttons) can answer a question where it shows it, while the chat still asks it.
+`observeElicitations` hands you each question and approval a chat puts on screen, with
+`respond()`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteElicitationPending } from '@aparte/core';
+
+declare const inbox: { add(pending: AparteElicitationPending): void; remove(pending: AparteElicitationPending): void };
+
+const stop = aparteGlobalConfig.observeElicitations((pending) => {
+  inbox.add(pending); // shows pending.request, calls pending.respond(answer) on a click
+  void pending.settled.then(() => inbox.remove(pending));
+});
+```
+
+Whichever answers first is the answer: the person in the chat, or your `respond()`, after which
+the chat's panel goes away. `settled` resolves however it ends, a Stop included, so your copy goes
+too. `request.conversationId` says which conversation asked, and `request.kind` whether it is a
+question or an approval. `respond()` takes what the panel would have resolved:
+
+- a question: `{ action: 'accept', content }`, where `content` is the value the `schema` collects:
+  the `value` of the option chosen, a `string[]` when several can be, the text of a free answer,
+  and for a form an object of those keyed by field (`ask_user` names them `q1`, `q2`, and each
+  field's `title` is its question);
+- an approval: `{ action: 'accept', content: { option } }` with the `value` of one of its
+  `options`;
+- `{ action: 'decline' }` to decline either.
+
+An approval a client's `approvalResolver` decides never reaches the chat, so never reaches here
+either. A question waiting behind another in the same chat reaches you when its turn comes.
+
 ## Next
 
 <Cards

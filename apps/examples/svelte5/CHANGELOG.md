@@ -1,5 +1,31 @@
 # @aparte-workspace/example-svelte5
 
+## 0.0.76
+
+### Patch Changes
+
+- Updated dependencies [3ba3797]
+- Updated dependencies [9930f0b]
+- Updated dependencies [3795730]
+- Updated dependencies [844c6c5]
+- Updated dependencies [6c9b0af]
+- Updated dependencies [7d17240]
+- Updated dependencies [39979a6]
+- Updated dependencies [ff23780]
+  - @aparte/core@1.12.0
+  - @aparte/plugin-model-selector@1.12.0
+  - @aparte/plugin-subagents@1.12.0
+  - @aparte/plugin-approval@1.12.0
+  - @aparte/plugin-artifacts@1.12.0
+  - @aparte/plugin-ask-user@1.12.0
+  - @aparte/plugin-compaction@1.12.0
+  - @aparte/plugin-marked@1.12.0
+  - @aparte/plugin-shiki@1.12.0
+  - @aparte/provider-openai-compat@1.12.0
+  - @aparte/provider-scenario@1.12.0
+  - @aparte/svelte@1.12.0
+  - @aparte/engine@1.12.0
+
 ## 0.0.75
 
 ### Patch Changes

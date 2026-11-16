@@ -95,6 +95,7 @@ export type {
     AparteAttachment,
     AparteBubbleActionsConfig,
     AparteTurnSummaryOptions,
+    AparteTurnLabelContext,
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
@@ -275,7 +276,7 @@ export { AparteChatViewport } from './components/index.js';
 
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
-export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
+export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteQueuedMessage, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
 export { AparteSuggestions, setupSuggestionBlocks, SUGGESTIONS_BLOCK_LANGUAGE } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 export { AparteContext } from './components/index.js';
@@ -332,6 +333,8 @@ export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE
 export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
+export { createModelCatalogue } from './config/index.js';
+export type { AparteModelCatalogueOptions } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
 // The parameter types of `registerStepLabel`: what a step's label is, and what a function label is told.
 export type { AparteStepLabel, AparteStepLabelContext } from './config/index.js';
@@ -442,6 +445,7 @@ export type {
     AparteElicitationObjectSchema,
     AparteElicitationRequest,
     AparteElicitationResult,
+    AparteElicitationPending,
     AparteElicitationPresenter,
     AparteApprovalOption,
     AparteApprovalAnswer,

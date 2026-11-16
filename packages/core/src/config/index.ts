@@ -5,6 +5,8 @@ export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig
 // the scope rule" (ratified decision #9a — a capability is never hostage to a
 // class the guide told you not to construct).
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config-subscribe.js';
+export { createModelCatalogue } from './model-catalogue.js';
+export type { AparteModelCatalogueOptions } from './model-catalogue.js';
 export type { AparteConfigAware } from './config-context.js';
 export type { AparteConfigChangeEventDetail, AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteCodeLanguageRenderer, AparteCodeLanguageContext, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider } from './aparte-config.js';
 export type { AparteSanitizer } from './sanitize.js';

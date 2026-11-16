@@ -87,7 +87,10 @@ export function readCoverageComponents() {
     const components = readElements(CORE)
         .filter((el) => !skip.has(el.tagName))
         .map((el) => {
-            const mirrored = new Set((el.attributes ?? []).flatMap((a) => [a.name, a.fieldName].filter(Boolean)));
+            // The generator's own reading (`propertyOnlyMembers`): a field named after an attribute
+            // in camel case mirrors it (`stopLabel` and `stop-label`), and the attribute writes it.
+            const camelName = (name) => name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+            const mirrored = new Set((el.attributes ?? []).flatMap((a) => [a.name, camelName(a.name), a.fieldName].filter(Boolean)));
             return {
                 tag: el.tagName,
                 component: pascal(el.tagName),

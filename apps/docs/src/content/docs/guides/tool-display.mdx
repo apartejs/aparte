@@ -142,6 +142,20 @@ counted, and a single step is never folded. Anything somebody opened stays open 
 `setTurnSummary({ openWhileRunning: true })` keeps the fold open while it works and closes it at the
 end, unless somebody touched it.
 
+`label` writes the line in your words. It gets the fold's steps, in order, each time they change,
+with `running` and the chat's config; a string replaces core's line, and `null` keeps it:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setTurnSummary({
+  label: (steps, { running }) => (running ? `${steps.length} steps so far` : null),
+});
+```
+
+Your line is a polite live region, so a change is heard; core's own is not. One that throws leaves
+core's line. [Sub-agents](/guides/sub-agents/#where-the-sub-agents-stand) ship one, `subagentsTurnLabel`.
+
 ## What's behind the line
 
 An opened row shows **Input** and **Output**: the arguments and the result, raw. That is right

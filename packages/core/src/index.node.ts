@@ -39,6 +39,7 @@ export type {
     AparteAttachment,
     AparteBubbleActionsConfig,
     AparteTurnSummaryOptions,
+    AparteTurnLabelContext,
     AparteComposerToken,
     AparteAttachmentState,
     AparteMessageToken,
@@ -193,7 +194,7 @@ export type { AparteLauncherToggleDetail } from './components/index.js';
 export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteQueuedMessage, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 // From its own file, not the components barrel: it registers a code language on a config and
@@ -279,6 +280,8 @@ export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE
 export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
+export { createModelCatalogue } from './config/index.js';
+export type { AparteModelCatalogueOptions } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
 export type {
     AparteMarkdownProvider,
@@ -409,6 +412,7 @@ export type {
     AparteElicitationObjectSchema,
     AparteElicitationRequest,
     AparteElicitationResult,
+    AparteElicitationPending,
     AparteElicitationPresenter,
     AparteApprovalOption,
     AparteApprovalAnswer,

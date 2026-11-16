@@ -1,10 +1,10 @@
 {
     "@aparte/angular": {
-        "js": 37888,
+        "js": 38400,
         "css": 0
     },
     "@aparte/core": {
-        "js": 294656,
+        "js": 300800,
         "css": 26368
     },
     "@aparte/docs-mcp": {
@@ -16,7 +16,7 @@
         "css": 0
     },
     "@aparte/locales": {
-        "js": 28672,
+        "js": 28928,
         "css": 0
     },
     "@aparte/plugin-approval": {
@@ -32,7 +32,7 @@
         "css": 0
     },
     "@aparte/plugin-cards": {
-        "js": 193024,
+        "js": 193280,
         "css": 0
     },
     "@aparte/plugin-chartjs": {
@@ -44,7 +44,7 @@
         "css": 0
     },
     "@aparte/plugin-diff": {
-        "js": 21504,
+        "js": 22016,
         "css": 0
     },
     "@aparte/plugin-echarts": {
@@ -80,7 +80,7 @@
         "css": 0
     },
     "@aparte/plugin-subagents": {
-        "js": 17664,
+        "js": 18688,
         "css": 0
     },
     "@aparte/plugin-titler": {
@@ -88,7 +88,7 @@
         "css": 0
     },
     "@aparte/plugin-triggers": {
-        "js": 9984,
+        "js": 10240,
         "css": 0
     },
     "@aparte/provider-ai-sdk": {

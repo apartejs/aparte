@@ -69,8 +69,9 @@ browser altogether, send the requests through [your server](/guides/backend-tran
 ## Agents are not providers
 
 An agent that runs its own loop and its own tools does not plug in as a provider: it plugs in one
-level up, as the client's `streamRunner`. The page registers no provider and picks no model; it
-draws what the agent streams. [AG-UI](/providers/agent/ag-ui/),
+level up, as the client's `streamRunner`. The page registers no provider; it draws what the agent
+streams. When the agent offers a choice of models, the page lists them with
+[`createModelCatalogue`](/components/model-selector/#models-a-server-runs), which runs none. [AG-UI](/providers/agent/ag-ui/),
 [TanStack AI](/providers/agent/tanstack-ai/) and [n8n](/providers/agent/n8n/) work this way, and so does
 [aparté's own loop on your server](/guides/server-loop/).
 

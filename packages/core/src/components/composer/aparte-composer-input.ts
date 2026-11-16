@@ -408,8 +408,12 @@ export class AparteComposerInput extends HTMLElement {
                 // While a reply streams, Enter neither sends nor stops: `submit()` is
                 // Stop during a turn, and a person finishing the NEXT message with Enter
                 // must not cut the current reply off. The draft stays; Enter sends it once
-                // the turn is over.
-                if (root.streaming) return;
+                // the turn is over. With `setQueueWhileStreaming(true)` it waits in the
+                // queue instead, and goes out when the turn ends well.
+                if (root.streaming) {
+                    if (root.queueWhileStreaming) root.queue();
+                    return;
+                }
                 root.submit();
             } else {
                 // Standalone (no <aparte-composer> parent, e.g. the bubble's inline

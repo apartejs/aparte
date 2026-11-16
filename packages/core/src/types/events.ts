@@ -116,6 +116,14 @@ export interface AparteModelChangeEventDetail extends AparteChatScoped {
 
     /** Previous provider ID if changed */
     previousProviderId?: string;
+
+    /**
+     * `true` when the person picked it in the list; `false` when code set it (`setSelection()`)
+     * or the selector chose the first model (`auto-select`). Tells a pick to confirm from the
+     * revert that undoes it: an app that asks before switching puts the old model back with
+     * `setSelection()`, and that change comes back with `picked: false`.
+     */
+    picked?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

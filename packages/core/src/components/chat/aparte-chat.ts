@@ -118,6 +118,10 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   `[data-aparte-chat]` div and never create this element at all.
  * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
  *
+ * @fires {CustomEvent<AparteSendEventDetail>} aparte-before-send - A message is about to be sent from
+ *   the composer, with the detail `aparte-send` will carry. Cancelable: `preventDefault()` holds it,
+ *   the text and the files stay in the composer and nothing reaches the thread; call the composer's
+ *   `submit()` to send it once it can go (an engine loaded, a confirmation given).
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was sent from the composer: its
  *   text, its attachments and the chat it is for. An `AparteClient` answers it; with none, your loop
  *   starts here. In a framework wrapper's chat the message is already in the thread when this fires:

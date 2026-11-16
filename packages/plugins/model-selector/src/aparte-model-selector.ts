@@ -337,7 +337,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._aparteSelect.value = compositeValue;
         }
 
-        this._emitChange(previousProviderId, previousModelId);
+        this._emitChange(previousProviderId, previousModelId, false);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -525,7 +525,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 this._currentModelId = firstModel.id;
                 currentValue = `${this._currentProviderId}::${this._currentModelId}`;
                 // Emit the initial change once the element settles
-                setTimeout(() => this._emitChange(), 0);
+                setTimeout(() => this._emitChange(undefined, undefined, false), 0);
             }
         }
 
@@ -649,15 +649,17 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._currentProviderId = providerId || null;
         this._currentModelId = modelId || null;
 
-        this._emitChange(previousProviderId, previousModelId);
+        this._emitChange(previousProviderId, previousModelId, true);
     }
 
-    private _emitChange(previousProviderId?: string | null, previousModelId?: string | null): void {
+    /** `picked`: the person chose it in the list, rather than code or `auto-select`. */
+    private _emitChange(previousProviderId: string | null | undefined, previousModelId: string | null | undefined, picked: boolean): void {
         const detail: AparteModelChangeEventDetail = {
             providerId: this._currentProviderId || undefined,
             modelId: this._currentModelId || '',
             previousProviderId: previousProviderId || undefined,
             previousModelId: previousModelId || undefined,
+            picked,
         };
 
         dispatchChatEvent(this, 'aparte-model-change', detail);

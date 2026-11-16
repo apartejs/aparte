@@ -83,6 +83,36 @@ The send button becomes a stop button, and a click cancels the turn. The client 
 `streaming` for you; this demo sets it by hand. If stop should live somewhere else as well,
 add `<aparte-composer-cancel>`.
 
+The person can keep writing meanwhile, and Enter does nothing until the reply ends. For a chat
+whose replies take minutes (an agent at work, sub-agents one after another), let the next
+message wait for it instead:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setQueueWhileStreaming(true);
+```
+
+Enter then puts the draft in a list above the field, "Sent when the reply ends", each message
+with a button that takes it back into the field and one that removes it. When the reply ends
+well, the first one is sent, through the same `aparte-before-send` and `aparte-send` as a
+message sent by hand, and the next waits for the reply to it. After a Stop or an error, nothing
+is sent: what was waiting comes back into the field. The button stays Stop all along; a button
+of your own can queue with `composer.queue()`, and `queued` in the composer's state lists what
+waits, as `AparteQueuedMessage[]`.
+
+Stop's accessible name and tooltip are the locale's `stopButton`, "Stop". When your app knows what
+a stop would interrupt, say so on this chat's composer only, with its `stop-label` attribute or the
+`stopLabel` property that writes it:
+
+```js
+composer.stopLabel = 'Stop the sub-agents'; // `chat.getComposer()` in a framework chat
+composer.stopLabel = null; // the locale's word again, once the run it named is over
+```
+
+The [sub-agents guide](/guides/sub-agents/#name-the-stop-button) shows it following the sub-agents
+that run.
+
 ## Usage
 
 <Usage />
@@ -229,6 +259,177 @@ export class ChatComponent {
 
 </TabItem>
 </Tabs>
+
+### Hold a send
+
+Some messages cannot go yet: a local model still has to load, or the person should first
+confirm what the send will cost. `aparte-before-send` goes out first, with the detail
+`aparte-send` will carry, and it is cancelable: `preventDefault()` keeps the text and the files
+in the composer and nothing reaches the thread. Call the composer's `submit()` once the message
+can go, and it is sent as it stands. In a framework chat it is `beforeSend`, and the handler's
+second argument is the DOM event to cancel:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```js
+const chat = document.querySelector('aparte-chat');
+
+chat?.addEventListener('aparte-before-send', (e) => {
+  if (engine.loaded) return;
+  e.preventDefault(); // the text and the files stay in the composer
+  loadCard.hidden = false;
+});
+
+loadAndSend.addEventListener('click', async () => {
+  await engine.load();
+  loadCard.hidden = true;
+  chat?.querySelector('aparte-composer')?.submit(); // sends what was held
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useState } from 'react';
+import { AparteChat, useAparteChat } from '@aparte/react';
+
+declare const engine: { loaded: boolean; load(): Promise<void> };
+
+export function Chat() {
+  const chat = useAparteChat();
+  const [held, setHeld] = useState(false);
+
+  return (
+    <>
+      <AparteChat
+        ref={chat.ref}
+        messages={chat.messages}
+        onMessagesChange={chat.setMessages}
+        onBeforeSend={(_detail, event) => {
+          if (engine.loaded) return;
+          event.preventDefault();
+          setHeld(true);
+        }}
+      />
+      {held && (
+        <button onClick={async () => { await engine.load(); setHeld(false); chat.getComposer()?.submit(); }}>
+          Load and send
+        </button>
+      )}
+    </>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import type { AparteSendEventDetail } from '@aparte/core';
+
+declare const engine: { loaded: boolean; load(): Promise<void> };
+
+const chat = useAparteChat();
+const held = ref(false);
+
+function onBeforeSend(_detail: AparteSendEventDetail, event: CustomEvent<AparteSendEventDetail>) {
+  if (engine.loaded) return;
+  event.preventDefault();
+  held.value = true;
+}
+
+async function loadAndSend() {
+  await engine.load();
+  held.value = false;
+  chat.getComposer()?.submit();
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @before-send="onBeforeSend" />
+  <button v-if="held" @click="loadAndSend">Load and send</button>
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import type { AparteSendEventDetail } from '@aparte/core';
+
+  declare const engine: { loaded: boolean; load(): Promise<void> };
+
+  let chat = $state<AparteChatImperativeApi>();
+  let held = $state(false);
+
+  function onBeforeSend(_detail: AparteSendEventDetail, event: CustomEvent<AparteSendEventDetail>) {
+    if (engine.loaded) return;
+    event.preventDefault();
+    held = true;
+  }
+
+  async function loadAndSend() {
+    await engine.load();
+    held = false;
+    chat?.getComposer()?.submit();
+  }
+</script>
+
+<AparteChat bind:this={chat} onbeforeSend={onBeforeSend} />
+{#if held}<button onclick={loadAndSend}>Load and send</button>{/if}
+```
+
+On Svelte 4, `on:beforeSend={(e) => …}` receives a component event: call `e.preventDefault()` on it.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+
+declare const engine: { loaded: boolean; load(): Promise<void> };
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  // The output `(beforeSend)` hands over the detail; the DOM event is the one to cancel.
+  template: `
+    <aparte-chat (aparte-before-send)="onBeforeSend($event)"></aparte-chat>
+    @if (held) { <button (click)="loadAndSend()">Load and send</button> }
+  `,
+})
+export class ChatComponent {
+  readonly chat = viewChild.required(AparteChatComponent);
+  held = false;
+
+  onBeforeSend(event: Event) {
+    if (engine.loaded) return;
+    event.preventDefault();
+    this.held = true;
+  }
+
+  async loadAndSend() {
+    await engine.load();
+    this.held = false;
+    this.chat().getComposer()?.submit();
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+A held message is not in the thread, so nothing is saved and no request goes out. The
+`above-composer` slot is a natural place for the card that says why.
 
 A letter typed after a click or a selection in the chat goes to the input: someone who selects a
 few words of a reply to copy them goes on typing without clicking the input again. Only when the

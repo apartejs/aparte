@@ -260,7 +260,7 @@ describe('the element directives', () => {
 
         <aparte-chat-status [visible]="true" text="Working"></aparte-chat-status>
 
-        <aparte-composer placeholder="Ask" target="t" [disabled]="true" [submitOnEnter]="false"
+        <aparte-composer placeholder="Ask" target="t" [disabled]="true" [submitOnEnter]="false" stopLabel="Stop the sub-agents"
             (send)="seen['send'] = true" (stop)="seen['stop'] = true"
             (composerChange)="seen['composerChange'] = true"></aparte-composer>
 
@@ -355,6 +355,8 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-composer', 'disabled', ''],
         // Read lazily by a getter, so the analyser never saw it until it was declared.
         ['aparte-composer', 'submit-on-enter', 'false'],
+        // A string the wrappers write as an attribute; the element's `stopLabel` mirrors it.
+        ['aparte-composer', 'stop-label', 'Stop the sub-agents'],
         ['aparte-composer-input', 'max-height', '200'],
         ['aparte-composer-input', 'min-height', '44'],
         ['aparte-composer-action', 'icon', 'mic'],

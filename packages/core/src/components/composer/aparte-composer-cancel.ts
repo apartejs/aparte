@@ -100,6 +100,9 @@ export class AparteComposerCancel extends HTMLElement {
                 if (this._button) this._button.hidden = !streaming;
             })
         );
+        this._unsubscribes.push(
+            root._on('stop-label-change', () => this._refreshChrome())
+        );
 
         // Sync initial state
         if (root.streaming && this._button) this._button.hidden = false;
@@ -119,7 +122,7 @@ export class AparteComposerCancel extends HTMLElement {
      */
     private _refreshChrome(): void {
         if (!this._button) return;
-        const label = resolveConfig(this).t('stopButton') || 'Stop';
+        const label = this._getRoot()?.stopLabel || resolveConfig(this).t('stopButton') || 'Stop';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
         this._button.innerHTML = this._getStopIcon();

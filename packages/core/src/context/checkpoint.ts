@@ -19,13 +19,20 @@ import type { AparteMessage } from '../types/models.js';
  * checkpoint can sit on that very message (a turn retried after an overflow), and the
  * summary still has to go out before it.
  *
+ * A checkpoint with `includesSelf` stands for its own message too: the history starts after
+ * it. Except on the last message of the path when that is the person's (the question to
+ * answer), which a summary never replaces.
+ *
  * `AparteClient` applies it to every history it builds. A `history` function handed to
  * the client receives the whole transcript and can call this itself.
  */
 export function historyFromCheckpoint(path: AparteMessage[]): { summary?: string; messages: AparteMessage[] } {
     for (let i = path.length - 1; i >= 0; i--) {
-        const summary = path[i]!.contextSummary?.summary;
-        if (summary !== undefined) return { summary, messages: path.slice(i) };
+        const checkpoint = path[i]!.contextSummary;
+        if (checkpoint?.summary === undefined) continue;
+        const question = i === path.length - 1 && path[i]!.role === 'user';
+        const from = checkpoint.includesSelf === true && !question ? i + 1 : i;
+        return { summary: checkpoint.summary, messages: path.slice(from) };
     }
     return { messages: path };
 }

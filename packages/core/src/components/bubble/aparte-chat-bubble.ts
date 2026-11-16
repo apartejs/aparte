@@ -57,7 +57,7 @@ import { formatDuration } from '../../utils/format-duration.js';
 import { toolNameOf } from '../../utils/tool-line.js';
 import { planTurns, rowOf, turnDuration, type TurnRole } from './turn-groups.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
-import type { AparteMessageToken } from '../../types/index.js';
+import type { AparteMessageToken, AparteTurnSummaryOptions } from '../../types/index.js';
 import { drawMessageTokens } from './message-tokens.js';
 import { buildFeedbackReasons } from './feedback-reasons.js';
 import type { AparteFeedbackReasonEventDetail } from '../../types/index.js';
@@ -1023,6 +1023,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       if ('status' in updates || 'isStreaming' in updates || 'queued' in updates || 'deferred' in updates) {
         this._syncTurns();
         this._updateWaiting();
+      } else if (this._cfg.getTurnSummary()?.label && this._turnHolding(this._drawn.get(segmentId)?.el)) {
+        // An app's line reads whatever it likes on its steps (a plugin's own field, written
+        // as an update), so a step in a fold that changes is a line to write again.
+        this._syncTurns();
       }
     }
   }
@@ -1305,9 +1309,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
     const reason = this.getAttribute('data-checkpoint-reason') ?? '';
     const summary = this._checkpointSummaryText();
+    // Under the message when the summary stands for it too: the history resumes after it.
+    const below = kind === 'done' && this._contextSummary?.includesSelf === true;
     const signature = JSON.stringify([
       kind, this._contextSummary?.count, this._contextSummary?.createdAt, reason,
-      this._checkpointOpen, this._confirmingRestore, this._checkpointOpen ? summary : '',
+      this._checkpointOpen, this._confirmingRestore, this._checkpointOpen ? summary : '', below,
     ]);
     if (current && !focus && signature === this._checkpointDrawn) return;
 
@@ -1331,8 +1337,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // default, which escapes — text.
       if (panel) panel.innerHTML = this._cfg.renderMarkdown(summary);
     }
-    if (current) current.replaceWith(next);
-    else this.prepend(next);
+    if (current && current.hasAttribute('data-below') === below) current.replaceWith(next);
+    else {
+      current?.remove();
+      if (below) this.append(next);
+      else this.prepend(next);
+    }
+    next.toggleAttribute('data-below', below);
     this._checkpointDrawn = signature;
 
     const wanted = focus ?? hadFocus;
@@ -1514,7 +1525,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         const row = rowFor(member);
         if (row) lastInBody = place(body, row, lastInBody);
       }
-      this._labelTurn(turn, members, run.to === this._segments.length - 1, options?.openWhileRunning === true);
+      this._labelTurn(turn, members, run.to === this._segments.length - 1, options ?? {});
       index = run.to;
     }
     for (const stale of container.querySelectorAll<HTMLElement>(':scope > .aparte-turn')) {
@@ -1523,7 +1534,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /** The fold's one line: what it is doing while it works, what it did once it has. */
-  private _labelTurn(turn: HTMLElement, members: AparteSegment[], trailing: boolean, openWhileRunning: boolean): void {
+  private _labelTurn(turn: HTMLElement, members: AparteSegment[], trailing: boolean, options: Readonly<AparteTurnSummaryOptions>): void {
     const cfg = this._cfg;
     const steps = members.filter((member) => this._turnRole(member) === 'fold');
     const calls = steps.filter((step): step is AparteToolCallSegment => step.type === 'tool_call');
@@ -1531,12 +1542,24 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const label = turn.querySelector<HTMLElement>(':scope > summary > .aparte-turn__label')!;
     const current = turn.querySelector<HTMLElement>(':scope > summary > .aparte-turn__current')!;
     label.classList.toggle('aparte-shimmer', running);
-    label.textContent = running ? cfg.t('turnWorking') : this._turnOutcome(steps, calls.length);
+    // The app's line first. One that throws leaves core's line, never a broken bubble.
+    let own: string | null | undefined;
+    try {
+      own = options.label?.(steps, { running, config: cfg });
+    } catch (error) {
+      console.error('[aparte] the turn summary label threw; core\'s line is shown instead.', error);
+    }
+    label.textContent = own ?? (running ? cfg.t('turnWorking') : this._turnOutcome(steps, calls.length));
+    // A line of the app's says how the work stands, and changes as it does: heard, politely.
+    // Core's own line changes once, from working to done, and stays as quiet as it was.
+    label.toggleAttribute('aria-live', false);
+    if (options.label) label.setAttribute('aria-live', 'polite');
     // The step being done now: a call waiting its turn behind it — in its step, or behind a
-    // paused server run's call — is next, not now.
+    // paused server run's call — is next, not now. Not beside a line of the app's: it says
+    // what the fold is doing in its own words.
     const now = calls.filter((call) => !call.queued && call.deferred?.reason !== 'queued').at(-1) ?? calls.at(-1);
-    current.textContent = running && now ? this._stepName(now) : '';
-    if (openWhileRunning && !('touched' in turn.dataset)) (turn as HTMLDetailsElement).open = running;
+    current.textContent = own == null && running && now ? this._stepName(now) : '';
+    if (options.openWhileRunning === true && !('touched' in turn.dataset)) (turn as HTMLDetailsElement).open = running;
   }
 
   private _turnOutcome(steps: AparteSegment[], callCount: number): string {
