@@ -86,14 +86,19 @@ export function messageText(message: AparteMessage): string {
 }
 
 /**
- * The transcript line(s) of one message for the summariser: the text, then
+ * The transcript line(s) of one message for the summariser: the text (after its author's
+ * name when it has one), then
  * `[tool name] input → result` per tool call (the input clipped at 300 characters, the
  * result at 600) and `[error] …` per error segment.
  */
 export function transcriptForSummary(message: AparteMessage): string {
+    // A notice is shown, never said: the model never read it, so the summary does not either.
+    if (message.kind !== undefined) return '';
     const lines: string[] = [];
     const text = messageText(message);
-    if (text) lines.push(text);
+    // A named author (an advisor sent as `assistant`) is kept, or the summary would put
+    // their words in the AI's mouth.
+    if (text) lines.push(message.author?.name ? `${message.author.name}: ${text}` : text);
     for (const segment of message.segments ?? []) {
         if (segment.type === 'tool_call') {
             const call = segment.toolCall;

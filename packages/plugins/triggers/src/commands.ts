@@ -2,7 +2,7 @@
  * `@aparte/plugin-triggers/commands`: `/new`, `/stop`, `/retry` and `/copy`. Apart from the
  * main entry, and asked for explicitly: a chat that wants none of them pays for none.
  */
-import { aparteGlobalConfig, copyText, type AparteChatViewport, type AparteConfig, type AparteMessage } from '@aparte/core';
+import { aparteGlobalConfig, copyText, isModelReply, type AparteChatViewport, type AparteConfig, type AparteMessage } from '@aparte/core';
 import type { AparteCommand, AparteCommandScope } from './types.js';
 
 export interface AparteCommandsOptions {
@@ -25,7 +25,8 @@ function viewportOf(scope: AparteCommandScope): AparteChatViewport | null {
 
 const lastAnswer = (scope: AparteCommandScope): AparteMessage | undefined => {
     const messages = viewportOf(scope)?.getMessages() ?? [];
-    return [...messages].reverse().find((message) => message.role === 'assistant');
+    // The AI's last answer: past a notice and an advisor's message, which are not the model's.
+    return [...messages].reverse().find(isModelReply);
 };
 
 const replyText = (message: AparteMessage): string => {
