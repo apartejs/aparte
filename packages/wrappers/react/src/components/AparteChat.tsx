@@ -11,7 +11,7 @@ import React, {
     useImperativeHandle,
 } from 'react';
 import { afterReactRender } from '../internal/after-render.js';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, authorTypeOf, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventProps } from '../generated/chat-events.js';
 
@@ -461,7 +461,9 @@ export const AparteChat = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardR
                                 key={m.id}
                                 message-id={m.id}
                                 data-role={m.role}
-                                data-kind={m.compaction ? 'compaction' : undefined}
+                                data-kind={m.kind ?? (m.compaction ? 'compaction' : undefined)}
+                                name={m.author?.name}
+                                data-author-type={m.author ? authorTypeOf(m) : undefined}
                                 timestamp={m.timestamp}
                                 content={m.content}
                                 streaming={isAwaitingReply(m) ? '' : undefined}

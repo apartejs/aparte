@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
-  import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi, type AparteComposer } from '@aparte/core';
+  import { AparteChatHost, aparteGlobalConfig, authorTypeOf, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteChatImperativeApi, type AparteComposer } from '@aparte/core';
   import type { AparteMessage, AparteSegment } from '../types.js';
   import type { AparteChatProps } from './types.js';
   import { APARTE_CHAT_EVENT_BINDINGS } from '../generated/chat-events.js';
@@ -317,7 +317,9 @@
         <aparte-chat-bubble
           message-id={m.id}
           data-role={m.role}
-          data-kind={m.compaction ? 'compaction' : undefined}
+          data-kind={m.kind ?? (m.compaction ? 'compaction' : undefined)}
+          name={m.author?.name}
+          data-author-type={m.author ? authorTypeOf(m) : undefined}
           timestamp={m.timestamp}
           content={m.content}
           streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
