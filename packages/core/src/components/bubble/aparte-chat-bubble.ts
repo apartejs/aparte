@@ -1189,6 +1189,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this.removeAttribute('data-author-type');
     }
     this._renderAvatar();
+    // The actions follow who wrote the message.
+    this._updateActionBar();
+  }
+
+  /** Who wrote the message, as core acts on it: the author's type, else the side it is on. */
+  private _authorType(): 'ai' | 'human' {
+    return authorTypeOf({ role: this._role, author: this._author });
   }
 
   /**
@@ -2561,9 +2568,15 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
     } else if (this._role === 'assistant') {
+      // Regenerate, the stats and the thumbs speak about a generation: a person who
+      // answered on the assistant's side (an advisor who took over) gets none of them.
+      const human = this._authorType() === 'human';
+      const forModel = (a: string): boolean => !human || !['retry', 'thumbUp', 'thumbDown', 'info'].includes(a);
       if (config.assistant) {
         // Explicit ordered set replaces the flag defaults (incl. the info button).
-        for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
+        for (const a of config.assistant) if (forModel(a)) buttons.push(this._actionButtonHtml(a, icons, locale));
+      } else if (human) {
+        if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
       } else {
         // Flag-driven set, all off by default — retry, feedback and info all need a
         // host or a listener to mean anything. (Copy, once on, is rendered here
@@ -2689,6 +2702,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
+      const authorTypes = a.bubble?.authorTypes;
+      if (authorTypes && !authorTypes.includes(this._authorType())) continue;
       // A key of the locale when it has one, so the words follow the chat's language.
       const word = Object.hasOwn(locale, a.label) ? locale[a.label] : undefined;
       const label = typeof word === 'string' ? word : a.label;

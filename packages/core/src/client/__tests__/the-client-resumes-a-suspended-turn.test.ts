@@ -763,3 +763,35 @@ describe('a notice and a human message after the reply', () => {
         expect(r.calls).toHaveLength(0);
     });
 });
+
+// Editing a message, or regenerating one, drops what follows it from the path: an
+// advisor's replies and the notices after them would be gone. Refused, whoever asks.
+describe('a message a human message or a notice follows', () => {
+    const transcript = (): AparteMessage[] => [
+        { id: 'u1', role: 'user', content: 'where is my order?', timestamp: 1 },
+        { id: 'a1', role: 'assistant', content: 'Let me check.', status: 'completed', timestamp: 2 },
+        { id: 'n1', role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: 3 },
+        { id: 'h1', role: 'assistant', author: { name: 'Marie', type: 'human' }, content: 'It ships today.', timestamp: 4 },
+    ];
+
+    it('is not edited', async () => {
+        const { el, messages } = chat(transcript());
+        const r = runner(finish);
+        const { c } = client(el, r.run);
+        await (c as unknown as { _handleEdit: (e: Event) => Promise<void> })._handleEdit(new CustomEvent('aparte-edit', { detail: { messageId: 'u1', content: 'changed' } }));
+
+        expect(r.calls).toHaveLength(0);
+        expect(messages.map((m) => m.id)).toEqual(['u1', 'a1', 'n1', 'h1']);
+        expect(messages[0]!.content).toBe('where is my order?');
+    });
+
+    it('is not regenerated', async () => {
+        const { el, messages } = chat(transcript());
+        const r = runner(finish);
+        const { c } = client(el, r.run);
+        await (c as unknown as { _handleRetry: (e: Event) => Promise<void> })._handleRetry(new CustomEvent('aparte-retry', { detail: { messageId: 'a1' } }));
+
+        expect(r.calls).toHaveLength(0);
+        expect(messages.map((m) => m.id)).toEqual(['u1', 'a1', 'n1', 'h1']);
+    });
+});

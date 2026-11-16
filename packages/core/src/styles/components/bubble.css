@@ -252,6 +252,13 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   opacity: 1;
 }
 
+/* A message a human message or a notice follows offers no regenerate and no edit: either
+   would drop what the advisor wrote from the path (the client refuses them too). Its own
+   rule, for the engines that do not know `:has()`. */
+aparte-chat-bubble:has(~ aparte-chat-bubble:is([data-kind="notice"], [data-role="assistant"][data-author-type="human"])) .aparte-action-bar :is([data-action="retry"], [data-action="edit"]) {
+  display: none;
+}
+
 /* The same when only notices ("Marie joined") follow it: a notice is not the last answer.
    Its own rule: on an engine that does not know `:has()` the selector is dropped, and the
    rule above still stands. */

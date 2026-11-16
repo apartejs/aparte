@@ -336,6 +336,16 @@ function tokensStillIn(content: string, tokens: readonly AparteMessageToken[]): 
 }
 
 /**
+ * Does a human message (an advisor's, on the assistant's side) or a notice come after this
+ * message on the path? Then an edit or a regenerate, which drop what follows it, would drop
+ * what the advisor wrote.
+ */
+function followedByAHuman(path: readonly AparteMessage[], messageId: string): boolean {
+    const at = path.findIndex((m) => m.id === messageId);
+    return at !== -1 && path.slice(at + 1).some((m) => m.kind !== undefined || (m.role === 'assistant' && !isModelReply(m)));
+}
+
+/**
  * AparteClient
  *
  * The "Automatic Transmission" for Aparte.
@@ -1190,8 +1200,10 @@ export class AparteClient {
         const retryIdx = allMessages.findIndex(m => m.id === messageId);
         const retryMsg = retryIdx >= 0 ? allMessages[retryIdx] : undefined;
         // Only the model's words are regenerated: an advisor's message or a notice is not
-        // the AI's to rewrite, whoever sent the retry (the bubble, `/retry`, the app).
+        // the AI's to rewrite, whoever sent the retry (the bubble, `/retry`, the app). And a
+        // regenerate branches off the path what an advisor wrote after it: refused too.
         if (retryMsg && retryMsg.role === 'assistant' && !isModelReply(retryMsg)) return;
+        if (followedByAHuman(allMessages, messageId)) return;
         // For user messages: include the user message in history (AI needs to see the question).
         // For assistant messages: exclude it (we are regenerating that response).
         const sliceEnd = retryMsg?.role === 'user' ? retryIdx + 1 : retryIdx;
@@ -1281,6 +1293,8 @@ export class AparteClient {
         }
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // An edit drops everything after the message: not what an advisor wrote.
+        if (followedByAHuman(targetElement.getMessages?.() ?? [], messageId)) return;
 
         // 1. Update the user message content, and the tokens it still holds
         const before = targetElement.getMessages?.().find((m) => m.id === messageId);

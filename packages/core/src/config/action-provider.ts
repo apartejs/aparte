@@ -74,6 +74,12 @@ export interface AparteAction {
     bubble?: {
         /** Bubble roles this action shows on. Default: both user and assistant. */
         roles?: ('user' | 'assistant')[];
+        /**
+         * Who wrote the messages this action shows on (`AparteMessage.author`): `'ai'`, a
+         * model; `'human'`, a person — an advisor who took over, or the person using the
+         * chat. Default: both.
+         */
+        authorTypes?: ('ai' | 'human')[];
     };
     /** Optional imperative callback, fired alongside the `aparte-action` event. */
     onClick?: (event: Event, context?: unknown) => void;
