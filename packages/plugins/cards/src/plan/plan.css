@@ -238,6 +238,17 @@
   animation: aparte-spin 0.9s linear infinite;
 }
 
+/* The ring says the plan's last word while the reply works, and turns no more once it is over:
+   nothing is running then, whatever the plan last said. */
+.aparte-message[data-streaming="false"] .aparte-plan__spinner { animation: none; }
+
+/* A plan the agent sent again further down the chat (the same title): this card keeps its
+   header, what it said then, and gives its steps and its motion to the newer one. */
+.aparte-plan-card[data-plan-superseded] .aparte-plan__steps,
+.aparte-plan-card[data-plan-superseded] .aparte-plan__timeline { display: none; }
+.aparte-plan-card[data-plan-superseded] .aparte-plan__head { padding-block-end: var(--aparte-plan-pad); }
+.aparte-plan-card[data-plan-superseded] .aparte-plan__spinner { animation: none; }
+
 /* Done stays readable — muted, not struck through. Failed speaks in the error ink. */
 [data-status="done"] > .aparte-plan__row .aparte-plan__step-title,
 [data-status="done"] > .aparte-plan__event-body > .aparte-plan__step-title,
