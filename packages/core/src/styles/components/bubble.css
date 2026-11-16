@@ -201,6 +201,27 @@ aparte-chat-bubble[data-author-type="human"] .aparte-avatar[data-role="assistant
   font-family: var(--aparte-font-family);
 }
 
+/* A note under a message (`AparteMessage.note`: "Read by Marie"), in the flow after the
+   content, on the message's own side. */
+.aparte-message-note {
+  margin: var(--aparte-space-1) 0 0;
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-font-family);
+}
+.aparte-message[data-role="user"] .aparte-message-note {
+  text-align: end;
+}
+
+/* A notice (`kind: 'notice'`: "Marie joined the conversation"): a line across the
+   transcript. The line is the divider recipe's; what is the notice's own is the room
+   around it. */
+.aparte-notice {
+  margin-block: var(--aparte-space-3);
+  font-size: var(--aparte-font-size-sm);
+  font-family: var(--aparte-font-family);
+}
+
 .aparte-action-bar {
   display: flex;
   align-items: center;

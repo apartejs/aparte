@@ -1039,7 +1039,9 @@ export class AparteChatViewport extends HTMLElement {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
                 bubble.setAttribute('data-role', message.role);
-                if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
+                // A notice is a line from its first frame; an older summary keeps its stamp.
+                const kind = message.kind ?? (message.compaction ? 'compaction' : undefined);
+                if (kind) bubble.setAttribute('data-kind', kind);
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
                 // Before it connects: the first frame is drawn with the author's name and
@@ -1521,8 +1523,9 @@ export class AparteChatViewport extends HTMLElement {
                 // kept displaying the old text.
                 const updates = payload as Record<string, unknown>;
                 // `contextSummary` and `compaction` draw (or take off) the separator above the
-                // message — a Restore writes them through here.
-                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction'];
+                // message — a Restore writes them through here. `author`, `kind` and `note`
+                // are what an app writes on a message during a human takeover.
+                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction', 'author', 'kind', 'note'];
                 if (renderable.some((key) => key in updates)) {
                     bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }
@@ -1600,7 +1603,8 @@ export class AparteChatViewport extends HTMLElement {
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
             bubble.setAttribute('data-role', message.role);
-            if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
+            const kind = message.kind ?? (message.compaction ? 'compaction' : undefined);
+            if (kind) bubble.setAttribute('data-kind', kind);
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');

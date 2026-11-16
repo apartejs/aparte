@@ -194,7 +194,7 @@ function sameValue(a: unknown, b: unknown): boolean {
  * list and never on screen — `syncBubbles` re-syncs the last message on every render and
  * every other one once.
  */
-const RENDERED_FIELDS = ['content', 'segments', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction', 'author'] as const;
+const RENDERED_FIELDS = ['content', 'segments', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction', 'author', 'kind', 'note'] as const;
 
 /** A copy of `messages` with the one at `index` replaced: a turn's message is not always the last. */
 function withMessageAt(messages: AparteMessage[], index: number, message: AparteMessage): AparteMessage[] {

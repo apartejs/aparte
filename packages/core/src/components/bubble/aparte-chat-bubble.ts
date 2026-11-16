@@ -378,6 +378,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _avatarFromProvider = false;
   /** Who wrote the message, when it names them (`setAuthor`). */
   private _author: AparteAuthor | undefined;
+  /** The line under the message (`setNote`). */
+  private _note: string | undefined;
   /** Whether the avatar slot holds the author's picture, which goes when the author does. */
   private _avatarFromAuthor = false;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
@@ -411,7 +413,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // and it used to be read as a legacy message-role channel too, which meant
     // filtering our own "article" back out at every turn. A rename lands as a
     // rename pre-1.0, so the overload is gone.
-    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint', 'data-checkpoint-reason'];
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint', 'data-checkpoint-reason', 'data-kind'];
   }
 
   constructor() {
@@ -740,6 +742,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   connectedCallback(): void {
     this._render();
     this._updateContent();
+    // A note set before the bubble connected has nowhere to go until the frame is drawn.
+    this._updateNote();
     // Populate the timestamp from the current attribute. Frameworks that set
     // attributes BEFORE the element is connected (e.g. the Svelte wrapper) fire
     // attributeChangedCallback while _render() hasn't created `.aparte-timestamp`
@@ -788,6 +792,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _redrawFrameIfChanged(): void {
     if (!this.isConnected || this._editing) return;   // an open editor is the reader's: caught up when it closes
     if ((this._cfg.getBubbleShellRenderer?.() ?? null) === this._drawnShell) return;
+    this._redrawFrame();
+  }
+
+  /** Throw the frame away and draw it again, with everything the message holds. */
+  private _redrawFrame(): void {
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -808,6 +817,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // frame change has to put back, and the separator sits OUTSIDE the frame (a custom
     // shell's root is `.aparte-message`, which the separator must not live in).
     this._updateCheckpoint();
+    this._updateNote();
   }
 
   disconnectedCallback(): void {
@@ -858,6 +868,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         break;
       case 'name':
         this._updateName();
+        break;
+      case 'data-kind':
+        // A notice is another frame altogether: drawn again when it becomes one or stops.
+        if (this.isConnected && (oldValue === 'notice') !== (newValue === 'notice')) this._redrawFrame();
         break;
     }
   }
@@ -1154,18 +1168,6 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
-   * Say that the messages before this one were summarised for the model, or that they no
-   * longer are (`null`).
-   *
-   * Draws, or removes, the separator above the message: "{n} messages summarised for the
-   * model", with Show summary and Restore. The separator sits OUTSIDE `.aparte-message`
-   * and inside this element, so it is not part of the message's frame and survives the
-   * frame being drawn again. `legacy: true` says the message is itself the summary an
-   * older compaction wrote (`compaction: true`): it is replaced by the separator, which
-   * then has no count and no Restore. Omit `legacy` to leave what the host last said (or
-   * the `data-kind="compaction"` attribute) in force.
-   */
-  /**
    * Who wrote the message (`AparteMessage.author`): its name in the header and in the label
    * a screen reader reads, `data-author-type` for styling, and its picture in the avatar
    * slot. `undefined` takes back what a previous author set — never a `name` written on the
@@ -1189,6 +1191,53 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this._renderAvatar();
   }
 
+  /**
+   * What kind of row the message is (`AparteMessage.kind`): `'notice'` draws a line across
+   * the transcript instead of a bubble. `undefined` takes back a notice, and leaves the
+   * `data-kind="compaction"` stamp of an older summary message alone.
+   */
+  setKind(kind: AparteMessage['kind']): void {
+    if (kind) this.setAttribute('data-kind', kind);
+    else if (this.getAttribute('data-kind') === 'notice') this.removeAttribute('data-kind');
+  }
+
+  /**
+   * A short line under the message (`AparteMessage.note`): "Read by Marie", "Seen at
+   * 14:05". In the flow after the content, outside the footer; `undefined` or empty removes it.
+   */
+  setNote(note: string | undefined): void {
+    this._note = note || undefined;
+    this._updateNote();
+  }
+
+  private _updateNote(): void {
+    let el = this.querySelector<HTMLElement>(':scope .aparte-message-note');
+    if (!this._note) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      const region = this.querySelector('.aparte-message-content');
+      if (!region) return;
+      el = document.createElement('p');
+      el.className = 'aparte-message-note';
+      (this.querySelector('.aparte-finish-note') ?? region).after(el);
+    }
+    el.textContent = this._note;
+  }
+
+  /**
+   * Say that the messages before this one were summarised for the model, or that they no
+   * longer are (`null`).
+   *
+   * Draws, or removes, the separator above the message: "{n} messages summarised for the
+   * model", with Show summary and Restore. The separator sits OUTSIDE `.aparte-message`
+   * and inside this element, so it is not part of the message's frame and survives the
+   * frame being drawn again. `legacy: true` says the message is itself the summary an
+   * older compaction wrote (`compaction: true`): it is replaced by the separator, which
+   * then has no count and no Restore. Omit `legacy` to leave what the host last said (or
+   * the `data-kind="compaction"` attribute) in force.
+   */
   setContextSummary(summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }): void {
     this._contextSummary = summary ?? null;
     if (options?.legacy !== undefined) this._legacyCompaction = options.legacy;
@@ -1247,6 +1296,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
     if ('finishReason' in updates) this.setFinishReason(updates.finishReason);
     if ('author' in updates) this.setAuthor(updates.author);
+    if ('kind' in updates) this.setKind(updates.kind);
+    if ('note' in updates) this.setNote(updates.note);
     if ('contextSummary' in updates || 'compaction' in updates) {
       this.setContextSummary(
         'contextSummary' in updates ? updates.contextSummary : this._contextSummary,
@@ -1689,11 +1740,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const dataRole = this.getAttribute('data-role');
     const role = (dataRole === 'user' || dataRole === 'assistant') ? dataRole : 'assistant';
     this._role = role as AparteBubbleRole;
-    if (this.getAttribute('role') !== 'article') {
-        this.setAttribute('role', 'article');
+    // A notice ("Marie joined the conversation") is not a message anyone wrote: a note.
+    const isNotice = this.getAttribute('data-kind') === 'notice';
+    const ariaRole = isNotice ? 'note' : 'article';
+    if (this.getAttribute('role') !== ariaRole) {
+        this.setAttribute('role', ariaRole);
     }
     if (!this.hasAttribute('data-role')) {
         this.setAttribute('data-role', role);
+    }
+
+    if (isNotice) {
+      if (this.querySelector('.aparte-notice')) return;
+      // A line across the transcript, the divider recipe's: no header, avatar or actions.
+      this._drawnShell = this._cfg.getBubbleShellRenderer?.() ?? null;
+      this._avatarFromProvider = false;
+      this._wroteRootLabel = this._wroteBarLabel = this._wroteArrowLabels = false;
+      this.innerHTML = '<div class="aparte-notice aparte-divider aparte-divider--label"><span class="aparte-divider__label aparte-notice__text"></span></div>';
+      this._contentEl = this._segmentsEl = this._attachmentsEl = this._actionBarEl = null;
+      this._branchPickerEl = this._footerEl = null;
+      return;
     }
 
     // Ensure we don't overwrite if already rendered (re-entrancy check)
@@ -2064,6 +2130,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   private _updateContent(): void {
+    // A notice says its text as it is: written by the app for the reader, never Markdown.
+    const notice = this.querySelector(':scope > .aparte-notice .aparte-notice__text');
+    if (notice) {
+      notice.textContent = this._content;
+      return;
+    }
     if (!this._contentEl) return;
 
     // If we have segments, don't render simple content
