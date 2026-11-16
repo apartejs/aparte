@@ -46,33 +46,40 @@ export function historySummaryOf(messages: readonly AparteChatMessage[]): string
 }
 
 /**
- * Merge ADJACENT `user` messages into one, so the roles a model receives alternate.
+ * Merge ADJACENT messages of the same role into one, so the roles a model receives alternate.
  *
  * Strict chat templates (Gemma 2/3, Mistral, llama.cpp with `--jinja`, vLLM) reject two
  * `user` turns in a row, and once one is in the history every following turn fails the
- * same way. Two ordinary situations produce it: a compaction (the summary is a `user`
- * message and the turns kept after it usually start with one), and a failed turn (its
- * user message stays in the transcript, its error reply is not sent, and the user writes
- * again).
+ * same way. Ordinary situations produce it: a compaction (the summary is a `user` message
+ * and the turns kept after it usually start with one), a failed turn (its user message
+ * stays in the transcript, its error reply is not sent, and the user writes again), two
+ * people writing in a row, and an advisor's message — sent as `assistant`, the service's
+ * voice — right after the AI's reply or another advisor's.
  *
- * Only `user` is merged. A `system`, `assistant` or `tool` message carries structure
- * (tool calls and the ids that answer them) that concatenating would destroy. Text joins
- * with a blank line; parts concatenate with a text separator between them; a string
- * beside parts becomes a text part, so an image keeps its place. A history that already
- * alternates comes back as the same messages.
+ * `user` messages merge, and `assistant` ones that carry no tool calls. A `system`, a
+ * `tool`, or an `assistant` with calls carries structure (the calls and the ids that
+ * answer them) that concatenating would destroy. Text joins with a blank line; parts
+ * concatenate with a text separator between them; a string beside parts becomes a text
+ * part, so an image keeps its place. The merged message keeps `name` only when its parts
+ * all had the same one. A history that already alternates comes back as the same messages.
  */
-export function mergeAdjacentUserMessages(messages: AparteChatMessage[]): AparteChatMessage[] {
+export function mergeAdjacentMessages(messages: AparteChatMessage[]): AparteChatMessage[] {
     const asParts = (c: AparteChatMessage['content']): AparteContentPart[] =>
         typeof c === 'string' ? [{ type: 'text', text: c }] : c;
+    const mergeable = (m: AparteChatMessage | undefined): boolean =>
+        m !== undefined && (m.role === 'user' || (m.role === 'assistant' && !m.toolCalls?.length));
     const out: AparteChatMessage[] = [];
     for (const m of messages) {
         const prev = out[out.length - 1];
-        if (m.role !== 'user' || prev?.role !== 'user') {
+        if (!prev || prev.role !== m.role || !mergeable(prev) || !mergeable(m)) {
             out.push(m);
         } else {
+            const { name: _prevName, ...base } = prev;
             const merged: AparteChatMessage = typeof prev.content === 'string' && typeof m.content === 'string'
-                ? { ...prev, content: `${prev.content}\n\n${m.content}` }
-                : { ...prev, content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)] };
+                ? { ...base, content: `${prev.content}\n\n${m.content}` }
+                : { ...base, content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)] };
+            // One author for the whole message, or none: two people's words under one name lie.
+            if (prev.name !== undefined && prev.name === m.name) merged.name = prev.name;
             // A summary joined to the next message still opens it.
             const summary = summaries.get(prev);
             if (summary !== undefined) summaries.set(merged, summary);
@@ -309,7 +316,7 @@ function failedForGood(reply: AparteMessage, asked: readonly AparteMessage[]): b
  * A compaction summary message is part of no turn and always stays.
  *
  * Every other message stays, a failure the request can get past included: its message goes
- * with the next one (`mergeAdjacentUserMessages` joins the two), from the very next request
+ * with the next one (`mergeAdjacentMessages` joins the two), from the very next request
  * on, as a retry or an edit sends it, and its reply is sent as nothing (`wireMessages`).
  *
  * The one rule for send, retry, edit, a resume, the context gauge and a compaction, so the
@@ -367,10 +374,13 @@ export function wireMessages(messages: AparteMessage[]): AparteChatMessage[] {
             return m.status !== 'error' && !isInFlight(m);
         })
         .flatMap((m): AparteChatMessage[] => {
+            // Who wrote it, for a wire that has a place for it: never on a tool result.
+            const named = <T extends AparteChatMessage>(c: T): T =>
+                m.author?.name && (c.role === 'user' || c.role === 'assistant') ? { ...c, name: m.author.name } : c;
             if (m.role === 'assistant' && m.segments?.some((s) => s.type === 'tool_call')) {
-                return wireTurns(m, segmentsToWireText);
+                return wireTurns(m, segmentsToWireText).map(named);
             }
             const content = messageWireText(m);
-            return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
+            return content ? [named({ role: m.role as 'user' | 'assistant', content })] : [];
         });
 }

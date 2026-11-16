@@ -73,6 +73,13 @@ export interface AparteChatMessage {
      * which a hand-built history need not contain.
      */
     toolName?: string;
+    /**
+     * On a `user` or `assistant` message: who wrote it, when the message names its author
+     * (`AparteMessage.author.name`) — an advisor who took over, another participant. A
+     * provider whose wire has a place for it sends it (AG-UI's `name`; openai-compat with
+     * `sendNames`); the others leave it out. Never on a `tool` message.
+     */
+    name?: string;
 }
 
 /**

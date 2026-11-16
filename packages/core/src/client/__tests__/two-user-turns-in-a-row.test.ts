@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { mergeAdjacentUserMessages } from '../wire-history.js';
+import { mergeAdjacentMessages } from '../wire-history.js';
 import { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteChatMessage, AparteChatRequest } from '../../types/chat.js';
 import type { AparteMessage } from '../../types/index.js';
@@ -72,7 +72,7 @@ describe('the history sent alternates its roles', () => {
     });
 });
 
-describe('mergeAdjacentUserMessages', () => {
+describe('mergeAdjacentMessages', () => {
     it('leaves an alternating history as it is', () => {
         const history: AparteChatMessage[] = [
             { role: 'system', content: 's' },
@@ -80,20 +80,27 @@ describe('mergeAdjacentUserMessages', () => {
             { role: 'assistant', content: 'b' },
             { role: 'user', content: 'c' },
         ];
-        expect(mergeAdjacentUserMessages(history)).toEqual(history);
+        expect(mergeAdjacentMessages(history)).toEqual(history);
     });
 
-    it('never merges system or assistant messages', () => {
+    it('never merges system messages, nor an assistant message that carries tool calls', () => {
         const history: AparteChatMessage[] = [
             { role: 'system', content: 's1' }, { role: 'system', content: 's2' },
-            { role: 'assistant', content: 'a1' }, { role: 'assistant', content: 'a2' },
+            { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'get_weather', input: {} }] },
+            { role: 'assistant', content: 'a2' },
         ];
-        expect(mergeAdjacentUserMessages(history)).toEqual(history);
+        expect(mergeAdjacentMessages(history)).toEqual(history);
+    });
+
+    it('merges two plain assistant messages: an advisor writing after the AI is still one assistant turn', () => {
+        expect(mergeAdjacentMessages([
+            { role: 'assistant', content: 'a1' }, { role: 'assistant', content: 'a2' },
+        ])).toEqual([{ role: 'assistant', content: 'a1\n\na2' }]);
     });
 
     it('keeps an image part through a merge, a string beside parts becoming a text part', () => {
         const image = { type: 'image' as const, image: 'data:image/png;base64,AAAA' };
-        const merged = mergeAdjacentUserMessages([
+        const merged = mergeAdjacentMessages([
             { role: 'user', content: 'look' },
             { role: 'user', content: [{ type: 'text', text: 'at this' }, image] },
         ]);

@@ -188,6 +188,8 @@ export interface StreamAgentMessage {
     toolCallId?: string;
     /** Present on a `'tool'` message — the name of the tool that ran. */
     toolName?: string;
+    /** On a `'user'` or `'assistant'` message: who wrote it, when it names its author. Carried, never inspected. */
+    name?: string;
     /*
      * No `[key: string]: unknown` here, deliberately.
      *

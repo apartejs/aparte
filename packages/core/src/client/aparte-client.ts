@@ -7,7 +7,7 @@ import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
-import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
+import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
 import { isModelReply } from '../utils/is-model-reply.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { chatIdOf } from '../interop/chat-events.js';
@@ -1243,7 +1243,7 @@ export class AparteClient {
         const asked = [...historyMessages].reverse().find((m) => m.role === 'user');
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
                 ...this._turnMeta(asked),
@@ -1251,7 +1251,7 @@ export class AparteClient {
                 ...(asked ? { userMessage: { content: messageWireText(asked), messageId: asked.id } } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
-                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                    ...mergeAdjacentMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
                 ],
             },
         );
@@ -1346,7 +1346,7 @@ export class AparteClient {
 
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
                 ...(conversationId ? { conversationId } : {}),
@@ -1356,7 +1356,7 @@ export class AparteClient {
                 },
                 rebuild: async () => [
                     ...this._systemMessages(),
-                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                    ...mergeAdjacentMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
                 ],
             },
         );
@@ -1520,7 +1520,7 @@ export class AparteClient {
      * What the model reads in place of everything before a checkpoint: the summary, as a
      * `user` message under the same preamble a legacy compaction message gets, so it is
      * context and not something the person said. It may sit right before a user turn;
-     * `mergeAdjacentUserMessages` joins the two where the history is assembled.
+     * `mergeAdjacentMessages` joins the two where the history is assembled.
      */
     private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
         return summary === undefined ? [] : [summaryMessage(summary)];
@@ -1774,7 +1774,7 @@ export class AparteClient {
         messages.push({ role: 'user', content: this._userContent(userContent, parts) });
         // Applied once, to the final array: the history may end on a user turn (a failed
         // one, a compaction summary) that the new message now sits right after.
-        return mergeAdjacentUserMessages(messages);
+        return mergeAdjacentMessages(messages);
     }
 
     /** The message being sent, as the request carries it: the text, then the files inlined as parts. */
@@ -2416,7 +2416,7 @@ export class AparteClient {
         const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
             : typeof historyOption === 'function' ? historyOption(before)
                 : [];
-        return mergeAdjacentUserMessages([
+        return mergeAdjacentMessages([
             ...this._systemMessages(), ...history,
             ...(askedAt >= 0 ? wireMessages([before[askedAt]!]) : []),
         ]);
