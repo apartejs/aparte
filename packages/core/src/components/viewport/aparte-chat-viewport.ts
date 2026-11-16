@@ -1042,6 +1042,9 @@ export class AparteChatViewport extends HTMLElement {
                 if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
+                // Before it connects: the first frame is drawn with the author's name and
+                // picture, and an avatar provider is not asked for a message that has one.
+                if (message.author) (bubble as unknown as SyncableBubble).setAuthor?.(message.author);
                 // Also true for an empty assistant message with no status: an
                 // imperative "the reply is coming" shell, which otherwise rendered
                 // as a finished answer (action bar and all) before a single token.
@@ -1602,6 +1605,8 @@ export class AparteChatViewport extends HTMLElement {
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
             }
+            // Before it connects, as in `appendMessage`: the first frame names the author.
+            if (message.author) (bubble as unknown as SyncableBubble).setAuthor?.(message.author);
             wrapper.appendChild(bubble);
 
             // Reconcile content / segments / attachments / sibling-picker via

@@ -7,6 +7,7 @@ import type {
     AparteFinishReason,
     AparteContextSummary,
     AparteMessageToken,
+    AparteAuthor,
 } from '../../types/index.js';
 import { isTerminalStatus } from '../../utils/segments.js';
 
@@ -28,6 +29,7 @@ export interface SyncableBubble {
     setUsage?: (usage: AparteUsage | null | undefined) => void;
     setFinishReason?: (reason: AparteFinishReason | null | undefined) => void;
     setContextSummary?: (summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }) => void;
+    setAuthor?: (author: AparteAuthor | undefined) => void;
 }
 
 /**
@@ -82,6 +84,8 @@ export function populateBubbleFromMessage(
 ): void {
     // Before the content: a rewritten message is drawn with the tokens it now has.
     bubble.setTokens?.(message.tokens);
+    // Also with none: a branch switch reuses the bubble, and the next message may have no author.
+    bubble.setAuthor?.(message.author);
 
     if (message.segments && message.segments.length > 0) {
         const existing = bubble.getSegments?.() ?? [];

@@ -1,3 +1,5 @@
+import type { AparteAuthor } from '../types/index.js';
+
 /**
  * Avatar Provider Interface
  *
@@ -26,9 +28,14 @@ export interface AparteAvatarProvider {
      * @param role  - The message role this avatar represents.
      * @param host  - The `.aparte-avatar` element. Already styled (size, radius)
      *                via CSS variables. The provider owns its inner content.
+     * @param context - What else is known about the message: its `author`, when it
+     *                names one (an advisor who took over, a named agent) — key on
+     *                `author.id` to draw the right person. Absent where there is no
+     *                message (the launcher's own avatar). A message whose author has
+     *                an `avatar` picture never reaches the provider: core draws it.
      * @returns     - Optional cleanup function. Called when the message is
      *                detached or re-rendered, so live components can be
      *                disposed cleanly.
      */
-    render(role: 'user' | 'assistant', host: HTMLElement): void | (() => void);
+    render(role: 'user' | 'assistant', host: HTMLElement, context?: { author?: AparteAuthor }): void | (() => void);
 }

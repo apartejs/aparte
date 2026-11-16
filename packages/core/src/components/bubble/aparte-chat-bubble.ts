@@ -19,8 +19,10 @@ import type {
   AparteToolRenderer,
   AparteActivityRenderer,
   AparteActivitySegment,
+  AparteAuthor,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
+import { authorTypeOf } from '../../utils/is-model-reply.js';
 
 /**
  * A segment as drawn: its element, the renderer that drew it and — for a tool call or an
@@ -374,6 +376,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _avatarCleanup: (() => void) | null = null;
   /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
   private _avatarFromProvider = false;
+  /** Who wrote the message, when it names them (`setAuthor`). */
+  private _author: AparteAuthor | undefined;
+  /** Whether the avatar slot holds the author's picture, which goes when the author does. */
+  private _avatarFromAuthor = false;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
   private _siblingCount = 1;
   /**
@@ -1159,6 +1165,30 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * then has no count and no Restore. Omit `legacy` to leave what the host last said (or
    * the `data-kind="compaction"` attribute) in force.
    */
+  /**
+   * Who wrote the message (`AparteMessage.author`): its name in the header and in the label
+   * a screen reader reads, `data-author-type` for styling, and its picture in the avatar
+   * slot. `undefined` takes back what a previous author set — never a `name` written on the
+   * element by hand. Redraws the avatar only when the author changed.
+   */
+  setAuthor(author: AparteAuthor | undefined): void {
+    if (JSON.stringify(author ?? null) === JSON.stringify(this._author ?? null)) return;
+    this._author = author ? { ...author } : undefined;
+    if (author) {
+      this.setAttribute('name', author.name);
+      this.setAttribute('data-author-name', author.name);
+      this.setAttribute('data-author-type', authorTypeOf({ role: this._role, author }));
+    } else {
+      // Only the name core wrote: a `name="Assistant"` set by hand is the app's.
+      if (this.hasAttribute('data-author-name') && this.getAttribute('name') === this.getAttribute('data-author-name')) {
+        this.removeAttribute('name');
+      }
+      this.removeAttribute('data-author-name');
+      this.removeAttribute('data-author-type');
+    }
+    this._renderAvatar();
+  }
+
   setContextSummary(summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }): void {
     this._contextSummary = summary ?? null;
     if (options?.legacy !== undefined) this._legacyCompaction = options.legacy;
@@ -1216,6 +1246,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._updateWaiting();
     }
     if ('finishReason' in updates) this.setFinishReason(updates.finishReason);
+    if ('author' in updates) this.setAuthor(updates.author);
     if ('contextSummary' in updates || 'compaction' in updates) {
       this.setContextSummary(
         'contextSummary' in updates ? updates.contextSummary : this._contextSummary,
@@ -1905,6 +1936,24 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._avatarCleanup = null;
     }
 
+    // The author's own picture wins: it is who wrote this message, which a provider keyed
+    // on the role cannot know. Drawn by core, as an image the name beside it describes.
+    if (this._author?.avatar) {
+      const img = document.createElement('img');
+      img.className = 'aparte-avatar__img';
+      img.src = this._author.avatar;
+      img.alt = '';
+      avatar.replaceChildren(img);
+      this._avatarFromAuthor = true;
+      this._avatarFromProvider = false;
+      this._markAvatarImage(avatar);
+      return;
+    }
+    if (this._avatarFromAuthor) {
+      avatar.replaceChildren();
+      this._avatarFromAuthor = false;
+    }
+
     const provider = this._cfg.getAvatarProvider();
     if (!provider) {
       // `setAvatarProvider(null)`: what the provider drew goes with it. The slot returned
@@ -1918,7 +1967,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
 
     avatar.textContent = '';
-    const cleanup = provider.render(this._role, avatar);
+    const cleanup = this._author
+      ? provider.render(this._role, avatar, { author: this._author })
+      : provider.render(this._role, avatar);
     this._avatarFromProvider = true;
     if (typeof cleanup === 'function') this._avatarCleanup = cleanup;
     // A provider may draw one role and leave the other's slot empty: the stylesheet's
@@ -1933,7 +1984,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * config change, in a batch with the other bubbles' (see `pendingAvatarMarks`).
    */
   private _markAvatarImage(avatar: HTMLElement): void {
-    if (avatar.firstChild) {
+    // A person on the assistant's side does not wear the assistant's picture.
+    const humanAssistant = this._role === 'assistant' && this._author !== undefined && authorTypeOf({ role: this._role, author: this._author }) === 'human';
+    if (avatar.firstChild || humanAssistant) {
       pendingAvatarMarks.delete(avatar);
       avatar.removeAttribute('data-image');
       return;

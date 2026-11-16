@@ -107,6 +107,21 @@ aparte-chat-bubble {
   background-position: center;
 }
 
+/* A person on the assistant's side (an advisor who took over) is not the assistant: no
+   assistant picture behind their own. */
+aparte-chat-bubble[data-author-type="human"] .aparte-avatar[data-role="assistant"] {
+  background-image: none;
+}
+
+/* The author's own picture (`author.avatar`), drawn by core, fills the slot. */
+.aparte-avatar__img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .aparte-body {
   flex: 1;
   min-width: 0;
