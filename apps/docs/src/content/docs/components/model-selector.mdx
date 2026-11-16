@@ -143,6 +143,56 @@ aparteGlobalConfig.setRequireModelSelection(true);
 The composer greys out and comes back once a pick reaches the config: `auto-select` or the
 reader's choice, on a selector with `persist`.
 
+### Models a server runs
+
+A chat whose turns run on a server ([the server loop](/guides/server-loop/)) or in an agent of its
+own registers no provider, so the selector has nothing to list. The models still exist: the server
+knows them and runs the one chosen. `createModelCatalogue` registers them as a provider that lists
+them and runs none:
+
+```ts
+import { aparteGlobalConfig, createModelCatalogue } from '@aparte/core';
+
+aparteGlobalConfig.registerAIProvider(createModelCatalogue({
+  id: 'server',
+  name: 'Our models',
+  models: [
+    { id: 'qwen3-32b', name: 'Qwen3 32B' },
+    { id: 'gemma-3-27b', name: 'Gemma 3 27B' },
+  ],
+}));
+```
+
+The selector lists them like any provider's, the model selected goes out on every request as
+before, and its capabilities gate what it cannot do. Nothing in a catalogue answers a turn: a page
+with no stream runner that sends anyway gets an error that says so.
+
+### Ask before switching
+
+Without `persist`, a pick is only announced, so your app can say what switching costs before it
+happens (a model to load, a conversation to cut) and put the old model back when the person
+cancels. `picked` tells the two apart: `true` for the person's pick, `false` for the change your
+own `setSelection()` makes, and for `auto-select`:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import '@aparte/plugin-model-selector';
+
+declare function askToSwitch(modelId: string): Promise<boolean>; // your dialog
+
+const selector = document.querySelector('aparte-model-selector');
+
+selector?.addEventListener('aparte-model-change', async (e) => {
+  const { picked, providerId, modelId, previousProviderId, previousModelId } = e.detail;
+  if (!picked) return; // our own revert, below
+  if (await askToSwitch(modelId)) {
+    aparteGlobalConfig.setModelConfig({ defaultProvider: providerId, defaultModel: modelId });
+  } else if (previousProviderId && previousModelId) {
+    selector.setSelection(previousProviderId, previousModelId);
+  }
+});
+```
+
 ## API
 
 <SelectorApi />

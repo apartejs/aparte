@@ -333,6 +333,8 @@ export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE
 export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
+export { createModelCatalogue } from './config/index.js';
+export type { AparteModelCatalogueOptions } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
 // The parameter types of `registerStepLabel`: what a step's label is, and what a function label is told.
 export type { AparteStepLabel, AparteStepLabelContext } from './config/index.js';

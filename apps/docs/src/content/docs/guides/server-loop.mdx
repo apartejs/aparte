@@ -152,7 +152,9 @@ aparteGlobalConfig.setModelConfig({ defaultProvider: 'openai', defaultModel: 'gp
 ```
 
 A model the page selects with `setModelConfig` wins over `defaultModel`; `prepareRequest` runs
-after it.
+after it. To let the person choose among the server's models, register them with
+[`createModelCatalogue`](/components/model-selector/#models-a-server-runs), its `id` the provider's
+key in `providers`, and place an `<aparte-model-selector>`: the page lists them and runs none.
 
 ## One route and one journal per conversation
 
