@@ -14,18 +14,45 @@ test('an activity is drawn by the renderer of its type and updated in place', as
     const errors = collectPageErrors(page);
     const chat = new ChatPage(page);
     await page.goto('/?scenario');
+    // Every sentence the line says, and every line element, recorded as they land. A poll can miss
+    // one: each stays half a second, and the poll backs off to a second between its looks. Each
+    // update replaces the line's text node, so a replaced node still holds what it said.
+    await page.evaluate(() => {
+        const said: string[] = [];
+        const lines = new Set<Element>();
+        (window as unknown as { e2eProgress: { said: string[]; lines: Set<Element> } }).e2eProgress = { said, lines };
+        const say = (text: string | null | undefined): void => {
+            if (text && said.at(-1) !== text) said.push(text);
+        };
+        new MutationObserver((records) => {
+            for (const record of records) {
+                for (const node of record.addedNodes) {
+                    if (node instanceof Element) {
+                        const found = node.matches('.search-progress') ? [node] : [...node.querySelectorAll('.search-progress')];
+                        for (const line of found) lines.add(line);
+                    }
+                }
+                if (!(record.target instanceof Element) || !record.target.matches('.search-progress')) continue;
+                for (const node of record.removedNodes) say(node.textContent);
+                for (const node of record.addedNodes) say(node.textContent);
+            }
+        }).observe(document.body, { subtree: true, childList: true });
+    });
     await chat.send(PROMPT);
 
     const line = chat.lastReply.locator('.search-progress');
-    await expect(line).toHaveText('Read 1 of 3 sources');
-    // Mark the element: an update that rebuilt it would lose the mark.
-    await line.evaluate((el) => el.setAttribute('data-e2e-first', ''));
-
     await expect(line).toHaveText('Read 3 of 3 sources');
     await expect(chat.lastReply).toContainText('All three sources agree');
     await expect(chat.lastReply.locator('.aparte-message-streaming')).toHaveCount(0);
     await expect(line).toHaveCount(1);
-    await expect(line).toHaveAttribute('data-e2e-first', '');
+    // Every report said in turn, by one element patched in place: an update that rebuilt the
+    // line would have added a second one.
+    const progress = await page.evaluate(() => {
+        const { said, lines } = (window as unknown as { e2eProgress: { said: string[]; lines: Set<Element> } }).e2eProgress;
+        return { said, lines: lines.size };
+    });
+    expect(progress.said).toEqual(['Read 0 of 3 sources', 'Read 1 of 3 sources', 'Read 2 of 3 sources', 'Read 3 of 3 sources']);
+    expect(progress.lines).toBe(1);
 
     // Where it first arrived: before the text the model wrote after it.
     const order = await chat.lastReply.evaluate((bubble) =>
