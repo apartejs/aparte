@@ -150,6 +150,7 @@ export type {
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteMessagePausedEventDetail,
+    AparteTranscriptChangeEventDetail,
     AparteMessageResumedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,

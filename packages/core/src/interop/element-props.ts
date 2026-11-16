@@ -82,6 +82,8 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-message-paused',
     'aparte-message-resumed',
     'aparte-tool-approval-request',
+    // an app's write outside a turn, said by the host element or the bare viewport
+    'aparte-transcript-change',
 ] as const satisfies readonly string[];
 
 /**

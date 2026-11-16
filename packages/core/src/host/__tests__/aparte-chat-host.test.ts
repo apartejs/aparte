@@ -587,3 +587,23 @@ describe('a message appended while a reply streams', () => {
         expect(x.segments).toEqual([seg('s1', 'B')]);
     });
 });
+
+// What the app writes outside a turn has to be saved: the host says so, once per write,
+// for a controller (or the app) to act on. Not for the AI's empty shell, not during a turn
+// — the turn's end saves everything then.
+describe('aparte-transcript-change on the host', () => {
+    it('says once for each write outside a turn, and nothing during one', () => {
+        const h = makeHarness();
+        const changes: unknown[] = [];
+        h.host.addEventListener('aparte-transcript-change', (e) => changes.push((e as CustomEvent).detail));
+
+        h.ctl.appendMessage(msg('h1', 'assistant', { author: { name: 'Marie', type: 'human' }, content: 'Hi' }));
+        h.ctl.updateMessage('h1', { note: 'Read by Marie' });
+        expect(changes).toMatchObject([{ messageId: 'h1', change: 'append' }, { messageId: 'h1', change: 'update' }]);
+
+        h.ctl.appendMessage(msg('r1', 'assistant', { content: '' }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        h.ctl.appendMessage(msg('h2', 'assistant', { author: { name: 'Marie', type: 'human' }, content: 'More' }));
+        expect(changes).toHaveLength(2);
+    });
+});

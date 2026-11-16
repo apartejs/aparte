@@ -152,6 +152,7 @@ function longDate(at: Date, tag?: string): string {
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
+ * @fires {CustomEvent<AparteTranscriptChangeEventDetail>} aparte-transcript-change - `appendMessage` or `updateMessage` wrote outside a turn, on a viewport no framework drives.
  *
  * @cssprop [--aparte-viewport-padding=var(--aparte-space-8)] - Padding around the transcript — on
  *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
@@ -931,6 +932,19 @@ export class AparteChatViewport extends HTMLElement {
         this._notifyBubble(messageId, 'update', updates);
         if (updates.status) this._syncBusy();
         this._autoScroll();
+        this._announceWrite(message, 'update');
+    }
+
+    /**
+     * Say that the app wrote into the transcript outside a turn (`aparte-transcript-change`),
+     * so a conversation controller saves it — during a human takeover no turn runs, and
+     * nothing else would. Not for the AI's empty shell, not while a reply streams (the
+     * turn's end saves then), and not under a framework, where the host says it.
+     */
+    private _announceWrite(message: AparteMessage, change: 'append' | 'update'): void {
+        if (this._frameworkManagedDOM) return;
+        if (this._streamingMessageId() !== null || isAwaitingReply(message)) return;
+        dispatchChatEvent(this, 'aparte-transcript-change', { messageId: message.id, change });
     }
 
     /**
@@ -1052,6 +1066,7 @@ export class AparteChatViewport extends HTMLElement {
                 populateBubbleFromMessage(bubble as unknown as SyncableBubble, stored);
             }
         }
+        if (!options?.historical && !this._bulkAppend) this._announceWrite(stored, 'append');
         // A whole conversation set at once does the layout work below once, at the end.
         if (this._bulkAppend) return;
         this._pruneRenderedBubbles();

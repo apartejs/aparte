@@ -150,6 +150,7 @@ export class AparteConversationController {
     private _onMessageAborted: ((e: Event) => void) | null = null;
     private _onMessagePaused: ((e: Event) => void) | null = null;
     private _onMessageResumed: ((e: Event) => void) | null = null;
+    private _onTranscriptChange: ((e: Event) => void) | null = null;
     private _onSelectConversation: ((e: Event) => void) | null = null;
     private _onCompactDone: ((e: Event) => void) | null = null;
     private _unsubscribeManager: (() => void) | null = null;
@@ -477,6 +478,14 @@ export class AparteConversationController {
         host.addEventListener('aparte-message-paused', this._onMessagePaused);
         host.addEventListener('aparte-message-resumed', this._onMessageResumed);
 
+        // What the app writes outside a turn — an advisor's reply, a notice, a note — is
+        // saved now: during a human takeover no turn runs to save it, and a reload lost it.
+        this._onTranscriptChange = () => {
+            if (this._isLoadingConversation || this._isStreaming) return;
+            queueMicrotask(() => this._persistActive());
+        };
+        host.addEventListener('aparte-transcript-change', this._onTranscriptChange);
+
         // App-level selection bus. Lets sidebars / nav menus drive the
         // active conversation without going through Angular @Input bindings,
         // and works even when the user clicks the conversation that's
@@ -563,6 +572,10 @@ export class AparteConversationController {
         if (this._onPathChanged) {
             host.removeEventListener('aparte-path-changed', this._onPathChanged);
             this._onPathChanged = null;
+        }
+        if (this._onTranscriptChange) {
+            host.removeEventListener('aparte-transcript-change', this._onTranscriptChange);
+            this._onTranscriptChange = null;
         }
         if (this._onMessageStart) {
             host.removeEventListener('aparte-message-start', this._onMessageStart);

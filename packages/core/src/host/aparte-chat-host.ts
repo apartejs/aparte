@@ -15,6 +15,8 @@ import {
 import type { AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig, attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
+import { isAwaitingReply } from '../utils/is-awaiting-reply.js';
+import { dispatchChatEvent } from '../interop/chat-events.js';
 import { dispatchLifecycleEvent } from '../client/lifecycle-events.js';
 import { gateGlide } from '../components/chat/glide-gate.js';
 import { CheckpointStateWatcher } from '../context/checkpoint-state.js';
@@ -595,6 +597,17 @@ export class AparteChatHost {
         this._vp()?.addMessage?.(stored);
         this.binding.setMessages([...this.binding.getMessages(), stored]);
         this.binding.onMessageAppended?.(stored);
+        this._announceWrite(stored, 'append');
+    }
+
+    /**
+     * Say that the app wrote into the transcript outside a turn (`aparte-transcript-change`),
+     * so a controller saves it: during a human takeover no turn runs, and nothing else would.
+     * Not for the AI's empty shell, not while a reply streams — the turn's end saves then.
+     */
+    private _announceWrite(message: AparteMessage, change: 'append' | 'update'): void {
+        if (this._streamingId !== null || isAwaitingReply(message)) return;
+        dispatchChatEvent(this.binding.host, 'aparte-transcript-change', { messageId: message.id, change });
     }
 
     /** Atomic partial update of a message by id. */
@@ -636,6 +649,7 @@ export class AparteChatHost {
                 this.updateSegment(id, { isStreaming: false });
             }
         }
+        this._announceWrite(merged, 'update');
     }
 
     /**
