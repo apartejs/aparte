@@ -56,7 +56,7 @@ describe('a config change', () => {
     });
 
     it('in its words waits for the open menu, then draws them', () => {
-        const el = mount([{ id: 'a' }, { id: 'b', title: 'Two' }]);
+        const el = mount([{ id: 'a', title: '' }, { id: 'b', title: 'Two' }]);
         const menu = openMenu(el, 'b');
 
         aparteGlobalConfig.extendLocale({ newChat: 'Sans titre' });
