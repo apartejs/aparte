@@ -154,6 +154,9 @@ export class AparteComposerSend extends HTMLElement {
                 this._refreshChrome();
             })
         );
+        this._unsubscribes.push(
+            root._on('stop-label-change', () => this._refreshChrome())
+        );
         // A config change — a new icon set, another language — has to write the
         // chrome for whichever of the four meanings the button currently carries.
         this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
@@ -247,7 +250,8 @@ export class AparteComposerSend extends HTMLElement {
             // Was the bare literal 'Stop', so no locale could reach it — the same
             // gap `aparte-composer-cancel` had, on a second element. The key is
             // declared now.
-            const label = resolveConfig(this).t('stopButton') || 'Stop';
+            // The composer's `stopLabel` first: the app named what this stop interrupts.
+            const label = this._getRoot()?.stopLabel || resolveConfig(this).t('stopButton') || 'Stop';
             this._button.setAttribute('aria-label', label);
             this._button.setAttribute('title', label);
             this._button.classList.add('aparte-is-streaming');

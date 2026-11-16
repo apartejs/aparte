@@ -51,6 +51,7 @@ export interface AparteComposerEventMap {
     'cancel': Record<string, never>;
     'panel-change': { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode };
     'queue-change': { queued: AparteQueuedMessage[] };
+    'stop-label-change': { stopLabel: string | null };
 }
 
 /**
@@ -264,6 +265,8 @@ export class AparteComposer extends HTMLElement {
 
     /** The messages written during a reply, waiting for it to end — see {@link queue}. */
     private _queue: AparteQueuedMessage[] = [];
+    /** See {@link stopLabel}. */
+    private _stopLabel: string | null = null;
     /** Unique per composer, for the ids that name each queued message to its buttons. */
     private readonly _queueIdBase = `aparte-queued-${++queueIds}`;
 
@@ -421,6 +424,25 @@ export class AparteComposer extends HTMLElement {
             submitEnabled: this._panelSubmitEnabled,
             queued: this.queued,
         };
+    }
+
+    /**
+     * What the Stop button says it stops, for the reply in flight: its accessible name and its
+     * tooltip, in place of the locale's `stopButton`. For an app that knows what a stop would
+     * interrupt — "Stop the sub-agents", "Stop the download". `null` (the default) is the
+     * locale's word. Set it while the reply runs; it goes back to `null` when the reply ends,
+     * so a name never outlives the run it described. This chat's composer only, where
+     * `extendLocale({ stopButton })` would rename every chat sharing the config.
+     */
+    get stopLabel(): string | null {
+        return this._stopLabel;
+    }
+
+    set stopLabel(label: string | null) {
+        const next = label?.trim() ? label : null;
+        if (next === this._stopLabel) return;
+        this._stopLabel = next;
+        this._emit('stop-label-change', { stopLabel: next });
     }
 
     /** The messages waiting for the reply to end, first to go first. A copy. */
@@ -1032,6 +1054,8 @@ export class AparteComposer extends HTMLElement {
         if (!this._isForThisComposer(e) || !this._isForThisTurn(e)) return;
         this._streamingMessageId = null;
         this._streaming = false;
+        // The run it named is over.
+        this.stopLabel = null;
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends
         if (this._panelActive) this._evictPanel();

@@ -101,6 +101,17 @@ is sent: what was waiting comes back into the field. The button stays Stop all a
 of your own can queue with `composer.queue()`, and `queued` in the composer's state lists what
 waits, as `AparteQueuedMessage[]`.
 
+Stop's accessible name and tooltip are the locale's `stopButton`, "Stop". When your app knows what
+a stop would interrupt, say so for this reply, on this chat's composer only:
+
+```js
+composer.stopLabel = 'Stop the sub-agents'; // `chat.getComposer()` in a framework chat
+```
+
+It goes back to `null`, the locale's word, when the reply ends. The
+[sub-agents guide](/guides/sub-agents/#name-the-stop-button) shows it following the sub-agents
+that run.
+
 ## Usage
 
 <Usage />
