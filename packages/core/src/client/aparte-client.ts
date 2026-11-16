@@ -1194,6 +1194,8 @@ export class AparteClient {
         }
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // A regenerate is a turn: none while the AI is off.
+        if (!this._config.getAutoReply(conversationId)) return;
 
         // Build history BEFORE calling addSiblingOf (getMessages() returns active path)
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
@@ -1293,6 +1295,8 @@ export class AparteClient {
         }
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // An edit is answered anew: none while the AI is off, and the message stays as it was.
+        if (!this._config.getAutoReply(conversationId)) return;
         // An edit drops everything after the message: not what an advisor wrote.
         if (followedByAHuman(targetElement.getMessages?.() ?? [], messageId)) return;
 
@@ -1555,14 +1559,10 @@ export class AparteClient {
         // fetch takes ten seconds. `warn` and not silence, because the developer is
         // the one who can fix it — an app that gates SHOULD also disable its own
         // buttons, and this is how it finds out it did not.
-        if (this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId) {
-            console.warn(
-                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
-                + 'The composer blocks this, but this send did not come from it — disable your own '
-                + 'send affordances while `hasSelectedModel()` is false.',
-            );
-            return;
-        }
+        //
+        // Decided once the chat is found, below: with the AI turned off for its conversation
+        // (`setAutoReply(false)`), no model is needed and the message is kept.
+        const modelMissing = this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId;
 
         // 1. Use targetId from event detail — the most reliable path.
         //    The composer sets detail.targetId = host.id (set by AparteChatComponent).
@@ -1635,6 +1635,17 @@ export class AparteClient {
         // conversation in that time has not moved this message — it was written, and is
         // saved, in this one. Absent when the chat has none.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // The AI turned off for this conversation: the message is shown and announced below,
+        // and no turn starts. Read now, with the conversation, for the same reason.
+        const autoReply = this._config.getAutoReply(conversationId);
+        if (modelMissing && autoReply) {
+            console.warn(
+                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
+                + 'The composer blocks this, but this send did not come from it — disable your own '
+                + 'send affordances while `hasSelectedModel()` is false.',
+            );
+            return;
+        }
 
         // The optimistic USER bubble, before anything below can fail — a send the
         // person cannot see is a broken chat even when the failure card explains
@@ -1666,6 +1677,8 @@ export class AparteClient {
                 event.detail.messageId = echoedId;
             }
         }
+        // Nobody to answer from here: whoever does writes into the chat.
+        if (!autoReply) return;
         // The message just sent, by the id whoever echoed it wrote on the send: an app may
         // append a message before the request is built, so "the last one" is only the
         // fallback for an echo that wrote no id.
@@ -2463,6 +2476,8 @@ export class AparteClient {
         const host = typeof target === 'string' ? this._byId(target) : target ?? this.options.targetResolver?.() ?? null;
         const targetElement = (host ? this._asRenderTarget<HTMLElement>(host) : this._scanForTarget<HTMLElement>()) as AparteChatTargetElement | null;
         if (!targetElement) return false;
+        // A resumed reply is a turn: none while the AI is off. It waits for the next load.
+        if (!this._config.getAutoReply(openConversationOf(targetElement) ?? undefined)) return false;
         const messages = targetElement.getMessages?.() ?? [];
         // The AI's last reply, past a notice or an advisor's message that followed it.
         const last = [...messages].reverse().find(isModelReply);

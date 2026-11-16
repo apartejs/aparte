@@ -5,6 +5,7 @@ import type { AparteAttachmentState } from '../../types/index.js';
 import type { AparteSendEventDetail, AparteMessageToken } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
+import { openConversationOf } from '../../conversations/open-conversation.js';
 import { presenceOn } from '../../utils/presence.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
@@ -298,6 +299,10 @@ export class AparteComposer extends HTMLElement {
     /** True while `requireModelSelection` is on AND no model is selected — blocks send. */
     private _modelGated = false;
     private _onConfigChange = (): void => { this._evaluateModelGate(); this._applyDirection(); };
+    /** Another conversation opened: the AI may answer there and not here (`setAutoReply`). */
+    private _onConversationLoaded = (e: Event): void => {
+        if (this._isForThisComposer(e)) this._evaluateModelGate();
+    };
 
     /**
      * Mirror `locale.direction` onto ourselves, so everything inside — input, buttons,
@@ -336,6 +341,7 @@ export class AparteComposer extends HTMLElement {
         // `detail.config`, so the same information arrives without the early binding
         // — and the filter below compares against the LIVE config.
         window.addEventListener('aparte-config-change', this._onConfigChangeEvent);
+        window.addEventListener('aparte-conversation-loaded', this._onConversationLoaded);
         // After the current parse: the other chats of the page may be mounted later in
         // the same document, and the question is only worth asking once they are.
         queueMicrotask(() => this._warnIfUnattached());
@@ -351,6 +357,7 @@ export class AparteComposer extends HTMLElement {
         window.removeEventListener('aparte-message-error', this._onMessageDone);
         window.removeEventListener('aparte-message-aborted', this._onMessageDone);
         window.removeEventListener('aparte-config-change', this._onConfigChangeEvent);
+        window.removeEventListener('aparte-conversation-loaded', this._onConversationLoaded);
         this._listeners.clear();
         this._offTypeToFocus?.();
         this._offTypeToFocus = null;
@@ -752,7 +759,9 @@ export class AparteComposer extends HTMLElement {
      * every config change (e.g. the model selector's auto-select firing).
      */
     private _evaluateModelGate(): void {
-        const gated = this._cfg.getRequireModelSelection() && !this._cfg.hasSelectedModel();
+        // With the AI off for this conversation (`setAutoReply(false)`) no model reads the
+        // message: there is nothing to wait for.
+        const gated = this._cfg.getRequireModelSelection() && !this._cfg.hasSelectedModel() && this._aiAnswers();
         if (gated === this._modelGated) return;
         this._modelGated = gated;
         this.toggleAttribute('data-model-gated', gated);
@@ -839,7 +848,17 @@ export class AparteComposer extends HTMLElement {
         if (this._streaming || this._queue.length === 0 || !this.isConnected) return;
         const next = this._queue.shift()!;
         this._queueChanged();
-        if (this.disabled || this._modelGated || !this._send(next)) this._backToField([next]);
+        if (this.disabled || this._modelGated || !this._send(next)) {
+            this._backToField([next]);
+            return;
+        }
+        // With the AI off no reply ends to send the next one: it goes now, in order.
+        if (!this._aiAnswers()) this._sendNextQueued();
+    }
+
+    /** Whether the AI answers in the conversation open in this composer's chat (see `setAutoReply`). */
+    private _aiAnswers(): boolean {
+        return this._cfg.getAutoReply(openConversationOf(this) ?? undefined);
     }
 
     /**

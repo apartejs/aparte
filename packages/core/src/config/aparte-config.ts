@@ -403,6 +403,8 @@ export class AparteConfig {
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
     private _queueWhileStreaming = false;
+    private _autoReply = true;
+    private _autoReplyByConversation = new Map<string, boolean>();
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
     private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
@@ -1617,6 +1619,52 @@ export class AparteConfig {
     }
 
     /**
+     * Turn the AI's replies off, or back on — for one conversation, or for the whole chat.
+     *
+     * Off, a person's message is still shown, announced (`aparte-send`, with its
+     * `messageId`) and saved, and no turn starts: whoever answers instead — an advisor, another
+     * participant — writes into the chat through `appendMessage`. Every way a turn starts
+     * obeys it: a send, a queued message, a regenerate, an edit, and the resume of a reply that
+     * paused on a question. Regenerate and edit are disabled meanwhile, a model choice the
+     * composer waits for no longer greys it out, and messages queued during a reply are all
+     * sent when it ends, since nothing answers them. A reply already streaming is not stopped:
+     * stop it yourself if the takeover should cut it.
+     *
+     * With a `conversationId` the setting is that conversation's and wins over the chat's;
+     * without one it is the default of every conversation on this config — of every chat on
+     * the page when they share the global config, so give a chat its own config to turn it
+     * off alone. On by default.
+     *
+     * @example
+     * ```ts
+     * // An advisor takes the conversation over: the AI stays quiet in it.
+     * aparteGlobalConfig.setAutoReply(false, conversationId);
+     * ```
+     */
+    setAutoReply(on: boolean, conversationId?: string): void {
+        if (conversationId === undefined) {
+            if (this._autoReply === on) return;
+            this._autoReply = on;
+        } else {
+            if (this._autoReplyByConversation.get(conversationId) === on) return;
+            this._autoReplyByConversation.set(conversationId, on);
+        }
+        this._notify();
+    }
+
+    /**
+     * Whether the AI answers in a conversation (see {@link setAutoReply}): the conversation's
+     * own setting when it has one, else the chat's.
+     */
+    getAutoReply(conversationId?: string): boolean {
+        if (conversationId !== undefined) {
+            const own = this._autoReplyByConversation.get(conversationId);
+            if (own !== undefined) return own;
+        }
+        return this._autoReply;
+    }
+
+    /**
      * Get the currently selected model object, if available synchronously.
      * Returns undefined if no provider/model is selected, or if the provider's
      * models are only available asynchronously (fetchModels).
@@ -2634,6 +2682,8 @@ export class AparteConfig {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._queueWhileStreaming = false;
+        this._autoReply = true;
+        this._autoReplyByConversation.clear();
         this._elicitationAllowOther = true;
         this._elicitationLayout = 'stepped';
         this._elicitationAnswerOnClick = true;

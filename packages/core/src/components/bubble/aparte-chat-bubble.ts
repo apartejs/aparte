@@ -50,6 +50,7 @@ import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
 import { activityRenderer, activityRendererThatDrew } from '../../renderers/segments/activity.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
+import { openConversationOf } from '../../conversations/open-conversation.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
@@ -2474,8 +2475,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
   private _applyTranscriptBusy(): void {
     if (!this._actionBarEl) return;
+    // Regenerate and edit each start a turn: none while the AI is off for this conversation
+    // (`setAutoReply(false)`). Re-read on every config change, which rebuilds the bar.
+    const aiOff = !this._cfg.getAutoReply(openConversationOf(this) ?? undefined);
     for (const btn of this._actionBarEl.querySelectorAll<HTMLButtonElement>('[data-action="retry"], [data-action="edit"]')) {
-      btn.disabled = this._transcriptBusy;
+      btn.disabled = this._transcriptBusy || aiOff;
     }
   }
 
