@@ -67,10 +67,14 @@ export function sampleFor(text, name = '') {
     throw new Error(`no sample value for an attribute typed \`${text}\`: teach sampleFor() about it.`);
 }
 
-/** A property-only member's value: an array for a list, a function for a renderer. */
+/**
+ * A property-only member's value: an array for a list, a function for a renderer, a word for a
+ * text (`string | null`, the composer's `stopLabel`).
+ */
 export function sampleProperty(text) {
     if (/\[\]$/.test(text.trim())) return [];
     if (/Renderer\b/.test(text)) return () => null;
+    if (/^string(\s*\|\s*(null|undefined))*$/.test(text.trim())) return 'sample';
     throw new Error(`no sample value for a property typed \`${text}\`: teach sampleProperty() about it.`);
 }
 
