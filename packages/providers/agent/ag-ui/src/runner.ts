@@ -819,10 +819,20 @@ export function createAgUiRunner(options: AgUiRunnerOptions): AparteStreamRunner
                     // RUN_STARTED may follow and run again, and a late one can come after a
                     // run that finished. What was drawn stays; the failure is said once the
                     // stream is over, and core appends it below the reply.
+                    //
+                    // A code of aparté's is the error's own code, as on aparté's agent wire: the
+                    // card's sentence follows it (a quota a tool hits mid-run reads as one), and
+                    // the client acts on it (with a compactor, an overflow is compacted and sent
+                    // again). The run
+                    // answered 200 long before, so the code is the only word left to say it.
+                    // Any other code is the agent's own: a provider error, the raw value in `data`.
+                    const code = typeof event['code'] === 'string' ? event['code'] : undefined;
                     runError = new AparteError(
                         typeof event['message'] === 'string' && event['message'] ? event['message'] : 'The agent run failed.',
-                        AparteErrorCode.PROVIDER_ERROR,
-                        { agUi: 'run-error', ...(typeof event['code'] === 'string' ? { code: event['code'] } : {}) },
+                        code !== undefined && (Object.values(AparteErrorCode) as string[]).includes(code)
+                            ? code as AparteErrorCode
+                            : AparteErrorCode.PROVIDER_ERROR,
+                        { agUi: 'run-error', ...(code !== undefined ? { code } : {}) },
                     );
                     break;
                 }
