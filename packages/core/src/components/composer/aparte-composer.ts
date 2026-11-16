@@ -900,8 +900,8 @@ export class AparteComposer extends HTMLElement {
     private _queueButton(icon: 'edit' | 'trash', label: string, describedBy: string, index: number): HTMLButtonElement {
         const button = document.createElement('button');
         button.type = 'button';
-        button.classList.add('aparte-btn', 'aparte-btn--icon', 'aparte-btn--sm', 'aparte-btn--ghost');
-        button.classList.add(icon === 'edit' ? 'aparte-composer-queue__edit' : 'aparte-composer-queue__remove');
+        const part = icon === 'trash' ? 'aparte-composer-queue__remove' : 'aparte-composer-queue__edit';
+        button.classList.add('aparte-btn', 'aparte-btn--icon', 'aparte-btn--sm', 'aparte-btn--ghost', part);
         button.innerHTML = this._cfg.getIcon(icon);
         button.setAttribute('aria-label', label);
         button.setAttribute('title', label);
