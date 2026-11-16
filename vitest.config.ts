@@ -233,7 +233,7 @@ const config = defineConfig({
         'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-mermaid (2026-10-27): measured 97.42 / 76.92 / 91.66 on a stand-in Mermaid (jsdom lays nothing out).
         'packages/plugins/mermaid/src/**': { lines: 99, statements: 99, functions: 92, branches: 85 },
-        'packages/plugins/model-selector/src/**': { lines: 87, statements: 87, functions: 85, branches: 89 },
+        'packages/plugins/model-selector/src/**': { lines: 95, statements: 95, functions: 89, branches: 89 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         // plugin-subagents (2026-11-12): measured 100 / 92.99 / 98.48 when the package landed;
