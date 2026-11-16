@@ -172,25 +172,27 @@ with no stream runner that sends anyway gets an error that says so.
 Without `persist`, a pick is only announced, so your app can say what switching costs before it
 happens (a model to load, a conversation to cut) and put the old model back when the person
 cancels. `picked` tells the two apart: `true` for the person's pick, `false` for the change your
-own `setSelection()` makes, and for `auto-select`:
+own `setSelection()` makes, and for `auto-select`. Hand the event's detail and the element to a
+function like this one, bound as each framework binds `aparte-model-change` in the tabs above:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
-import '@aparte/plugin-model-selector';
+import type { AparteModelChangeEventDetail } from '@aparte/core';
 
 declare function askToSwitch(modelId: string): Promise<boolean>; // your dialog
 
-const selector = document.querySelector('aparte-model-selector');
-
-selector?.addEventListener('aparte-model-change', async (e) => {
-  const { picked, providerId, modelId, previousProviderId, previousModelId } = e.detail;
+export async function confirmSwitch(
+  detail: AparteModelChangeEventDetail,
+  selector: { setSelection(providerId: string, modelId: string): void },
+): Promise<void> {
+  const { picked, providerId, modelId, previousProviderId, previousModelId } = detail;
   if (!picked) return; // our own revert, below
   if (await askToSwitch(modelId)) {
     aparteGlobalConfig.setModelConfig({ defaultProvider: providerId, defaultModel: modelId });
   } else if (previousProviderId && previousModelId) {
     selector.setSelection(previousProviderId, previousModelId);
   }
-});
+}
 ```
 
 ## API
