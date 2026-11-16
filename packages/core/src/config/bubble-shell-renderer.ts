@@ -30,7 +30,7 @@
  *                               message does not draw an empty coloured rectangle. The
  *                               bubble puts what it says under a message right after this
  *                               box, as its siblings: the cut-off note and the message's
- *                               `note` (`.aparte-message-note`, "Read by Marie")
+ *                               `note` ("Read by Marie")
  *   - `.aparte-segments`        — streamed/structured segments
  *   - `.aparte-content`         — simple markdown content
  *   - `.aparte-waiting`         — the dots between "user sends" and the first token. The
