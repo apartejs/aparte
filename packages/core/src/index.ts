@@ -79,6 +79,8 @@ export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDeta
 export type {
     AparteBubbleRole,
     AparteMessage,
+    AparteAuthor,
+    AparteMessageKind,
     AparteContextSummary,
     AparteCompactor,
     AparteCompactorRequest,
@@ -366,6 +368,7 @@ export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attac
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
+export { isModelReply, authorTypeOf } from './utils/is-model-reply.js';
 
 // HTML escaping — one implementation for the whole scope. Exported because the
 // plugins render their own HTML (they cannot reach into core's internals) and

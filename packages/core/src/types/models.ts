@@ -323,7 +323,52 @@ export interface AparteMessage {
 
     /** Optional metadata for custom properties */
     metadata?: Record<string, unknown>;
+
+    /**
+     * Who wrote the message, when it is not simply "the person" or "the assistant": an
+     * advisor who takes over from the AI, an expert who joins, a named agent. `role` still
+     * says which side of the conversation it is on; `author` says who. Without it, nothing
+     * changes.
+     */
+    author?: AparteAuthor;
+
+    /**
+     * What kind of row the message is. `'notice'`: an event in the conversation ("Marie
+     * joined the conversation"), drawn as a line with `content` as its text — not a bubble,
+     * never sent to the model, never a reply.
+     */
+    kind?: AparteMessageKind;
+
+    /**
+     * A short line under the message, set by the app and changed at any time ("Read by
+     * Marie", "Translated automatically"). Shown, stored, never sent to the model.
+     */
+    note?: string;
 }
+
+/**
+ * Who wrote a message (`AparteMessage.author`).
+ *
+ * @example
+ * { name: 'Marie', type: 'human', avatar: '/avatars/marie.png', id: 'agent-12' }
+ */
+export interface AparteAuthor {
+    /** Who wrote it: shown above the bubble, and read as "Message from {name}". */
+    name: string;
+    /**
+     * `'ai'`: a model wrote it; `'human'`: a person did. Decides what core offers on the
+     * message (a human's words are not regenerated). Default: `'ai'` on the assistant
+     * side, `'human'` on the user side.
+     */
+    type?: 'ai' | 'human';
+    /** An image for the avatar. When set, it is drawn in place of the avatar provider's. */
+    avatar?: string;
+    /** The app's own id for this author — what an avatar provider or a server keys on. */
+    id?: string;
+}
+
+/** The kinds of row a message can be besides a bubble (`AparteMessage.kind`). */
+export type AparteMessageKind = 'notice';
 
 /** How the upload of a picked file is going (`composer.setAttachmentState`). */
 export interface AparteAttachmentState {
