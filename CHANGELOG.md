@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.12.2
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [d47c000](https://github.com/apartejs/aparte/commit/d47c000): A model chosen through `/model` now sends `aparte-model-change` with `picked: true`, as a pick in the list does; nothing to change in your code.
+
+  The rows of `/model` in the triggers menu ran `setSelection()`, so the person's choice was told with `picked: false`, like a change made by code. An app that asks before switching (`if (!picked) return`) let it through without asking. Choosing through `/model` the model already selected now changes nothing and sends nothing, as in the list. `setSelection()` still sends `picked: false` (#255).
+  <sub>`@aparte/core`, `@aparte/plugin-model-selector`</sub>
+
+- [c2d03df](https://github.com/apartejs/aparte/commit/c2d03df): A `RUN_ERROR` whose `code` is one of aparté's error codes (`USAGE_RATE_LIMIT`, `CONFIG_INVALID_KEY`…) now keeps that code, so the error card says its sentence; nothing to change in your code.
+
+  Every `RUN_ERROR` used to become a `PROVIDER_ERROR`, so the card read "The assistant couldn't answer. Try again in a moment." whatever the agent said. An agent that finds a reason mid-run (a tool hitting a rate limit) has already answered 200, so no HTTP status can carry it: the code is the only place left. aparté's own agent wire already read a `run-error` line's code this way; the AG-UI runner now does the same. Any other code, or none, is still a provider error, the agent's own value kept in the error's `data`.
+  <sub>`@aparte/runner-ag-ui`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.12.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { RunAgentInputSchema } from '@ag-ui/core/schemas';
-import { AparteError } from '@aparte/core';
+import { AparteError, AparteErrorCode } from '@aparte/core';
 import type { AparteStreamRunOptions } from '@aparte/core';
 import { createAgUiRunner } from '../index.js';
 import type { AgUiRunnerOptions } from '../index.js';
@@ -212,6 +212,22 @@ describe('createAgUiRunner: the stream', () => {
         // The text stays, and the call nobody will answer stops waiting.
         expect(r.types()).toContain('text-delta');
         expect(r.events).toContainEqual({ type: 'tool-aborted', toolCallId: 'c1' });
+    });
+
+    it("keeps a RUN_ERROR code that is one of aparté's, as its own agent wire does: the card says what happened", async () => {
+        // A refusal the agent finds mid-run (a quota a tool hits) arrives after the 200, so no
+        // status can say it; the code is the only word the protocol gives it.
+        const limited = run(fakeFetch(sse(started, { type: 'RUN_ERROR', message: 'Daily quota reached.', code: AparteErrorCode.USAGE_RATE_LIMIT })).fetch);
+        await expect(limited.done).rejects.toMatchObject({
+            message: 'Daily quota reached.',
+            code: AparteErrorCode.USAGE_RATE_LIMIT,
+            data: { agUi: 'run-error', code: 'USAGE_RATE_LIMIT' },
+        });
+        // Any other code is the agent's own: a provider error, the raw value kept in `data`.
+        const own = run(fakeFetch(sse(started, { type: 'RUN_ERROR', message: 'Model overloaded', code: 'overloaded' })).fetch);
+        await expect(own.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_ERROR, data: { agUi: 'run-error', code: 'overloaded' } });
+        const none = run(fakeFetch(sse(started, { type: 'RUN_ERROR', message: 'Model overloaded' })).fetch);
+        await expect(none.done).rejects.toMatchObject({ code: AparteErrorCode.PROVIDER_ERROR });
     });
 
     it('lets a later run supersede a failed one: its pause stands, and the failure goes to onWarning', async () => {

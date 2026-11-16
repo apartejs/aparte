@@ -50,4 +50,37 @@ describe('a model change', () => {
 
         expect(seen.map((d) => [d.modelId, d.picked])).toEqual([['large', true], ['small', false]]);
     });
+
+    // `/model` in the triggers menu is the person choosing too: it ran `setSelection()`, and was
+    // told as code moving the selection, so an app that asks before switching let it through.
+    it('says picked when the person chose it through /model', async () => {
+        aparteGlobalConfig.registerAIProvider(createModelCatalogue({
+            id: 'server',
+            name: 'Our server',
+            models: [{ id: 'small', name: 'Small' }, { id: 'large', name: 'Large' }],
+        }));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'server', defaultModel: 'small' });
+        const selector = await mount();
+        const seen: AparteModelChangeEventDetail[] = [];
+        selector.addEventListener('aparte-model-change', (e) => {
+            const detail = (e as CustomEvent<AparteModelChangeEventDetail>).detail;
+            seen.push(detail);
+            if (detail.picked) selector.setSelection(detail.previousProviderId!, detail.previousModelId!);
+        });
+
+        commandRow('Large').run();
+        expect(seen.map((d) => [d.modelId, d.picked])).toEqual([['large', true], ['small', false]]);
+
+        // The model already selected, chosen again, changes nothing and says nothing, as in the list.
+        seen.length = 0;
+        commandRow('Small').run();
+        expect(seen).toEqual([]);
+    });
 });
+
+/** The `/model` row named `label`, from the triggers menu's question to the selectors. */
+function commandRow(label: string): { run(): void } {
+    const added: Array<{ children: Array<{ label: string; run(): void }> }> = [];
+    window.dispatchEvent(new CustomEvent('aparte-collect-commands', { detail: { config: aparteGlobalConfig, add: (c: never) => added.push(c) } }));
+    return added[0]!.children.find((row) => row.label === label)!;
+}

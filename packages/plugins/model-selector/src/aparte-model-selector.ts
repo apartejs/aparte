@@ -125,7 +125,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             id: `${entry.provider.id}::${model.id}`,
             label: model.name || model.id,
             ...(entry.provider.id === this._currentProviderId && model.id === this._currentModelId ? { icon: 'check' } : {}),
-            run: () => this.setSelection(entry.provider.id, model.id),
+            run: () => this._pick(entry.provider.id, model.id),
         }));
         detail.add({
             id: 'model',
@@ -327,6 +327,19 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
     /** Programmatically set the selection. */
     setSelection(providerId: string, modelId: string): void {
+        this._select(providerId, modelId, false);
+    }
+
+    /**
+     * The person chose a model outside the list (`/model`): told as `picked`, like a pick in
+     * the list, and nothing when it is the model already selected.
+     */
+    private _pick(providerId: string, modelId: string): void {
+        if (providerId === this._currentProviderId && modelId === this._currentModelId) return;
+        this._select(providerId, modelId, true);
+    }
+
+    private _select(providerId: string, modelId: string, picked: boolean): void {
         const previousProviderId = this._currentProviderId;
         const previousModelId = this._currentModelId;
         this._currentProviderId = providerId;
@@ -337,7 +350,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             this._aparteSelect.value = compositeValue;
         }
 
-        this._emitChange(previousProviderId, previousModelId, false);
+        this._emitChange(previousProviderId, previousModelId, picked);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -652,7 +665,7 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._emitChange(previousProviderId, previousModelId, true);
     }
 
-    /** `picked`: the person chose it in the list, rather than code or `auto-select`. */
+    /** `picked`: the person chose it, in the list or through `/model`, rather than code or `auto-select`. */
     private _emitChange(previousProviderId: string | null | undefined, previousModelId: string | null | undefined, picked: boolean): void {
         const detail: AparteModelChangeEventDetail = {
             providerId: this._currentProviderId || undefined,
