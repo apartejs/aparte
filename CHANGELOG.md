@@ -4,6 +4,65 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.12.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [3ba3797](https://github.com/apartejs/aparte/commit/3ba3797): A checkpoint can cover the message that carries it: `contextSummary: { …, includesSelf: true }` starts the history after that message, so a summary of everything so far no longer leaves the last answer counted (#246).
+
+  A checkpoint reads "from this message on, the summary stands for everything before", so its own message was always read and sent. A host that summarised everything, the last answer included because keeping it would free nothing, had only that answer to put the checkpoint on: the gauge read about full right after a compaction that had freed most of the window, and the next request carried the answer again. With `includesSelf` the history, the gauge and the request start after it, and the separator is drawn under the message rather than above it. It never covers the question being answered: on a last `user` message it reads as an ordinary checkpoint. Retention that hands the checkpoint down to a later message drops the flag, since the inheritor is kept.
+  <sub>`@aparte/core`</sub>
+
+- [9930f0b](https://github.com/apartejs/aparte/commit/9930f0b): A send can be held: call `preventDefault()` on the new `aparte-before-send` event (`onBeforeSend` / `@before-send` / `onbeforeSend` in the wrappers) and the message stays in the composer, text and files, with nothing added to the thread; `getComposer()?.submit()` sends it later (#245).
+
+  The event goes out before `aparte-send`, with the same detail. `aparte-send` itself could not be the cancelable one: the conversation controller appends the person's message in the capture phase on the chat, so it runs before any listener an app can add, and a cancel there arrived after the message was already in the thread. A first event of its own has no such race, the shape the platform uses for `beforeinput` before `input`. The `getComposer()` documentation now names `setValue()`, `submit()` and `addAttachments()`.
+  <sub>`@aparte/core`</sub>
+
+- [844c6c5](https://github.com/apartejs/aparte/commit/844c6c5): A chat whose turns run on a server can list the server's models: `registerAIProvider(createModelCatalogue({ id, name, models }))` registers a provider that lists them and runs none, and `<aparte-model-selector>` shows them (#244). `aparte-model-change` now says `picked`, so an app that asks before switching can tell the person's pick from its own revert.
+
+  `createModelCatalogue` is the provider a server-loop page used to write by hand, a `chat()` that rejects: the selector lists its models, the one selected goes out on every request, and its capabilities gate what it cannot do. A page with no stream runner that sends anyway gets a `PROVIDER_MISCONFIGURED` error that says so. `picked` is `true` when the person chose in the list, `false` for `setSelection()` and for `auto-select`; without `persist`, a cancelled switch puts the old model back with `setSelection()` and that change no longer reads as a pick.
+  <sub>`@aparte/core`, `@aparte/plugin-model-selector`</sub>
+
+- [6c9b0af](https://github.com/apartejs/aparte/commit/6c9b0af): A question can be answered from outside its chat: `aparteGlobalConfig.observeElicitations(listener)` hands the app each question and approval a chat puts on screen, with `respond()` to answer it and `settled` to know when it no longer waits (#250).
+
+  The chat still asks: its panel is up and the person can answer there. Whichever answers first is the answer, and an answer from outside takes the chat's panel down. `request.conversationId` names the conversation that asked, so an inbox of everything waiting across conversations can answer an `ask_user` question the way `approvalResolver` already let it answer an approval. The answer is what the panel would have resolved, `{ action: 'accept', content }` with the value the question's schema collects (for `ask_user`, the option's value, a `string[]` for several, free text, or `{ q1, q2 }` for several questions), or `{ action: 'decline' }`. `AparteElicitationPending` is the type. A listener that throws is reported at the console and the question is still asked. The elicitation guide has it under "Answer from outside the chat".
+  <sub>`@aparte/core`</sub>
+
+- [7d17240](https://github.com/apartejs/aparte/commit/7d17240): A message written while a reply streams can wait for it: `aparteGlobalConfig.setQueueWhileStreaming(true)` makes Enter queue the draft above the field, and each queued message is sent when the reply ends (#248). Off by default.
+
+  Each queued message shows with a button to take it back into the field and one to remove it. When the reply ends well (`aparte-message-done`) the first one goes out through the same `aparte-before-send` and `aparte-send` as a message sent by hand, so a held send holds it too, and the next one waits for the reply to it. After a Stop or an error nothing is sent: what was queued comes back into the field. The Stop button stays Stop. `composer.queue()` queues from a button of your own, and the composer's state carries `queued` (`AparteQueuedMessage[]`). Three locale keys, `queueLabel`, `queueEdit` and `queueRemove`, in the nine languages.
+
+  The norm it follows: Cursor queues follow-ups typed during a run and sends them in order once it ends, each removable; Codex queues them with Tab, and with Enter in its IDE extension.
+  <sub>`@aparte/core`, `@aparte/locales`</sub>
+
+- [39979a6](https://github.com/apartejs/aparte/commit/39979a6): A chat can say what its Stop button interrupts: `stop-label` on `<aparte-composer>`, or its `stopLabel` property, names the button "Stop the sub-agents" in place of the locale's `stopButton` (#249). Set it back to `null` when the run it named is over.
+
+  It is the accessible name and the tooltip of the composer's send button while it is Stop, and of `<aparte-composer-cancel>`, on this chat only. The one way before was `extendLocale({ stopButton })`, which renamed the Stop of every chat sharing the config, a locale edit standing in for state. An attribute, like the composer's other options, so a framework binding (`[stopLabel]` in Angular, a prop on the generated components) reaches it the way a script does. The sub-agents guide shows it following the sub-agents that run.
+  <sub>`@aparte/core`</sub>
+
+- [ff23780](https://github.com/apartejs/aparte/commit/ff23780): A fold of sub-agents can say where they stand: `setTurnSummary({ label: subagentsTurnLabel })` writes the fold's line as "3 sub-agents · 1 done, 2 running" (#247). `label` takes any function of yours too.
+
+  `setTurnSummary` takes a `label` function, called with the fold's steps, `running` and the chat's config each time they change; a string replaces core's line ("Working", "Worked 9 s · 7 tools") and the running step's name, `null` keeps them. A line of the app's is a polite live region; one that throws leaves core's line. `@aparte/plugin-subagents` exports `subagentsTurnLabel`, which counts the fold's sub-agents by state in the chat's language, with six locale keys (`subagentsCount`, `subagentsDone`, `subagentsRunning`, `subagentsWaiting`, `subagentsFailed`, `subagentsStopped`) in the ten languages, and leaves core's line under two sub-agents.
+
+  The headline goes on the fold core already draws, moves and keeps up to date, not on a second grouping of rows: with `openWhileRunning` the lines show under it while the sub-agents work. A sub-agent that waits for the person or failed stands out of the fold, where it has to be read.
+  <sub>`@aparte/core`, `@aparte/plugin-subagents`</sub>
+
+### Patch Changes
+
+- [3795730](https://github.com/apartejs/aparte/commit/3795730): A change of the config no longer closes a conversation list's open row menu or a title being renamed, and the list redraws only when its words or its glyphs change. No code to change (#251).
+
+  `<aparte-conversation-list>` redrew itself on every `aparte-config-change`, which goes out for every change of the config (a provider registered, a model selected, a tool display), and it did so unheld: a menu open under the pointer was detached, and a rename lost what was typed, when an app registered its models a second after launch or again when a model loaded. It now redraws for a new locale or a new icon set only, and waits, as `conversations` already does, for an open menu, a rename or a press to end.
+  <sub>`@aparte/core`</sub>
+
+- [f0b2b37](https://github.com/apartejs/aparte/commit/f0b2b37): A plan card sent again folds the earlier card of the same plan to its header, and a plan's "in progress" ring stops turning once the reply is over. No code to change.
+
+  An agent that calls its plan tool at each step drew a card per call, and the earlier ones stayed whole: their step "in progress" kept turning above the card that said the plan was done. In a chat, the latest card of a plan (cards of one plan share its title) is now the plan; an earlier one keeps its title, its "2 of 4 done" and its bar, what it said then, and gives up its steps and its motion (`data-plan-superseded`). Codex and Claude Code keep the earlier versions of a plan in the transcript too, still. A reload or a redraw lands on the same answer, read from the page in the conversation's order.
+  <sub>`@aparte/plugin-cards`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/docs-mcp`.</sub>
+
 ## 1.11.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
