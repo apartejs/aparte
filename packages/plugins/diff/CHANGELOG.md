@@ -1,7 +1,5 @@
 # @aparte/plugin-diff
 
-## 1.12.2
-
 ## 1.12.1
 
 ### Patch Changes

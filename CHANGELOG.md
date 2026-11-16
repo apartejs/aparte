@@ -4,19 +4,6 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
-## 1.12.2
-
-Every `@aparte/*` package ships at this version (they are released in lockstep).
-
-### Patch Changes
-
-- [d47c000](https://github.com/apartejs/aparte/commit/d47c000): A model chosen through `/model` now sends `aparte-model-change` with `picked: true`, as a pick in the list does; nothing to change in your code.
-
-  The rows of `/model` in the triggers menu ran `setSelection()`, so the person's choice was told with `picked: false`, like a change made by code. An app that asks before switching (`if (!picked) return`) let it through without asking. Choosing through `/model` the model already selected now changes nothing and sends nothing, as in the list. `setSelection()` still sends `picked: false` (#255).
-  <sub>`@aparte/core`, `@aparte/plugin-model-selector`</sub>
-
-<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
-
 ## 1.12.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
