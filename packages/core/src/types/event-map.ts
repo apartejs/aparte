@@ -93,6 +93,7 @@ import type { AparteComposerChangeEventDetail } from '../components/composer/apa
  * handle them in one place"), and `AparteClient` itself listens on `window`.
  */
 interface AparteEventMap {
+    'aparte-before-send': CustomEvent<AparteSendEventDetail>;
     'aparte-send': CustomEvent<AparteSendEventDetail>;
     'aparte-retry': CustomEvent<AparteRetryEventDetail>;
     'aparte-edit': CustomEvent<AparteEditEventDetail>;

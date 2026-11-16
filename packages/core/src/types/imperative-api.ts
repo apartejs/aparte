@@ -97,7 +97,12 @@ export interface AparteChatImperativeApi {
     getElement: () => HTMLElement | null;
     /**
      * The chat's `<aparte-composer>` element, once mounted, `null` before — for its methods
-     * (`focus()`, `reset()`…) and the events it sends. {@link focusInput} focuses its field.
+     * and the events it sends. `setValue(text)` writes the draft, `submit()` sends it as
+     * the Send button does (and stops the reply while one streams), `addAttachments(files)`
+     * adds files to it, `focus()` and `reset()`. {@link focusInput} focuses its field.
+     *
+     * A send held with `aparte-before-send` stays in the composer: `getComposer()?.submit()`
+     * sends it once it can go.
      */
     getComposer: () => AparteComposer | null;
 }

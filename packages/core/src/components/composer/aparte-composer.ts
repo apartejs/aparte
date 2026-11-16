@@ -165,6 +165,7 @@ export interface AparteComposerChangeEventDetail extends AparteChatScoped {
  * @attr {boolean} data-model-gated - Reflected BY the element when `requireModelSelection` is on and
  *   no model is selected: sending is blocked and the shipped stylesheet greys the composer. Read-only.
  *
+ * @fires {CustomEvent<AparteSendEventDetail>} aparte-before-send - A message is about to be sent, with the detail `aparte-send` will carry. Cancelable: `preventDefault()` holds it, keeping the text and the files in the composer and appending nothing; `submit()` sends it later.
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
  * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
  * @fires {CustomEvent<AparteAbortEventDetail>} aparte-abort - Dispatched on `window`: stop the run for this target.
@@ -705,6 +706,14 @@ export class AparteComposer extends HTMLElement {
             files: this._attachments.length > 0 ? [...this._attachments] : undefined,
             ...(tokens?.length ? { tokens } : {}),
         };
+
+        /*
+         * Held: the draft stays as it is and nothing is appended. A cancel on `aparte-send`
+         * itself would come too late — the conversation controller appends the message in
+         * the capture phase on the chat, before any listener an app can place — so the
+         * question is asked by an event of its own, sent first (the platform's `beforeinput`).
+         */
+        if (!dispatchChatEvent(this, 'aparte-before-send', detail, { cancelable: true })) return;
 
         this.dispatchEvent(new CustomEvent<AparteSendEventDetail>('aparte-send', {
             bubbles: true,
