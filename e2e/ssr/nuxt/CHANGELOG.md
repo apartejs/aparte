@@ -1,5 +1,13 @@
 # @aparte-workspace/ssr-nuxt
 
+## 0.0.40
+
+### Patch Changes
+
+- @aparte/core@1.12.1
+- @aparte/provider-scenario@1.12.1
+- @aparte/vue@1.12.1
+
 ## 0.0.39
 
 ### Patch Changes

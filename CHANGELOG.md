@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.12.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [1da0eee](https://github.com/apartejs/aparte/commit/1da0eee): `<aparte-diff>` no longer draws its rows again when handed the same comments or the same change; nothing to change in your code.
+
+  A framework hands `comments` and `diff` on every render, often as a new array of the same comments (`review.filter((c) => c.path === file)`) or a new `{ path, before, after }` with the same texts. Each drew every row again: what the reader was doing was carried over, but every row was a new element, so a text selection in the code was lost and the field being written in left the page and came back. A list of the same comments, or a change with the same texts, now draws nothing. A comment changed in place and handed back is still drawn, and an app's own fields on a comment (`id`, say) do not count, since the view does not show them (#253).
+  <sub>`@aparte/plugin-diff`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.12.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

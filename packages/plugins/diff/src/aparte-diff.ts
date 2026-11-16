@@ -100,6 +100,11 @@ function sameFiles(a: readonly Shown[], b: readonly Shown[]): boolean {
     return a.length === b.length && a.every((s, i) => key(s) === key(b[i]!));
 }
 
+/** What the view draws of a list of comments: an app's own fields (`id`, say) are not in it. */
+function commentsKey(comments: readonly AparteDiffComment[]): string {
+    return JSON.stringify(comments.map((c) => [c.path, c.side, c.startLine, c.endLine, c.text, c.state ?? null]));
+}
+
 /** What the app gave, as files to show. */
 function filesOf(input: AparteDiffInput | null): Shown[] {
     const shown = (file: AparteDiffFile, source?: AparteDiffSource): Shown => {
@@ -238,6 +243,8 @@ export class AparteDiff extends ElementBase {
     /** Each file's element, as last drawn. */
     private _files: HTMLElement[] = [];
     private _comments: AparteDiffComment[] = [];
+    /** The comments as last drawn (`commentsKey`), read when the app hands a list again. */
+    private _drawnComments = '';
     private readonly _id = `aparte-diff-${++instances}`;
     private _generation = 0;
     private _stopConfig: (() => void) | null = null;
@@ -258,12 +265,16 @@ export class AparteDiff extends ElementBase {
         const shown = filesOf(next);
         // Handed the change it shows: the same text or object (perhaps mutated in place), or an
         // equal one — an inline `{ path, before, after }` is a new object on every render of the
-        // app around it. It is drawn again from it, and what the reader was doing is kept: the
-        // folds, the lines picked, the field and its text, the focus. The same object mutated
-        // into another change keeps the folds and the lines picked that it still holds; its
-        // colours are the old text's, so it is coloured again from scratch.
+        // app around it. An equal change draws nothing: the rows on screen are its rows. The
+        // same object mutated into another change is drawn again, and what the reader was doing
+        // is kept: the folds and the lines picked that it still holds, the field and its text,
+        // the focus. Its colours are the old text's, so it is coloured again from scratch.
         const same = sameFiles(shown, before);
         const again = next !== null && this._input !== null && (next === this._input || same);
+        if (again && same) {
+            this._input = next;
+            return;
+        }
         // The keys of the lines picked, read from the rows on screen before they are replaced.
         const picked = again && !same && this._selection && this.isConnected
             ? this._selectedRows().map((row) => row.dataset['key']!)
@@ -324,7 +335,10 @@ export class AparteDiff extends ElementBase {
     get comments(): AparteDiffComment[] { return this._comments; }
     set comments(value: AparteDiffComment[]) {
         this._comments = Array.isArray(value) ? [...value] : [];
-        if (this.isConnected) this._render();
+        // A wrapper hands a new array of the same comments on every render of the app around
+        // it: those draw nothing. Compared with what was drawn, not with the list held, so a
+        // comment changed in place and handed back is drawn.
+        if (this.isConnected && commentsKey(this._comments) !== this._drawnComments) this._render();
     }
 
     /** Whether a reader can comment on a line. Reflects the `commentable` attribute. */
@@ -387,6 +401,7 @@ export class AparteDiff extends ElementBase {
         const doc = this.ownerDocument;
         const active = doc.activeElement;
         const focus = active && this.contains(active) ? this._focusKey(active) : null;
+        this._drawnComments = commentsKey(this._comments);
         // Nothing given yet draws nothing; a change with no file in it says so.
         this._files = this._shown.map((_, i) => this._renderFile(i));
         if (this._input === null) {

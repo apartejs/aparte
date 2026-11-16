@@ -358,6 +358,12 @@ The plugin exports `diffElement`, the element's spec, and every framework binds 
 include `diff` and `comments`, which are properties, and `onDiffComment`; the tag typed from the
 spec in Vue and Svelte; `CUSTOM_ELEMENTS_SCHEMA` in Angular.
 
+A framework hands `diff` and `comments` again on every render, often as a new object or a new
+array: `review.filter((c) => c.path === file)`, an inline `{ path, before, after }`. A list of the
+same comments, or a change with the same texts, draws nothing, so the rows, the folds the reader
+opened and the field they are writing in stay as they are. A comment changed in place and handed
+back is drawn.
+
 ## Customize
 
 The view is light DOM, like the chat: its classes are `aparte-diff-*`, and its buttons and field
