@@ -254,6 +254,25 @@ export type AparteElicitationResult =
     | { action: 'decline' };
 
 /**
+ * A question or an approval a chat is asking, as `observeElicitations` hands it to the app.
+ *
+ * `respond()` answers it from wherever the app shows it, with what the chat's panel would have
+ * resolved: for a question, `{ action: 'accept', content }` where `content` is the value its
+ * `schema` collects (an `enum` field's option `value`, a `string[]` when it allows several, the
+ * text of a free answer, an object of those keyed by field for a form), or `{ action: 'decline' }`;
+ * for an approval, `{ action: 'accept', content: { option } }` with the `value` of one of its
+ * `options` (an {@link AparteApprovalAnswer}, which may carry an `instruction` instead).
+ */
+export interface AparteElicitationPending {
+    /** The request as the chat asked it: its message, schema or options, its conversation. */
+    readonly request: AparteElicitationRequest;
+    /** Answer it in the chat's place. Ignored once it is settled. */
+    respond(result: AparteElicitationResult): void;
+    /** Resolves when it no longer waits: answered here or in the chat, or ended without an answer. */
+    readonly settled: Promise<void>;
+}
+
+/**
  * The request ended without an answer: the turn was stopped, the signal fired, the
  * question was taken away by another request, or nothing was mounted to ask it.
  *

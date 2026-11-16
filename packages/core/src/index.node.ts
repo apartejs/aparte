@@ -412,6 +412,7 @@ export type {
     AparteElicitationObjectSchema,
     AparteElicitationRequest,
     AparteElicitationResult,
+    AparteElicitationPending,
     AparteElicitationPresenter,
     AparteApprovalOption,
     AparteApprovalAnswer,

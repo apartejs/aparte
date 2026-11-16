@@ -42,7 +42,7 @@ import { applyLinkTarget, linkDecision, type AparteLinkDecision, type AparteLink
  * per config, so a page with three chats or a test suite with a config per test says it once.
  */
 let heldImageNoted = false;
-import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
+import type { AparteElicitationPending, AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
 import type { AparteTurnContext } from '../types/tools.js';
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
@@ -440,6 +440,8 @@ export class AparteConfig {
      * documents ("used to resolve WHICH instance presents").
      */
     private _elicitationPresenters: Array<{ fn: AparteElicitationPresenter; owner?: HTMLElement }> = [];
+    /** See {@link observeElicitations}. */
+    private _elicitationObservers = new Set<(pending: AparteElicitationPending) => void>();
     /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
     private _warnedNoPresenter = false;
     /**
@@ -2486,6 +2488,7 @@ export class AparteConfig {
          * that is already over would ask the user about nothing.
          */
         if (request.signal?.aborted) return Promise.reject(new AparteElicitationAbortError('aborted'));
+        if (this._elicitationObservers.size > 0) return this._presentObserved(presenter, request);
         const answer = presenter(request);
         const signal = request.signal;
         if (!signal) return answer;
@@ -2496,6 +2499,76 @@ export class AparteConfig {
             const onAbort = (): void => reject(new AparteElicitationAbortError('aborted'));
             signal.addEventListener('abort', onAbort, { once: true });
             answer.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+        });
+    }
+
+    /**
+     * Be handed every question and approval a chat of this config asks, as it is put on screen,
+     * with a way to answer it from anywhere: an inbox of what waits for the person across
+     * conversations, a notification with its own buttons.
+     *
+     * The chat still asks: its panel is up as usual, and the person can answer there.
+     * `respond(result)` answers in its place, with what the panel would have resolved (see
+     * {@link AparteElicitationPending}); the request resolves with it and the panel is taken
+     * down. Whichever answers first is the answer. `settled` tells when it no longer waits,
+     * however it ended, so the app takes its own copy down. `request.conversationId` says which
+     * conversation asked. A question waiting behind another in the same chat reaches you when
+     * its turn comes; an approval a client's `approvalResolver` decides never reaches the chat,
+     * so never here either. A listener that throws is reported at the console and harms no one.
+     *
+     * Returns the function that stops it.
+     *
+     * @example
+     * ```ts
+     * aparteGlobalConfig.observeElicitations((pending) => {
+     *   inbox.add(pending.request, (answer) => pending.respond(answer));
+     *   void pending.settled.then(() => inbox.remove(pending.request));
+     * });
+     * ```
+     */
+    observeElicitations(listener: (pending: AparteElicitationPending) => void): () => void {
+        this._elicitationObservers.add(listener);
+        return () => { this._elicitationObservers.delete(listener); };
+    }
+
+    /**
+     * {@link _present} with someone outside the chat able to answer: the presenter is handed a
+     * signal of its own, fired by a stop of the request as before and by an answer from outside,
+     * so its panel goes away whichever way the request ends.
+     */
+    private _presentObserved(presenter: AparteElicitationPresenter, request: AparteElicitationRequest): Promise<AparteElicitationResult> {
+        const takeDown = new AbortController();
+        let resolveSettled!: () => void;
+        const settled = new Promise<void>((resolve) => { resolveSettled = resolve; });
+        return new Promise<AparteElicitationResult>((resolve, reject) => {
+            let done = false;
+            const stop = request.signal;
+            const finish = (settle: () => void): void => {
+                if (done) return;
+                done = true;
+                stop?.removeEventListener('abort', onStop);
+                settle();
+                if (!takeDown.signal.aborted) takeDown.abort();
+                resolveSettled();
+            };
+            const onStop = (): void => finish(() => reject(new AparteElicitationAbortError('aborted')));
+            stop?.addEventListener('abort', onStop, { once: true });
+            presenter({ ...request, signal: takeDown.signal }).then(
+                (answer) => finish(() => resolve(answer)),
+                (error: unknown) => finish(() => reject(error)),
+            );
+            const pending: AparteElicitationPending = {
+                request,
+                respond: (answer) => finish(() => resolve(answer)),
+                settled,
+            };
+            for (const listener of [...this._elicitationObservers]) {
+                try {
+                    listener(pending);
+                } catch (error) {
+                    console.error('[aparte] an observeElicitations listener threw; the question is still asked.', error);
+                }
+            }
         });
     }
 
@@ -2534,6 +2607,7 @@ export class AparteConfig {
         // The queues too: a request left waiting across a reset belongs to a chat that
         // no longer exists, and holding a tail would make the next request wait on it.
         this._elicitationQueue.clear();
+        this._elicitationObservers.clear();
         this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;
@@ -2559,6 +2633,7 @@ export class AparteConfig {
         this._runEventObservers = [];
         this._modelConfig = {};
         this._requireModelSelection = false;
+        this._queueWhileStreaming = false;
         this._elicitationAllowOther = true;
         this._elicitationLayout = 'stepped';
         this._elicitationAnswerOnClick = true;
