@@ -4,6 +4,7 @@
  */
 
 import type { AparteSegment } from './segments.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flow States
@@ -102,6 +103,22 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
 export interface AparteTurnSummaryOptions {
     /** Keep a fold open while its steps run, and close it when they are done (default: closed). */
     openWhileRunning?: boolean;
+    /**
+     * The fold's line in your words: called with the steps the fold holds (its reasoning and
+     * its tool calls, in order) each time they change. A string replaces "Working" / "Worked
+     * 9 s · 7 tools" and the name of the step running beside it; `null` or `undefined` keeps
+     * core's line. `@aparte/plugin-subagents` ships one, `subagentsTurnLabel`, that counts a
+     * fold's sub-agents by state.
+     */
+    label?: (steps: readonly AparteSegment[], context: AparteTurnLabelContext) => string | null | undefined;
+}
+
+/** What a {@link AparteTurnSummaryOptions.label} function is told besides the steps. */
+export interface AparteTurnLabelContext {
+    /** Whether the fold is still working: one of its calls runs, or it ends a reply still streaming. */
+    running: boolean;
+    /** The chat's config: its locale (`t()`, `getLocale()`), for words in the chat's language. */
+    config: AparteConfig;
 }
 
 export interface AparteBubbleActionsConfig {

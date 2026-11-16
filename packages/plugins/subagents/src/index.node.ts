@@ -9,6 +9,7 @@
  */
 export { setupSubagents } from './setup.js';
 export { subagentOf, subagentStatus } from './status.js';
+export { subagentsTurnLabel } from './turn-label.js';
 export { subagentTranscript } from './transcript.js';
 export { connectSubagentView } from './connect.js';
 export type { ConnectSubagentViewOptions, SubagentViewSplit } from './connect.js';
