@@ -2,7 +2,7 @@ import type { AparteComposerInput } from './aparte-composer-input.js';
 import { installTypeToFocus } from './type-to-focus.js';
 import type { AparteComposerAttachments } from './aparte-composer-attachments.js';
 import type { AparteAttachmentState } from '../../types/index.js';
-import type { AparteSendEventDetail } from '../../types/index.js';
+import type { AparteSendEventDetail, AparteMessageToken } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { presenceOn } from '../../utils/presence.js';
@@ -50,9 +50,25 @@ export interface AparteComposerEventMap {
     'submit': { value: string; attachments: File[] };
     'cancel': Record<string, never>;
     'panel-change': { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode };
+    'queue-change': { queued: AparteQueuedMessage[] };
+}
+
+/**
+ * A message written while a reply streamed, waiting for it to end (see
+ * `aparteGlobalConfig.setQueueWhileStreaming`): what `aparte-send` will carry for it.
+ */
+export interface AparteQueuedMessage {
+    /** The text, trimmed. */
+    content: string;
+    /** The files it was written with. */
+    files?: File[];
+    /** The tokens its draft held. */
+    tokens?: AparteMessageToken[];
 }
 
 export type AparteComposerEventType = keyof AparteComposerEventMap;
+
+let queueIds = 0;
 
 /**
  * Public snapshot of the composer's observable state. Delivered on every
@@ -70,6 +86,8 @@ export interface AparteComposerState {
     panelActive: boolean;
     /** Whether the send button should act as "submit" while a panel is active. */
     submitEnabled: boolean;
+    /** The messages waiting for the reply to end, first to go first (`setQueueWhileStreaming`). */
+    queued: AparteQueuedMessage[];
 }
 
 /** Detail of the public `aparte-composer-change` DOM event. */
@@ -241,7 +259,13 @@ export class AparteComposer extends HTMLElement {
     // are actions, not state, and are covered by `aparte-send`/`aparte-cancel`.
     private static readonly _STATE_EVENTS: ReadonlySet<AparteComposerEventType> = new Set([
         'value-change', 'streaming-change', 'disabled-change', 'attachments-change', 'panel-change',
+        'queue-change',
     ]);
+
+    /** The messages written during a reply, waiting for it to end — see {@link queue}. */
+    private _queue: AparteQueuedMessage[] = [];
+    /** Unique per composer, for the ids that name each queued message to its buttons. */
+    private readonly _queueIdBase = `aparte-queued-${++queueIds}`;
 
     // Window event bindings
     private _onMessageStart = this._handleMessageStart.bind(this);
@@ -395,7 +419,47 @@ export class AparteComposer extends HTMLElement {
             attachments: [...this._attachments],
             panelActive: this._panelActive,
             submitEnabled: this._panelSubmitEnabled,
+            queued: this.queued,
         };
+    }
+
+    /** The messages waiting for the reply to end, first to go first. A copy. */
+    get queued(): AparteQueuedMessage[] {
+        return this._queue.map((q) => ({ ...q }));
+    }
+
+    /**
+     * Whether Enter in the field queues the draft while a reply streams: the config's
+     * `setQueueWhileStreaming`.
+     */
+    get queueWhileStreaming(): boolean {
+        return this._cfg.getQueueWhileStreaming();
+    }
+
+    /**
+     * Put the draft in the queue while a reply streams; it is sent when the reply ends well
+     * (`aparte-message-done`), after the ones queued before it. With no reply in flight this
+     * is a send. What Enter does with `setQueueWhileStreaming(true)`; call it from a button of
+     * your own to queue whatever the setting.
+     */
+    queue(): void {
+        if (this._panelActive) return;
+        if (!this._streaming) {
+            this.submit();
+            return;
+        }
+        const content = this._value.trim();
+        if (!content && this._attachments.length === 0) return;
+        if (this.disabled) return;
+        const tokens = this.querySelector<AparteComposerInput>('aparte-composer-input')?.getTokens?.();
+        this._queue.push({
+            content,
+            ...(this._attachments.length > 0 ? { files: [...this._attachments] } : {}),
+            ...(tokens?.length ? { tokens } : {}),
+        });
+        this.setValue('');
+        this.clearAttachments();
+        this._queueChanged();
     }
 
     /**
@@ -689,11 +753,27 @@ export class AparteComposer extends HTMLElement {
         if (this._modelGated) return; // no model selected yet (require-model gate)
         if (this._uploading) return; // a file is still on its way
 
-        this._emit('submit', { value, attachments: this._attachments });
-
         const tokens = this.querySelector<AparteComposerInput>('aparte-composer-input')?.getTokens?.();
-        const detail: AparteSendEventDetail = {
+        const sent = this._send({
             content: value,
+            ...(this._attachments.length > 0 ? { files: [...this._attachments] } : {}),
+            ...(tokens?.length ? { tokens } : {}),
+        });
+        if (!sent) return;
+
+        // Clear after send
+        this.setValue('');
+        this.clearAttachments();
+    }
+
+    /**
+     * Send one message: `aparte-before-send`, then — unless a listener held it — `aparte-send`.
+     * Returns whether it went. The one path for a message typed and for one that waited in the
+     * queue, so a hold applies to both.
+     */
+    private _send(message: AparteQueuedMessage): boolean {
+        const detail: AparteSendEventDetail = {
+            content: message.content,
             timestamp: Date.now(),
             /*
              * `_ownTargetId()`, not the bare attribute — the same resolution `cancel()`
@@ -703,8 +783,8 @@ export class AparteComposer extends HTMLElement {
              * reply to whichever one the host resolved first.
              */
             targetId: this._ownTargetId(),
-            files: this._attachments.length > 0 ? [...this._attachments] : undefined,
-            ...(tokens?.length ? { tokens } : {}),
+            files: message.files?.length ? [...message.files] : undefined,
+            ...(message.tokens?.length ? { tokens: message.tokens } : {}),
         };
 
         /*
@@ -713,17 +793,106 @@ export class AparteComposer extends HTMLElement {
          * the capture phase on the chat, before any listener an app can place — so the
          * question is asked by an event of its own, sent first (the platform's `beforeinput`).
          */
-        if (!dispatchChatEvent(this, 'aparte-before-send', detail, { cancelable: true })) return;
+        if (!dispatchChatEvent(this, 'aparte-before-send', detail, { cancelable: true })) return false;
 
+        this._emit('submit', { value: message.content, attachments: message.files ?? [] });
         this.dispatchEvent(new CustomEvent<AparteSendEventDetail>('aparte-send', {
             bubbles: true,
             composed: true,
             detail,
         }));
+        return true;
+    }
 
-        // Clear after send
-        this.setValue('');
-        this.clearAttachments();
+    /**
+     * The reply ended well: send the first queued message. After the event that said so has
+     * reached every listener (the client is still closing that turn while it runs), and only
+     * if no other reply started meanwhile — it then waits for that one.
+     */
+    private _sendNextQueued(): void {
+        if (this._streaming || this._queue.length === 0 || !this.isConnected) return;
+        const next = this._queue.shift()!;
+        this._queueChanged();
+        if (this.disabled || this._modelGated || !this._send(next)) this._backToField([next]);
+    }
+
+    /**
+     * Put queued messages back into the field, before what is being written there: after a
+     * Stop or an error, or when one is held. Nothing is sent behind the person's back, and
+     * nothing is lost.
+     */
+    private _backToField(messages: AparteQueuedMessage[]): void {
+        if (messages.length === 0) return;
+        const text = [...messages.map((m) => m.content), this._value.trim()].filter(Boolean).join('\n\n');
+        this.setValue(text);
+        const files = messages.flatMap((m) => m.files ?? []);
+        if (files.length > 0) this.addAttachments(files);
+    }
+
+    /** The queue changed: say so, and redraw the list over the field. */
+    private _queueChanged(): void {
+        this._emit('queue-change', { queued: this.queued });
+        this._drawQueue();
+    }
+
+    /**
+     * The queued messages, drawn above the field's row (or first in the composer when it has
+     * none): one line each, with a button that takes it back into the field and one that
+     * removes it. Hidden while the queue is empty. Drawn by the composer, like a panel, so a
+     * framework's own composition needs no part for it.
+     */
+    private _drawQueue(): void {
+        let strip = this.querySelector<HTMLElement>(':scope .aparte-composer-queue');
+        if (!strip) {
+            if (this._queue.length === 0) return;
+            strip = document.createElement('div');
+            strip.className = 'aparte-composer-queue';
+            strip.setAttribute('role', 'group');
+            const row = this.querySelector('.aparte-composer-row');
+            if (row?.parentElement) row.parentElement.insertBefore(strip, row);
+            else this.prepend(strip);
+        }
+        const cfg = this._cfg;
+        const label = cfg.t('queueLabel') || 'Sent when the reply ends';
+        strip.setAttribute('aria-label', label);
+        strip.hidden = this._queue.length === 0;
+        const head = document.createElement('div');
+        head.className = 'aparte-composer-queue__label';
+        head.textContent = label;
+        const list = document.createElement('ul');
+        list.className = 'aparte-composer-queue__list';
+        const base = this._queueIdBase;
+        this._queue.forEach((message, index) => {
+            const item = document.createElement('li');
+            item.className = 'aparte-composer-queue__item';
+            const text = document.createElement('span');
+            text.className = 'aparte-composer-queue__text';
+            text.id = `${base}-${index}`;
+            text.textContent = message.content || (message.files ?? []).map((f) => f.name).join(', ');
+            item.append(text, this._queueButton('edit', cfg.t('queueEdit') || 'Edit', text.id, index), this._queueButton('trash', cfg.t('queueRemove') || 'Remove', text.id, index));
+            list.append(item);
+        });
+        strip.replaceChildren(head, list);
+    }
+
+    private _queueButton(icon: 'edit' | 'trash', label: string, describedBy: string, index: number): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.classList.add('aparte-btn', 'aparte-btn--icon', 'aparte-btn--sm', 'aparte-btn--ghost');
+        button.classList.add(icon === 'edit' ? 'aparte-composer-queue__edit' : 'aparte-composer-queue__remove');
+        button.innerHTML = this._cfg.getIcon(icon);
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
+        button.setAttribute('aria-describedby', describedBy);
+        button.addEventListener('click', () => {
+            const [message] = this._queue.splice(index, 1);
+            this._queueChanged();
+            if (icon === 'edit' && message) {
+                this._backToField([message]);
+                this.focus();
+            }
+        });
+        return button;
     }
 
     /** Cancel the current streaming response. */
@@ -866,6 +1035,15 @@ export class AparteComposer extends HTMLElement {
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends
         if (this._panelActive) this._evictPanel();
+        if (this._queue.length === 0) return;
+        if (e.type === 'aparte-message-done') {
+            setTimeout(() => this._sendNextQueued(), 0);
+        } else {
+            // Stopped, or failed: what waited comes back into the field, unsent.
+            const waiting = this._queue.splice(0);
+            this._queueChanged();
+            this._backToField(waiting);
+        }
     }
 }
 

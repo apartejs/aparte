@@ -5,6 +5,7 @@ export type {
     AparteComposerState,
     AparteComposerChangeEventDetail,
     AparteComposerPanelMode,
+    AparteQueuedMessage,
 } from './aparte-composer.js';
 export type { AparteTypeToFocus } from './type-to-focus.js';
 export { AparteComposerInput } from './aparte-composer-input.js';

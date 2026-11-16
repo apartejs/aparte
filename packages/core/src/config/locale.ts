@@ -197,6 +197,16 @@ export type AparteLocale = {
      */
     stopButton?: string;
     /**
+     * The line over the messages written during a reply, waiting for it to end
+     * (default: "Sent when the reply ends"). Also the list's accessible name. Shown only with
+     * `setQueueWhileStreaming(true)`.
+     */
+    queueLabel?: string;
+    /** The button that takes a queued message back into the field (default: "Edit"). */
+    queueEdit?: string;
+    /** The button that removes a queued message (default: "Remove"). */
+    queueRemove?: string;
+    /**
      * The tag a `recommended` option wears beside its label (default: "Recommended").
      * Said, not only tinted: a tint is a hint the eye may miss and a screen reader
      * never gets.
@@ -646,6 +656,9 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherLabel: "Custom answer",
     submitButton: "Submit",
     stopButton: "Stop",
+    queueLabel: "Sent when the reply ends",
+    queueEdit: "Edit",
+    queueRemove: "Remove",
     elicitationRecommended: "Recommended",
     elicitationSkip: "Skip",
     elicitationHide: "Hide for now",

@@ -83,6 +83,24 @@ The send button becomes a stop button, and a click cancels the turn. The client 
 `streaming` for you; this demo sets it by hand. If stop should live somewhere else as well,
 add `<aparte-composer-cancel>`.
 
+The person can keep writing meanwhile, and Enter does nothing until the reply ends. For a chat
+whose replies take minutes (an agent at work, sub-agents one after another), let the next
+message wait for it instead:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setQueueWhileStreaming(true);
+```
+
+Enter then puts the draft in a list above the field, "Sent when the reply ends", each message
+with a button that takes it back into the field and one that removes it. When the reply ends
+well, the first one is sent, through the same `aparte-before-send` and `aparte-send` as a
+message sent by hand, and the next waits for the reply to it. After a Stop or an error, nothing
+is sent: what was waiting comes back into the field. The button stays Stop all along; a button
+of your own can queue with `composer.queue()`, and `queued` in the composer's state lists what
+waits, as `AparteQueuedMessage[]`.
+
 ## Usage
 
 <Usage />

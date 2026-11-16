@@ -402,6 +402,7 @@ export class AparteConfig {
     private _modelConfig: AparteModelConfig = {};
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
+    private _queueWhileStreaming = false;
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
     private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
@@ -1583,6 +1584,34 @@ export class AparteConfig {
     /** Whether the composer should gate on model selection (see {@link setRequireModelSelection}). */
     getRequireModelSelection(): boolean {
         return this._requireModelSelection;
+    }
+
+    /**
+     * Opt-in: a message written while a reply streams waits for it instead of being refused.
+     *
+     * Enter in the composer's field puts the draft in a queue shown above the field, each entry
+     * with a button to take it back into the field and one to remove it. When the reply ends
+     * well (`aparte-message-done`) the first queued message is sent, through the same
+     * `aparte-before-send` and `aparte-send` as one sent by hand, and the next one waits for the
+     * reply to it. After a Stop or an error nothing is sent: what was queued comes back into
+     * the field. The composer's `queue()` does the same for a button of your own.
+     *
+     * Off by default: Enter during a reply then does nothing, and the button stays Stop.
+     *
+     * @example
+     * ```ts
+     * aparteGlobalConfig.setQueueWhileStreaming(true);
+     * ```
+     */
+    setQueueWhileStreaming(on: boolean): void {
+        if (this._queueWhileStreaming === on) return;
+        this._queueWhileStreaming = on;
+        this._notify();
+    }
+
+    /** Whether a message written during a reply waits for it (see {@link setQueueWhileStreaming}). */
+    getQueueWhileStreaming(): boolean {
+        return this._queueWhileStreaming;
     }
 
     /**

@@ -343,6 +343,52 @@ aparte-composer-attachments[hidden] {
   display: none;
 }
 
+/* ── Messages waiting for the reply to end (setQueueWhileStreaming) ──
+   Drawn by the composer above the field's row, in the shell, with the attachments strip's
+   rule under it: what waits to be sent sits where a draft's files sit. One line per message,
+   the text cut with an ellipsis, its two buttons at the end. */
+.aparte-composer-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-2);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-composer-queue[hidden] {
+  display: none;
+}
+
+.aparte-composer-queue__label {
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-composer-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aparte-composer-queue__item {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text);
+}
+
+.aparte-composer-queue__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Add attachment button ── */
 aparte-composer-add-attachment {
   display: contents;
