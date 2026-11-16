@@ -63,6 +63,15 @@ export interface AparteSendEventDetail {
      * it: add it from a listener that runs before the client's (capture phase).
      */
     meta?: Record<string, unknown>;
+
+    /**
+     * The id of the message this send put in the transcript, written by whoever echoed it
+     * (the conversation controller in the capture phase, else `AparteClient`). Read it in a
+     * listener that runs after them — the bubble phase — to set a note on that message
+     * (`updateMessage(messageId, { note: 'Read by Marie' })`) or to pair it with your
+     * server's id. Absent until the message is echoed.
+     */
+    messageId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

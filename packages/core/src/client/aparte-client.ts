@@ -942,6 +942,10 @@ export class AparteClient {
         // and this reply. Read when asked, from the path, because a retry has moved it.
         const turnIds = (): string[] => {
             const path = targetElement.getMessages?.() ?? [];
+            // The question by its id when the send knows it, so a message appended around
+            // the turn cannot be taken for it; else the message right before the reply.
+            const askedId = opts?.userMessage?.messageId;
+            if (askedId && path.some((m) => m.id === askedId)) return [askedId, messageId];
             const at = path.findIndex((m) => m.id === messageId);
             const asked = at > 0 ? path[at - 1] : undefined;
             return asked?.role === 'user' ? [asked.id, messageId] : [messageId];
@@ -1629,8 +1633,9 @@ export class AparteClient {
         this._closeDeferred(targetElement);
         if (this.options.echoUserMessage !== false && event.detail?.echoed !== true) {
             const echoFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
+            const echoedId = uuid();
             targetElement.appendMessage?.({
-                id: uuid(),
+                id: echoedId,
                 role: 'user',
                 content,
                 timestamp: Date.now(),
@@ -1638,11 +1643,18 @@ export class AparteClient {
                 ...(event.detail?.tokens?.length ? { tokens: event.detail.tokens } : {}),
                 ...(event.detail?.meta ? { metadata: event.detail.meta } : {}),
             });
-            if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
+            if (event.detail && typeof event.detail === 'object') {
+                event.detail.echoed = true;
+                event.detail.messageId = echoedId;
+            }
         }
-        // The message just sent, as the chat shows it: the last one, whoever echoed it.
+        // The message just sent, by the id whoever echoed it wrote on the send: an app may
+        // append a message before the request is built, so "the last one" is only the
+        // fallback for an echo that wrote no id.
         const shown = targetElement.getMessages?.().at(-1);
-        const sentId = shown?.role === 'user' ? shown.id : undefined;
+        const sentId = typeof event.detail?.messageId === 'string'
+            ? event.detail.messageId
+            : shown?.role === 'user' ? shown.id : undefined;
 
         const messageId = uuid();
         const config = this._config.getModelConfig();
@@ -1705,7 +1717,7 @@ export class AparteClient {
             const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
             fileParts = contentParts.length > 0 ? contentParts : undefined;
-            messages = this._buildMessages(content, targetElement, fileParts);
+            messages = this._buildMessages(content, targetElement, fileParts, sentId);
         } catch (error: unknown) {
             this._handleLifecycleError(targetElement, messageId, AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR));
             return;
@@ -1716,7 +1728,7 @@ export class AparteClient {
             messages, modelId || config.defaultModel || '',
             authConfig,
             {
-                rebuild: async () => this._buildMessages(content, targetElement, fileParts),
+                rebuild: async () => this._buildMessages(content, targetElement, fileParts, sentId),
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
                 ...this._turnMeta(event.detail),
                 ...(conversationId ? { conversationId } : {}),
@@ -1728,7 +1740,7 @@ export class AparteClient {
     /**
      * Build the initial messages array, prepending system prompts and conversation history.
      */
-    private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[]): AparteChatMessage[] {
+    private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[], sentId?: string): AparteChatMessage[] {
         // 1. The app's system prompt, then the tools' own — see `_systemMessages`.
         const messages: AparteChatMessage[] = this._systemMessages();
 
@@ -1736,7 +1748,7 @@ export class AparteClient {
         const viewportMessages: AparteMessage[] = target?.getMessages?.() ?? [];
 
         if (historyOption === 'viewport') {
-            messages.push(...this._toHistoryMessages(viewportMessages));
+            messages.push(...this._toHistoryMessages(viewportMessages, sentId));
         } else if (typeof historyOption === 'function') {
             messages.push(...historyOption(viewportMessages));
         }
@@ -1752,20 +1764,27 @@ export class AparteClient {
         return parts && parts.length > 0 ? [{ type: 'text' as const, text }, ...parts] : text;
     }
 
-    private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
+    private _toHistoryMessages(path: AparteMessage[], sentId?: string): AparteChatMessage[] {
         // The checkpoint is read on the FULL path, before the cutoff below: it may sit on
         // the very message being sent (a turn retried after an overflow), and the cutoff
         // would otherwise have cut it away with that message.
         const { summary, messages } = historyFromCheckpoint(path);
-        // The message being sent is the last one not in flight (the reply waiting for it
-        // is): `_buildMessages` adds it itself, with its files, so it is cut here or it
-        // would go twice. Only that one. A message whose turn failed before it stays: it
-        // goes with this one, or is left out, by the rule every request follows
-        // (`withoutAbandonedTurns`). Cutting at the last ANSWERED reply left it out of
-        // this request and put it back, joined to this message, in the next one.
+        // The message being sent: `_buildMessages` adds it itself, with its files, so the
+        // history stops right before it or it would go twice. Found by its id — an app may
+        // have appended messages after this turn's pending reply (an advisor's reply,
+        // another participant's) before the request was built, and those belong to the
+        // next turn's history, not before this question. Without an id, the old reading:
+        // the last message not in flight. Only that one is cut. A message whose turn failed
+        // before it stays: it goes with this one, or is left out, by the rule every request
+        // follows (`withoutAbandonedTurns`).
+        const sentAt = sentId === undefined ? -1 : messages.findIndex((m) => m.id === sentId);
         let cutoff = messages.length;
-        while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
-        if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
+        if (sentAt !== -1) {
+            cutoff = sentAt;
+        } else {
+            while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
+            if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
+        }
 
         // The cutoff is this path's own concern; what each message contributes to the
         // wire is shared with retry and edit — see `wireMessages`.

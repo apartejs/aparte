@@ -404,6 +404,8 @@ export class AparteConversationController {
             //    reads before echoing, so this pairing renders the message ONCE.
             this._binding.appendMessage(userMsg);
             (evt.detail as { echoed?: boolean }).echoed = true;
+            // Its id, for the client to find this turn's question by and for the app.
+            (evt.detail as { messageId?: string }).messageId = userMsg.id;
 
             // 2. Ensure a conversation exists (lazy create on first send) and
             //    persist the user message. Done async; AparteClient continues.
