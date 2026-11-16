@@ -2530,25 +2530,44 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     this.querySelector('.aparte-message')?.toggleAttribute('data-branches', !pickerHidden);
   }
 
-  /** Append the registered custom action buttons for this bubble's role. */
+  /**
+   * The actions the app registered for this bubble's role, on their side of the built-ins:
+   * `position: 'start'` before them, the rest after, each side in `order`.
+   */
   private _appendCustomActions(): void {
     if (!this._actionBarEl) return;
+    const locale = this._cfg.getLocale() as Record<string, unknown>;
+    const start: HTMLButtonElement[] = [];
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
+      // A key of the locale when it has one, so the words follow the chat's language.
+      const word = Object.hasOwn(locale, a.label) ? locale[a.label] : undefined;
+      const label = typeof word === 'string' ? word : a.label;
+      // Icon: raw inline SVG/HTML, else an icon-provider key (trusted output).
+      const icon = a.display === 'label' || !a.icon
+        ? ''
+        : a.icon.startsWith('<') ? a.icon : (this._cfg.getIcon(a.icon) ?? a.iconFallback ?? '');
+      // A button with no icon to draw writes its label rather than stay an empty box.
+      const written = a.display === 'label' || a.display === 'both' || icon === '';
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-custom';
+      btn.className = 'aparte-btn aparte-btn--sm aparte-action-btn aparte-action-custom';
+      if (!written) btn.classList.add('aparte-btn--icon');
       btn.dataset['action'] = `custom:${a.id}`;
-      // aria-label/title via setAttribute — safe for consumer-provided strings.
-      btn.setAttribute('aria-label', a.label);
-      btn.setAttribute('title', a.label);
-      // Icon: raw inline SVG/HTML, else an icon-provider key (trusted output).
-      btn.innerHTML = a.icon.startsWith('<')
-        ? a.icon
-        : (this._cfg.getIcon(a.icon) ?? a.iconFallback ?? '');
-      this._actionBarEl.appendChild(btn);
+      btn.innerHTML = icon;
+      if (written) {
+        // The text is its name: no aria-label or tooltip saying it twice. A text node, so a
+        // consumer's string cannot inject markup.
+        btn.append(label);
+      } else {
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
+      }
+      if (a.position === 'start') start.push(btn);
+      else this._actionBarEl.appendChild(btn);
     }
+    this._actionBarEl.prepend(...start);
   }
 
   /** Build the `<button>` HTML for a single named action (shared by flag + per-role rendering). */

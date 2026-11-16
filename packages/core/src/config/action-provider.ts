@@ -38,14 +38,35 @@ export interface AparteAction {
      * Icon for the button:
      * - If it starts with `<`, it is treated as raw HTML/SVG and used directly.
      * - Otherwise it is treated as a key for `aparteGlobalConfig.getIcon()`. If the
-     *   provider doesn't have the key, falls back to `iconFallback` or `id`.
+     *   provider doesn't have the key, falls back to `iconFallback`.
+     *
+     * Not needed with `display: 'label'`. A button left with no icon to draw shows its
+     * label instead, never an empty box.
      */
-    icon: string;
+    icon?: string;
     /** Inline SVG/HTML fallback used when the icon provider doesn't have the key. */
     iconFallback?: string;
-    /** Accessible label (sets `aria-label` + `title`) — a locale key or a raw string. */
+    /**
+     * What the button is called: its text with `display: 'label'` or `'both'`, else its
+     * `aria-label` and tooltip. A key of the locale when the locale has it (add yours with
+     * `extendLocale`), so it follows the chat's language; else shown as written.
+     */
     label: string;
-    /** Lower renders first among custom actions (they follow the built-ins). */
+    /**
+     * What the button shows. `'icon'` is the bar's own look: the icon, the label as its name
+     * and tooltip. `'label'` writes the label, for an action an icon cannot say ("Go back
+     * before"); `'both'` puts the icon before it. A button that shows its label is named by
+     * it, with no tooltip repeating it.
+     * @default 'icon'
+     */
+    display?: 'icon' | 'label' | 'both';
+    /**
+     * Where it stands in the bar: `'end'`, after the built-in buttons, or `'start'`, before
+     * them. `order` sorts the actions on each side.
+     * @default 'end'
+     */
+    position?: 'start' | 'end';
+    /** Lower renders first among the custom actions on the same side of the built-ins. */
     order?: number;
     /** Which zones this action appears in. */
     zones: AparteActionZone[];

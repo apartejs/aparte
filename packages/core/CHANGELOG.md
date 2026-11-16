@@ -1,5 +1,23 @@
 # @aparte/core
 
+## 1.11.0
+
+### Minor Changes
+
+- c1912b3: A registered message action can show its label as text and stand before the built-in buttons: `registerAction({ …, display: 'label', position: 'start' })`. Existing actions are unchanged.
+
+  `display` is `'icon'` (the default, as before), `'label'` or `'both'`. `icon` is optional with `'label'`, and a button left with no icon to draw shows its label rather than an empty box. A button that shows its label is named by it, with no tooltip repeating it. `position` is `'end'` (the default, as before) or `'start'`; `order` sorts the actions on each side.
+
+  `label` is now read as a key of the locale when the locale has it, as its documentation already said and the bubble did not do: add yours with `extendLocale`, and the words follow the chat's language. A label the locale does not have is shown as written.
+
+- 289cf4d: A request whose history starts at a checkpoint names the summary it opens with in `_meta.historySummary`, so a server that keeps its own history can tell it from what the person said. Nothing to change in your code.
+
+  The summary still goes as a `user` message under its preamble, joined to the person's next message when one follows. `historySummary` is the text that message opens with, exactly; what follows it, after a blank line, is the person's. It travels in `_meta` rather than on the message, so a backend that hands `messages` to a model API as they are never meets a field it does not know.
+
+### Patch Changes
+
+- @aparte/engine@1.11.0
+
 ## 1.10.1
 
 ### Patch Changes

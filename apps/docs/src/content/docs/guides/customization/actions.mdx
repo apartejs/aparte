@@ -100,7 +100,7 @@ document.addEventListener('aparte-action', (event) => {
 });
 ```
 
-A registered action follows the built-in buttons, sorted by its `order`. `icon` is one of core's
+By default a registered action follows the built-in buttons, sorted by its `order`. `icon` is one of core's
 [icon names](/reference/icons/), or SVG markup when it starts with `<` — pass the markup for any
 glyph core does not have: a name it does not know draws the action's `iconFallback`, or nothing.
 `label` is the
@@ -109,6 +109,30 @@ button's accessible name, so an icon alone always has one. A click sends `aparte
 action's `onClick` if you gave one; `unregisterAction(id)` removes the button. The framework
 packages hand you the same detail: `onAction` in React, `@action` in Vue, `on:action` in Svelte,
 `(action)` in Angular.
+
+### A label instead of an icon, before the built-ins
+
+An action an icon cannot say, rare and with consequences, can write its label instead:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.extendLocale({ goBackBefore: 'Go back before' });
+aparteGlobalConfig.registerAction({
+  id: 'rewind',
+  label: 'goBackBefore',
+  display: 'label',
+  position: 'start',
+  zones: ['bubble'],
+  bubble: { roles: ['user'] },
+});
+```
+
+`display: 'label'` writes the label on the button and needs no `icon`; `'both'` puts the icon
+before it; `'icon'`, the default, is the bar's own look. A button that shows its label is named by
+it, with no tooltip repeating it. `position: 'start'` puts the action before the built-in buttons,
+and `order` sorts the actions on each side. `label` is a key of the locale when the locale has it,
+so the words follow the chat's language; a label the locale does not have is shown as written.
 
 ## Add a button to the composer
 

@@ -7,7 +7,7 @@ import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
-import { isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, underPreamble, wireMessages, wireTurns } from './wire-history.js';
+import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { chatIdOf } from '../interop/chat-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, AparteStreamRunOptions, StreamAdapterTarget } from './stream-adapter.js';
@@ -862,13 +862,17 @@ export class AparteClient {
         // change, and everything else the turn does to a request (the interceptor, the
         // `toolChoice` rule) must be done again to them.
         const buildRequest = async (requestMessages: AparteChatMessage[]): Promise<AparteChatRequest> => {
+            // Read off the messages that go, not the path that built them: a compactor that
+            // writes a checkpoint before the request leaves changes them.
+            const historySummary = historySummaryOf(requestMessages);
+            const meta = historySummary === undefined ? opts?.meta : { ...opts?.meta, historySummary };
             let built: AparteChatRequest = {
                 messages: requestMessages,
                 modelId,
                 stream: true,
                 tools: registeredTools.length ? registeredTools : undefined,
                 ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
-                ...(opts?.meta ? { _meta: opts.meta } : {}),
+                ...(meta ? { _meta: meta } : {}),
             };
             if (this.options.requestInterceptor) {
                 built = await this.options.requestInterceptor(built, turn);
@@ -1497,7 +1501,7 @@ export class AparteClient {
      * `mergeAdjacentUserMessages` joins the two where the history is assembled.
      */
     private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
-        return summary === undefined ? [] : [{ role: 'user', content: underPreamble(summary) }];
+        return summary === undefined ? [] : [summaryMessage(summary)];
     }
 
     /** A message's tokens and metadata as a turn's `_meta`: a send and its retry say the same. */

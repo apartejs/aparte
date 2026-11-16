@@ -374,6 +374,16 @@ aparte-diff {
 }
 ```
 
+The two line numbers sit in `.aparte-diff-line__gutter`, each in an `.aparte-diff-line__num` with
+`data-side="old"` or `data-side="new"`. The view is light DOM, so a rule reaches them as it reaches
+the rest, a rule between the two columns for one:
+
+```css
+aparte-diff .aparte-diff-line__num[data-side='old'] {
+  border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+```
+
 Its words are in the ten languages the [locales](/guides/localization/) ship, in the chat's
 language. Change one with `extendLocale`, under its key (`diffCommentSubmit`, `diffShowUnchanged`…).
 

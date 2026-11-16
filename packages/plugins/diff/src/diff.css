@@ -166,9 +166,11 @@ button.aparte-diff-line__gutter:focus-visible {
     outline-offset: calc(-1 * var(--aparte-focus-outline-width));
 }
 
+/* Each number keeps the space a unified diff gives it (GitHub, GitLab: about 20px between the two):
+   with a character's worth between them, two numbers that fill the column (`118 118`) read as one. */
 .aparte-diff-line__num {
     min-inline-size: 3ch;
-    padding-inline: var(--aparte-space-2);
+    padding-inline: var(--aparte-space-5);
     font-variant-numeric: tabular-nums;
     text-align: end;
 }

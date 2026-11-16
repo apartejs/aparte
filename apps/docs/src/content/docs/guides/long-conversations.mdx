@@ -195,6 +195,26 @@ conversation like the rest of the message. Edit a message above it and the conve
 checkpoint included, so the model reads everything again until the next compaction; edit the
 checkpoint's own message and the summary still stands for what came before it.
 
+The summary goes as a `user` message, under a sentence that tells the model it is a summary, and it
+is joined to the person's next message when one follows, since a strict chat template refuses two
+user turns in a row. A server that keeps its own history must not take it for something the person
+said, so the request names it: `_meta.historySummary` is the text the first `user` message opens
+with, exactly (its first text part, when its content is parts). Whatever follows it, after a blank
+line, is the person's:
+
+```ts
+import type { AparteChatRequest } from '@aparte/core';
+
+declare const request: AparteChatRequest;
+
+const summary = request._meta?.historySummary;
+const first = request.messages.find((m) => m.role === 'user');
+if (summary && typeof first?.content === 'string' && first.content.startsWith(summary)) {
+  // '' when the summary stands alone.
+  const theirs = first.content.slice(summary.length).replace(/^\n\n/, '');
+}
+```
+
 A `history` function of your own (an `AparteClient` option) receives every message:
 `historyFromCheckpoint(messages)` from `@aparte/core` returns `{ summary, messages }`, the same cut the
 client makes. A bubble you draw yourself (`renderBubble` in React, the `bubble` slot in Vue and Svelte,
@@ -214,8 +234,9 @@ updateMessage })` hands the plugin your own message list; it writes the checkpoi
 `updateMessage`.
 
 When the model runs its own loop on a server (an [AG-UI agent](/providers/agent/ag-ui/), a
-[server loop](/guides/server-loop/)), the page still sends the history from the checkpoint, but an
-agent that keeps its own memory of the thread is not affected by it.
+[server loop](/guides/server-loop/)), the page still sends the history from the checkpoint, its
+summary named in `_meta.historySummary`, but an agent that keeps its own memory of the thread is not
+affected by it.
 
 ## Reference
 
