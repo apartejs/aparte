@@ -1,5 +1,11 @@
 # @aparte/core
 
+## 1.12.1
+
+### Patch Changes
+
+- @aparte/engine@1.12.1
+
 ## 1.12.0
 
 ### Minor Changes
