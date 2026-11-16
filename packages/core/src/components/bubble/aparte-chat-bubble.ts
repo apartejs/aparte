@@ -1309,9 +1309,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
     const reason = this.getAttribute('data-checkpoint-reason') ?? '';
     const summary = this._checkpointSummaryText();
+    // Under the message when the summary stands for it too: the history resumes after it.
+    const below = kind === 'done' && this._contextSummary?.includesSelf === true;
     const signature = JSON.stringify([
       kind, this._contextSummary?.count, this._contextSummary?.createdAt, reason,
-      this._checkpointOpen, this._confirmingRestore, this._checkpointOpen ? summary : '',
+      this._checkpointOpen, this._confirmingRestore, this._checkpointOpen ? summary : '', below,
     ]);
     if (current && !focus && signature === this._checkpointDrawn) return;
 
@@ -1335,8 +1337,13 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       // default, which escapes — text.
       if (panel) panel.innerHTML = this._cfg.renderMarkdown(summary);
     }
-    if (current) current.replaceWith(next);
-    else this.prepend(next);
+    if (current && current.hasAttribute('data-below') === below) current.replaceWith(next);
+    else {
+      current?.remove();
+      if (below) this.append(next);
+      else this.prepend(next);
+    }
+    next.toggleAttribute('data-below', below);
     this._checkpointDrawn = signature;
 
     const wanted = focus ?? hadFocus;

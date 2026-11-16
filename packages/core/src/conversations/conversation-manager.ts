@@ -64,7 +64,12 @@ export function applyRetention(
     for (let i = messages.length - 1; i >= 0; i--) {
         const own = messages[i]!.contextSummary;
         if (!own) continue;
-        if (i < cutIndex) inherited = { ...own, count: own.count + (cutIndex - i) };
+        if (i < cutIndex) {
+            // A carrier the summary covered is counted already; the inheritor is kept, so the
+            // checkpoint it gets does not cover it.
+            const { includesSelf, ...rest } = own;
+            inherited = { ...rest, count: own.count + (cutIndex - i) - (includesSelf ? 1 : 0) };
+        }
         break;
     }
     if (first && inherited) trimmedFlat[0] = { ...first, contextSummary: inherited };

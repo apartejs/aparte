@@ -192,6 +192,15 @@ export interface AparteContextSummary {
 
     /** When the summary was written, in epoch milliseconds. */
     createdAt: number;
+
+    /**
+     * The summary stands for the message that carries it too: the history the model reads
+     * starts AFTER it, and the separator is drawn under it. For a host that summarised
+     * everything so far, the last answer included, and has only that answer to put the
+     * checkpoint on. Never on the question being answered: on a last `user` message it reads
+     * as an ordinary checkpoint. `count` counts the carrier then.
+     */
+    includesSelf?: boolean;
 }
 
 /**
