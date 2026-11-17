@@ -1,11 +1,11 @@
 {
     "@aparte/angular": {
-        "js": 38400,
+        "js": 38656,
         "css": 0
     },
     "@aparte/core": {
-        "js": 300800,
-        "css": 26368
+        "js": 305152,
+        "css": 26624
     },
     "@aparte/docs-mcp": {
         "js": 4096,
@@ -44,7 +44,7 @@
         "css": 0
     },
     "@aparte/plugin-diff": {
-        "js": 22016,
+        "js": 22272,
         "css": 0
     },
     "@aparte/plugin-echarts": {
@@ -64,7 +64,7 @@
         "css": 0
     },
     "@aparte/plugin-model-selector": {
-        "js": 9728,
+        "js": 9984,
         "css": 0
     },
     "@aparte/plugin-shiki": {
@@ -96,7 +96,7 @@
         "css": 0
     },
     "@aparte/provider-openai-compat": {
-        "js": 9728,
+        "js": 9984,
         "css": 0
     },
     "@aparte/provider-scenario": {
