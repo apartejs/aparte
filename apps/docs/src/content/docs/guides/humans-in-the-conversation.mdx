@@ -307,7 +307,7 @@ conversation was handed back.
 
 ## A note
 
-`note` is a short line under a message, in its footer: "Read by Marie", "Sent by email",
+`note` is a short line under a message, below its actions: "Read by Marie", "Sent by email",
 "Edited". Set it with `updateMessage(messageId, { note })` and clear it with
 `{ note: undefined }`. The id of the message the person just sent is on the send itself,
 `detail.messageId` of `aparte-send` (`onMessageSent` in React), written by whoever shows the
@@ -324,10 +324,14 @@ message is answered, and the model reads what was written meanwhile.
 
 Without an id, the setting is the chat's, and a conversation's own setting wins over it. It
 lives on the config: chats that share the page's config are all turned off by a call without an
-id, so give a chat its own [config](/guides/several-live-chats/) to turn it off alone.
+id, so give a chat its own [config](/guides/customization/#per-chat-configuration) to turn it off
+alone: the client of the page reads it.
 
 The chat does not remember it. Who holds a conversation is your desk's to know, so apply it again
-when a conversation opens:
+when a conversation opens, before your listener returns: a reply paused on a question resumes
+as soon as its conversation is loaded, unless the AI is off for it by then. When your desk answers
+asynchronously, keep the AI off while you ask, and give it back once you know — then call the
+client's `resumeDeferred()`, which resumes a reply that was held back:
 
 <Tabs syncKey="framework">
 <TabItem label="Vanilla">
@@ -428,6 +432,24 @@ export class ChatComponent {
 </TabItem>
 </Tabs>
 
+When your desk's answer comes later, call this from the same handler instead:
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+
+const client = new AparteClient();
+client.start();
+
+/** A conversation opened; your desk says later whether a person holds it. */
+export async function opened(conversationId: string) {
+  aparteGlobalConfig.setAutoReply(false, conversationId); // quiet while you ask, before anything resumes
+  const { held } = await fetch(`/desk/conversations/${conversationId}`).then((r) => r.json() as Promise<{ held: boolean }>);
+  if (held) return;
+  aparteGlobalConfig.setAutoReply(true, conversationId);
+  await client.resumeDeferred(); // a reply paused on a question goes on
+}
+```
+
 A reply already on its way is not stopped by `setAutoReply(false)`. To cut it, stop it the way
 the Stop button does, with the chat's id when the page has several:
 
@@ -487,5 +509,5 @@ AG-UI agent is sent the whole conversation on every run.
 - [Save conversations](/guides/conversation-persistence/): the manager that saves what an advisor
   writes.
 - [Message](/components/message/): the bubble's attributes and parts.
-- [Several live chats](/guides/several-live-chats/): one config per chat, to turn the AI off in
-  one of them.
+- [Per-chat configuration](/guides/customization/#per-chat-configuration): a config of its own,
+  to turn the AI off in one chat of the page.
