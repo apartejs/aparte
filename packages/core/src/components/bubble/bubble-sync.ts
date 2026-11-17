@@ -7,6 +7,7 @@ import type {
     AparteFinishReason,
     AparteContextSummary,
     AparteMessageToken,
+    AparteAuthor,
 } from '../../types/index.js';
 import { isTerminalStatus } from '../../utils/segments.js';
 
@@ -28,6 +29,9 @@ export interface SyncableBubble {
     setUsage?: (usage: AparteUsage | null | undefined) => void;
     setFinishReason?: (reason: AparteFinishReason | null | undefined) => void;
     setContextSummary?: (summary: AparteContextSummary | null | undefined, options?: { legacy?: boolean }) => void;
+    setAuthor?: (author: AparteAuthor | undefined) => void;
+    setKind?: (kind: AparteMessage['kind']) => void;
+    setNote?: (note: string | undefined) => void;
 }
 
 /**
@@ -82,6 +86,10 @@ export function populateBubbleFromMessage(
 ): void {
     // Before the content: a rewritten message is drawn with the tokens it now has.
     bubble.setTokens?.(message.tokens);
+    // Also with none: a branch switch reuses the bubble, and the next message may have no author.
+    bubble.setAuthor?.(message.author);
+    // The frame before the content: a notice is a line, not a bubble.
+    bubble.setKind?.(message.kind);
 
     if (message.segments && message.segments.length > 0) {
         const existing = bubble.getSegments?.() ?? [];
@@ -137,4 +145,7 @@ export function populateBubbleFromMessage(
     // IS the summary an older compaction wrote, which the bubble then replaces with the
     // separator.
     bubble.setContextSummary?.(message.contextSummary, { legacy: message.compaction === true });
+
+    // Also with none: the note of the message a reused bubble showed before goes.
+    bubble.setNote?.(message.note);
 }

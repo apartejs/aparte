@@ -32,19 +32,23 @@ export function toAgUiMessages(
         const id = `aparte-${index}`;
         const content = contentToText(m.content);
         const images = Array.isArray(m.content) && m.content.some((part) => part.type === 'image');
+        // Who wrote it — an advisor, another participant — where AG-UI 1.0 has a place for it.
+        const named = (m.role === 'user' || m.role === 'assistant') && m.name ? { name: m.name } : {};
         if (m.role === 'user' && images && !flatten) {
             out.push({
                 id,
                 role: 'user',
+                ...named,
                 content: (m.content as AparteContentPart[]).map((part) => (part.type === 'image' ? imagePart(part) : { type: 'text', text: part.text })),
             });
         } else if (m.role === 'system' || m.role === 'user') {
             if (images) warn(`the agent's AG-UI version takes text only, which DROPS non-text parts: the images of message ${index} are not sent.`);
-            out.push({ id, role: m.role, content });
+            out.push({ id, role: m.role, content, ...named });
         } else if (m.role === 'assistant') {
             out.push({
                 id,
                 role: 'assistant',
+                ...named,
                 ...(content ? { content } : {}),
                 ...(m.toolCalls?.length
                     ? {

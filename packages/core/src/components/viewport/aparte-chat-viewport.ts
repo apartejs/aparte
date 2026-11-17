@@ -18,6 +18,7 @@ import { parseMarkdownToSegments } from '../../parsers/index.js';
 import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { isModelReply } from '../../utils/is-model-reply.js';
 import { presenceOn } from '../../utils/presence.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
@@ -46,7 +47,8 @@ import { chatIdOf, dispatchChatEvent } from '../../interop/chat-events.js';
  * What it derived, it MARKS — see {@link markDerivedSegments}.
  */
 function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[]): AparteMessage {
-    if (message.role !== 'assistant' || message.segments?.length) return message;
+    // The model's grammar is the model's: an advisor's message and a notice keep their text.
+    if (!isModelReply(message) || message.segments?.length) return message;
     if (typeof message.content !== 'string' || !message.content.trim()) return message;
     const segments = parseMarkdownToSegments(message.content, { blocks });
     const onlyProse = segments.length <= 1 && segments.every((s) => s.type === 'text');
@@ -150,6 +152,7 @@ function longDate(at: Date, tag?: string): string {
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
+ * @fires {CustomEvent<AparteTranscriptChangeEventDetail>} aparte-transcript-change - `appendMessage` or `updateMessage` wrote outside a turn, on a viewport no framework drives.
  *
  * @cssprop [--aparte-viewport-padding=var(--aparte-space-8)] - Padding around the transcript — on
  *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
@@ -646,13 +649,20 @@ export class AparteChatViewport extends HTMLElement {
         //
         // `AparteChatHost` has had `_isOrphan` for exactly this, which is why the
         // framework wrappers were protected and the raw viewport — the documented
-        // vanilla quick start — was not. Refusing, like the host does, rather than
-        // routing: losing the tail is visible, writing it onto someone else's message
-        // is not.
+        // vanilla quick start — was not.
+        //
+        // One open turn on the active path is unambiguous: an app appended a message
+        // after it (an advisor's reply, a notice) and the turn keeps writing into its
+        // own message. Anything else is refused rather than routed — a turn that left
+        // the path, or two open turns (a retry superseded one): losing the tail is
+        // visible, writing it onto someone else's message is not.
         const head = this._repo.headId;
-        const streaming = this._streamingMessageId();
-        if (streaming !== null && streaming !== head) return null;
-        return head;
+        const open = this._repo.getAllMessages().filter((m) => (m as { isStreaming?: boolean }).isStreaming);
+        if (open.length === 0) return head;
+        if (open.length > 1) return null;
+        const streaming = open[0]!.id;
+        if (streaming === head) return head;
+        return this._repo.getMessages().some((m) => m.id === streaming) ? streaming : null;
     }
 
     /**
@@ -922,6 +932,19 @@ export class AparteChatViewport extends HTMLElement {
         this._notifyBubble(messageId, 'update', updates);
         if (updates.status) this._syncBusy();
         this._autoScroll();
+        this._announceWrite(message, 'update');
+    }
+
+    /**
+     * Say that the app wrote into the transcript outside a turn (`aparte-transcript-change`),
+     * so a conversation controller saves it — during a human takeover no turn runs, and
+     * nothing else would. Not for the AI's empty shell, not while a reply streams (the
+     * turn's end saves then), and not under a framework, where the host says it.
+     */
+    private _announceWrite(message: AparteMessage, change: 'append' | 'update'): void {
+        if (this._frameworkManagedDOM) return;
+        if (this._streamingMessageId() !== null || isAwaitingReply(message)) return;
+        dispatchChatEvent(this, 'aparte-transcript-change', { messageId: message.id, change });
     }
 
     /**
@@ -1016,9 +1039,14 @@ export class AparteChatViewport extends HTMLElement {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
                 bubble.setAttribute('data-role', message.role);
-                if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
+                // A notice is a line from its first frame; an older summary keeps its stamp.
+                const kind = message.kind ?? (message.compaction ? 'compaction' : undefined);
+                if (kind) bubble.setAttribute('data-kind', kind);
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
+                // Before it connects: the first frame is drawn with the author's name and
+                // picture, and an avatar provider is not asked for a message that has one.
+                if (message.author) (bubble as unknown as SyncableBubble).setAuthor?.(message.author);
                 // Also true for an empty assistant message with no status: an
                 // imperative "the reply is coming" shell, which otherwise rendered
                 // as a finished answer (action bar and all) before a single token.
@@ -1043,6 +1071,7 @@ export class AparteChatViewport extends HTMLElement {
                 populateBubbleFromMessage(bubble as unknown as SyncableBubble, stored);
             }
         }
+        if (!options?.historical && !this._bulkAppend) this._announceWrite(stored, 'append');
         // A whole conversation set at once does the layout work below once, at the end.
         if (this._bulkAppend) return;
         this._pruneRenderedBubbles();
@@ -1066,12 +1095,13 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Update the last message content, optionally appending.
-     * Implements the same contract as the Angular wrapper's updateLastMessage(),'
+     * Update the content of the turn's message, optionally appending: the message being
+     * streamed while a turn runs, else the last one — the same resolution as the
+     * 1-argument segment writes. Implements the same contract as the wrappers' host,
      * making aparte-chat-viewport a fully standalone streaming target for aparte-client.
      */
     updateLastMessage(content: string, options?: { append?: boolean }): void {
-        const lastId = this._repo.headId;
+        const lastId = this._activeMessageId();
         if (!lastId) return;
         if (options?.append) {
             this.appendToken(lastId, content);
@@ -1493,8 +1523,9 @@ export class AparteChatViewport extends HTMLElement {
                 // kept displaying the old text.
                 const updates = payload as Record<string, unknown>;
                 // `contextSummary` and `compaction` draw (or take off) the separator above the
-                // message — a Restore writes them through here.
-                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction'];
+                // message — a Restore writes them through here. `author`, `kind` and `note`
+                // are what an app writes on a message during a human takeover.
+                const renderable = ['status', 'segments', 'content', 'attachments', 'usage', 'finishReason', 'contextSummary', 'compaction', 'author', 'kind', 'note'];
                 if (renderable.some((key) => key in updates)) {
                     bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }
@@ -1572,11 +1603,14 @@ export class AparteChatViewport extends HTMLElement {
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
             bubble.setAttribute('data-role', message.role);
-            if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
+            const kind = message.kind ?? (message.compaction ? 'compaction' : undefined);
+            if (kind) bubble.setAttribute('data-kind', kind);
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
             }
+            // Before it connects, as in `appendMessage`: the first frame names the author.
+            if (message.author) (bubble as unknown as SyncableBubble).setAuthor?.(message.author);
             wrapper.appendChild(bubble);
 
             // Reconcile content / segments / attachments / sibling-picker via

@@ -499,3 +499,33 @@ describe('parseOpenAICompatStream — the caller aborts', () => {
         expect(events.filter(e => e.type === 'error')).toHaveLength(1);
     });
 });
+
+// OpenAI's Chat Completions takes a participant `name` on user and assistant messages, and
+// enforces ^[a-zA-Z0-9_-]{1,64}$ (a name with a space is a 400); Mistral answers 422 to any
+// `name`. So it goes out only when asked (`sendNames`), on in the OpenAI preset alone, and
+// made to fit the pattern, or left out when nothing of it fits.
+describe('who wrote a message (sendNames)', () => {
+    const messages: AparteChatMessage[] = [
+        { role: 'user', content: 'hi', name: 'Alex' },
+        { role: 'assistant', content: 'Marie here.', name: 'Marie Curie' },
+        { role: 'user', content: 'ok', name: '李雷' },
+    ];
+    const sent = (sendNames?: boolean) => {
+        const p = createOpenAICompatProvider({ id: 'x', baseURL: 'https://x.test/v1', ...(sendNames !== undefined ? { sendNames } : {}) });
+        const { body } = p.buildRequest!({ modelId: 'm', messages }) as { body: { messages: { name?: string }[] } };
+        return body.messages.map((m) => m.name);
+    };
+
+    it('leaves names out by default', () => {
+        expect(sent()).toEqual([undefined, undefined, undefined]);
+    });
+
+    it('sends them when asked, made to fit the pattern, and leaves out one where nothing fits', () => {
+        expect(sent(true)).toEqual(['Alex', 'Marie_Curie', undefined]);
+    });
+
+    it('asks for them in the OpenAI preset only', () => {
+        expect(presets.OPENAI.sendNames).toBe(true);
+        expect(presets.MISTRAL.sendNames).toBeUndefined();
+    });
+});

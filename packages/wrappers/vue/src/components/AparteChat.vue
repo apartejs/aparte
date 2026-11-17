@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw, type ComponentPublicInstance } from 'vue';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, authorTypeOf, isAwaitingReply, releaseDeferredHydration, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, type AparteComposer, type AparteTypeToFocus } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 import { APARTE_CHAT_EVENT_BINDINGS, type AparteChatEventEmits } from '../generated/chat-events.js';
 
@@ -310,7 +310,9 @@ defineExpose({
           <aparte-chat-bubble
             :message-id="m.id"
             :data-role="m.role"
-            :data-kind="m.compaction ? 'compaction' : undefined"
+            :data-kind="m.kind ?? (m.compaction ? 'compaction' : undefined)"
+            :name="m.author?.name"
+            :data-author-type="m.author ? authorTypeOf(m) : undefined"
             :timestamp="m.timestamp"
             :content="m.content"
             :streaming="isAwaitingReply(m) ? '' : null"

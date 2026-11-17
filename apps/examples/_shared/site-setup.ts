@@ -29,6 +29,7 @@ import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdow
 import { setupKatex } from '@aparte/plugin-katex';
 import { setupMermaid } from '@aparte/plugin-mermaid';
 import { setupPluginCard } from './plugin-card';
+import { HANDOFF_SCENARIOS, routeHandoff, setupHandoff } from './handoff';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
@@ -194,6 +195,8 @@ async function run(): Promise<SiteSetup> {
                 ...DIFF_SCENARIOS,
                 // A reply holding a same-site link, another site's and an in-page one (links.ts).
                 ...LINK_SCENARIOS,
+                // The reply once a person hands the conversation back (handoff.ts).
+                ...HANDOFF_SCENARIOS,
                 ...showcase,
                 // Where a refusal lands, and it needs `match` below to get there: an
                 // `after:` route keys on WHICH tool ran, never on what its result said,
@@ -207,7 +210,7 @@ async function run(): Promise<SiteSetup> {
             match: (request) => {
                 const last = request.messages[request.messages.length - 1];
                 // A user message too: the one saying the sub-agents started in the background are back.
-                if (last?.role !== 'tool') return routeDelegation(request);
+                if (last?.role !== 'tool') return routeHandoff(request) ?? routeDelegation(request);
                 return REFUSAL.test(contentToText(last.content)) ? 'refused' : routeDelegation(request);
             },
             models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
@@ -285,6 +288,8 @@ async function run(): Promise<SiteSetup> {
     aparteGlobalConfig.registerToolDisplay('get_weather', { label: tense('Checking the weather…', 'Checked the weather', 'Weather'), icon: 'globe', summary: (s) => arg(s, 'city') });
     // `?plugin-card`: the same call drawn by `@aparte/plugin-cards` (see `plugin-card.ts`).
     setupPluginCard();
+    // `?handoff`: a simulated advisor takes the conversation over (see `handoff.ts`).
+    setupHandoff();
     aparteGlobalConfig.registerToolDisplay('search_docs', { label: tense('Searching the docs…', 'Searched the docs', 'Search docs'), icon: 'search', summary: (s) => arg(s, 'query') });
     aparteGlobalConfig.registerToolDisplay('read_file', { label: tense('Reading a file…', 'Read a file', 'Read file'), icon: 'file', summary: (s) => arg(s, 'path') });
     aparteGlobalConfig.registerToolDisplay('write_file', { label: tense('Writing a file…', 'Wrote a file', 'Write file'), icon: 'edit', summary: (s) => arg(s, 'path') });

@@ -36,6 +36,19 @@ class ChatWithMessagesPage {
 @Component({
     selector: 'app-root',
     standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [messages]="messages" />`,
+})
+class ChatWithHumansPage {
+    messages = [
+        { id: 'h1', role: 'assistant' as const, author: { name: 'Marie', type: 'human' as const }, content: 'Marie here.', timestamp: 0 },
+        { id: 'n1', role: 'assistant' as const, kind: 'notice' as const, content: 'Marie joined the conversation', timestamp: 0 },
+    ];
+}
+
+@Component({
+    selector: 'app-root',
+    standalone: true,
     imports: [AparteChatComponent, AparteToolUIDirective, AparteSegmentUIDirective],
     template: `
       <aparte-chat />
@@ -58,7 +71,7 @@ class ChatWithToolUIPage {}
 class ChatWithUiPage {}
 
 // The context argument is what a server bootstrap needs since Angular 19.2's patch line (NG0401).
-const render = (root: typeof ChatPage | typeof ChatWithMessagesPage | typeof ChatWithToolUIPage | typeof ChatWithUiPage) =>
+const render = (root: typeof ChatPage | typeof ChatWithMessagesPage | typeof ChatWithToolUIPage | typeof ChatWithUiPage | typeof ChatWithHumansPage) =>
     renderApplication(
         (context: BootstrapContext) => bootstrapApplication(root, {
             providers: [provideServerRendering(), provideExperimentalZonelessChangeDetection()],
@@ -105,5 +118,12 @@ describe('AparteChatComponent on the server', () => {
         const html = await render(ChatWithMessagesPage);
         expect(html).toContain('Rendered on the server');
         expect(html).not.toContain('<aparte-chat-bubble');
+    });
+
+    it('draws who wrote a message, and a notice, in the HTML it sends', async () => {
+        const html = await render(ChatWithHumansPage);
+        expect(html).toMatch(/<aparte-chat-bubble[^>]*name="Marie"/);
+        expect(html).toMatch(/<aparte-chat-bubble[^>]*data-author-type="human"/);
+        expect(html).toMatch(/<aparte-chat-bubble[^>]*data-kind="notice"/);
     });
 });

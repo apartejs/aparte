@@ -12,6 +12,7 @@
  */
 import type { AparteChatMessage, AparteContentPart, AparteErrorSegment, AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
 import { AparteErrorCode } from '../types/errors.js';
+import { isModelReply } from '../utils/is-model-reply.js';
 
 /** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
 export const COMPACTION_PREAMBLE =
@@ -45,33 +46,51 @@ export function historySummaryOf(messages: readonly AparteChatMessage[]): string
 }
 
 /**
- * Merge ADJACENT `user` messages into one, so the roles a model receives alternate.
+ * Merge ADJACENT messages of the same role into one, so the roles a model receives alternate.
  *
  * Strict chat templates (Gemma 2/3, Mistral, llama.cpp with `--jinja`, vLLM) reject two
  * `user` turns in a row, and once one is in the history every following turn fails the
- * same way. Two ordinary situations produce it: a compaction (the summary is a `user`
- * message and the turns kept after it usually start with one), and a failed turn (its
- * user message stays in the transcript, its error reply is not sent, and the user writes
- * again).
+ * same way. Ordinary situations produce it: a compaction (the summary is a `user` message
+ * and the turns kept after it usually start with one), a failed turn (its user message
+ * stays in the transcript, its error reply is not sent, and the user writes again), two
+ * people writing in a row, and an advisor's message — sent as `assistant`, the service's
+ * voice — right after the AI's reply or another advisor's.
  *
- * Only `user` is merged. A `system`, `assistant` or `tool` message carries structure
- * (tool calls and the ids that answer them) that concatenating would destroy. Text joins
- * with a blank line; parts concatenate with a text separator between them; a string
- * beside parts becomes a text part, so an image keeps its place. A history that already
- * alternates comes back as the same messages.
+ * `user` messages merge, and `assistant` ones that carry no tool calls. A `system`, a
+ * `tool`, or an `assistant` with calls carries structure (the calls and the ids that
+ * answer them) that concatenating would destroy. Text joins with a blank line; parts
+ * concatenate with a text separator between them; a string beside parts becomes a text
+ * part, so an image keeps its place. The merged message keeps `name` only when its parts
+ * all had the same one. A history that already alternates comes back as the same messages.
  */
-export function mergeAdjacentUserMessages(messages: AparteChatMessage[]): AparteChatMessage[] {
+export function mergeAdjacentMessages(messages: AparteChatMessage[]): AparteChatMessage[] {
     const asParts = (c: AparteChatMessage['content']): AparteContentPart[] =>
         typeof c === 'string' ? [{ type: 'text', text: c }] : c;
+    const mergeable = (m: AparteChatMessage | undefined): boolean =>
+        m !== undefined && (m.role === 'user' || (m.role === 'assistant' && !m.toolCalls?.length));
     const out: AparteChatMessage[] = [];
     for (const m of messages) {
         const prev = out[out.length - 1];
-        if (m.role !== 'user' || prev?.role !== 'user') {
+        if (!prev || prev.role !== m.role || !mergeable(prev) || !mergeable(m)) {
             out.push(m);
         } else {
-            const merged: AparteChatMessage = typeof prev.content === 'string' && typeof m.content === 'string'
-                ? { ...prev, content: `${prev.content}\n\n${m.content}` }
-                : { ...prev, content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)] };
+            const { name: _prevName, ...base } = prev;
+            // One author for the whole message keeps the name. Two authors cannot share one, and
+            // dropping it would put an advisor's words in the AI's mouth: each named author's
+            // words open with their name instead ("Marie: …"); unnamed words stay as they are.
+            const sameAuthor = prev.name === m.name;
+            const said = (msg: AparteChatMessage): AparteChatMessage['content'] => {
+                if (sameAuthor || !msg.name) return msg.content;
+                return typeof msg.content === 'string'
+                    ? `${msg.name}: ${msg.content}`
+                    : [{ type: 'text', text: `${msg.name}: ` }, ...msg.content];
+            };
+            const before = said(prev);
+            const after = said(m);
+            const merged: AparteChatMessage = typeof before === 'string' && typeof after === 'string'
+                ? { ...base, content: `${before}\n\n${after}` }
+                : { ...base, content: [...asParts(before), { type: 'text', text: '\n\n' }, ...asParts(after)] };
+            if (sameAuthor && prev.name !== undefined) merged.name = prev.name;
             // A summary joined to the next message still opens it.
             const summary = summaries.get(prev);
             if (summary !== undefined) summaries.set(merged, summary);
@@ -308,7 +327,7 @@ function failedForGood(reply: AparteMessage, asked: readonly AparteMessage[]): b
  * A compaction summary message is part of no turn and always stays.
  *
  * Every other message stays, a failure the request can get past included: its message goes
- * with the next one (`mergeAdjacentUserMessages` joins the two), from the very next request
+ * with the next one (`mergeAdjacentMessages` joins the two), from the very next request
  * on, as a retry or an edit sends it, and its reply is sent as nothing (`wireMessages`).
  *
  * The one rule for send, retry, edit, a resume, the context gauge and a compaction, so the
@@ -326,7 +345,11 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
             // A compaction summary (`compaction: true`) asks nothing: it stands for the turns
             // before it, and dropping it with a failed turn would lose them for good.
             if (!m.compaction) asked.push(m);
-        } else if (m.role === 'assistant') {
+        } else if (m.role === 'assistant' && !isModelReply(m)) {
+            // An advisor's message answers the person: what it answered is not the AI's to
+            // lose when the AI's next reply fails. (Notices are gone before this.)
+            asked = [];
+        } else if (isModelReply(m)) {
             if (m.status !== 'error') {
                 asked = [];
             } else if (failedForGood(m, asked)) {
@@ -357,16 +380,20 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
  * (`estimateWireTokens`) read the same serialisation and cannot drift.
  */
 export function wireMessages(messages: AparteMessage[]): AparteChatMessage[] {
-    return withoutAbandonedTurns(messages)
+    // A notice ("Marie joined") is shown, never said to the model.
+    return withoutAbandonedTurns(messages.filter((m) => m.kind === undefined))
         .filter((m) => {
             if (m.role !== 'user' && m.role !== 'assistant') return false;
             return m.status !== 'error' && !isInFlight(m);
         })
         .flatMap((m): AparteChatMessage[] => {
+            // Who wrote it, for a wire that has a place for it: never on a tool result.
+            const named = <T extends AparteChatMessage>(c: T): T =>
+                m.author?.name && (c.role === 'user' || c.role === 'assistant') ? { ...c, name: m.author.name } : c;
             if (m.role === 'assistant' && m.segments?.some((s) => s.type === 'tool_call')) {
-                return wireTurns(m, segmentsToWireText);
+                return wireTurns(m, segmentsToWireText).map(named);
             }
             const content = messageWireText(m);
-            return content ? [{ role: m.role as 'user' | 'assistant', content }] : [];
+            return content ? [named({ role: m.role as 'user' | 'assistant', content })] : [];
         });
 }

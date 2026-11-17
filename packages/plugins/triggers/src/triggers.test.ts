@@ -873,6 +873,20 @@ describe('<aparte-triggers>', () => {
             expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({ messageId: 'a1', targetId: 'v1' });
         });
 
+        it("/retry names the AI's last answer, past a notice and an advisor's message", async () => {
+            const { type, key } = chat([
+                answer,
+                { id: 'n1', role: 'assistant', kind: 'notice', content: 'Marie joined the conversation' },
+                { id: 'h1', role: 'assistant', author: { name: 'Marie', type: 'human' }, content: 'Marie here.' },
+            ]);
+            const heard = vi.fn();
+            window.addEventListener('aparte-retry', heard, { once: true });
+            type('/retry');
+            key('Enter');
+            await flush();
+            expect((heard.mock.calls[0]![0] as CustomEvent).detail).toEqual({ messageId: 'a1', targetId: 'v1' });
+        });
+
         it('/copy copies the text of the reply and says so', async () => {
             const writeText = vi.fn(async () => {});
             Object.assign(navigator, { clipboard: { writeText } });

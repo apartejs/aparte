@@ -41,7 +41,7 @@ aparteGlobalConfig.setModelConfig({ defaultProvider: model.id, defaultModel: 'wr
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 new AparteClient().start();
 
-type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void; appendMessage(message: AparteMessage): void };
+type Viewport = HTMLElement & { setMessages(messages: AparteMessage[]): void; appendMessage(message: AparteMessage): void; updateMessage(id: string, updates: Partial<AparteMessage>): void };
 type Chat = HTMLElement & { viewport: Viewport | null };
 type Composer = HTMLElement & { setValue(value: string): void; submit(): void };
 

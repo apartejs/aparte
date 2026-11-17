@@ -94,6 +94,15 @@ export interface OpenAICompatProviderOptions {
      * `extraBody` key of the same name is ignored.
      */
     extraBody?: Record<string, unknown>;
+    /**
+     * Send who wrote a message (`AparteChatMessage.name`, from `AparteMessage.author`) as
+     * the participant `name` of the user and assistant messages, so the model can tell an
+     * advisor or another participant from the usual voices. Off by default: OpenAI's own
+     * API takes it but refuses a name outside `^[a-zA-Z0-9_-]{1,64}$` (a space is a 400) —
+     * each name is made to fit, and left out when nothing of it does — and other
+     * OpenAI-compatible servers refuse the field (Mistral answers 422). On in `presets.OPENAI`.
+     */
+    sendNames?: boolean;
     /** Override the default apiKey+endpoint settings schema. */
     configSchema?: AparteAIProviderConfigSchema;
 }
@@ -140,8 +149,20 @@ function warnLegacyToolRole(role: string): void {
 // waiting to happen, and the loop cannot mint the shape (`stream-run.ts` builds an
 // assistant's content from a string). Images on a USER turn are carried, unchanged.
 
+/**
+ * A participant name as OpenAI accepts it (`^[a-zA-Z0-9_-]{1,64}$`): accents dropped, every
+ * other run of characters it refuses made one `_`, trimmed, cut at 64 — or `undefined` when
+ * nothing of it fits (a name in another script), so the field is left out, not refused.
+ */
+function participantName(name: string | undefined): string | undefined {
+    if (!name) return undefined;
+    const fitted = name.normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 64);
+    return fitted || undefined;
+}
+
 /** AparteChatMessage[] → OpenAI messages (incl. an assistant turn's calls and the `tool` answers). */
-function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
+function toOpenAIMessages(messages: AparteChatMessage[], sendNames = false): unknown[] {
     const out: unknown[] = [];
     for (const msg of messages) {
         const role: string = msg.role;
@@ -153,8 +174,11 @@ function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
             out.push({ role: 'tool', tool_call_id: msg.toolCallId, content: contentToText(msg.content) });
             continue;
         }
+        const name = sendNames ? participantName(msg.name) : undefined;
+        const named = name ? { name } : {};
         if (msg.role === 'assistant' && msg.toolCalls?.length) {
             out.push({
+                ...named,
                 role: 'assistant',
                 // `||`, not `??`: this API takes null (or nothing) beside `tool_calls`, and
                 // an assistant that said nothing before its calls now carries '' — which
@@ -168,7 +192,7 @@ function toOpenAIMessages(messages: AparteChatMessage[]): unknown[] {
             });
             continue;
         }
-        out.push({ role: msg.role, content: toOpenAIContent(msg.content) });
+        out.push({ role: msg.role, content: toOpenAIContent(msg.content), ...named });
     }
     return out;
 }
@@ -491,7 +515,7 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
             const body: Record<string, unknown> = {
                 ...Object.fromEntries(Object.entries(opts.extraBody ?? {}).filter(([key]) => !ADAPTER_FIELDS.has(key))),
                 model: request.modelId,
-                messages: toOpenAIMessages(request.messages),
+                messages: toOpenAIMessages(request.messages, opts.sendNames === true),
                 temperature: request.temperature,
                 max_tokens: request.maxTokens,
                 stream: request.stream ?? true,

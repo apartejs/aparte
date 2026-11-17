@@ -151,6 +151,8 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   saving now, and `aparte-message-resumed` follows the answer.
  * @fires {CustomEvent<AparteMessageResumedEventDetail>} aparte-message-resumed - A paused turn goes on,
  *   into the same reply, once the page answered its calls.
+ * @fires {CustomEvent<AparteTranscriptChangeEventDetail>} aparte-transcript-change - The app wrote into
+ *   the transcript outside a turn (an advisor's reply, a notice, a note). A conversation controller saves on it.
  * @fires {CustomEvent<AparteToolApprovalRequestDetail>} aparte-tool-approval-request - A tool marked
  *   `needsApproval` is about to run and waits for a decision. Core's own gate asks in the composer;
  *   listen to present the decision yourself.

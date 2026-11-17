@@ -19,8 +19,10 @@ import type {
   AparteToolRenderer,
   AparteActivityRenderer,
   AparteActivitySegment,
+  AparteAuthor,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
+import { authorTypeOf } from '../../utils/is-model-reply.js';
 
 /**
  * A segment as drawn: its element, the renderer that drew it and — for a tool call or an
@@ -48,6 +50,7 @@ import { isMountedRenderer } from '../../renderers/mounted-renderer.js';
 import { toolCallRenderer, toolRendererThatDrew } from '../../renderers/segments/tool-call.js';
 import { activityRenderer, activityRendererThatDrew } from '../../renderers/segments/activity.js';
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
+import { openConversationOf } from '../../conversations/open-conversation.js';
 import { chatBoundaryOf } from '../../utils/chat-boundary.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { copyText } from '../../utils/copy-text.js';
@@ -235,6 +238,7 @@ let checkpointIds = 0;
  * @attr {string} data-checkpoint - `pending` or `failed`: what a compaction is doing to this message, which it will carry as a checkpoint. The viewport and the framework host set it from `aparte-compact-start` / `-error` and take it off again; the bubble draws the separator's "Summarising the context…" or Retry from it. Read it, do not write it.
  * @attr {string} data-checkpoint-reason - Why the compaction failed, beside `data-checkpoint="failed"`: the separator gives it as the failure's tooltip and to screen readers. Set and cleared with `data-checkpoint`; read it, do not write it.
  * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
+ * @attr {string} data-kind - What the message is, when it is not a message someone wrote: `notice` draws it as a line across the transcript (`role="note"`, no name, no actions, never sent to the model), as `AparteMessage.kind: 'notice'` does; `compaction` is a summary's checkpoint. The transcript and the framework hosts set it from the message.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
@@ -374,6 +378,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _avatarCleanup: (() => void) | null = null;
   /** Whether the avatar slot holds what a provider drew, which goes when the provider does. */
   private _avatarFromProvider = false;
+  /** Who wrote the message, when it names them (`setAuthor`). */
+  private _author: AparteAuthor | undefined;
+  /** The line under the message (`setNote`). */
+  private _note: string | undefined;
+  /** Whether the avatar slot holds the author's picture, which goes when the author does. */
+  private _avatarFromAuthor = false;
   /** Sibling count for tree-based branch navigation (set by setSiblings()) */
   private _siblingCount = 1;
   /**
@@ -405,7 +415,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // and it used to be read as a legacy message-role channel too, which meant
     // filtering our own "article" back out at every turn. A rename lands as a
     // rename pre-1.0, so the overload is gone.
-    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint', 'data-checkpoint-reason'];
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name', 'data-checkpoint', 'data-checkpoint-reason', 'data-kind'];
   }
 
   constructor() {
@@ -734,6 +744,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   connectedCallback(): void {
     this._render();
     this._updateContent();
+    // A note set before the bubble connected has nowhere to go until the frame is drawn.
+    this._updateNote();
     // Populate the timestamp from the current attribute. Frameworks that set
     // attributes BEFORE the element is connected (e.g. the Svelte wrapper) fire
     // attributeChangedCallback while _render() hasn't created `.aparte-timestamp`
@@ -782,6 +794,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   private _redrawFrameIfChanged(): void {
     if (!this.isConnected || this._editing) return;   // an open editor is the reader's: caught up when it closes
     if ((this._cfg.getBubbleShellRenderer?.() ?? null) === this._drawnShell) return;
+    this._redrawFrame();
+  }
+
+  /** Throw the frame away and draw it again, with everything the message holds. */
+  private _redrawFrame(): void {
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -802,6 +819,7 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // frame change has to put back, and the separator sits OUTSIDE the frame (a custom
     // shell's root is `.aparte-message`, which the separator must not live in).
     this._updateCheckpoint();
+    this._updateNote();
   }
 
   disconnectedCallback(): void {
@@ -852,6 +870,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         break;
       case 'name':
         this._updateName();
+        break;
+      case 'data-kind':
+        // A notice is another frame altogether: drawn again when it becomes one or stops.
+        if (this.isConnected && (oldValue === 'notice') !== (newValue === 'notice')) this._redrawFrame();
         break;
     }
   }
@@ -1148,6 +1170,72 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   /**
+   * Who wrote the message (`AparteMessage.author`): its name in the header and in the label
+   * a screen reader reads, `data-author-type` for styling, and its picture in the avatar
+   * slot. `undefined` takes back what a previous author set — never a `name` written on the
+   * element by hand. Redraws the avatar only when the author changed.
+   */
+  setAuthor(author: AparteAuthor | undefined): void {
+    if (JSON.stringify(author ?? null) === JSON.stringify(this._author ?? null)) return;
+    this._author = author ? { ...author } : undefined;
+    if (author) {
+      this.setAttribute('name', author.name);
+      this.setAttribute('data-author-name', author.name);
+      this.setAttribute('data-author-type', authorTypeOf({ role: this._role, author }));
+    } else {
+      // Only the name core wrote: a `name="Assistant"` set by hand is the app's.
+      if (this.hasAttribute('data-author-name') && this.getAttribute('name') === this.getAttribute('data-author-name')) {
+        this.removeAttribute('name');
+      }
+      this.removeAttribute('data-author-name');
+      this.removeAttribute('data-author-type');
+    }
+    this._renderAvatar();
+    // The actions follow who wrote the message.
+    this._updateActionBar();
+  }
+
+  /** Who wrote the message, as core acts on it: the author's type, else the side it is on. */
+  private _authorType(): 'ai' | 'human' {
+    return authorTypeOf({ role: this._role, author: this._author });
+  }
+
+  /**
+   * What kind of row the message is (`AparteMessage.kind`): `'notice'` draws a line across
+   * the transcript instead of a bubble. `undefined` takes back a notice, and leaves the
+   * `data-kind="compaction"` stamp of an older summary message alone.
+   */
+  setKind(kind: AparteMessage['kind']): void {
+    if (kind) this.setAttribute('data-kind', kind);
+    else if (this.getAttribute('data-kind') === 'notice') this.removeAttribute('data-kind');
+  }
+
+  /**
+   * A short line under the message (`AparteMessage.note`): "Read by Marie", "Seen at
+   * 14:05". In the flow after the content, outside the footer; `undefined` or empty removes it.
+   */
+  setNote(note: string | undefined): void {
+    this._note = note || undefined;
+    this._updateNote();
+  }
+
+  private _updateNote(): void {
+    let el = this.querySelector<HTMLElement>(':scope .aparte-message-note');
+    if (!this._note) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      const region = this.querySelector('.aparte-message-content');
+      if (!region) return;
+      el = document.createElement('p');
+      el.className = 'aparte-message-note';
+      (this.querySelector('.aparte-finish-note') ?? region).after(el);
+    }
+    el.textContent = this._note;
+  }
+
+  /**
    * Say that the messages before this one were summarised for the model, or that they no
    * longer are (`null`).
    *
@@ -1216,6 +1304,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._updateWaiting();
     }
     if ('finishReason' in updates) this.setFinishReason(updates.finishReason);
+    if ('author' in updates) this.setAuthor(updates.author);
+    if ('kind' in updates) this.setKind(updates.kind);
+    if ('note' in updates) this.setNote(updates.note);
     if ('contextSummary' in updates || 'compaction' in updates) {
       this.setContextSummary(
         'contextSummary' in updates ? updates.contextSummary : this._contextSummary,
@@ -1658,11 +1749,26 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     const dataRole = this.getAttribute('data-role');
     const role = (dataRole === 'user' || dataRole === 'assistant') ? dataRole : 'assistant';
     this._role = role as AparteBubbleRole;
-    if (this.getAttribute('role') !== 'article') {
-        this.setAttribute('role', 'article');
+    // A notice ("Marie joined the conversation") is not a message anyone wrote: a note.
+    const isNotice = this.getAttribute('data-kind') === 'notice';
+    const ariaRole = isNotice ? 'note' : 'article';
+    if (this.getAttribute('role') !== ariaRole) {
+        this.setAttribute('role', ariaRole);
     }
     if (!this.hasAttribute('data-role')) {
         this.setAttribute('data-role', role);
+    }
+
+    if (isNotice) {
+      if (this.querySelector('.aparte-notice')) return;
+      // A line across the transcript, the divider recipe's: no header, avatar or actions.
+      this._drawnShell = this._cfg.getBubbleShellRenderer?.() ?? null;
+      this._avatarFromProvider = false;
+      this._wroteRootLabel = this._wroteBarLabel = this._wroteArrowLabels = false;
+      this.innerHTML = '<div class="aparte-notice aparte-divider aparte-divider--label"><span class="aparte-divider__label aparte-notice__text"></span></div>';
+      this._contentEl = this._segmentsEl = this._attachmentsEl = this._actionBarEl = null;
+      this._branchPickerEl = this._footerEl = null;
+      return;
     }
 
     // Ensure we don't overwrite if already rendered (re-entrancy check)
@@ -1905,6 +2011,24 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
       this._avatarCleanup = null;
     }
 
+    // The author's own picture wins: it is who wrote this message, which a provider keyed
+    // on the role cannot know. Drawn by core, as an image the name beside it describes.
+    if (this._author?.avatar) {
+      const img = document.createElement('img');
+      img.className = 'aparte-avatar__img';
+      img.src = this._author.avatar;
+      img.alt = '';
+      avatar.replaceChildren(img);
+      this._avatarFromAuthor = true;
+      this._avatarFromProvider = false;
+      this._markAvatarImage(avatar);
+      return;
+    }
+    if (this._avatarFromAuthor) {
+      avatar.replaceChildren();
+      this._avatarFromAuthor = false;
+    }
+
     const provider = this._cfg.getAvatarProvider();
     if (!provider) {
       // `setAvatarProvider(null)`: what the provider drew goes with it. The slot returned
@@ -1918,7 +2042,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     }
 
     avatar.textContent = '';
-    const cleanup = provider.render(this._role, avatar);
+    const cleanup = this._author
+      ? provider.render(this._role, avatar, { author: this._author })
+      : provider.render(this._role, avatar);
     this._avatarFromProvider = true;
     if (typeof cleanup === 'function') this._avatarCleanup = cleanup;
     // A provider may draw one role and leave the other's slot empty: the stylesheet's
@@ -1933,7 +2059,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * config change, in a batch with the other bubbles' (see `pendingAvatarMarks`).
    */
   private _markAvatarImage(avatar: HTMLElement): void {
-    if (avatar.firstChild) {
+    // A person on the assistant's side does not wear the assistant's picture.
+    const humanAssistant = this._role === 'assistant' && this._author !== undefined && authorTypeOf({ role: this._role, author: this._author }) === 'human';
+    if (avatar.firstChild || humanAssistant) {
       pendingAvatarMarks.delete(avatar);
       avatar.removeAttribute('data-image');
       return;
@@ -2011,6 +2139,12 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
   }
 
   private _updateContent(): void {
+    // A notice says its text as it is: written by the app for the reader, never Markdown.
+    const notice = this.querySelector(':scope > .aparte-notice .aparte-notice__text');
+    if (notice) {
+      notice.textContent = this._content;
+      return;
+    }
     if (!this._contentEl) return;
 
     // If we have segments, don't render simple content
@@ -2342,8 +2476,11 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
 
   private _applyTranscriptBusy(): void {
     if (!this._actionBarEl) return;
+    // Regenerate and edit each start a turn: none while the AI is off for this conversation
+    // (`setAutoReply(false)`). Re-read on every config change, which rebuilds the bar.
+    const aiOff = !this._cfg.getAutoReply(openConversationOf(this) ?? undefined);
     for (const btn of this._actionBarEl.querySelectorAll<HTMLButtonElement>('[data-action="retry"], [data-action="edit"]')) {
-      btn.disabled = this._transcriptBusy;
+      btn.disabled = this._transcriptBusy || aiOff;
     }
   }
 
@@ -2436,9 +2573,15 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
     } else if (this._role === 'assistant') {
+      // Regenerate, the stats and the thumbs speak about a generation: a person who
+      // answered on the assistant's side (an advisor who took over) gets none of them.
+      const human = this._authorType() === 'human';
+      const forModel = (a: string): boolean => !human || !['retry', 'thumbUp', 'thumbDown', 'info'].includes(a);
       if (config.assistant) {
         // Explicit ordered set replaces the flag defaults (incl. the info button).
-        for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
+        for (const a of config.assistant) if (forModel(a)) buttons.push(this._actionButtonHtml(a, icons, locale));
+      } else if (human) {
+        if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
       } else {
         // Flag-driven set, all off by default — retry, feedback and info all need a
         // host or a listener to mean anything. (Copy, once on, is rendered here
@@ -2564,6 +2707,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
+      const authorTypes = a.bubble?.authorTypes;
+      if (authorTypes && !authorTypes.includes(this._authorType())) continue;
       // A key of the locale when it has one, so the words follow the chat's language.
       const word = Object.hasOwn(locale, a.label) ? locale[a.label] : undefined;
       const label = typeof word === 'string' ? word : a.label;

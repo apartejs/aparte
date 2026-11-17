@@ -541,3 +541,69 @@ describe('AparteChatHost', () => {
         });
     });
 });
+
+// An app can add a message at any time — an advisor who took over, a notice — and a
+// reply may still be streaming. The turn's writes follow the message being streamed,
+// never "the last one", and never move to another message once theirs has left.
+describe('a message appended while a reply streams', () => {
+    it("keeps the reply's segments in the reply", () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('u1', 'user', { content: 'q' }));
+        h.ctl.appendMessage(msg('r1', 'assistant', { content: '' }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        h.ctl.addSegment(seg('s1', 'Hello'));
+        h.ctl.appendMessage(msg('m2', 'assistant', { author: { name: 'Marie', type: 'human' }, content: 'Hi' }));
+
+        h.ctl.appendToSegment('s1', ' more');
+        h.ctl.updateSegment('s1', { status: 'done' } as never);
+        h.ctl.addSegment(seg('s2', 'next'));
+        h.ctl.updateLastMessage('tail', { append: true });
+
+        const r1 = h.getMessages().find((m) => m.id === 'r1')!;
+        expect(r1.segments!.map((s) => (s as { content: string }).content)).toEqual(['Hello more', 'next']);
+        expect(r1.content).toBe('tail');
+        const m2 = h.getMessages().find((m) => m.id === 'm2')!;
+        expect(m2.segments).toBeUndefined();
+        expect(m2.content).toBe('Hi');
+        expect(h.getMessages().map((m) => m.id)).toEqual(['u1', 'r1', 'm2']);
+    });
+
+    it('drops a write for a streaming message that left the list, never moving it to the last', () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('r1', 'assistant', { content: '' }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        h.ctl.addSegment(seg('s1', 'A'));
+
+        // Another conversation is put in place while the old stream still writes.
+        h.binding.setMessages([msg('x', 'assistant', { content: 'other', segments: [seg('s1', 'B')] })]);
+        h.ctl.appendToSegment('s1', 'LEAK');
+        h.ctl.updateSegment('s1', { content: 'LEAK' } as never);
+        h.ctl.removeSegment('s1');
+        h.ctl.addSegment(seg('s9', 'LEAK'));
+        h.ctl.updateLastMessage('LEAK', { append: true });
+
+        const x = h.getMessages()[0]!;
+        expect(x.content).toBe('other');
+        expect(x.segments).toEqual([seg('s1', 'B')]);
+    });
+});
+
+// What the app writes outside a turn has to be saved: the host says so, once per write,
+// for a controller (or the app) to act on. Not for the AI's empty shell, not during a turn
+// — the turn's end saves everything then.
+describe('aparte-transcript-change on the host', () => {
+    it('says once for each write outside a turn, and nothing during one', () => {
+        const h = makeHarness();
+        const changes: unknown[] = [];
+        h.host.addEventListener('aparte-transcript-change', (e) => changes.push((e as CustomEvent).detail));
+
+        h.ctl.appendMessage(msg('h1', 'assistant', { author: { name: 'Marie', type: 'human' }, content: 'Hi' }));
+        h.ctl.updateMessage('h1', { note: 'Read by Marie' });
+        expect(changes).toMatchObject([{ messageId: 'h1', change: 'append' }, { messageId: 'h1', change: 'update' }]);
+
+        h.ctl.appendMessage(msg('r1', 'assistant', { content: '' }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } }));
+        h.ctl.appendMessage(msg('h2', 'assistant', { author: { name: 'Marie', type: 'human' }, content: 'More' }));
+        expect(changes).toHaveLength(2);
+    });
+});

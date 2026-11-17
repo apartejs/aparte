@@ -301,7 +301,9 @@ export class AparteSuggestions extends HTMLElement {
      * offer was for the answer it came with.
      */
     private _applyAnswers(): void {
-        const bubbles = this._transcript?.querySelectorAll('aparte-chat-bubble');
+        // The last message, past the notices after it: "Marie joined" answers nothing, so
+        // the replies the answer before it offered still stand.
+        const bubbles = this._transcript?.querySelectorAll('aparte-chat-bubble:not([data-kind="notice"])');
         const last = bubbles && bubbles.length ? bubbles[bubbles.length - 1]! : null;
         const marks = last && last.getAttribute('data-role') !== 'user' ? last.querySelectorAll('[data-aparte-suggestions]') : null;
         const mark = marks && marks.length ? marks[marks.length - 1]! : null;

@@ -1,5 +1,11 @@
 # @aparte/plugin-compaction
 
+## 1.13.0
+
+### Patch Changes
+
+- 205d5a9: The summary now leaves notices out and names a person's message by its author (`Marie: …`), so it never puts an advisor's words in the AI's mouth.
+
 ## 1.12.2
 
 ## 1.12.1

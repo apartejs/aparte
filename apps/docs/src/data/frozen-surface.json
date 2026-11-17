@@ -44,6 +44,7 @@
         "content",
         "data-checkpoint",
         "data-checkpoint-reason",
+        "data-kind",
         "data-role",
         "message-id",
         "name",
@@ -340,6 +341,7 @@
       "aparte-suggestion",
       "aparte-tab-change",
       "aparte-tool-approval-request",
+      "aparte-transcript-change",
       "aparte-trigger-select"
     ],
     "names": [
@@ -440,6 +442,7 @@
       "aparteGlobalConfig",
       "applyElementProps",
       "attachConfig",
+      "authorTypeOf",
       "buildApprovalPanel",
       "buildElicitationPanel",
       "chatIdOf",
@@ -477,6 +480,7 @@
       "installDialogTriggersOnce",
       "isAwaitingReply",
       "isFormatAdapter",
+      "isModelReply",
       "isSafeUrl",
       "isSegmentSettled",
       "measureContext",
@@ -1604,7 +1608,8 @@
           "onRetry",
           "onSegmentUpdate",
           "onStop",
-          "onToolApprovalRequest"
+          "onToolApprovalRequest",
+          "onTranscriptChange"
         ]
       },
       "vue": {
@@ -1664,7 +1669,8 @@
           "@retry",
           "@segment-update",
           "@stop",
-          "@tool-approval-request"
+          "@tool-approval-request",
+          "@transcript-change"
         ]
       },
       "svelte": {
@@ -1725,6 +1731,7 @@
           "on:segmentUpdate",
           "on:stop",
           "on:toolApprovalRequest",
+          "on:transcriptChange",
           "onaction",
           "onmessageSent"
         ]
@@ -1786,7 +1793,8 @@
           "(retry)",
           "(segmentUpdate)",
           "(stop)",
-          "(toolApprovalRequest)"
+          "(toolApprovalRequest)",
+          "(transcriptChange)"
         ]
       },
       "svelteRunes": {
@@ -1846,7 +1854,8 @@
           "onretry",
           "onsegmentUpdate",
           "onstop",
-          "ontoolApprovalRequest"
+          "ontoolApprovalRequest",
+          "ontranscriptChange"
         ]
       }
     },
@@ -1880,6 +1889,7 @@
         "inputs": [
           "content",
           "dataCheckpointReason",
+          "dataKind",
           "messageId",
           "messageRole",
           "name",
@@ -1916,7 +1926,8 @@
         "outputs": [
           "pathChanged",
           "resetDone",
-          "segmentUpdate"
+          "segmentUpdate",
+          "transcriptChange"
         ]
       },
       "aparte-composer": {

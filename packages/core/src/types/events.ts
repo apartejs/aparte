@@ -63,6 +63,15 @@ export interface AparteSendEventDetail {
      * it: add it from a listener that runs before the client's (capture phase).
      */
     meta?: Record<string, unknown>;
+
+    /**
+     * The id of the message this send put in the transcript, written by whoever echoed it
+     * (the conversation controller in the capture phase, else `AparteClient`). Read it in a
+     * listener that runs after them — the bubble phase — to set a note on that message
+     * (`updateMessage(messageId, { note: 'Read by Marie' })`) or to pair it with your
+     * server's id. Absent until the message is echoed.
+     */
+    messageId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -411,6 +420,25 @@ export interface AparteMessagePausedEventDetail {
     targetId?: string;
     /** Id of the paused reply. */
     messageId: string;
+}
+
+/**
+ * Detail payload for `aparte-transcript-change`.
+ * Dispatched when the app writes into the transcript outside a turn — appends a message
+ * (an advisor's reply, a notice) or updates one (a note) through the chat's host or its
+ * viewport. Once per write; not for the AI's empty shell, not while a reply streams (the
+ * turn's end saves everything). The conversation controller saves on it, so what the app
+ * wrote survives a reload.
+ *
+ * @event aparte-transcript-change
+ */
+export interface AparteTranscriptChangeEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /** Id of the message written. */
+    messageId: string;
+    /** What was done to it. */
+    change: 'append' | 'update';
 }
 
 /**

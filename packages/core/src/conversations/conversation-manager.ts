@@ -473,9 +473,15 @@ export class AparteConversationManager {
         const fresh = this._find(convId);
         if (!fresh) return;
         const present = fresh.messages.some(m => m.id === msg.id);
+        // A stored tree is what a reopened conversation reads: the message goes on its
+        // active path too, or the tree would bring the conversation back without it.
+        const tree = fresh.tree && !fresh.tree.messages.some((n) => n.message.id === msg.id)
+            ? { headId: msg.id, messages: [...fresh.tree.messages, { message: msg, parentId: fresh.tree.headId }] }
+            : fresh.tree;
         const updated: AparteConversation = {
             ...fresh,
             messages: present ? fresh.messages : [...fresh.messages, msg],
+            ...(tree ? { tree } : {}),
             updatedAt: Date.now(),
             title: title ?? fresh.title,
         };

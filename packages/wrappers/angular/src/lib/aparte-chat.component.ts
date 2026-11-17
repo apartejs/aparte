@@ -36,7 +36,7 @@ import type {
     AparteComposer,
     AparteTypeToFocus,
 } from '@aparte/core';
-import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
+import { AparteChatHost, aparteGlobalConfig, authorTypeOf, isAwaitingReply, releaseDeferredHydration, uuid } from '@aparte/core';
 import { AparteBubbleDirective } from './aparte-bubble.directive';
 import { AparteChatEvents } from '../generated/chat-events';
 
@@ -107,7 +107,9 @@ import { AparteChatEvents } from '../generated/chat-events';
               #bubble
               [attr.message-id]="message.id"
               [attr.data-role]="message.role"
-              [attr.data-kind]="message.compaction ? 'compaction' : null"
+              [attr.data-kind]="message.kind ?? (message.compaction ? 'compaction' : null)"
+              [attr.name]="message.author?.name ?? null"
+              [attr.data-author-type]="message.author ? authorType(message) : null"
               [attr.timestamp]="message.timestamp"
               [attr.content]="message.content"
               [attr.streaming]="awaitingReply(message) ? '' : null"
@@ -271,6 +273,8 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      * so "is this bubble in flight" can't drift between them.
      */
     readonly awaitingReply = isAwaitingReply;
+    /** Template bridge to core's `authorTypeOf`: who wrote a message, as the bubble styles it. */
+    readonly authorType = authorTypeOf;
 
     // ── Inputs ───────────────────────────────────────────────────────────────
     //

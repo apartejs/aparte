@@ -23,6 +23,8 @@ const OPENAI: OpenAICompatProviderOptions = {
     color: '#10a37f',
     description: 'GPT-4o, GPT-4 Turbo, and the O1 reasoning models',
     helpUrl: 'https://platform.openai.com/api-keys',
+    // OpenAI's own API takes a participant name: who wrote a message reaches the model.
+    sendNames: true,
 };
 
 const MISTRAL: OpenAICompatProviderOptions = {

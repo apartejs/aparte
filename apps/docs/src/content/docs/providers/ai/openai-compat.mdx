@@ -99,6 +99,23 @@ preset with `extraHeaders` replaces its own.
 The fields the adapter writes itself stay its own: `model`, `messages`, `temperature`,
 `max_tokens`, `stream`, `stream_options`, `seed`, `tools` and `tool_choice`.
 
+## Who wrote a message
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({ ...presets.OPENAI }));
+```
+
+A message written by someone with a name — an advisor who took the conversation over, another
+participant ([Humans in the conversation](/guides/humans-in-the-conversation/)) — goes with that
+name as the message's `name` field when `sendNames` is on. It is on in the OpenAI preset, whose
+API takes the field, and off everywhere else, because other OpenAI-compatible servers refuse it
+(Mistral answers 422). The API accepts letters, digits, `_` and `-` up to 64 characters, so the
+name is fitted to that: `Zoë Martin` goes as `Zoe_Martin`, and a name with nothing left, `李雷`, is
+not sent.
+
 ## What it sends and reads
 
 | In the chat | On the wire |
@@ -108,6 +125,7 @@ The fields the adapter writes itself stay its own: `model`, `messages`, `tempera
 | `temperature`, `maxTokens`, `seed` | `temperature`, `max_tokens`, `seed` |
 | the usage of a reply | `stream_options.include_usage`, read back as input, output, total and cached tokens |
 | reasoning | `reasoning_content` in the stream, drawn as a [reasoning block](/components/reasoning/) |
+| a message's author, with `sendNames` | `name` on the message |
 
 The key goes as `Authorization: Bearer …`, and a key pasted with its `Bearer ` is not doubled.
 

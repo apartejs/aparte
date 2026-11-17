@@ -1,5 +1,11 @@
 # @aparte/engine
 
+## 1.13.0
+
+### Minor Changes
+
+- 205d5a9: A message of the agent loop can carry its author's name (`StreamAgentMessage.name`), passed through to the provider.
+
 ## 1.12.2
 
 ## 1.12.1

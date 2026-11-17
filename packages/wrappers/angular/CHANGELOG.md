@@ -1,5 +1,11 @@
 # @aparte/angular
 
+## 1.13.0
+
+### Patch Changes
+
+- 205d5a9: A message with an author and a notice now draw right on the first paint: the bubble gets `data-kind`, `name` and `data-author-type` from the message.
+
 ## 1.12.2
 
 ## 1.12.1

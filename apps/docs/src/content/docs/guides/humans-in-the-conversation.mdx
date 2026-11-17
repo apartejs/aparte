@@ -1,0 +1,513 @@
+---
+title: Humans in the conversation
+description: Let people write in the chat beside the AI, or instead of it — an advisor who takes a conversation over, under their own name and picture, a line that says so, a note under a message, and the AI turned off while they answer.
+sidebar:
+  order: 8
+  label: Humans in the conversation
+guide:
+  group: conversations
+---
+
+import { Tabs, TabItem } from '../../../components/content/tabs';
+
+A conversation is not always one person and a model. An advisor can take it over from the AI, a
+colleague can answer a question the AI could not, a moderator can step in. The chat draws each of
+them as themselves, and stops the AI from answering while a person does.
+
+What stays yours: the people, and how their messages travel — your support desk, a WebSocket,
+your backend. The chat gives you four pieces to show what they do:
+
+- **An author** on a message: a name, a picture, and whether a person or a model wrote it.
+- **A notice**: a line across the transcript, "Marie joined the conversation".
+- **A note** under a message: "Read by Marie".
+- **`setAutoReply(false)`**: the AI stays quiet in a conversation, and the person's messages are
+  still shown, announced and saved.
+
+## An advisor takes over
+
+The example below is the whole handoff: your desk tells the page that Marie accepted the
+conversation, the AI is turned off for it, a notice and Marie's messages are appended, what the
+person writes is marked read, and the conversation is handed back.
+
+Each message comes in through `appendMessage`, the same call your own loop would use; under a
+framework, through the chat component's ref.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import { aparteGlobalConfig, uuid } from '@aparte/core';
+import type { AparteAuthor } from '@aparte/core';
+
+const chat = document.querySelector('aparte-chat')!;
+const marie: AparteAuthor = { id: 'agent-12', name: 'Marie', type: 'human', avatar: '/avatars/marie.png' };
+
+/** Your desk: Marie accepted the conversation. */
+export function joined(conversationId: string) {
+  aparteGlobalConfig.setAutoReply(false, conversationId);
+  chat.viewport?.appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+}
+
+/** Your desk: a message from Marie. */
+export function received(text: string) {
+  chat.viewport?.appendMessage({ id: uuid(), role: 'assistant', author: marie, content: text, timestamp: Date.now() });
+}
+
+/** Your desk: Marie read a message. */
+export function read(messageId: string) {
+  chat.viewport?.updateMessage(messageId, { note: 'Read by Marie' });
+}
+
+/** Your desk: Marie hands the conversation back. */
+export function left(conversationId: string) {
+  chat.viewport?.appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'The assistant is back', timestamp: Date.now() });
+  aparteGlobalConfig.setAutoReply(true, conversationId);
+}
+
+// What the person writes reaches your desk with the id of the message on screen.
+chat.addEventListener('aparte-send', (event) => {
+  // After the send has been handled: the message is shown, and its id written, by a listener that can run after this one.
+  queueMicrotask(() => {
+    void fetch('/desk/messages', { method: 'POST', body: JSON.stringify({ id: event.detail.messageId, text: event.detail.content }) });
+  });
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { useCallback } from 'react';
+import { AparteChat, useAparteChat } from '@aparte/react';
+import { aparteGlobalConfig, uuid } from '@aparte/core';
+import type { AparteAuthor, AparteSendEventDetail } from '@aparte/core';
+
+const marie: AparteAuthor = { id: 'agent-12', name: 'Marie', type: 'human', avatar: '/avatars/marie.png' };
+
+export function SupportChat({ conversationId }: { conversationId: string }) {
+  const chat = useAparteChat();
+
+  /** Your desk: Marie accepted the conversation. */
+  const joined = useCallback(() => {
+    aparteGlobalConfig.setAutoReply(false, conversationId);
+    chat.ref.current?.appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+  }, [chat.ref, conversationId]);
+
+  /** Your desk: a message from Marie, and a message she read. */
+  const received = useCallback((text: string) => {
+    chat.ref.current?.appendMessage({ id: uuid(), role: 'assistant', author: marie, content: text, timestamp: Date.now() });
+  }, [chat.ref]);
+  const read = useCallback((messageId: string) => {
+    chat.ref.current?.updateMessage(messageId, { note: 'Read by Marie' });
+  }, [chat.ref]);
+
+  // What the person writes reaches your desk with the id of the message on screen.
+  const onMessageSent = useCallback((detail: AparteSendEventDetail) => {
+    queueMicrotask(() => {
+      void fetch('/desk/messages', { method: 'POST', body: JSON.stringify({ id: detail.messageId, text: detail.content }) });
+    });
+  }, []);
+
+  void [joined, received, read]; // hand these to your desk's connection
+  return <AparteChat ref={chat.ref} messages={chat.messages} onMessagesChange={chat.setMessages} onMessageSent={onMessageSent} />;
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import { aparteGlobalConfig, uuid } from '@aparte/core';
+import type { AparteAuthor, AparteSendEventDetail } from '@aparte/core';
+
+const props = defineProps<{ conversationId: string }>();
+const chat = useAparteChat();
+const marie: AparteAuthor = { id: 'agent-12', name: 'Marie', type: 'human', avatar: '/avatars/marie.png' };
+
+/** Your desk: Marie accepted the conversation. */
+function joined() {
+  aparteGlobalConfig.setAutoReply(false, props.conversationId);
+  chat.appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+}
+
+/** Your desk: a message from Marie, and a message she read. */
+function received(text: string) {
+  chat.appendMessage({ id: uuid(), role: 'assistant', author: marie, content: text, timestamp: Date.now() });
+}
+function read(messageId: string) {
+  chat.updateMessage(messageId, { note: 'Read by Marie' });
+}
+
+// What the person writes reaches your desk with the id of the message on screen.
+function onMessageSent(detail: AparteSendEventDetail) {
+  queueMicrotask(() => {
+    void fetch('/desk/messages', { method: 'POST', body: JSON.stringify({ id: detail.messageId, text: detail.content }) });
+  });
+}
+</script>
+
+<template>
+  <AparteChat :ref="chat.chatRef" :messages="chat.messages.value" @messages-change="chat.onMessagesChange" @message-sent="onMessageSent" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, type AparteChatImperativeApi } from '@aparte/svelte/runes';
+  import { aparteGlobalConfig, uuid } from '@aparte/core';
+  import type { AparteAuthor, AparteSendEventDetail } from '@aparte/core';
+
+  let { conversationId }: { conversationId: string } = $props();
+  let chat = $state<AparteChatImperativeApi>();
+  const marie: AparteAuthor = { id: 'agent-12', name: 'Marie', type: 'human', avatar: '/avatars/marie.png' };
+
+  /** Your desk: Marie accepted the conversation. */
+  export function joined() {
+    aparteGlobalConfig.setAutoReply(false, conversationId);
+    chat?.appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+  }
+
+  /** Your desk: a message from Marie, and a message she read. */
+  export function received(text: string) {
+    chat?.appendMessage({ id: uuid(), role: 'assistant', author: marie, content: text, timestamp: Date.now() });
+  }
+  export function read(messageId: string) {
+    chat?.updateMessage(messageId, { note: 'Read by Marie' });
+  }
+
+  // What the person writes reaches your desk with the id of the message on screen.
+  function onMessageSent(detail: AparteSendEventDetail) {
+    queueMicrotask(() => {
+      void fetch('/desk/messages', { method: 'POST', body: JSON.stringify({ id: detail.messageId, text: detail.content }) });
+    });
+  }
+</script>
+
+<AparteChat bind:this={chat} onmessageSent={onMessageSent} />
+```
+
+On Svelte 4, the component from `@aparte/svelte` binds the same way, and the event is
+`on:messageSent`.
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component, input, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { aparteGlobalConfig, uuid } from '@aparte/core';
+import type { AparteAuthor, AparteMessage, AparteSendEventDetail } from '@aparte/core';
+
+const marie: AparteAuthor = { id: 'agent-12', name: 'Marie', type: 'human', avatar: '/avatars/marie.png' };
+
+@Component({
+  selector: 'app-support-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat [messages]="messages" (messagesChange)="messages = $event" (messageSent)="onMessageSent($event)"></aparte-chat>`,
+})
+export class SupportChatComponent {
+  readonly conversationId = input.required<string>();
+  readonly chat = viewChild.required(AparteChatComponent);
+  messages: AparteMessage[] = [];
+
+  /** Your desk: Marie accepted the conversation. */
+  joined() {
+    aparteGlobalConfig.setAutoReply(false, this.conversationId());
+    this.chat().appendMessage({ id: uuid(), role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+  }
+
+  /** Your desk: a message from Marie, and a message she read. */
+  received(text: string) {
+    this.chat().appendMessage({ id: uuid(), role: 'assistant', author: marie, content: text, timestamp: Date.now() });
+  }
+  read(messageId: string) {
+    this.chat().updateMessage(messageId, { note: 'Read by Marie' });
+  }
+
+  // What the person writes reaches your desk with the id of the message on screen.
+  onMessageSent(detail: AparteSendEventDetail) {
+    queueMicrotask(() => {
+      void fetch('/desk/messages', { method: 'POST', body: JSON.stringify({ id: detail.messageId, text: detail.content }) });
+    });
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+A message written while no reply is on its way is saved like the others when the chat has a
+[conversation manager](/guides/conversation-persistence/). For a conversation that is not open,
+write to the manager: `manager.addMessage(conversationId, message)`.
+
+Under a framework with `messages` bound, add a message that comes from elsewhere through the ref,
+as above, and not by rebuilding the list from what `onMessagesChange` last reported: the person's
+own message is on screen before it is reported, and a list rebuilt in between would drop it.
+
+## The author
+
+`author` says who wrote a message. `role` still says which side it is on: `assistant` is the
+service's side (the AI's, and an advisor's), `user` is the person's.
+
+```ts
+import type { AparteAuthor } from '@aparte/core';
+
+const marie: AparteAuthor = {
+  name: 'Marie',              // the name over the message, and in what a screen reader announces
+  type: 'human',              // 'ai' or 'human'; without it, a user message is a person's and an assistant one a model's
+  avatar: '/avatars/marie.png', // drawn in the avatar slot
+  id: 'agent-12',             // yours, for your own lookups
+};
+```
+
+The bubble carries `data-author-type` and `data-author-name`, for your styles. A person's message
+offers no regenerate, no rating and no model details; copy stays. A message a person's message
+or a notice follows offers no regenerate and no edit either: either would drop what the person
+wrote. An action of your own can say whose messages it is for:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.registerAction({
+  id: 'escalate',
+  label: 'Ask a person',
+  zones: ['bubble'],
+  bubble: { roles: ['assistant'], authorTypes: ['ai'] },
+});
+```
+
+An author without `avatar` goes to your [avatar provider](/components/avatar/), which is told who
+wrote the message:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setAvatarProvider({
+  render(role, host, context) {
+    if (role === 'user') return;
+    const face = document.createElement('span');
+    face.textContent = context?.author?.type === 'human' ? context.author.name.slice(0, 1) : 'AI';
+    host.append(face);
+  },
+});
+```
+
+## A notice
+
+A message with `kind: 'notice'` is a line across the transcript, not a message: no name, no
+actions, `role="note"` for a screen reader. The model never reads it, and nothing answers it.
+Use it for what happened in the conversation: someone joined, a ticket was opened, the
+conversation was handed back.
+
+## A note
+
+`note` is a short line under a message, below its actions: "Read by Marie", "Sent by email",
+"Edited". Set it with `updateMessage(messageId, { note })` and clear it with
+`{ note: undefined }`. The id of the message the person just sent is on the send itself,
+`detail.messageId` of `aparte-send` (`onMessageSent` in React), written by whoever shows the
+message: read it once the send has been handled, as the example does.
+
+## Turn the AI off
+
+`setAutoReply(false, conversationId)` keeps the AI quiet in one conversation. The person's
+message is still shown, announced with its id and saved, and no turn starts, whatever would have
+started one: a send, a message waiting in the queue, a regenerate, an edit, or a reply paused on a
+question. Regenerate and edit are disabled meanwhile, and a composer waiting for a model to be
+chosen no longer does. `setAutoReply(true, conversationId)` gives the conversation back: the next
+message is answered, and the model reads what was written meanwhile.
+
+Without an id, the setting is the chat's, and a conversation's own setting wins over it. It
+lives on the config: chats that share the page's config are all turned off by a call without an
+id, so give a chat its own [config](/guides/customization/#per-chat-configuration) to turn it off
+alone: the client of the page reads it.
+
+The chat does not remember it. Who holds a conversation is your desk's to know, so apply it again
+when a conversation opens, before your listener returns: a reply paused on a question resumes
+as soon as its conversation is loaded, unless the AI is off for it by then. When your desk answers
+asynchronously, keep the AI off while you ask, and give it back once you know — then call the
+client's `resumeDeferred()`, which resumes a reply that was held back:
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+const heldByAPerson = new Set<string>(); // what your desk says
+
+document.querySelector('aparte-chat')?.addEventListener('aparte-conversation-loaded', (event) => {
+  const { conversationId } = event.detail;
+  aparteGlobalConfig.setAutoReply(!heldByAPerson.has(conversationId), conversationId);
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+```tsx
+import { AparteChat } from '@aparte/react';
+import { aparteGlobalConfig } from '@aparte/core';
+
+const heldByAPerson = new Set<string>(); // what your desk says
+
+export function Chat() {
+  return (
+    <AparteChat
+      onConversationLoaded={({ conversationId }) => aparteGlobalConfig.setAutoReply(!heldByAPerson.has(conversationId), conversationId)}
+    />
+  );
+}
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat } from '@aparte/vue';
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteConversationLoadedDetail } from '@aparte/core';
+
+const heldByAPerson = new Set<string>(); // what your desk says
+
+function onLoaded({ conversationId }: AparteConversationLoadedDetail) {
+  aparteGlobalConfig.setAutoReply(!heldByAPerson.has(conversationId), conversationId);
+}
+</script>
+
+<template>
+  <AparteChat @conversation-loaded="onLoaded" />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat } from '@aparte/svelte/runes';
+  import { aparteGlobalConfig } from '@aparte/core';
+  import type { AparteConversationLoadedDetail } from '@aparte/core';
+
+  const heldByAPerson = new Set<string>(); // what your desk says
+
+  function onLoaded({ conversationId }: AparteConversationLoadedDetail) {
+    aparteGlobalConfig.setAutoReply(!heldByAPerson.has(conversationId), conversationId);
+  }
+</script>
+
+<AparteChat onconversationLoaded={onLoaded} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```ts
+import { Component } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteConversationLoadedDetail } from '@aparte/core';
+
+const heldByAPerson = new Set<string>(); // what your desk says
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `<aparte-chat (conversationLoaded)="onLoaded($event)"></aparte-chat>`,
+})
+export class ChatComponent {
+  onLoaded({ conversationId }: AparteConversationLoadedDetail) {
+    aparteGlobalConfig.setAutoReply(!heldByAPerson.has(conversationId), conversationId);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+When your desk's answer comes later, call this from the same handler instead:
+
+```ts
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
+
+const client = new AparteClient();
+client.start();
+
+/** A conversation opened; your desk says later whether a person holds it. */
+export async function opened(conversationId: string) {
+  aparteGlobalConfig.setAutoReply(false, conversationId); // quiet while you ask, before anything resumes
+  const { held } = await fetch(`/desk/conversations/${conversationId}`).then((r) => r.json() as Promise<{ held: boolean }>);
+  if (held) return;
+  aparteGlobalConfig.setAutoReply(true, conversationId);
+  await client.resumeDeferred(); // a reply paused on a question goes on
+}
+```
+
+A reply already on its way is not stopped by `setAutoReply(false)`. To cut it, stop it the way
+the Stop button does, with the chat's id when the page has several:
+
+```ts
+window.dispatchEvent(new CustomEvent('aparte-abort', { detail: { targetId: 'support-chat' } }));
+```
+
+Do the same for a reply waiting on an approval: answering the approval would let it go on.
+
+## What the model reads
+
+When the AI answers again, it reads the whole conversation, the people's messages included:
+
+- A notice is never sent.
+- A person's message goes with its role, `user` or `assistant`, and its author's name as `name`.
+- Two messages in a row on the same side are joined into one, as most models expect the turns to
+  alternate. With one author, the joined message keeps the name; with two, each named author's
+  words open with their name — the AI's `Hello.` then Marie's `I've checked your order.` go as
+  `Hello.` and `Marie: I've checked your order.` in one message — so the model never reads an
+  advisor's words as its own.
+
+Whether the name reaches the model depends on the connection. OpenAI's own API takes it, and
+[`@aparte/provider-openai-compat`](/providers/ai/openai-compat/#who-wrote-a-message) sends it
+with its OpenAI preset or `sendNames: true`. An [AG-UI agent](/providers/agent/ag-ui/) receives
+it on every message. The other providers send the text alone.
+
+To name the authors in the text of every message, whatever the provider, rewrite the request
+before it goes, with the client's `requestInterceptor`:
+
+```ts
+import { AparteClient } from '@aparte/core';
+import type { AparteChatMessage } from '@aparte/core';
+
+/** A message with an author's name, the name in front of its words. */
+function named(message: AparteChatMessage): AparteChatMessage {
+  if (!message.name) return message;
+  const { name, ...rest } = message;
+  return {
+    ...rest,
+    content: typeof message.content === 'string'
+      ? `${name}: ${message.content}`
+      : [{ type: 'text', text: `${name}: ` }, ...message.content],
+  };
+}
+
+new AparteClient({
+  requestInterceptor: (request) => ({ ...request, messages: request.messages.map(named) }),
+}).start();
+```
+
+An [n8n workflow](/providers/agent/n8n/) keeps its own memory and is sent only the message of the
+turn: what a person wrote while the AI was off reaches it only if your server passes it on. An
+AG-UI agent is sent the whole conversation on every run.
+
+## Next
+
+- [Save conversations](/guides/conversation-persistence/): the manager that saves what an advisor
+  writes.
+- [Message](/components/message/): the bubble's attributes and parts.
+- [Per-chat configuration](/guides/customization/#per-chat-configuration): a config of its own,
+  to turn the AI off in one chat of the page.

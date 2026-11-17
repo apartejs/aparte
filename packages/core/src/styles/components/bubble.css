@@ -61,6 +61,18 @@ aparte-chat-bubble {
   padding-block-end: var(--aparte-message-gap);
 }
 
+/* The newest two are always drawn. A message just appended has never been rendered, so
+   when it lands below the fold — the scroll catches up a frame later — the skipping above
+   lays it out at the 320px fallback, the bottom is pinned to that, and the next frame
+   snaps it back: a flash under the person's message, the reply, or one the app appended
+   (an advisor's, a notice). Two, because a send appends the question and the waiting
+   reply in the same tick. They are where a person is looking, so drawing them costs
+   nothing the skipping saved; the history above keeps it. Siblings in every mode: the
+   wrappers render the bubbles side by side, as the viewport does. */
+aparte-chat-bubble:nth-last-of-type(-n + 2) {
+  content-visibility: visible;
+}
+
 .aparte-message {
   box-sizing: border-box;
   display: flex;
@@ -105,6 +117,21 @@ aparte-chat-bubble {
   background-size: var(--aparte-avatar-image-size);
   background-repeat: no-repeat;
   background-position: center;
+}
+
+/* A person on the assistant's side (an advisor who took over) is not the assistant: no
+   assistant picture behind their own. */
+aparte-chat-bubble[data-author-type="human"] .aparte-avatar[data-role="assistant"] {
+  background-image: none;
+}
+
+/* The author's own picture (`author.avatar`), drawn by core, fills the slot. */
+.aparte-avatar__img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }
 
 .aparte-body {
@@ -186,6 +213,27 @@ aparte-chat-bubble {
   font-family: var(--aparte-font-family);
 }
 
+/* A note under a message (`AparteMessage.note`: "Read by Marie"), in the flow after the
+   content, on the message's own side. */
+.aparte-message-note {
+  margin: var(--aparte-space-1) 0 0;
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  font-family: var(--aparte-font-family);
+}
+.aparte-message[data-role="user"] .aparte-message-note {
+  text-align: end;
+}
+
+/* A notice (`kind: 'notice'`: "Marie joined the conversation"): a line across the
+   transcript. The line is the divider recipe's; what is the notice's own is the room
+   around it. */
+.aparte-notice {
+  margin-block: var(--aparte-space-3);
+  font-size: var(--aparte-font-size-sm);
+  font-family: var(--aparte-font-family);
+}
+
 .aparte-action-bar {
   display: flex;
   align-items: center;
@@ -213,6 +261,20 @@ aparte-chat-bubble {
 
 /* Last assistant message: action bar always visible — but NOT while streaming */
 aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.aparte-message-streaming) .aparte-action-bar {
+  opacity: 1;
+}
+
+/* A message a human message or a notice follows offers no regenerate and no edit: either
+   would drop what the advisor wrote from the path (the client refuses them too). Its own
+   rule, for the engines that do not know `:has()`. */
+aparte-chat-bubble:has(~ aparte-chat-bubble:is([data-kind="notice"], [data-role="assistant"][data-author-type="human"])) .aparte-action-bar :is([data-action="retry"], [data-action="edit"]) {
+  display: none;
+}
+
+/* The same when only notices ("Marie joined") follow it: a notice is not the last answer.
+   Its own rule: on an engine that does not know `:has()` the selector is dropped, and the
+   rule above still stands. */
+aparte-chat-bubble:not([data-kind]):not(:has(~ aparte-chat-bubble:not([data-kind]))) .aparte-message[data-role="assistant"]:not(.aparte-message-streaming) .aparte-action-bar {
   opacity: 1;
 }
 

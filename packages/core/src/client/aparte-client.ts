@@ -7,7 +7,8 @@ import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import { historyFromCheckpoint } from '../context/checkpoint.js';
 import { carriesNonTextParts, estimateRequestTokens, toolsForCurrentModel } from '../context/measure.js';
-import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentUserMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
+import { historySummaryOf, isInFlight, isOpenDeferred, mergeAdjacentMessages, messageWireText, segmentsToWireText, summaryMessage, wireMessages, wireTurns } from './wire-history.js';
+import { isModelReply } from '../utils/is-model-reply.js';
 import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { chatIdOf } from '../interop/chat-events.js';
 import type { AparteStreamRunner, AparteStreamRunEmitter, AparteStreamRunOptions, StreamAdapterTarget } from './stream-adapter.js';
@@ -332,6 +333,16 @@ function tokensStillIn(content: string, tokens: readonly AparteMessageToken[]): 
         kept.push({ ...token, start, end: from });
     }
     return kept;
+}
+
+/**
+ * Does a human message (an advisor's, on the assistant's side) or a notice come after this
+ * message on the path? Then an edit or a regenerate, which drop what follows it, would drop
+ * what the advisor wrote.
+ */
+function followedByAHuman(path: readonly AparteMessage[], messageId: string): boolean {
+    const at = path.findIndex((m) => m.id === messageId);
+    return at !== -1 && path.slice(at + 1).some((m) => m.kind !== undefined || (m.role === 'assistant' && !isModelReply(m)));
 }
 
 /**
@@ -942,6 +953,10 @@ export class AparteClient {
         // and this reply. Read when asked, from the path, because a retry has moved it.
         const turnIds = (): string[] => {
             const path = targetElement.getMessages?.() ?? [];
+            // The question by its id when the send knows it, so a message appended around
+            // the turn cannot be taken for it; else the message right before the reply.
+            const askedId = opts?.userMessage?.messageId;
+            if (askedId && path.some((m) => m.id === askedId)) return [askedId, messageId];
             const at = path.findIndex((m) => m.id === messageId);
             const asked = at > 0 ? path[at - 1] : undefined;
             return asked?.role === 'user' ? [asked.id, messageId] : [messageId];
@@ -1165,6 +1180,18 @@ export class AparteClient {
         return toolsForCurrentModel(this._config);
     }
 
+    /**
+     * Whether the AI answers in a conversation of `target` (`setAutoReply`): the client's
+     * config and the chat's must both say so. A chat with its own config answered by the
+     * page's client is turned off on its own config — the one its bubbles and composer read,
+     * so the buttons they disable and the turns refused here never disagree.
+     */
+    private _autoReplies(target: Element, conversationId: string | undefined): boolean {
+        if (!this._config.getAutoReply(conversationId)) return false;
+        const chat = resolveConfig(target);
+        return chat === this._config || chat.getAutoReply(conversationId);
+    }
+
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
         // The same opening every user action gets — see _beginUserTurn.
@@ -1179,11 +1206,18 @@ export class AparteClient {
         }
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // A regenerate is a turn: none while the AI is off.
+        if (!this._autoReplies(targetElement, conversationId)) return;
 
         // Build history BEFORE calling addSiblingOf (getMessages() returns active path)
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
         const retryIdx = allMessages.findIndex(m => m.id === messageId);
         const retryMsg = retryIdx >= 0 ? allMessages[retryIdx] : undefined;
+        // Only the model's words are regenerated: an advisor's message or a notice is not
+        // the AI's to rewrite, whoever sent the retry (the bubble, `/retry`, the app). And a
+        // regenerate branches off the path what an advisor wrote after it: refused too.
+        if (retryMsg && retryMsg.role === 'assistant' && !isModelReply(retryMsg)) return;
+        if (followedByAHuman(allMessages, messageId)) return;
         // For user messages: include the user message in history (AI needs to see the question).
         // For assistant messages: exclude it (we are regenerating that response).
         const sliceEnd = retryMsg?.role === 'user' ? retryIdx + 1 : retryIdx;
@@ -1223,7 +1257,7 @@ export class AparteClient {
         const asked = [...historyMessages].reverse().find((m) => m.role === 'user');
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...(provider.retryTemperature !== undefined ? { temperature: provider.retryTemperature } : {}),
                 ...this._turnMeta(asked),
@@ -1231,7 +1265,7 @@ export class AparteClient {
                 ...(asked ? { userMessage: { content: messageWireText(asked), messageId: asked.id } } : {}),
                 rebuild: async () => [
                     ...this._systemMessages(),
-                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                    ...mergeAdjacentMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
                 ],
             },
         );
@@ -1273,6 +1307,10 @@ export class AparteClient {
         }
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // An edit is answered anew: none while the AI is off, and the message stays as it was.
+        if (!this._autoReplies(targetElement, conversationId)) return;
+        // An edit drops everything after the message: not what an advisor wrote.
+        if (followedByAHuman(targetElement.getMessages?.() ?? [], messageId)) return;
 
         // 1. Update the user message content, and the tokens it still holds
         const before = targetElement.getMessages?.().find((m) => m.id === messageId);
@@ -1324,7 +1362,7 @@ export class AparteClient {
 
         await this._streamTurn(
             targetElement, newMessageId, provider,
-            [...systemMessages, ...mergeAdjacentUserMessages(chatMessages)], config.defaultModel || '',
+            [...systemMessages, ...mergeAdjacentMessages(chatMessages)], config.defaultModel || '',
             authConfig, {
                 ...this._turnMeta(editIdx >= 0 ? allMessages[editIdx] : undefined),
                 ...(conversationId ? { conversationId } : {}),
@@ -1334,7 +1372,7 @@ export class AparteClient {
                 },
                 rebuild: async () => [
                     ...this._systemMessages(),
-                    ...mergeAdjacentUserMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
+                    ...mergeAdjacentMessages(this._messagesToChatMessages(this._current(targetElement, historyMessages))),
                 ],
             },
         );
@@ -1498,7 +1536,7 @@ export class AparteClient {
      * What the model reads in place of everything before a checkpoint: the summary, as a
      * `user` message under the same preamble a legacy compaction message gets, so it is
      * context and not something the person said. It may sit right before a user turn;
-     * `mergeAdjacentUserMessages` joins the two where the history is assembled.
+     * `mergeAdjacentMessages` joins the two where the history is assembled.
      */
     private _summaryMessage(summary: string | undefined): AparteChatMessage[] {
         return summary === undefined ? [] : [summaryMessage(summary)];
@@ -1533,14 +1571,10 @@ export class AparteClient {
         // fetch takes ten seconds. `warn` and not silence, because the developer is
         // the one who can fix it — an app that gates SHOULD also disable its own
         // buttons, and this is how it finds out it did not.
-        if (this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId) {
-            console.warn(
-                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
-                + 'The composer blocks this, but this send did not come from it — disable your own '
-                + 'send affordances while `hasSelectedModel()` is false.',
-            );
-            return;
-        }
+        //
+        // Decided once the chat is found, below: with the AI turned off for its conversation
+        // (`setAutoReply(false)`), no model is needed and the message is kept.
+        const modelMissing = this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId;
 
         // 1. Use targetId from event detail — the most reliable path.
         //    The composer sets detail.targetId = host.id (set by AparteChatComponent).
@@ -1613,6 +1647,17 @@ export class AparteClient {
         // conversation in that time has not moved this message — it was written, and is
         // saved, in this one. Absent when the chat has none.
         const conversationId = openConversationOf(targetElement) ?? undefined;
+        // The AI turned off for this conversation: the message is shown and announced below,
+        // and no turn starts. Read now, with the conversation, for the same reason.
+        const autoReply = this._autoReplies(targetElement, conversationId);
+        if (modelMissing && autoReply) {
+            console.warn(
+                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
+                + 'The composer blocks this, but this send did not come from it — disable your own '
+                + 'send affordances while `hasSelectedModel()` is false.',
+            );
+            return;
+        }
 
         // The optimistic USER bubble, before anything below can fail — a send the
         // person cannot see is a broken chat even when the failure card explains
@@ -1629,8 +1674,9 @@ export class AparteClient {
         this._closeDeferred(targetElement);
         if (this.options.echoUserMessage !== false && event.detail?.echoed !== true) {
             const echoFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
+            const echoedId = uuid();
             targetElement.appendMessage?.({
-                id: uuid(),
+                id: echoedId,
                 role: 'user',
                 content,
                 timestamp: Date.now(),
@@ -1638,11 +1684,20 @@ export class AparteClient {
                 ...(event.detail?.tokens?.length ? { tokens: event.detail.tokens } : {}),
                 ...(event.detail?.meta ? { metadata: event.detail.meta } : {}),
             });
-            if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
+            if (event.detail && typeof event.detail === 'object') {
+                event.detail.echoed = true;
+                event.detail.messageId = echoedId;
+            }
         }
-        // The message just sent, as the chat shows it: the last one, whoever echoed it.
+        // Nobody to answer from here: whoever does writes into the chat.
+        if (!autoReply) return;
+        // The message just sent, by the id whoever echoed it wrote on the send: an app may
+        // append a message before the request is built, so "the last one" is only the
+        // fallback for an echo that wrote no id.
         const shown = targetElement.getMessages?.().at(-1);
-        const sentId = shown?.role === 'user' ? shown.id : undefined;
+        const sentId = typeof event.detail?.messageId === 'string'
+            ? event.detail.messageId
+            : shown?.role === 'user' ? shown.id : undefined;
 
         const messageId = uuid();
         const config = this._config.getModelConfig();
@@ -1705,7 +1760,7 @@ export class AparteClient {
             const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
             fileParts = contentParts.length > 0 ? contentParts : undefined;
-            messages = this._buildMessages(content, targetElement, fileParts);
+            messages = this._buildMessages(content, targetElement, fileParts, sentId);
         } catch (error: unknown) {
             this._handleLifecycleError(targetElement, messageId, AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR));
             return;
@@ -1716,7 +1771,7 @@ export class AparteClient {
             messages, modelId || config.defaultModel || '',
             authConfig,
             {
-                rebuild: async () => this._buildMessages(content, targetElement, fileParts),
+                rebuild: async () => this._buildMessages(content, targetElement, fileParts, sentId),
                 ...(rawFiles.length > 0 ? { files: rawFiles } : {}),
                 ...this._turnMeta(event.detail),
                 ...(conversationId ? { conversationId } : {}),
@@ -1728,7 +1783,7 @@ export class AparteClient {
     /**
      * Build the initial messages array, prepending system prompts and conversation history.
      */
-    private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[]): AparteChatMessage[] {
+    private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[], sentId?: string): AparteChatMessage[] {
         // 1. The app's system prompt, then the tools' own — see `_systemMessages`.
         const messages: AparteChatMessage[] = this._systemMessages();
 
@@ -1736,7 +1791,7 @@ export class AparteClient {
         const viewportMessages: AparteMessage[] = target?.getMessages?.() ?? [];
 
         if (historyOption === 'viewport') {
-            messages.push(...this._toHistoryMessages(viewportMessages));
+            messages.push(...this._toHistoryMessages(viewportMessages, sentId));
         } else if (typeof historyOption === 'function') {
             messages.push(...historyOption(viewportMessages));
         }
@@ -1744,7 +1799,7 @@ export class AparteClient {
         messages.push({ role: 'user', content: this._userContent(userContent, parts) });
         // Applied once, to the final array: the history may end on a user turn (a failed
         // one, a compaction summary) that the new message now sits right after.
-        return mergeAdjacentUserMessages(messages);
+        return mergeAdjacentMessages(messages);
     }
 
     /** The message being sent, as the request carries it: the text, then the files inlined as parts. */
@@ -1752,20 +1807,27 @@ export class AparteClient {
         return parts && parts.length > 0 ? [{ type: 'text' as const, text }, ...parts] : text;
     }
 
-    private _toHistoryMessages(path: AparteMessage[]): AparteChatMessage[] {
+    private _toHistoryMessages(path: AparteMessage[], sentId?: string): AparteChatMessage[] {
         // The checkpoint is read on the FULL path, before the cutoff below: it may sit on
         // the very message being sent (a turn retried after an overflow), and the cutoff
         // would otherwise have cut it away with that message.
         const { summary, messages } = historyFromCheckpoint(path);
-        // The message being sent is the last one not in flight (the reply waiting for it
-        // is): `_buildMessages` adds it itself, with its files, so it is cut here or it
-        // would go twice. Only that one. A message whose turn failed before it stays: it
-        // goes with this one, or is left out, by the rule every request follows
-        // (`withoutAbandonedTurns`). Cutting at the last ANSWERED reply left it out of
-        // this request and put it back, joined to this message, in the next one.
+        // The message being sent: `_buildMessages` adds it itself, with its files, so the
+        // history stops right before it or it would go twice. Found by its id — an app may
+        // have appended messages after this turn's pending reply (an advisor's reply,
+        // another participant's) before the request was built, and those belong to the
+        // next turn's history, not before this question. Without an id, the old reading:
+        // the last message not in flight. Only that one is cut. A message whose turn failed
+        // before it stays: it goes with this one, or is left out, by the rule every request
+        // follows (`withoutAbandonedTurns`).
+        const sentAt = sentId === undefined ? -1 : messages.findIndex((m) => m.id === sentId);
         let cutoff = messages.length;
-        while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
-        if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
+        if (sentAt !== -1) {
+            cutoff = sentAt;
+        } else {
+            while (cutoff > 0 && isInFlight(messages[cutoff - 1]!)) cutoff--;
+            if (cutoff > 0 && messages[cutoff - 1]!.role === 'user') cutoff--;
+        }
 
         // The cutoff is this path's own concern; what each message contributes to the
         // wire is shared with retry and edit — see `wireMessages`.
@@ -2379,7 +2441,7 @@ export class AparteClient {
         const history = historyOption === 'viewport' ? this._toHistoryMessages(before)
             : typeof historyOption === 'function' ? historyOption(before)
                 : [];
-        return mergeAdjacentUserMessages([
+        return mergeAdjacentMessages([
             ...this._systemMessages(), ...history,
             ...(askedAt >= 0 ? wireMessages([before[askedAt]!]) : []),
         ]);
@@ -2392,7 +2454,8 @@ export class AparteClient {
      */
     private _closeDeferred(targetElement: AparteChatTargetElement): void {
         const messages = targetElement.getMessages?.() ?? [];
-        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        // The AI's last reply, past a notice or an advisor's message that followed it.
+        const last = [...messages].reverse().find(isModelReply);
         const rows = Boolean(last?.segments?.some(isOpenDeferred));
         if (!last || (!rows && !last.deferredCalls?.length)) return;
         targetElement.updateMessage?.(last.id, {
@@ -2425,8 +2488,11 @@ export class AparteClient {
         const host = typeof target === 'string' ? this._byId(target) : target ?? this.options.targetResolver?.() ?? null;
         const targetElement = (host ? this._asRenderTarget<HTMLElement>(host) : this._scanForTarget<HTMLElement>()) as AparteChatTargetElement | null;
         if (!targetElement) return false;
+        // A resumed reply is a turn: none while the AI is off. It waits for the next load.
+        if (!this._autoReplies(targetElement, openConversationOf(targetElement) ?? undefined)) return false;
         const messages = targetElement.getMessages?.() ?? [];
-        const last = [...messages].reverse().find((m) => m.role === 'assistant');
+        // The AI's last reply, past a notice or an advisor's message that followed it.
+        const last = [...messages].reverse().find(isModelReply);
         const open = (last?.segments ?? []).filter(isOpenDeferred);
         // A sub-agent's paused calls: no row of the reply holds them, so the reply does.
         const kept = last?.deferredCalls ?? [];

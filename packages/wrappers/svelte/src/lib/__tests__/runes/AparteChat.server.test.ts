@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'svelte/server';
 import { aparteGlobalConfig } from '@aparte/core';
 import AparteChat from '../../runes/AparteChat.svelte';
+import LegacyAparteChat from '../../AparteChat.svelte';
 import SnippetsHost from './SnippetsHost.svelte';
 import HelloHost from './HelloHost.svelte';
 import KeyedClientHost from './KeyedClientHost.svelte';
@@ -39,5 +40,14 @@ describe('<AparteChat> for Svelte 5, on the server', () => {
         const { body } = render(SnippetsHost, { props: {} });
         expect(body).toContain('Ask me anything');
         expect(body).toContain('Shift + Enter');
+    });
+
+    it('draws who wrote a message, and a notice, in the HTML it sends (Svelte 5 and Svelte 4)', () => {
+        const messages = [{ id: 'h1', role: 'assistant' as const, author: { name: 'Marie', type: 'human' as const }, content: 'Marie here.', timestamp: 0 }, { id: 'n1', role: 'assistant' as const, kind: 'notice' as const, content: 'Marie joined the conversation', timestamp: 0 }];
+        for (const body of [render(AparteChat, { props: { messages } }).body, render(LegacyAparteChat, { props: { messages } }).body]) {
+            expect(body).toMatch(/<aparte-chat-bubble[^>]*name="Marie"/);
+            expect(body).toMatch(/<aparte-chat-bubble[^>]*data-author-type="human"/);
+            expect(body).toMatch(/<aparte-chat-bubble[^>]*data-kind="notice"/);
+        }
     });
 });

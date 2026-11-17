@@ -77,3 +77,36 @@ test('a user attachment strip is anchored to the same edge as the bubble', async
         + ` (anchored ${anchoredTrailing ? 'trailing' : 'leading'})`,
     ).toBeLessThan(4);
 });
+
+// A bubble skipped by `content-visibility: auto` takes its `contain-intrinsic-size` fallback (320px)
+// until the browser has rendered it once, and a new message has never been rendered: it used to be
+// laid out 320px tall on its first frame, the auto-scroll pinned the bottom to that, and the next
+// frame snapped it back — a flash under every message, the person's, the reply's, or one the app
+// appended (an advisor's, a notice). The newest messages are where a person is looking, so they
+// are always rendered; the history above keeps the skipping.
+test('a new message has its own height on its first frame, and the history is still skipped', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+        const vp = document.querySelector('aparte-chat-viewport') as any;
+        // Enough history to overflow the transcript: a new message lands below the fold, where
+        // the browser has not drawn it yet, and the scroll brings it in afterwards.
+        for (let i = 0; i < 30; i++) {
+            vp.appendMessage({ id: `h${i}`, role: i % 2 ? 'assistant' : 'user', content: `Earlier message ${i}, long enough to take a line or two of the transcript.`, timestamp: Date.now() });
+        }
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const bubble = (id: string) => vp.querySelector(`aparte-chat-bubble[message-id="${id}"]`) as HTMLElement;
+        const height = (id: string) => Math.round(bubble(id).getBoundingClientRect().height);
+        // Two at once, the way a send appends the question and the waiting reply.
+        vp.appendMessage({ id: 'q', role: 'user', content: 'Is it shipped?', timestamp: Date.now() });
+        vp.appendMessage({ id: 'n', role: 'assistant', kind: 'notice', content: 'Marie joined the conversation', timestamp: Date.now() });
+        const first = await new Promise<{ q: number; n: number }>((r) => requestAnimationFrame(() => r({ q: height('q'), n: height('n') })));
+        // Once the send's glide has brought them in and they have been drawn.
+        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        return { first, settled: { q: height('q'), n: height('n') }, history: getComputedStyle(bubble('h0')).contentVisibility };
+    });
+    // One line each: nowhere near the 320px fallback.
+    expect(result.settled.q).toBeLessThan(200);
+    expect(result.settled.n).toBeLessThan(200);
+    expect(result.first, 'first frame').toEqual(result.settled);
+    expect(result.history).toBe('auto');
+});
