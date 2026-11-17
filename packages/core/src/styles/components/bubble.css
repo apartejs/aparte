@@ -61,6 +61,18 @@ aparte-chat-bubble {
   padding-block-end: var(--aparte-message-gap);
 }
 
+/* The newest two are always drawn. A message just appended has never been rendered, so
+   when it lands below the fold — the scroll catches up a frame later — the skipping above
+   lays it out at the 320px fallback, the bottom is pinned to that, and the next frame
+   snaps it back: a flash under the person's message, the reply, or one the app appended
+   (an advisor's, a notice). Two, because a send appends the question and the waiting
+   reply in the same tick. They are where a person is looking, so drawing them costs
+   nothing the skipping saved; the history above keeps it. Siblings in every mode: the
+   wrappers render the bubbles side by side, as the viewport does. */
+aparte-chat-bubble:nth-last-of-type(-n + 2) {
+  content-visibility: visible;
+}
+
 .aparte-message {
   box-sizing: border-box;
   display: flex;
