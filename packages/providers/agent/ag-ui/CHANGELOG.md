@@ -1,5 +1,11 @@
 # @aparte/runner-ag-ui
 
+## 1.13.0
+
+### Minor Changes
+
+- 205d5a9: A message's author now goes to the agent as the message's `name`, on user and assistant messages alike.
+
 ## 1.12.2
 
 ### Patch Changes

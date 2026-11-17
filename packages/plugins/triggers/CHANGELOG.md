@@ -1,5 +1,13 @@
 # @aparte/plugin-triggers
 
+## 1.13.0
+
+### Patch Changes
+
+- 205d5a9: `/retry` now targets the AI's last answer, never a notice or a person's message after it.
+
+  When a notice or a person's message follows that answer, regenerating it would drop what came after, and the chat refuses, as its own Regenerate button does.
+
 ## 1.12.2
 
 ## 1.12.1

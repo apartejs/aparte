@@ -4,6 +4,57 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.13.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): A message can now say who wrote it (`author`), a notice can mark what happened in the conversation (`kind: 'notice'`), a note can sit under a message (`note`), and `setAutoReply(false)` keeps the AI quiet while a person answers.
+
+  Nothing to change in your code, with one thing to know first: a conversation saved with notices, opened with an older version of aparté, shows each notice as a reply of the AI.
+
+  - `AparteMessage.author` (`AparteAuthor`: `name`, `type` `'ai' | 'human'`, `avatar`, `id`) names the writer; `role` still says the side. The bubble shows the name and the picture, carries `data-author-type` and `data-author-name`, and a person's message offers no regenerate, rating or model details. An avatar provider is told the author (`render(role, host, { author })`), and `registerAction` takes `bubble.authorTypes`. `isModelReply(message)` and `authorTypeOf(message)` are exported.
+  - `kind: 'notice'` draws a line across the transcript (`role="note"`), never sent to the model and never answered. `note` is a short line under a message, set with `updateMessage(id, { note })`.
+  - `config.setAutoReply(on, conversationId?)` / `getAutoReply(conversationId?)`: off, a person's message is shown, announced and saved, and no turn starts — not from a send, a queued message, a regenerate, an edit or the resume of a paused reply. Regenerate and edit are disabled meanwhile. Per conversation, or for the whole chat; not stored, so apply it again on `aparte-conversation-loaded`.
+  - `aparte-send` carries `messageId`, the id of the message on screen. A message appended or updated outside a turn fires `aparte-transcript-change`, and the conversation controller saves it; `manager.addMessage()` now writes the stored branch tree too.
+  - A message appended while a reply streams no longer cuts into it: the turn writes into its own message by id, and the history is cut at the message that was sent, wherever it sits.
+  - What the model reads: an author's name goes as the message's `name`; two messages in a row on the same side are joined into one, assistant ones too unless they call tools (before, only the person's were), since strict chat templates refuse two in a row; joined messages from different authors open each named author's words with the name (`Marie: …`).
+
+  The guide is "Humans in the conversation".
+  <sub>`@aparte/core`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): A message of the agent loop can carry its author's name (`StreamAgentMessage.name`), passed through to the provider.
+  <sub>`@aparte/engine`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): A message's author now goes to the agent as the message's `name`, on user and assistant messages alike.
+  <sub>`@aparte/runner-ag-ui`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): `sendNames: true` sends a message's author as OpenAI's `name` field; it is on in `presets.OPENAI`.
+
+  Off by default, because other OpenAI-compatible servers refuse the field (Mistral answers 422). The name is fitted to what the API accepts — letters, digits, `_` and `-`, up to 64 characters — and left out when nothing is left of it.
+  <sub>`@aparte/provider-openai-compat`</sub>
+
+### Patch Changes
+
+- [f4b255a](https://github.com/apartejs/aparte/commit/f4b255a): A new message no longer flashes 320px tall for a frame before taking its own height.
+
+  Nothing to change in your code. The bubbles skip drawing what is off screen (`content-visibility: auto`), and one that has never been drawn is laid out at the 320px fallback. A message just appended lands below the fold until the scroll catches up a frame later, so the transcript was pinned to that height and then snapped back: a flash under the person's message, the reply, or a message the app appended (an advisor's, a notice). The newest two bubbles are now always drawn (`aparte-chat-bubble:nth-last-of-type(-n + 2)`); the history above keeps the skipping.
+  <sub>`@aparte/core`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): The summary now leaves notices out and names a person's message by its author (`Marie: …`), so it never puts an advisor's words in the AI's mouth.
+  <sub>`@aparte/plugin-compaction`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): `/retry` now targets the AI's last answer, never a notice or a person's message after it.
+
+  When a notice or a person's message follows that answer, regenerating it would drop what came after, and the chat refuses, as its own Regenerate button does.
+  <sub>`@aparte/plugin-triggers`</sub>
+
+- [205d5a9](https://github.com/apartejs/aparte/commit/205d5a9): A message with an author and a notice now draw right on the first paint: the bubble gets `data-kind`, `name` and `data-author-type` from the message.
+  <sub>`@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.12.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
