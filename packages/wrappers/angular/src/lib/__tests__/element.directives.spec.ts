@@ -248,10 +248,11 @@ describe('the element directives', () => {
         <aparte-chat-viewport [scrollThreshold]="1" [maxRenderedBubbles]="2"
             (segmentUpdate)="seen['segmentUpdate'] = true"
             (resetDone)="seen['resetDone'] = true"
-            (pathChanged)="seen['pathChanged'] = true"></aparte-chat-viewport>
+            (pathChanged)="seen['pathChanged'] = true"
+            (transcriptChange)="seen['transcriptChange'] = true"></aparte-chat-viewport>
 
         <aparte-chat-bubble messageId="b1" messageRole="user" content="hi" [timestamp]="7"
-            name="You" [streaming]="true"
+            name="You" [streaming]="true" dataKind="notice"
             (action)="seen['action'] = true" (retry)="seen['retry'] = true"
             (edit)="seen['edit'] = true" (feedback)="seen['feedback'] = true"
             (messageInfo)="seen['messageInfo'] = true"
@@ -347,6 +348,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-chat-bubble', 'content', 'hi'],
         ['aparte-chat-bubble', 'timestamp', '7'],
         ['aparte-chat-bubble', 'name', 'You'],
+        ['aparte-chat-bubble', 'data-kind', 'notice'],
         ['aparte-chat-bubble', 'streaming', ''],
         ['aparte-chat-status', 'visible', ''],
         ['aparte-chat-status', 'text', 'Working'],
@@ -420,6 +422,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-chat-viewport', 'aparte-segment-update', 'segmentUpdate'],
         ['aparte-chat-viewport', 'aparte-reset-done', 'resetDone'],
         ['aparte-chat-viewport', 'aparte-path-changed', 'pathChanged'],
+        ['aparte-chat-viewport', 'aparte-transcript-change', 'transcriptChange'],
         ['aparte-chat-bubble', 'aparte-action', 'action'],
         ['aparte-chat-bubble', 'aparte-retry', 'retry'],
         ['aparte-chat-bubble', 'aparte-edit', 'edit'],

@@ -37,7 +37,8 @@ describe('the sent message id', () => {
 
         const sent = messages.find((m) => m.role === 'user' && m.content === 'hi');
         expect(sent).toBeDefined();
-        expect(seen?.echoed).toBe(true);
+        // `echoed` is the echo handshake between the controller and the client, not a declared field.
+        expect((seen as { echoed?: boolean } | undefined)?.echoed).toBe(true);
         expect(seen?.messageId).toBe(sent!.id);
         controller.unbind?.();
         host.remove();

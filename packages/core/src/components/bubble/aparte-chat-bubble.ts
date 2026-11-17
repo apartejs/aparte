@@ -238,6 +238,7 @@ let checkpointIds = 0;
  * @attr {string} data-checkpoint - `pending` or `failed`: what a compaction is doing to this message, which it will carry as a checkpoint. The viewport and the framework host set it from `aparte-compact-start` / `-error` and take it off again; the bubble draws the separator's "Summarising the context…" or Retry from it. Read it, do not write it.
  * @attr {string} data-checkpoint-reason - Why the compaction failed, beside `data-checkpoint="failed"`: the separator gives it as the failure's tooltip and to screen readers. Set and cleared with `data-checkpoint`; read it, do not write it.
  * @attr {string} name - Who wrote the message: shown in the header, and the message's accessible name ("Message from {name}"). Leave it out for the reader and the assistant, whose names come from the locale.
+ * @attr {string} data-kind - What the message is, when it is not a message someone wrote: `notice` draws it as a line across the transcript (`role="note"`, no name, no actions, never sent to the model), as `AparteMessage.kind: 'notice'` does; `compaction` is a summary's checkpoint. The transcript and the framework hosts set it from the message.
  *
  * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
  * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
