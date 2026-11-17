@@ -75,11 +75,22 @@ export function mergeAdjacentMessages(messages: AparteChatMessage[]): AparteChat
             out.push(m);
         } else {
             const { name: _prevName, ...base } = prev;
-            const merged: AparteChatMessage = typeof prev.content === 'string' && typeof m.content === 'string'
-                ? { ...base, content: `${prev.content}\n\n${m.content}` }
-                : { ...base, content: [...asParts(prev.content), { type: 'text', text: '\n\n' }, ...asParts(m.content)] };
-            // One author for the whole message, or none: two people's words under one name lie.
-            if (prev.name !== undefined && prev.name === m.name) merged.name = prev.name;
+            // One author for the whole message keeps the name. Two authors cannot share one, and
+            // dropping it would put an advisor's words in the AI's mouth: each named author's
+            // words open with their name instead ("Marie: …"); unnamed words stay as they are.
+            const sameAuthor = prev.name === m.name;
+            const said = (msg: AparteChatMessage): AparteChatMessage['content'] => {
+                if (sameAuthor || !msg.name) return msg.content;
+                return typeof msg.content === 'string'
+                    ? `${msg.name}: ${msg.content}`
+                    : [{ type: 'text', text: `${msg.name}: ` }, ...msg.content];
+            };
+            const before = said(prev);
+            const after = said(m);
+            const merged: AparteChatMessage = typeof before === 'string' && typeof after === 'string'
+                ? { ...base, content: `${before}\n\n${after}` }
+                : { ...base, content: [...asParts(before), { type: 'text', text: '\n\n' }, ...asParts(after)] };
+            if (sameAuthor && prev.name !== undefined) merged.name = prev.name;
             // A summary joined to the next message still opens it.
             const summary = summaries.get(prev);
             if (summary !== undefined) summaries.set(merged, summary);

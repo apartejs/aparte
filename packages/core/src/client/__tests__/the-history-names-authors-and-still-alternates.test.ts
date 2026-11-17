@@ -6,7 +6,9 @@
  * `assistant` (the service's voice) and may follow the AI's reply, or another advisor
  * message; two people may write in a row. So same-role neighbours are merged — `assistant`
  * ones too, unless they carry tool calls — and the merged message keeps `name` only when
- * every part had the same author.
+ * every part had the same author. When they had different authors, one `name` cannot say
+ * it: each named author's words open with their name, or the model would read an advisor's
+ * words as its own.
  */
 import { describe, it, expect } from 'vitest';
 import { mergeAdjacentMessages, wireMessages } from '../wire-history.js';
@@ -27,10 +29,10 @@ describe('the history and the authors', () => {
         ]);
     });
 
-    it("merges the AI's reply and an advisor's message that follows it, without a name", () => {
+    it("merges the AI's reply and an advisor's message that follows it, the advisor named in the text", () => {
         expect(wire([user('u1', 'hi'), ai('a1', 'Hello.'), advisor('h1', 'Marie here.')])).toEqual([
             { role: 'user', content: 'hi' },
-            { role: 'assistant', content: 'Hello.\n\nMarie here.' },
+            { role: 'assistant', content: 'Hello.\n\nMarie: Marie here.' },
         ]);
     });
 
@@ -39,10 +41,19 @@ describe('the history and the authors', () => {
             .toEqual({ role: 'assistant', content: 'One.\n\nTwo.', name: 'Marie' });
     });
 
-    it('merges two people who wrote in a row, without a name', () => {
+    it('merges two people who wrote in a row, each named in the text', () => {
         expect(wire([user('u1', 'me first', 'Alex'), user('u2', 'me too', 'Bo')])).toEqual([
-            { role: 'user', content: 'me first\n\nme too' },
+            { role: 'user', content: 'Alex: me first\n\nBo: me too' },
         ]);
+    });
+
+    it('names an author in front of parts too, and keeps naming as more messages join', () => {
+        expect(mergeAdjacentMessages([
+            { role: 'user', content: 'a', name: 'Alex' },
+            { role: 'user', content: [{ type: 'text', text: 'b' }], name: 'Bo' },
+        ])).toEqual([{ role: 'user', content: [{ type: 'text', text: 'Alex: a' }, { type: 'text', text: '\n\n' }, { type: 'text', text: 'Bo: ' }, { type: 'text', text: 'b' }] }]);
+        expect(wire([user('u1', 'hi'), ai('a1', 'Hello.'), advisor('h1', 'One.'), advisor('h2', 'Two.')]).at(-1))
+            .toEqual({ role: 'assistant', content: 'Hello.\n\nMarie: One.\n\nMarie: Two.' });
     });
 
     it('alternates after a compaction summary and an authored message', () => {
