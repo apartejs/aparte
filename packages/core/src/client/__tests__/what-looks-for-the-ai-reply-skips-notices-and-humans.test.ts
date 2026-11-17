@@ -49,6 +49,22 @@ describe('the wire', () => {
         // The question failed for good: it goes, though a notice sits between it and its reply.
         expect(wireMessages([{ id: 'u1', role: 'user', content: 'too long?', timestamp: 1 }, notice, failed])).toEqual([]);
     });
+
+    it("keeps what an advisor answered when the AI's next reply fails for good", () => {
+        const failed: AparteMessage = {
+            id: 'a2', role: 'assistant', content: '', status: 'error', timestamp: 6,
+            segments: [{ id: 'e', type: 'error', code: AparteErrorCode.USAGE_CONTEXT_EXCEEDED, content: 'too long' } as AparteSegment],
+        };
+        const wire = wireMessages([
+            { id: 'u1', role: 'user', content: 'Is my order shipped?', timestamp: 1 },
+            notice,
+            human('It ships today.'),
+            { id: 'u2', role: 'user', content: 'And the invoice?', timestamp: 5 },
+            failed,
+        ]);
+        // Marie answered the first question: only the one the AI failed on goes.
+        expect(wire.map((m) => m.content)).toEqual(['Is my order shipped?', 'It ships today.']);
+    });
 });
 
 describe('the waiting dots', () => {

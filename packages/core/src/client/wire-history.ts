@@ -345,9 +345,11 @@ export function withoutAbandonedTurns(messages: readonly AparteMessage[]): Apart
             // A compaction summary (`compaction: true`) asks nothing: it stands for the turns
             // before it, and dropping it with a failed turn would lose them for good.
             if (!m.compaction) asked.push(m);
+        } else if (m.role === 'assistant' && !isModelReply(m)) {
+            // An advisor's message answers the person: what it answered is not the AI's to
+            // lose when the AI's next reply fails. (Notices are gone before this.)
+            asked = [];
         } else if (isModelReply(m)) {
-            // Only the model's reply settles the turn: a notice or an advisor's message
-            // between the question and a reply that failed for good does not save it.
             if (m.status !== 'error') {
                 asked = [];
             } else if (failedForGood(m, asked)) {
