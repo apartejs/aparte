@@ -1180,6 +1180,18 @@ export class AparteClient {
         return toolsForCurrentModel(this._config);
     }
 
+    /**
+     * Whether the AI answers in a conversation of `target` (`setAutoReply`): the client's
+     * config and the chat's must both say so. A chat with its own config answered by the
+     * page's client is turned off on its own config — the one its bubbles and composer read,
+     * so the buttons they disable and the turns refused here never disagree.
+     */
+    private _autoReplies(target: Element, conversationId: string | undefined): boolean {
+        if (!this._config.getAutoReply(conversationId)) return false;
+        const chat = resolveConfig(target);
+        return chat === this._config || chat.getAutoReply(conversationId);
+    }
+
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
         // The same opening every user action gets — see _beginUserTurn.
@@ -1195,7 +1207,7 @@ export class AparteClient {
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
         // A regenerate is a turn: none while the AI is off.
-        if (!this._config.getAutoReply(conversationId)) return;
+        if (!this._autoReplies(targetElement, conversationId)) return;
 
         // Build history BEFORE calling addSiblingOf (getMessages() returns active path)
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
@@ -1296,7 +1308,7 @@ export class AparteClient {
         // Read now, before the first await — see `_handleSend`.
         const conversationId = openConversationOf(targetElement) ?? undefined;
         // An edit is answered anew: none while the AI is off, and the message stays as it was.
-        if (!this._config.getAutoReply(conversationId)) return;
+        if (!this._autoReplies(targetElement, conversationId)) return;
         // An edit drops everything after the message: not what an advisor wrote.
         if (followedByAHuman(targetElement.getMessages?.() ?? [], messageId)) return;
 
@@ -1637,7 +1649,7 @@ export class AparteClient {
         const conversationId = openConversationOf(targetElement) ?? undefined;
         // The AI turned off for this conversation: the message is shown and announced below,
         // and no turn starts. Read now, with the conversation, for the same reason.
-        const autoReply = this._config.getAutoReply(conversationId);
+        const autoReply = this._autoReplies(targetElement, conversationId);
         if (modelMissing && autoReply) {
             console.warn(
                 '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
@@ -2477,7 +2489,7 @@ export class AparteClient {
         const targetElement = (host ? this._asRenderTarget<HTMLElement>(host) : this._scanForTarget<HTMLElement>()) as AparteChatTargetElement | null;
         if (!targetElement) return false;
         // A resumed reply is a turn: none while the AI is off. It waits for the next load.
-        if (!this._config.getAutoReply(openConversationOf(targetElement) ?? undefined)) return false;
+        if (!this._autoReplies(targetElement, openConversationOf(targetElement) ?? undefined)) return false;
         const messages = targetElement.getMessages?.() ?? [];
         // The AI's last reply, past a notice or an advisor's message that followed it.
         const last = [...messages].reverse().find(isModelReply);

@@ -14,6 +14,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfig, aparteGlobalConfig } from '../../config/aparte-config.js';
 import { offerOpenConversation } from '../../conversations/open-conversation.js';
+import { attachConfig } from '../../config/config-context.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 import type { AparteStreamRunOptions } from '../stream-adapter.js';
 import '../../components/bubble/aparte-chat-bubble.js';
@@ -203,6 +204,21 @@ describe('the AI turned off per conversation', () => {
         aparteGlobalConfig.setAutoReply(false);
         expect(aparteGlobalConfig.getAutoReply()).toBe(false);
         expect(aparteGlobalConfig.getAutoReply('any')).toBe(false);
+    });
+
+    it("obeys the chat's own config, when the page's client answers it", async () => {
+        // The guide's way to turn one chat off alone: its own config. The client is the
+        // page's, so the chat's config is the one that knows.
+        const { el } = chat();
+        const own = new AparteConfig();
+        attachConfig(el, own);
+        const r = runner();
+        const { c } = client(el, r.run);
+        own.setAutoReply(false);
+
+        await send(c);
+
+        expect(r.calls).toHaveLength(0);
     });
 
     it('says the change, like any config change', () => {
