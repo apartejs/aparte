@@ -102,6 +102,14 @@ and state themselves, so the runner's suite says, stream by stream, what it read
 what aparté does not draw yet: activities, a messages snapshot rewriting what was drawn, and
 message metadata.
 
+## Who wrote a message
+
+A message with an author — an advisor who took the conversation over, another participant
+([Humans in the conversation](/guides/humans-in-the-conversation/)) — goes in the run's
+`messages` with the author's name as the message's `name`, the protocol's own field, on a user
+message and an assistant one alike. A notice is not sent. An agent that keeps its own thread
+reads the messages the run carries: what a person wrote while the AI was off is in them.
+
 ## Tools the page runs
 
 A tool registered in the page — `ask_user` through `setupAskUser()`, your own through

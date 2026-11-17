@@ -48,6 +48,27 @@ The avatar slot is empty, and hidden, until you fill it with `setAvatarProvider(
 picture, a component. The provider receives the role and the slot, already sized; it can return
 a cleanup function for a live component.
 
+### Written by a person
+
+A message can say who wrote it, beside its role: `author` gives it a name, a picture and a type,
+`'ai'` or `'human'`. The bubble shows the author's name and picture, carries `data-author-type`
+and `data-author-name` for your styles, and offers a person's message no regenerate, rating or
+model details. `kind: 'notice'` turns a message into a line across the transcript — "Marie joined
+the conversation" — and `note` puts a short line under a message — "Read by Marie". All three are
+in [Humans in the conversation](/guides/humans-in-the-conversation/).
+
+```ts
+import type { AparteMessage } from '@aparte/core';
+
+const fromMarie: AparteMessage = {
+  id: 'm-42',
+  role: 'assistant',
+  author: { name: 'Marie', type: 'human', avatar: '/avatars/marie.png' },
+  content: 'I’ve checked with the warehouse: your order ships today.',
+  timestamp: Date.now(),
+};
+```
+
 ## Customize
 
 Each part of a message has its own hook instead of a slot: `setBubbleShellRenderer` for the
@@ -69,6 +90,8 @@ below.
   one message to the next.
 - A message with nothing to show (a tool with no output, a turn stopped before its first token)
   hides its whole row instead of leaving a name and a time over nothing.
+- A notice is a `role="note"` line, not an article: it is read as what happened, not as a message
+  someone wrote.
 
 ## Related
 
