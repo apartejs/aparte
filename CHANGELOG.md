@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.13.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [8a12c10](https://github.com/apartejs/aparte/commit/8a12c10): A long notice now wraps onto several lines instead of being clipped at the edge of the chat.
+
+  A notice (`kind: 'notice'`) wore the divider recipe, whose label is a single word that never wraps. "Marie joined the conversation" fit; a sentence such as "Someone of the team will answer you here, usually within minutes" ran past a narrow chat and was cut. The notice's text now wraps, centred, and the lines on either side keep a short stretch.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.13.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

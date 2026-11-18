@@ -1,5 +1,14 @@
 # @aparte/core
 
+## 1.13.1
+
+### Patch Changes
+
+- 8a12c10: A long notice now wraps onto several lines instead of being clipped at the edge of the chat.
+
+  A notice (`kind: 'notice'`) wore the divider recipe, whose label is a single word that never wraps. "Marie joined the conversation" fit; a sentence such as "Someone of the team will answer you here, usually within minutes" ran past a narrow chat and was cut. The notice's text now wraps, centred, and the lines on either side keep a short stretch.
+  - @aparte/engine@1.13.1
+
 ## 1.13.0
 
 ### Minor Changes
