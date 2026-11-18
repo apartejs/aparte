@@ -95,7 +95,7 @@ export class AparteIcon extends HTMLElement {
             if (resolveConfig(this).getIcon(name) !== undefined) return;
             warnedNames.add(name);
             console.warn(
-                `[aparte] <aparte-icon name="${name}"> draws nothing: no icon has that name. A glyph of `
+                `[aparte] <aparte-icon name="${name}"> draws nothing: no icon has that name. A glyph of ` // safe-attr: a console message, never markup
                 + `@aparte/core/icons is named once registered: aparteGlobalConfig.registerIcons({ ${JSON.stringify(name)}: () => svg }). `
                 + 'Core\'s own names: https://apartejs.dev/reference/icons/',
             );
