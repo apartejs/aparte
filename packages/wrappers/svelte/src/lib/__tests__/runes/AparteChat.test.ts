@@ -232,4 +232,15 @@ describe('typeToFocus', () => {
         await rerender({ typeToFocus: 'chat' });
         expect(composer.hasAttribute('type-to-focus')).toBe(false);
     });
+
+    it('passes stopKey to the composer as stop-key, and takes it back when unset', async () => {
+        const { container, rerender } = render(AparteChat);
+        const composer = container.querySelector('aparte-composer')!;
+        await tick();
+        expect(composer.hasAttribute('stop-key')).toBe(false);
+        await rerender({ stopKey: 'Escape' });
+        expect(composer.getAttribute('stop-key')).toBe('Escape');
+        await rerender({ stopKey: undefined });
+        expect(composer.hasAttribute('stop-key')).toBe(false);
+    });
 });

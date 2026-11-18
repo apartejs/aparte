@@ -21,6 +21,7 @@
     typingText,
     submitOnEnter = true,
     typeToFocus = 'chat',
+    stopKey,
     layoutTransitionMs = 0,
     centerWhenEmpty = false,
     loading = false,
@@ -165,6 +166,7 @@
     toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
     toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
+    toggleAttr(composerRef, 'stop-key', !!stopKey, stopKey ?? '');
   });
 
   // A send from the composer makes the next auto-scroll, the one that brings the user's bubble

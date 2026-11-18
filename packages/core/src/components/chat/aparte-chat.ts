@@ -95,6 +95,9 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  *   field has the caret returns to the input. `chat` (the default): only after a click or a
  *   selection in the chat. `page`: from anywhere in the page. `off`: never. The four wrappers
  *   expose it as `typeToFocus`.
+ * @attr {string} stop-key - Forwarded to the composer: a key that stops the reply being written
+ *   while the focus is in the composer, as Stop does (`stop-key="Escape"`). None by default. The
+ *   four wrappers expose it as `stopKey`.
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  * @attr {boolean} data-empty - Reflected BY the element while its viewport holds no
  *   `<aparte-chat-bubble>` and is not `loading` — set again when the conversation is cleared.
@@ -201,7 +204,7 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'submit-on-enter', 'attachments', 'type-to-focus'];
+    return ['placeholder', 'disabled', 'submit-on-enter', 'attachments', 'type-to-focus', 'stop-key'];
   }
 
   private _observer: MutationObserver | null = null;
@@ -230,6 +233,7 @@ export class AparteChat extends HTMLElement {
     this._forwardAttr('disabled');
     this._forwardAttr('submit-on-enter');
     this._forwardAttr('type-to-focus');
+    this._forwardAttr('stop-key');
     this._syncEmptyWatch();
     this._syncLoadingWatch();
     this._watchForViewport();
@@ -254,9 +258,9 @@ export class AparteChat extends HTMLElement {
       this._syncAttachments();
       return;
     }
-    // Where a typed key goes says nothing about the files already picked: mirrored as is,
-    // without the attachment reset the forwards below end with.
-    if (name === 'type-to-focus') {
+    // Where a typed key goes, and which key stops a reply, say nothing about the files already
+    // picked: mirrored as is, without the attachment reset the forwards below end with.
+    if (name === 'type-to-focus' || name === 'stop-key') {
       const composer = this.querySelector('aparte-composer');
       if (newValue !== null) composer?.setAttribute(name, newValue);
       else composer?.removeAttribute(name);

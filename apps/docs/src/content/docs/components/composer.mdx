@@ -445,6 +445,19 @@ On the framework components the prop is `typeToFocus`, and its three values are 
 `AparteTypeToFocus`. A key typed in a field, a shortcut, the space bar, <kbd>Tab</kbd> and the
 arrows are never taken.
 
+A key can stop the reply being written, as the Stop button does. `stop-key` names it; there is
+none by default:
+
+```html
+<aparte-chat stop-key="Escape"></aparte-chat>
+```
+
+On the framework components the prop is `stopKey`. The key counts while the focus is in the
+composer, pressed alone, and only once nothing inside took it first: the `/` menu closes on the
+first <kbd>Escape</kbd>, a select closes, a question or an approval in the composer keeps its own
+keys. In a [launcher](/components/launcher/), the first <kbd>Escape</kbd> stops the reply and the
+next one closes the chat. From a script, `composer.cancel()` stops it the same way.
+
 ## API
 
 ### `<aparte-composer>`
