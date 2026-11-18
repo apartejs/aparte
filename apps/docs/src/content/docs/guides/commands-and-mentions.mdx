@@ -109,7 +109,8 @@ const rows = [
 ```
 
 The other fields are `description`, `icon` (a core icon's name, a short text such as an emoji, or an
-element), `group` (rows of a group sit under its name while nothing is searched), `keywords` (more
+element), `group` (rows of a group sit under its name while nothing is searched), `badge` (a short
+status at the end of the row, "Beta" or "On trial", shown while searching too), `keywords` (more
 words a search finds it by), `disabled` and `render`, which draws the inside of the row yourself.
 
 A search looks inside the submenus it already knows, and says where a row comes from, so `A › Open`
@@ -206,7 +207,8 @@ window.addEventListener('aparte-collect-commands', (event) => {
 ```
 
 `name` is what is typed after the `/`, and defaults to `id`. `children` makes a submenu. `order` sorts,
-lower first. `context.notify('…')` says something beside the composer for a few seconds, which is
+lower first. `badge` says a state at the end of the row (`badge: 'On trial'` for a plugin being
+tried), and stays there while the person filters, when the `group` heading is gone. `context.notify('…')` says something beside the composer for a few seconds, which is
 how `/compact` tells you there is nothing to compact.
 
 ## On a phone, and in right to left

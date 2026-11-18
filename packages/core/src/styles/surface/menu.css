@@ -153,6 +153,18 @@
   transform: scaleX(-1);
 }
 
+/* A short status at the far edge of a row ("Beta"), on the kit's badge. Before a chevron, the
+   badge takes the free space and the chevron follows it: two `auto` margins would split the
+   space and leave the badge in the middle of the row. */
+.aparte-menu__badge {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+.aparte-menu__badge ~ .aparte-menu__chevron {
+  margin-inline-start: 0;
+}
+
 .aparte-menu__item:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);

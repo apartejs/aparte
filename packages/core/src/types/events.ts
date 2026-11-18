@@ -263,6 +263,11 @@ export interface AparteCommand {
     /** A core icon's name, a short text such as an emoji, or an element. */
     icon?: string | HTMLElement;
     group?: string;
+    /**
+     * A short status at the end of the row, such as "Beta" or "On trial". It stays on the row
+     * while the person filters the list, where the group's heading is gone.
+     */
+    badge?: string;
     keywords?: readonly string[];
     /** Lower comes first. Default 100. */
     order?: number;

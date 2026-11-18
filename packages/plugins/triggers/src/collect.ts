@@ -31,6 +31,7 @@ function toItem(command: AparteCommand, char: string, scope: AparteCommandScope)
         ...(command.description !== undefined ? { description: command.description } : {}),
         ...(command.icon !== undefined ? { icon: command.icon } : {}),
         ...(command.group !== undefined ? { group: command.group } : {}),
+        ...(command.badge !== undefined ? { badge: command.badge } : {}),
         ...(command.run ? { run: command.run } : {}),
         // A list stays a list, so that a search can look inside it.
         ...(children ? { children: typeof children === 'function' ? () => commandItems(children(scope), '', scope) : commandItems(children, '', scope) } : {}),
