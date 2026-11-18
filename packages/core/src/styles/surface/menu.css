@@ -11,7 +11,7 @@
          <button class="aparte-menu__item" role="menuitem">Retry</button>
          <button class="aparte-menu__item" role="menuitem" aria-haspopup="menu" aria-expanded="false">
            Move to
-           <span class="aparte-menu__chevron"><aparte-icon name="chevronRight"></aparte-icon></span>
+           <span class="aparte-menu__chevron"><aparte-icon name="nextBranch"></aparte-icon></span>
          </button>
          <div class="aparte-menu__separator" role="separator"></div>
          <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
