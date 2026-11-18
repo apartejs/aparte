@@ -1501,6 +1501,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (event.key !== 'Escape' || !this._confirmingRestore) return;
     const separator = (event.target as HTMLElement | null)?.closest?.('.aparte-checkpoint');
     if (!separator || separator.parentElement !== this) return;
+    // Cancelled as well as stopped: an element listening above (a launcher) reads
+    // `defaultPrevented` to know the key was taken.
+    event.preventDefault();
     event.stopPropagation();
     this._confirmingRestore = false;
     this._updateCheckpoint('restore');
