@@ -35,4 +35,9 @@ export type AparteErrorRenderer = (ctx: {
     details?: string;
     /** The machine-readable code (the error segment's `code`), e.g. `MAX_TURNS_EXCEEDED`. */
     code?: string;
+    /**
+     * The code your own server or agent ended the run with, when it is not one of aparté's
+     * (the error segment's `appCode`), e.g. `engine-died` from a `run-error` line.
+     */
+    appCode?: string;
 }) => string | HTMLElement;

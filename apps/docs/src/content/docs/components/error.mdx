@@ -91,6 +91,31 @@ aparteGlobalConfig.setErrorRenderer(({ sentence, message, code }) => {
 });
 ```
 
+A server or an agent of yours can end a run with a code of its own: a `run-error` line on the
+[agent wire](/guides/server-loop/#the-wire), an AG-UI `RUN_ERROR`. aparté does not know that code,
+so `code` is `PROVIDER_ERROR` and the default card says a provider error in the reader's
+language; your code arrives as `appCode`, and it is saved with the reply, so it is still there
+when the conversation is opened again:
+
+```ts
+aparteGlobalConfig.setErrorRenderer(({ sentence, message, appCode }) => {
+  const card = document.createElement('div');
+  card.className = 'aparte-alert aparte-alert--danger';
+  if (appCode === 'engine-died') {
+    card.textContent = 'The engine stopped during this reply. What was written is kept.';
+    const relaunch = document.createElement('button');
+    relaunch.className = 'aparte-btn aparte-btn--sm';
+    relaunch.textContent = 'Relaunch';
+    // Which chat: `[data-aparte-chat]` marks its root in the five frameworks, read on the press.
+    relaunch.onclick = () => relaunchEngine(relaunch.closest('[data-aparte-chat]'));
+    card.append(relaunch);
+  } else {
+    card.textContent = sentence ?? message;
+  }
+  return card;
+});
+```
+
 The card you return is yours: a language switch rewrites core's card, not this one. The built-in
 card wears the kit's [Alert](/components/alert/) recipe, so its colours are the alert's.
 
