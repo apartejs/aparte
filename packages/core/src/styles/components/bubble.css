@@ -234,6 +234,19 @@ aparte-chat-bubble[data-author-type="human"] .aparte-avatar[data-role="assistant
   font-family: var(--aparte-font-family);
 }
 
+/* The divider's label is a word ("or") that never wraps; a notice is a sentence, which a
+   narrow chat would clip. It wraps, centred, and the lines keep a short stretch beside it. */
+.aparte-notice .aparte-notice__text {
+  white-space: normal;
+  flex-shrink: 1;
+  min-inline-size: 0;
+  text-align: center;
+}
+.aparte-notice::before,
+.aparte-notice::after {
+  min-inline-size: var(--aparte-space-4);
+}
+
 .aparte-action-bar {
   display: flex;
   align-items: center;

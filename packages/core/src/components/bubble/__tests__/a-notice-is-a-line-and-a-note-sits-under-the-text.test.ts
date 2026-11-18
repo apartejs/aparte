@@ -11,6 +11,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../aparte-chat-bubble.js';
 import '../../viewport/aparte-chat-viewport.js';
 import type { AparteMessage } from '../../../types/index.js';
+import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 
 type Viewport = HTMLElement & {
     appendMessage(m: AparteMessage): void;
@@ -37,6 +38,15 @@ describe('a notice', () => {
         expect(bubble.getAttribute('role')).toBe('note');
         expect(bubble.querySelector('.aparte-notice')?.textContent).toBe('Marie joined the conversation');
         expect(bubble.querySelector('.aparte-message, .aparte-header, .aparte-avatar, .aparte-action-bar')).toBeNull();
+    });
+
+    // The divider's label is one word ("or") and never wraps; a notice is a sentence ("Someone
+    // of the team will answer you here, usually within minutes") and must, or a narrow chat
+    // clips it. The lines on either side keep a short stretch.
+    it('wraps a long sentence instead of clipping it, between two short lines', () => {
+        const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, '');
+        expect(css).toMatch(/\.aparte-notice \.aparte-notice__text\s*\{[^}]*white-space:\s*normal;[^}]*flex-shrink:\s*1;/);
+        expect(css).toMatch(/\.aparte-notice::before,\s*\.aparte-notice::after\s*\{[^}]*min-inline-size:/);
     });
 
     it('says a new text in place', async () => {
