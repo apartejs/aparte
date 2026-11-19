@@ -4,6 +4,38 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.14.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [749770c](https://github.com/apartejs/aparte/commit/749770c): A `/` command and a trigger row can show a badge at the end of the row: `badge: 'Beta'`. It stays while the person filters the list.
+
+  Nothing to change in your code. `AparteCommand.badge` and `AparteTriggerItem.badge` take a short text, drawn as the kit's small badge (`.aparte-menu__badge`) before a submenu's chevron, as text. A command's `group` heading says a state only while nothing is searched, because a filtered list is ranked rather than grouped; the badge is on the row itself. `commands.override` changes it like any other field. A row drawn by your own `render` draws its own badge.
+  <sub>`@aparte/core`, `@aparte/plugin-triggers`</sub>
+
+- [c4fa388](https://github.com/apartejs/aparte/commit/c4fa388): A custom error renderer now receives `appCode`: the code your own server or agent ended the run with (`engine-died`), which it could not see before.
+
+  Nothing to change in your code. A `run-error` line on aparté's agent wire, or an AG-UI `RUN_ERROR`, can carry a code aparté does not know. The runner folds it into `PROVIDER_ERROR`, so the default card still says a provider error in the reader's language, and keeps the raw value in the error's `data`. That value reached the `aparte-message-error` event only: the card saw `PROVIDER_ERROR`, and once the reply was saved the app's code was gone. It now rides on the error segment as `appCode`, saved with the message, and `setErrorRenderer` receives it beside `code`. A code of aparté's own (`USAGE_RATE_LIMIT`) is the error's `code` as before, and sets no `appCode`. The default card is unchanged: it shows the sentence of `PROVIDER_ERROR`, never the server's words.
+  <sub>`@aparte/core`</sub>
+
+- [2901291](https://github.com/apartejs/aparte/commit/2901291): New `stop-key` on the chat and the composer, `stopKey` on the framework components: a key that stops the reply being written, as Stop does. `stop-key="Escape"`; none by default.
+
+  Nothing to change in your code. The key counts while the focus is in the composer, pressed alone, and once nothing inside took it: the `/` menu, a select, a question or an approval in the composer keep their own keys. In a launcher, the first Escape stops the reply and the next one closes the chat.
+
+  Every element of aparté that takes Escape now cancels the keydown, and the accessibility guide says in which order they answer, so a handler of yours reads `event.defaultPrevented`. Two did not: the Restore question of a compaction stopped the key without cancelling it, and a stock chart's cursor did neither, so Escape on a chart in a launcher also closed the card. The chart now takes Escape only while its cursor is shown.
+  <sub>`@aparte/core`, `@aparte/plugin-cards`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+### Patch Changes
+
+- [2aa71b8](https://github.com/apartejs/aparte/commit/2aa71b8): `<aparte-icon>` with a name no icon has now says so once in the console, instead of drawing an empty square in silence.
+
+  Nothing to change in your code. `name="plus"` and `name="panel"` draw nothing until registered: the glyphs of `@aparte/core/icons` are SVG strings, not names, and `<aparte-icon>` knows core's names and the ones added with `registerIcons`. The warning names the name and how to register it; it comes once per name, and not for a name registered right after the element mounted. The Icon page now says it, with the `registerIcons` line. The menu recipe's own example named `chevronRight`, which is not one of core's names, so its chevron drew nothing: it now names `nextBranch`.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.13.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
