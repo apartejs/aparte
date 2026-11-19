@@ -82,6 +82,7 @@ angular spec fails, including the idle chat. Measured, reverted.
 | `responsive` | 390×844: usable composer, no sideways page scroll, dropdown inside the viewport |
 | `bubble-layout` | real-geometry invariants of the bubble (vanilla, incl. WebKit) |
 | `vanilla-dist` | human-in-the-loop tool approval, against core's published `dist` |
+| `subagent-transcript` | tool rows INSIDE a tool row (a sub-agent's conversation under its line): each looks as it would alone, whatever the line's state; a sub-agent's slow reasoning keeps its heading and does not move a scrolled thread (vanilla incl. WebKit, react). Known failures marked with their issue (#270, #271) |
 | `real-model` | opt-in un-mocked smoke against a local model (`E2E_REAL_MODEL=1`) |
 
 Which spec runs on which app is decided by `suiteFor()` in `playwright.config.ts`: the

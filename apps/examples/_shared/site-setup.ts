@@ -58,7 +58,7 @@ import type { AparteTrigger } from '@aparte/plugin-triggers';
 import { createScenarioProvider, scenarioSubagentTool } from '@aparte/provider-scenario';
 import { showcase } from '@aparte/provider-scenario/showcase';
 import { applySystemPrompt, loadSettings, resolveModelSource, settingsKeyResolver } from './settings-store';
-import { DELEGATE, delegateLabel, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
+import { DELEGATE, delegateLabel, MISSING_FILE, mountSubagentPane, REFUSAL, routeDelegation, SUBAGENT_SCENARIOS } from './sub-agents';
 import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
 import { DIFF_SCENARIOS, setupDiffReview } from './diff-review';
 import { LINK_SCENARIOS } from './links';
@@ -264,7 +264,12 @@ async function run(): Promise<SiteSetup> {
     for (const [name, description] of CHAIN_TOOLS) {
         aparteGlobalConfig.registerTool(
             { name, description, inputSchema: { type: 'object', properties: {}, additionalProperties: true } },
-            async (call) => ({ toolCallId: call.id, content: CANNED[name] ?? '' }),
+            async (call) => {
+                // A file the workspace does not have: the handler throws, as a real one would,
+                // so a call can fail on screen (the sub-agent of `SUBAGENT_PROMPTS.files`).
+                if (name === 'read_file' && call.input['path'] === MISSING_FILE) throw new Error(`ENOENT: no such file, open '${MISSING_FILE}'`);
+                return { toolCallId: call.id, content: CANNED[name] ?? '' };
+            },
         );
     }
 
@@ -302,9 +307,14 @@ async function run(): Promise<SiteSetup> {
     //       with its own text and calls kept out of the reply. Whichever model answers: an AG-UI
     //       agent's sub-agents get the same lines as the scripted model's. `?subagent-view`:
     //       each line's Open button shows that sub-agent's conversation in a pane beside the chat.
-    if (new URLSearchParams(location.search).has('subagent-view')) {
+    //       `?subagent-transcript`: each line holds its sub-agent's conversation, closed under
+    //       it, so the sub-agent's own calls are tool rows inside the line's row.
+    const subagentParams = new URLSearchParams(location.search);
+    if (subagentParams.has('subagent-view')) {
         setupSubagents({ open: 'event' });
         mountSubagentPane();
+    } else if (subagentParams.has('subagent-transcript')) {
+        setupSubagents({ details: 'transcript' });
     } else {
         setupSubagents();
     }

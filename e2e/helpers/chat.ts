@@ -154,6 +154,20 @@ export class ChatPage {
         return this.toolRows(reply).filter({ has: this.page.locator('.aparte-tool-name', { hasText: exact }) });
     }
 
+    /**
+     * The tool rows drawn INSIDE a row: a sub-agent's own calls, in its conversation under its
+     * line (`setupSubagents({ details: 'transcript' })`). `toolRows` counts them too, since
+     * they are in the reply; this is only them.
+     */
+    nestedToolRows(row: Locator): Locator {
+        return row.locator('.aparte-segment-tool-call');
+    }
+
+    /** What opens a row's details: its summary, the row's first one (a nested row has its own). */
+    toolRowSummary(row: Locator): Locator {
+        return row.locator('.aparte-tool-summary').first();
+    }
+
     /** What a row targets (the summary, or a sub-agent's task), its live activity, and its note ("1 tool · 2s"). */
     toolTarget(row: Locator): Locator {
         return row.locator('.aparte-tool-target').first();

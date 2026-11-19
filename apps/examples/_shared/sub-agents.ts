@@ -17,7 +17,7 @@
  */
 import { contentToText, type AparteChatRequest, type AparteToolCallSegment } from '@aparte/core';
 import { connectSubagentView } from '@aparte/plugin-subagents';
-import type { Scenario } from '@aparte/provider-scenario';
+import type { Scenario, ScenarioStep } from '@aparte/provider-scenario';
 
 /** The tool the delegating steps call: the scenario provider's default name. */
 export const DELEGATE = 'delegate';
@@ -27,7 +27,27 @@ export const SUBAGENT_PROMPTS = {
     team: 'Get the release ready with three sub-agents.',
     one: 'Ask a sub-agent for the last release.',
     gated: 'Have a sub-agent run the build.',
+    files: 'Have a sub-agent check two files.',
 } as const;
+
+/** A path the workspace has no file for: `read_file` throws on it (site-setup.ts), so a call fails on screen. */
+export const MISSING_FILE = 'RELEASE-NOTES.md';
+
+/**
+ * Reasoning written the way a small local model writes it: a few words, then a pause of its
+ * own length. Paced by the script, not by the provider's even typing, because a thread that
+ * moved under a sub-agent's reasoning was seen at a few uneven tokens per second
+ * (apartejs/aparte#270).
+ */
+const SLOW_REASONING: ScenarioStep[] = [
+    ['Two files to check. ', 350],
+    ['The changelog first, ', 120],
+    ['it sits at the root. ', 600],
+    ['Then the release notes, ', 200],
+    ['which may not exist yet. ', 450],
+    ['Reading both ', 90],
+    ['says which one is missing.', 300],
+].flatMap(([thinking, wait]) => [{ thinking: thinking as string }, { wait: wait as number }]);
 
 /** The steps the one-sub-agent path announces: the model's own, and its sub-agent's. */
 export const STEPS = {
@@ -46,6 +66,7 @@ const LEAD = {
     team: 'Checklist scout',
     one: 'Changelog reader',
     gated: 'Build runner',
+    files: 'File checker',
 } as const;
 
 /**
@@ -66,6 +87,28 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
                         [{ thinking: 'A build is `pnpm build` at the root.' }, { tool: 'run_command', input: { cmd: 'pnpm build' } }],
                         // What its command returned decides what it says: a refused call ran nothing.
                         (request) => (refused(request) ? BUILD_REFUSED : 'The build finished in 12.4 s with no errors.'),
+                    ],
+                }],
+            },
+        ],
+    },
+    // One sub-agent that reasons slowly, then reads a file that is there and one that is not:
+    // under `?subagent-transcript`, a call that succeeded and a call that failed drawn INSIDE
+    // the delegate call's row, which is what a transcript under a line is.
+    subagentFiles: {
+        when: /sub-?agent check two files/i,
+        turn: [
+            { text: 'A sub-agent can check them.' },
+            {
+                subagents: [{
+                    name: LEAD.files,
+                    task: 'Check that both files are there',
+                    // A call whose handler throws ends the sub-agent's run, as it ends a turn, so
+                    // the failed read is its last act. The pause before it leaves a call under
+                    // the line while the line still works.
+                    turns: [
+                        [...SLOW_REASONING, { tool: 'read_file', input: { path: 'CHANGELOG.md' } }],
+                        [{ wait: 1500 }, { tool: 'read_file', input: { path: MISSING_FILE } }],
                     ],
                 }],
             },
@@ -145,6 +188,7 @@ export const SUBAGENT_SCENARIOS: Record<string, Scenario> = {
     subagentDone: { turn: [{ endStep: STEPS.reply }, { text: 'The last release was **0.16.11**, so the next one is 0.17.0.' }] },
     subagentApprovalDone: { turn: 'The build is green: 12.4 s, no errors.' },
     subagentApprovalRefused: { turn: 'The build did not run: its command was refused, so I cannot say whether it passes.' },
+    subagentFilesDone: { turn: `One of the two files is missing: ${MISSING_FILE}.` },
     // A delegation no path above wrote (a local model calling the tool on its own).
     delegated: { after: DELEGATE, turn: 'The sub-agents are back; their answers are in the call above.' },
 };
@@ -170,6 +214,7 @@ export function routeDelegation(request: AparteChatRequest): string | undefined 
         // Started in the background: the call is answered at once, and the model goes on.
         if (lead === LEAD.team) return 'subagentsMeanwhile';
         if (lead === LEAD.one) return 'subagentDone';
+        if (lead === LEAD.files) return 'subagentFilesDone';
         // The tool result is the sub-agent's last text: it says whether the build ran.
         if (lead === LEAD.gated) return contentToText(last.content).includes(BUILD_REFUSED) ? 'subagentApprovalRefused' : 'subagentApprovalDone';
         return undefined;
