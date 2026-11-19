@@ -1,5 +1,31 @@
 # @aparte-workspace/example-shared
 
+## 0.0.59
+
+### Patch Changes
+
+- Updated dependencies [20124fb]
+  - @aparte/core@1.15.0
+  - @aparte/plugin-approval@1.15.0
+  - @aparte/plugin-artifacts@1.15.0
+  - @aparte/plugin-ask-user@1.15.0
+  - @aparte/plugin-cards@1.15.0
+  - @aparte/plugin-compaction@1.15.0
+  - @aparte/plugin-diff@1.15.0
+  - @aparte/plugin-katex@1.15.0
+  - @aparte/plugin-marked@1.15.0
+  - @aparte/plugin-mermaid@1.15.0
+  - @aparte/plugin-model-selector@1.15.0
+  - @aparte/plugin-shiki@1.15.0
+  - @aparte/plugin-streaming-markdown@1.15.0
+  - @aparte/plugin-subagents@1.15.0
+  - @aparte/plugin-triggers@1.15.0
+  - @aparte/runner-ag-ui@1.15.0
+  - @aparte/runner-n8n@1.15.0
+  - @aparte/provider-openai-compat@1.15.0
+  - @aparte/provider-scenario@1.15.0
+  - @aparte/engine@1.15.0
+
 ## 0.0.58
 
 ### Patch Changes

@@ -1,5 +1,24 @@
 # @aparte-workspace/playground-react
 
+## 0.0.86
+
+### Patch Changes
+
+- Updated dependencies [20124fb]
+  - @aparte/core@1.15.0
+  - @aparte/plugin-approval@1.15.0
+  - @aparte/plugin-artifacts@1.15.0
+  - @aparte/plugin-ask-user@1.15.0
+  - @aparte/plugin-compaction@1.15.0
+  - @aparte/plugin-marked@1.15.0
+  - @aparte/plugin-model-selector@1.15.0
+  - @aparte/plugin-shiki@1.15.0
+  - @aparte/plugin-subagents@1.15.0
+  - @aparte/provider-openai-compat@1.15.0
+  - @aparte/provider-scenario@1.15.0
+  - @aparte/react@1.15.0
+  - @aparte/engine@1.15.0
+
 ## 0.0.85
 
 ### Patch Changes
