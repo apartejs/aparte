@@ -110,7 +110,7 @@ const config = defineConfig({
         // (both echo modes, the unreadable-file failure path) and the scenario
         // orphan-tool warning moved the global to 88.05%; the ratchet asked.
         // 87 -> 89 with the providers lot (2026-10-21): 90.06% measured.
-        branches: 91,
+        branches: 93,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and

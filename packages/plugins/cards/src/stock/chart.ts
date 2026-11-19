@@ -340,7 +340,11 @@ function frame(ctx: CardContext, options: FrameOptions): HTMLElement {
             End: last,
         };
         if (event.key === 'Escape') {
+            // Taken only when there is a cursor to put away, and then said so: an Escape left
+            // uncancelled also closed the launcher's card around the chart.
+            if (current < 0) return;
             hide();
+            event.preventDefault();
             return;
         }
         const to = moves[event.key];

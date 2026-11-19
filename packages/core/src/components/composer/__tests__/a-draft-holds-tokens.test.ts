@@ -126,6 +126,49 @@ describe('a token in the draft', () => {
     });
 });
 
+/*
+ * A control outside the field — a button in a side pane that attaches what was picked — adds a
+ * pill while the field never had the caret, so `getCaret()` says null. An offset past the end
+ * of the draft is its end; this pins it, since it was true without ever being said. Where the
+ * browser's own edit puts the pill on screen is the browser test's (e2e/tests/triggers.spec.ts).
+ */
+describe('a token added from outside the field', () => {
+    const outside = () => {
+        const parts = field();
+        document.getSelection()!.removeAllRanges();
+        return parts;
+    };
+
+    it('goes after everything written, given an offset past the end', () => {
+        const { input } = outside();
+        input.setValue('look at this');
+        expect(input.getCaret()).toBeNull();
+        input.insertToken(Infinity, Infinity, { label: 'error.log', text: '[error.log](file:3)', kind: 'file' });
+        expect(input.getValue()).toBe('look at this[error.log](file:3)');
+        expect(input.getTokens()).toEqual([{ label: 'error.log', text: '[error.log](file:3)', kind: 'file', start: 12, end: 31 }]);
+    });
+
+    it('goes into an empty draft', () => {
+        const { input } = outside();
+        input.insertToken(Infinity, Infinity, { label: 'A', text: '@a' });
+        expect(input.getTokens()).toEqual([{ label: 'A', text: '@a', start: 0, end: 2 }]);
+    });
+
+    it('keeps the pills already there, after the last one', () => {
+        const { input } = outside();
+        input.insertToken(Infinity, Infinity, { label: 'A', text: '@a' });
+        input.insertToken(Infinity, Infinity, { label: 'B', text: '@b' });
+        expect(input.getTokens().map((t) => t.label)).toEqual(['A', 'B']);
+    });
+
+    it('takes the focus, so the person writes on from there and Undo knows the edit', () => {
+        const { input, editor } = outside();
+        input.insertToken(Infinity, Infinity, { label: 'A', text: '@a' });
+        expect(document.activeElement).toBe(editor);
+        expect(input.getCaret()?.offset).toBe(2);
+    });
+});
+
 describe('replaceRange', () => {
     it('writes over the range and leaves the caret after it', () => {
         const { input, editor } = field();

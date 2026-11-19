@@ -280,6 +280,14 @@ export interface AparteErrorSegment extends AparteSegmentBase {
      * `data-error-code`, and a custom error renderer receives it.
      */
     code?: string;
+    /**
+     * The code your own server or agent ended the run with, when it is not one of aparté's:
+     * the `code` of a `run-error` line on aparté's agent wire, or of an AG-UI `RUN_ERROR`
+     * (`engine-died`). `code` is then `PROVIDER_ERROR`, so the alert still says a sentence in
+     * the reader's language; this one is for a custom error renderer to branch on, and it is
+     * saved with the message, so it is still there after a reload.
+     */
+    appCode?: string;
 }
 
 /**

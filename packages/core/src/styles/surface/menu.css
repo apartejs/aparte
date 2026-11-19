@@ -11,7 +11,7 @@
          <button class="aparte-menu__item" role="menuitem">Retry</button>
          <button class="aparte-menu__item" role="menuitem" aria-haspopup="menu" aria-expanded="false">
            Move to
-           <span class="aparte-menu__chevron"><aparte-icon name="chevronRight"></aparte-icon></span>
+           <span class="aparte-menu__chevron"><aparte-icon name="nextBranch"></aparte-icon></span>
          </button>
          <div class="aparte-menu__separator" role="separator"></div>
          <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
@@ -151,6 +151,18 @@
 
 :dir(rtl) .aparte-menu__chevron {
   transform: scaleX(-1);
+}
+
+/* A short status at the far edge of a row ("Beta"), on the kit's badge. Before a chevron, the
+   badge takes the free space and the chevron follows it: two `auto` margins would split the
+   space and leave the badge in the middle of the row. */
+.aparte-menu__badge {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+.aparte-menu__badge ~ .aparte-menu__chevron {
+  margin-inline-start: 0;
 }
 
 .aparte-menu__item:focus-visible {

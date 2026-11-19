@@ -136,6 +136,7 @@ import { AparteChatEvents } from '../generated/chat-events';
         [attr.disabled]="disabled() || waiting() ? '' : null"
         [attr.submit-on-enter]="submitOnEnter() ? null : 'false'"
         [attr.type-to-focus]="typeToFocus() === 'chat' ? null : typeToFocus()"
+        [attr.stop-key]="stopKey() || null"
         (aparte-send)="onAparteSend()"
       >
         <!-- Custom composer via [slot='composer']; falls back to the default
@@ -312,6 +313,8 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
     readonly submitOnEnter = input(true, { transform: booleanAttribute });
     /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
     readonly typeToFocus = input<AparteTypeToFocus>('chat');
+    /** A key that stops the reply being written while the focus is in the composer, as Stop does: `'Escape'`. None by default; a key that something inside took first (the `/` menu, a select, a question) stays theirs. */
+    readonly stopKey = input<string | undefined>(undefined);
 
     /**
      * Opt in to the "centered composer when empty" layout: the composer sits

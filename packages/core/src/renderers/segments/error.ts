@@ -26,6 +26,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
                 ...(sentence !== undefined ? { sentence } : {}),
                 ...(segment.details !== undefined ? { details: segment.details } : {}),
                 ...(segment.code !== undefined ? { code: segment.code } : {}),
+                ...(segment.appCode !== undefined ? { appCode: segment.appCode } : {}),
             });
             if (out instanceof HTMLElement) {
                 // Tag the root so in-place segment updates can still target it.

@@ -312,8 +312,11 @@ describe('the chart variant', () => {
         // The pointer leaving a focused chart leaves the keyboard's cursor where it is.
         plot.dispatchEvent(new MouseEvent('pointerleave'));
         expect(readout.textContent).toBe('183.10 · 2 PM');
-        key('Escape');
+        // Taken while there is a cursor to put away, so a launcher around the card stays open;
+        // left to the page once there is none.
+        expect(key('Escape')).toBe(false);
         expect(readout.textContent).toBe('');
+        expect(key('Escape')).toBe(true);
         key('ArrowRight');
         expect(readout.textContent).toBe('182.52 · 3 PM');
         plot.blur();

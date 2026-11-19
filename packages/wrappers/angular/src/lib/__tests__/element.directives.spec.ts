@@ -45,7 +45,7 @@ registerAllComponents();
             (selectOpen)="opened = opened + 1"
         ></aparte-select>
 
-        <aparte-composer [target]="target" (send)="lastSend = $event"></aparte-composer>
+        <aparte-composer [target]="target" [stopKey]="stopKey" (send)="lastSend = $event"></aparte-composer>
 
         <aparte-chat-bubble [messageId]="id" [messageRole]="role" [streaming]="streaming"></aparte-chat-bubble>
 
@@ -68,6 +68,7 @@ class Host {
     searchable = false;
     disabled = false;
     target: string | undefined = 'main';
+    stopKey: string | undefined = 'Escape';
     id: string | undefined = 'a1';
     role: string | undefined = 'assistant';
     streaming = false;
@@ -128,6 +129,13 @@ describe('the element directives', () => {
         const bubble = el('aparte-chat-bubble');
         expect(bubble.getAttribute('data-role')).toBe('assistant');
         expect(bubble.getAttribute('message-id')).toBe('a1');
+    });
+
+    it('writes stop-key on a hand-written composer, and takes it back', () => {
+        expect(el('aparte-composer').getAttribute('stop-key')).toBe('Escape');
+        host.stopKey = undefined;
+        fixture.detectChanges();
+        expect(el('aparte-composer').hasAttribute('stop-key')).toBe(false);
     });
 
     it('coerces a numeric input through numberAttribute', () => {

@@ -141,6 +141,39 @@ test('Enter on a card that opens over the menu is the card\'s', async ({ page })
     await expect(page.locator('#card')).toHaveAttribute('data-pressed', 'yes');
 });
 
+// A button outside the field (a side pane's "Attach") adds a pill while the field does not have
+// the caret: an offset past the end is the draft's end, and the browser's own edit puts the pill
+// on the empty line Shift+Enter opened. jsdom has no edit commands, so only a browser shows where.
+test('a pill added from outside the field goes where the draft ends, and Undo takes it back', async ({ page, browserName }) => {
+    const chat = await open(page);
+    await chat.editor.pressSequentially('first line');
+    await page.keyboard.press('Shift+Enter');
+    const value = await page.evaluate(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+        document.getSelection()?.removeAllRanges();
+        const input = document.querySelector('aparte-composer-input') as HTMLElement & { insertToken(a: number, b: number, t: object): void; getValue(): string };
+        input.insertToken(Infinity, Infinity, { label: 'error.log', text: '@log' });
+        return input.getValue();
+    });
+    expect(value).toBe('first line\n@log');
+    // Measured on screen: `innerText` counts a line of its own around an inline-flex pill in
+    // Chromium. On the second line the pill starts right under the first; on a third, a whole
+    // line height further down.
+    const { gap, lineHeight } = await chat.editor.evaluate((editor) => {
+        const text = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT).nextNode()!;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        const line = range.getBoundingClientRect();
+        const pill = editor.querySelector('.aparte-inline-token')!.getBoundingClientRect();
+        return { gap: pill.top - line.bottom, lineHeight: line.height };
+    });
+    expect(gap, 'on the second line, not a third').toBeLessThan(lineHeight);
+    expect(await focusIsInTheField(page)).toBe(true);
+    if (browserName === 'webkit') return; // WebKit does not take a scripted Undo from the keyboard in this harness
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(chat.editor.locator(TOKEN)).toHaveCount(0);
+});
+
 test('several lines stay several lines when a row inserts them', async ({ page }) => {
     await open(page);
     const value = await page.evaluate(() => {

@@ -66,7 +66,8 @@ reader's language. An agent whose tool hits a rate limit halfway through a run s
 
 The card reads "Too many requests right now. Try again in a moment." (`extendLocale` changes the
 sentence), and the message goes to the console. Any other code, or none, reads as a provider
-error, the agent's own value kept in the error's `data`. aparté's own
+error, the agent's own value kept in the error's `data` and on the card as
+[`appCode`](/components/error/#customize), for an error renderer to branch on. aparté's own
 [agent wire](/guides/server-loop/#the-wire) reads a `run-error` line's code the same way.
 
 ## Sub-agents

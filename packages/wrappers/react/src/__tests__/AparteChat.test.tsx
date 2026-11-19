@@ -742,3 +742,17 @@ describe('typeToFocus', () => {
         expect(composerOf(container).hasAttribute('type-to-focus')).toBe(false);
     });
 });
+
+describe('stopKey', () => {
+    afterEach(cleanup);
+
+    it('reaches the composer as stop-key, and goes when unset', () => {
+        const composerOf = (c: HTMLElement) => c.querySelector('aparte-composer')!;
+        const { container, rerender } = render(<AparteChat messages={[]} onMessageSent={() => {}} />);
+        expect(composerOf(container).hasAttribute('stop-key')).toBe(false);
+        rerender(<AparteChat messages={[]} onMessageSent={() => {}} stopKey="Escape" />);
+        expect(composerOf(container).getAttribute('stop-key')).toBe('Escape');
+        rerender(<AparteChat messages={[]} onMessageSent={() => {}} />);
+        expect(composerOf(container).hasAttribute('stop-key')).toBe(false);
+    });
+});

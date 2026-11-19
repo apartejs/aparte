@@ -27,6 +27,17 @@ An icon provider (`aparteGlobalConfig.setIconProvider()`) replaces the set, for 
 every `<aparte-icon>` at once. The full reference, with the extended set behind
 `@aparte/core/icons`, is on the [icons page](/reference/icons/).
 
+`name` is one of core's names, or a name you registered. The extended set is SVG strings, not
+names: `<aparte-icon name="plus">` draws nothing until `plus` is registered, and the console
+says so once.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { plusIcon, panelLeftIcon } from '@aparte/core/icons';
+
+aparteGlobalConfig.registerIcons({ plus: () => plusIcon, panel: () => panelLeftIcon });
+```
+
 ## Usage
 
 <Usage />

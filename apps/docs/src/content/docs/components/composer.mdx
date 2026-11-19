@@ -445,6 +445,19 @@ On the framework components the prop is `typeToFocus`, and its three values are 
 `AparteTypeToFocus`. A key typed in a field, a shortcut, the space bar, <kbd>Tab</kbd> and the
 arrows are never taken.
 
+A key can stop the reply being written, as the Stop button does. `stop-key` names it; there is
+none by default:
+
+```html
+<aparte-chat stop-key="Escape"></aparte-chat>
+```
+
+On the framework components the prop is `stopKey`. The key counts while the focus is in the
+composer, pressed alone, and only once nothing inside took it first: the `/` menu closes on the
+first <kbd>Escape</kbd>, a select closes, a question or an approval in the composer keeps its own
+keys. In a [launcher](/components/launcher/), the first <kbd>Escape</kbd> stops the reply and the
+next one closes the chat. From a script, `composer.cancel()` stops it the same way.
+
 ## API
 
 ### `<aparte-composer>`
@@ -488,9 +501,17 @@ control of your own can use:
 ```ts
 const input = composer.querySelector('aparte-composer-input')!;
 
-const caret = input.getCaret();
-if (caret) input.insertToken(caret.offset, caret.offset, { label: 'Anna', text: '@anna', kind: 'mention', data: { id: 2 } });
+// At the caret, or after everything written when the field never had it.
+const at = input.getCaret()?.offset ?? Infinity;
+input.insertToken(at, at, { label: 'Anna', text: '@anna', kind: 'mention', data: { id: 2 } });
 ```
+
+A control outside the field adds a pill the same way: a button in a side pane that attaches the
+element picked in a page, or the errors of a console, to the message being written. `getCaret()`
+is `null` until the field has had the caret, and an offset past the end of the draft is its end,
+so `Infinity` adds the pill after what was written and keeps the draft and its pills. The insert
+takes the focus, as typing would: it goes through the browser's edit commands, so Undo takes it
+back, and the person writes on from there. `setValue()` replaces the whole draft, pills included.
 
 `getCaret()` counts one unit per character, per line break and per token. `replaceRange(from, to, text)`
 writes plain text, `getRangeRect(from, to)` gives the box of a range on screen, and `getTokens()` the

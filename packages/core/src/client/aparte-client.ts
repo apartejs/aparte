@@ -2569,11 +2569,16 @@ export class AparteClient {
         // `error.data` — still reaches consumers via the `aparte-message-error` event
         // below). The code rides as `code`, which the alert never draws: `details` is for
         // text an app chooses to show, and the person had no use for `UNKNOWN_ERROR`.
+        // A code of the app's own (`engine-died`) reaches here only in `data`: the runner
+        // folds it into PROVIDER_ERROR, which the card can say. It rides on the segment as
+        // well, so a custom error renderer can tell it apart, and it is saved with the reply.
+        const appCode = error.data?.['code'];
         const errorSegment: AparteErrorSegment = {
             id: `error-${uuid()}`,
             type: 'error',
             content: error.message,
             code: error.code,
+            ...(typeof appCode === 'string' && appCode !== error.code ? { appCode } : {}),
         };
         // The person reads a sentence the renderer picks by the code; what a developer
         // needs to fix is this message, so it goes to the console, once, when it happens.

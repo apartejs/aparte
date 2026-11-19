@@ -192,6 +192,12 @@ describe('collecting commands', () => {
         const [row] = items([{ id: 'a', enabled: () => false }], { override: { a: { label: 'Again', enabled: () => true } } });
         expect(row!.label).toBe('Again');
     });
+
+    it('carries a command\'s badge to its row, and lets the app change it', () => {
+        expect(items([{ id: 'a', badge: 'On trial' }])[0]!.badge).toBe('On trial');
+        expect(items([{ id: 'a', badge: 'On trial' }], { override: { a: { badge: 'Beta' } } })[0]!.badge).toBe('Beta');
+        expect(items([{ id: 'a' }])[0]).not.toHaveProperty('badge');
+    });
 });
 
 describe('<aparte-triggers>', () => {
@@ -248,6 +254,37 @@ describe('<aparte-triggers>', () => {
         expect(labels(element)).toEqual(['Paul', 'Anna']);
         type('@an');
         expect(labels(element)).toEqual(['Anna']);
+    });
+
+    // A command in a state of its own ("On trial") says so on its row. Its group said it only
+    // while nothing was searched: the heading goes when the list is filtered.
+    describe('a row\'s badge', () => {
+        const badgeOf = (row: Element | undefined) => row?.querySelector('.aparte-menu__badge');
+
+        it('sits at the end of the row, as text, whether the list is filtered or not', () => {
+            const { element, type } = mount([{ ...AT, items: [{ id: 'c', label: 'Chart', group: 'Tools', badge: '<b>On trial</b>' }, { id: 'p', label: 'Paul' }] }]);
+            type('@');
+            const [chart, paul] = options(element);
+            expect(badgeOf(chart)?.textContent).toBe('<b>On trial</b>');
+            expect(badgeOf(chart)?.querySelector('b')).toBeNull();
+            expect(chart!.lastElementChild).toBe(badgeOf(chart));
+            expect(badgeOf(paul)).toBeNull();
+            type('@ch');
+            expect(badgeOf(options(element)[0])?.textContent).toBe('<b>On trial</b>');
+        });
+
+        it('comes before the chevron of a row that opens a list', () => {
+            const { element, type } = mount([{ ...AT, items: [{ id: 'm', label: 'Model', badge: 'New', children: [{ id: 'a', label: 'A' }] }] }]);
+            type('@');
+            const row = options(element)[0]!;
+            expect(badgeOf(row)?.nextElementSibling?.className).toBe('aparte-menu__chevron');
+        });
+
+        it('is not drawn into a row the app draws itself', () => {
+            const { element, type } = mount([{ ...AT, items: [{ id: 'x', label: 'X', badge: 'Beta', render: () => '<span>mine</span>' }] }]);
+            type('@');
+            expect(badgeOf(options(element)[0])).toBeNull();
+        });
     });
 
     // A wrapper hands the triggers again on every render of the app around it — the same array

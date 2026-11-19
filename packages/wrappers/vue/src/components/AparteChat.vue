@@ -22,6 +22,8 @@ interface Props {
   submitOnEnter?: boolean;
   /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
   typeToFocus?: AparteTypeToFocus;
+  /** A key that stops the reply being written while the focus is in the composer, as Stop does: `'Escape'`. None by default; a key that something inside took first (the `/` menu, a select, a question) stays theirs. */
+  stopKey?: string;
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
   layoutTransitionMs?: number;
   /**
@@ -79,6 +81,7 @@ const props = withDefaults(defineProps<Props>(), {
   typingText: undefined,
   submitOnEnter: true,
   typeToFocus: 'chat',
+  stopKey: undefined,
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
   loading: false,
@@ -341,6 +344,7 @@ defineExpose({
       :disabled.attr="disabled || waiting ? '' : null"
       :submit-on-enter="submitOnEnter ? null : 'false'"
       :type-to-focus="typeToFocus === 'chat' ? null : typeToFocus"
+      :stop-key="stopKey || null"
     >
       <!-- Custom composer via the `composer` slot; falls back to the default
            shell (input · send, plus the attachment primitives when `attachments`

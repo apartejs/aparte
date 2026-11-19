@@ -15,6 +15,8 @@ export interface AparteTriggerItem {
     icon?: string | HTMLElement;
     /** Rows of one group sit together under its name, while nothing is being searched. */
     group?: string;
+    /** A short status at the end of the row ("Beta", "On trial"), shown while searching too. Not drawn by a `render` of yours. */
+    badge?: string;
     /** More words a search finds this row by. */
     keywords?: readonly string[];
     disabled?: boolean;

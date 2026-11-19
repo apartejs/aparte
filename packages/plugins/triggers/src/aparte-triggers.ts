@@ -458,6 +458,12 @@ export class AparteTriggers extends HTMLElement {
             body.appendChild(line);
         }
         el.appendChild(body);
+        if (item.badge) {
+            const badge = document.createElement('span');
+            badge.className = 'aparte-badge aparte-badge--sm aparte-menu__badge';
+            badge.textContent = item.badge;
+            el.appendChild(badge);
+        }
     }
 
     private readonly _place = (): void => {

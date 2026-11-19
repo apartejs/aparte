@@ -543,4 +543,15 @@ describe('typeToFocus', () => {
         expect(composer.hasAttribute('type-to-focus')).toBe(false);
         wrapper.unmount();
     });
+
+    it('passes stopKey to the composer as stop-key, and takes it back when unset', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        const composer = wrapper.element.querySelector('aparte-composer')!;
+        expect(composer.hasAttribute('stop-key')).toBe(false);
+        await wrapper.setProps({ stopKey: 'Escape' });
+        expect(composer.getAttribute('stop-key')).toBe('Escape');
+        await wrapper.setProps({ stopKey: undefined });
+        expect(composer.hasAttribute('stop-key')).toBe(false);
+        wrapper.unmount();
+    });
 });

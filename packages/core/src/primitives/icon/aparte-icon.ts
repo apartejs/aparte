@@ -30,8 +30,9 @@ import { deferHydrationOf } from '../../interop/defer-hydration.js';
  * button's only content, name the BUTTON (`aria-label`), not this.
  *
  * @element aparte-icon
- * @attr {string} name - Which glyph to draw. One of the names `setIconProvider` accepts;
- *   an unknown name draws nothing rather than a broken-image box.
+ * @attr {string} name - Which glyph to draw: one of core's names, or a name added with
+ *   `registerIcons`. An unknown name draws nothing rather than a broken-image box, and the
+ *   console says so once.
  *
  * @cssprop [--aparte-icon-size=calc(1rem * var(--aparte-font-scale))] - Width and height. `--sm`/`--lg`/`--xl` set it.
  *
@@ -79,8 +80,31 @@ export class AparteIcon extends HTMLElement {
         this.innerHTML = glyph ?? '';
         // Decoration by default — see the class note above for when to name what instead.
         this.firstElementChild?.setAttribute('aria-hidden', 'true');
+        if (name && glyph === undefined && !warnedNames.has(name)) this._warnLater(name);
+    }
+
+    /**
+     * The gap alone went unnoticed: a host named `plus` and `panel`, glyphs that exist only
+     * in `@aparte/core/icons` until registered, and found out from screenshots. Said once per
+     * name, and only if the name is still unknown a moment later: an icon set registered
+     * just after the element mounted redraws it, and that is no mistake.
+     */
+    private _warnLater(name: string): void {
+        setTimeout(() => {
+            if (warnedNames.has(name) || !this.isConnected || this.getAttribute('name') !== name) return;
+            if (resolveConfig(this).getIcon(name) !== undefined) return;
+            warnedNames.add(name);
+            console.warn(
+                `[aparte] <aparte-icon name="${name}"> draws nothing: no icon has that name. A glyph of ` // safe-attr: a console message, never markup
+                + `@aparte/core/icons is named once registered: aparteGlobalConfig.registerIcons({ ${JSON.stringify(name)}: () => svg }). `
+                + 'Core\'s own names: https://apartejs.dev/reference/icons/',
+            );
+        }, 0);
     }
 }
+
+/** The names already reported, so a list of a hundred rows says it once. */
+const warnedNames = new Set<string>();
 
 deferHydrationOf(AparteIcon);
 if (!customElements.get('aparte-icon')) {

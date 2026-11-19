@@ -1146,10 +1146,11 @@ describe('AparteChatComponent while a conversation is on its way', () => {
 @Component({
     standalone: true,
     imports: [AparteChatComponent],
-    template: `<aparte-chat [disabled]="disabled" [overlayComposer]="overlay" [isTyping]="typing" typingText="Thinking" [submitOnEnter]="false" [typeToFocus]="typeToFocus" [elicitation]="false" />`,
+    template: `<aparte-chat [disabled]="disabled" [overlayComposer]="overlay" [isTyping]="typing" typingText="Thinking" [submitOnEnter]="false" [typeToFocus]="typeToFocus" [stopKey]="stopKey" [elicitation]="false" />`,
 })
 class OptionsHostComponent {
     typeToFocus: 'chat' | 'page' | 'off' = 'page';
+    stopKey: string | undefined = 'Escape';
     disabled = true;
     overlay = true;
     typing = true;
@@ -1225,6 +1226,7 @@ describe('AparteChatComponent inputs reach the DOM', () => {
         expect(composer.hasAttribute('disabled')).toBe(true);
         expect(composer.getAttribute('submit-on-enter')).toBe('false');
         expect(composer.getAttribute('type-to-focus')).toBe('page');
+        expect(composer.getAttribute('stop-key')).toBe('Escape');
         expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(true);
         const status = el.querySelector('aparte-chat-status')!;
         expect(status.hasAttribute('visible')).toBe(true);
@@ -1235,11 +1237,13 @@ describe('AparteChatComponent inputs reach the DOM', () => {
         fixture.componentInstance.overlay = false;
         fixture.componentInstance.typing = false;
         fixture.componentInstance.typeToFocus = 'chat';
+        fixture.componentInstance.stopKey = undefined;
         fixture.changeDetectorRef.markForCheck();
         fixture.detectChanges();
         await fixture.whenStable();
         expect(composer.hasAttribute('disabled')).toBe(false);
         expect(composer.hasAttribute('type-to-focus'), 'the default writes nothing').toBe(false);
+        expect(composer.hasAttribute('stop-key'), 'no stop key by default').toBe(false);
         expect(el.querySelector('.aparte-chat-container')!.hasAttribute('overlay-composer')).toBe(false);
     });
 });

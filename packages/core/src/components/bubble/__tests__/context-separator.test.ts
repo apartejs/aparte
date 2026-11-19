@@ -235,7 +235,10 @@ describe('Restore', () => {
         const bubble = mount();
         bubble.setContextSummary(summary);
         action(bubble, 'restore')!.click();
-        action(bubble, 'restore-confirm')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        action(bubble, 'restore-confirm')!.dispatchEvent(escape);
+        // Cancelled, so a launcher around the chat knows the key was taken and stays open.
+        expect(escape.defaultPrevented).toBe(true);
         expect(action(bubble, 'restore-confirm')).toBeNull();
         expect(action(bubble, 'restore')).not.toBeNull();
     });

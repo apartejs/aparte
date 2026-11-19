@@ -20,6 +20,8 @@
   export let submitOnEnter = true;
   /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
   export let typeToFocus: AparteTypeToFocus = 'chat';
+  /** A key that stops the reply being written while the focus is in the composer, as Stop does: `'Escape'`. None by default; a key that something inside took first (the `/` menu, a select, a question) stays theirs. */
+  export let stopKey: string | undefined = undefined;
   /** Freeze viewport spacer recalculation for this many ms after a conv swap. */
   export let layoutTransitionMs = 0;
   /**
@@ -200,6 +202,7 @@
     toggleAttr(composerRef, 'disabled', disabled || waiting, '');
     toggleAttr(composerRef, 'submit-on-enter', !submitOnEnter, 'false');
     toggleAttr(composerRef, 'type-to-focus', typeToFocus !== 'chat', typeToFocus);
+    toggleAttr(composerRef, 'stop-key', !!stopKey, stopKey ?? '');
   }
 
   // A send from the composer makes the next auto-scroll, the one that brings the user's bubble

@@ -193,6 +193,11 @@ export class AparteComposerInput extends HTMLElement {
     /**
      * Replace a range of the draft with a token, followed by a space for the caret to land
      * on: a caret cannot rest after something that is not editable at the end of a line.
+     *
+     * An offset past the end of the draft is its end, so a control outside the field adds a
+     * pill after what was written with `insertToken(Infinity, Infinity, token)`. Like every
+     * edit here, it takes the focus: it goes through the browser's edit commands, so Undo
+     * knows it.
      */
     insertToken(from: number, to: number, token: AparteComposerToken): void {
         const id = String(++this._lastTokenId);

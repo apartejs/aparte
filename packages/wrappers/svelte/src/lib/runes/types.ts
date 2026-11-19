@@ -38,6 +38,8 @@ export interface AparteChatProps extends AparteChatEventCallbacks, AparteElement
     submitOnEnter?: boolean;
     /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
     typeToFocus?: AparteTypeToFocus;
+    /** A key that stops the reply being written while the focus is in the composer, as Stop does: `'Escape'`. None by default; a key that something inside took first (the `/` menu, a select, a question) stays theirs. */
+    stopKey?: string;
     /** Freeze viewport spacer recalculation for this many ms after a conversation swap. */
     layoutTransitionMs?: number;
     /** The composer sits centred, with `emptyState` above it, until the first message. */

@@ -180,6 +180,11 @@ export interface AparteComposerChangeEventDetail extends AparteChatScoped {
  *   chat, so the page around an embedded chat keeps its own keys. `page`: from anywhere in
  *   the page, for an app whose page is the chat. `off`: never. Read at every key rather
  *   than observed.
+ * @attr {string} stop-key - A key that stops the reply being written while the focus is in
+ *   this composer, as Stop does: `stop-key="Escape"`. None by default. A key pressed with
+ *   Ctrl, Alt, Meta or Shift is not it, and one that something inside took first (the `/`
+ *   menu, a select, a question or an approval in the composer) and cancelled stays theirs.
+ *   Read at every key rather than observed.
  * @attr {boolean} data-panel-active - Reflected BY the element while a panel (an elicitation, an
  *   approval) is mounted inside it; the shipped stylesheet keys off it. Read-only.
  * @attr {string} data-panel-mode - Reflected BY the element while a panel is active: what the send
@@ -349,7 +354,23 @@ export class AparteComposer extends HTMLElement {
         this._applyDirection();
         this._offTypeToFocus?.();
         this._offTypeToFocus = installTypeToFocus(this);
+        this.addEventListener('keydown', this._onStopKey);
     }
+
+    /**
+     * `stop-key`. Bubble phase, on this element: what of aparté's sits inside and takes the
+     * key (the `/` menu, a select, a panel's options) has run by then, and said so by
+     * cancelling it. Element listeners above (a launcher closing its card) run after, and read
+     * this cancel the same way, so the first Escape stops the reply and the next one closes.
+     */
+    private readonly _onStopKey = (event: KeyboardEvent): void => {
+        const key = this.getAttribute('stop-key');
+        if (!key || event.key !== key || !this._streaming || this._panelActive) return;
+        if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        this.cancel();
+    };
 
     disconnectedCallback(): void {
         window.removeEventListener('aparte-message-start', this._onMessageStart);
@@ -361,6 +382,7 @@ export class AparteComposer extends HTMLElement {
         this._listeners.clear();
         this._offTypeToFocus?.();
         this._offTypeToFocus = null;
+        this.removeEventListener('keydown', this._onStopKey);
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
