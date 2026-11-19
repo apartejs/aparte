@@ -30,14 +30,15 @@ aparteGlobalConfig.setAttachmentRenderer((attachment) => {
 
 | Hook | Replaces | Receives |
 | --- | --- | --- |
-| `setErrorRenderer` | the error card in a reply | `{ message, details }` |
+| `setErrorRenderer` | the error card in a reply | `{ message, sentence, details, code, appCode }` |
 | `setAttachmentRenderer` | one attachment's chip | the attachment |
 | `setSiblingNavRenderer` | the position between the version arrows, such as 2/3 | `{ count, index }` |
 | `setStatusRenderer` | the inside of your status line, `<aparte-chat-status>` | its text |
 | `setBubbleShellRenderer` | the frame of the whole message | see [The message](/guides/customization/bubble/) |
 
 Each hook takes a function that returns an element or a string, and `null` puts the built-in
-back. A string holds one root element for the error and attachment hooks: plain text draws nothing
+back. The error hook's function can also return `null` for one error, which keeps the built-in
+card for that error alone ([Error](/components/error/#customize)). A string holds one root element for the error and attachment hooks: plain text draws nothing
 there. A hook replaces markup only: the version arrows and the event they send stay core's, and so
 does the status line's showing and hiding. Set the error and attachment hooks before the chat
 renders — a message already drawn keeps the markup it was drawn with. The status line redraws at
