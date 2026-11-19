@@ -11,6 +11,10 @@
  * bubble also reflects `data-error` on its `.aparte-message` while an error segment is
  * present, for CSS theming.
  *
+ * Return `null` (or nothing) to keep aparté's own card for this error, so a renderer that
+ * changes one error leaves every other as aparté draws it, translated on a language switch
+ * as before.
+ *
  * @example
  * aparteGlobalConfig.setErrorRenderer(({ sentence, message }) => {
  *   const el = document.createElement('div');
@@ -18,6 +22,11 @@
  *   el.textContent = `${sentence ?? message} — status.example.com`;
  *   return el;
  * });
+ *
+ * @example
+ * // One error of the app's own; aparté's card for the rest.
+ * aparteGlobalConfig.setErrorRenderer(({ appCode }) =>
+ *   appCode === 'engine-died' ? '<p class="my-error">The engine stopped.</p>' : null);
  */
 export type AparteErrorRenderer = (ctx: {
     /**
@@ -40,4 +49,4 @@ export type AparteErrorRenderer = (ctx: {
      * (the error segment's `appCode`), e.g. `engine-died` from a `run-error` line.
      */
     appCode?: string;
-}) => string | HTMLElement;
+}) => string | HTMLElement | null | undefined;

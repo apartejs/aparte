@@ -1,5 +1,7 @@
 # @aparte/plugin-streaming-markdown
 
+## 1.15.0
+
 ## 1.14.0
 
 ## 1.13.1

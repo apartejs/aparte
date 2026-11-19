@@ -274,6 +274,25 @@ since an attribute on an element outside the shadow root does not reach the chat
 `<aparte-suggestions target>` and `<aparte-scroll-rail target>` look their partner up in the
 document; inside a shadow root, put them in the chat and leave `target` out.
 
+## In a frame you serve yourself
+
+A sandboxed `<iframe>` does not see the page's stylesheets, so it needs the sheet as text or as a
+URL. The sheet is one file, with no `@import` and no `url()` to follow. In a bundled page,
+import it with your bundler's query: `import css from '@aparte/core/styles.css?inline'` in Vite,
+or `?url` for a URL to put in the frame's `<link>`. In Node (a server, or an Electron main process,
+whose build keeps packages external, so a `?raw` import stays an import and fails), resolve the
+package's own export:
+
+```js
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const css = readFileSync(createRequire(import.meta.url).resolve('@aparte/core/styles.css'), 'utf8');
+```
+
+The frame follows a theme the same way a page does: `data-aparte-theme` on its root, set when your
+app tells it, and your token overrides in a stylesheet served beside this one.
+
 ## Next
 
 <Cards

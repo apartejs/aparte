@@ -4,6 +4,19 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.15.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [20124fb](https://github.com/apartejs/aparte/commit/20124fb): An error renderer can return `null` for an error it does not change: that error keeps aparté's card, translated on a language switch as before.
+
+  Nothing to change in your code. `setErrorRenderer` replaced the card for every error, so an app that wanted its own words for one code (`appCode === 'engine-died'`) rebuilt aparté's card by hand for all the others: a copy of its markup that drifts, and that a language switch no longer rewrote. Returning `null` made the card vanish. `null` or nothing now draws aparté's card for that error, exactly as without a renderer; a card you return is still never rewritten, even one that copies aparté's classes. `AparteErrorRenderer` returns `string | HTMLElement | null | undefined`.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.14.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

@@ -63,7 +63,8 @@ The card is added after what had already streamed; the partial reply stays.
 
 `aparteGlobalConfig.setErrorRenderer()` replaces the card. It receives the `sentence` the default card shows (absent for an error that keeps its own words), the error's own `message`, the
 `details` an app chose to show and the `code` and returns an element or an HTML string, for a product that adds a "Try again" button
-or a link to its status page:
+or a link to its status page. It returns `null` (or nothing) to keep aparté's card for an error it
+does not change:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
@@ -81,15 +82,17 @@ The `code` is the machine-readable name of the failure (`MAX_TURNS_EXCEEDED`, `P
 ```ts
 import { aparteGlobalConfig, AparteErrorCode } from '@aparte/core';
 
-aparteGlobalConfig.setErrorRenderer(({ sentence, message, code }) => {
+aparteGlobalConfig.setErrorRenderer(({ code }) => {
+  if (code !== AparteErrorCode.MAX_TURNS_EXCEEDED) return null; // aparté's card for the rest
   const card = document.createElement('div');
   card.className = 'aparte-alert aparte-alert--danger';
-  card.textContent = code === AparteErrorCode.MAX_TURNS_EXCEEDED
-    ? 'The assistant went round in circles. Try asking differently.'
-    : sentence ?? message;
+  card.textContent = 'The assistant went round in circles. Try asking differently.';
   return card;
 });
 ```
+
+An error handed back with `null` gets aparté's card exactly as it would without a renderer, and a
+language switch still rewrites it; a card you return is never rewritten.
 
 A server or an agent of yours can end a run with a code of its own: a `run-error` line on the
 [agent wire](/guides/server-loop/#the-wire), an AG-UI `RUN_ERROR`. aparté does not know that code,
@@ -98,20 +101,17 @@ language; your code arrives as `appCode`, and it is saved with the reply, so it 
 when the conversation is opened again:
 
 ```ts
-aparteGlobalConfig.setErrorRenderer(({ sentence, message, appCode }) => {
+aparteGlobalConfig.setErrorRenderer(({ appCode }) => {
+  if (appCode !== 'engine-died') return null;
   const card = document.createElement('div');
   card.className = 'aparte-alert aparte-alert--danger';
-  if (appCode === 'engine-died') {
-    card.textContent = 'The engine stopped during this reply. What was written is kept.';
-    const relaunch = document.createElement('button');
-    relaunch.className = 'aparte-btn aparte-btn--sm';
-    relaunch.textContent = 'Relaunch';
-    // Which chat: `[data-aparte-chat]` marks its root in the five frameworks, read on the press.
-    relaunch.onclick = () => relaunchEngine(relaunch.closest('[data-aparte-chat]'));
-    card.append(relaunch);
-  } else {
-    card.textContent = sentence ?? message;
-  }
+  card.textContent = 'The engine stopped during this reply. What was written is kept.';
+  const relaunch = document.createElement('button');
+  relaunch.className = 'aparte-btn aparte-btn--sm';
+  relaunch.textContent = 'Relaunch';
+  // Which chat: `[data-aparte-chat]` marks its root in the five frameworks, read on the press.
+  relaunch.onclick = () => relaunchEngine(relaunch.closest('[data-aparte-chat]'));
+  card.append(relaunch);
   return card;
 });
 ```

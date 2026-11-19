@@ -1,5 +1,7 @@
 # @aparte/react
 
+## 1.15.0
+
 ## 1.14.0
 
 ### Minor Changes
