@@ -66,6 +66,29 @@ angular spec fails, including the idle chat. Measured, reverted.
   purpose — they drift across OSes and engines. Compare positions, computed styles,
   ARIA state, dispatched events.
 
+Four more, from three defects a consumer found by hand in 1.15.0 (#270, #271, #272) while
+every test here was green. Each was a combination the suite never built, not a missing case.
+
+- **A layout invariant is measured frame by frame, in a thread already scrolled.** The thread
+  moved a pixel each way on every streamed delta under every wrapper (#270). A read taken once
+  the reply is done cannot see that, nor can a tolerance of a pixel or more, nor a first
+  exchange (the space under the reply takes every change of its height). Read after each frame
+  is drawn, not from inside it: a read inside a frame lands between two of core's own writes
+  and sees a state no one was shown. `helpers/frames.ts` does both.
+- **A rule of a component that can hold itself is tested nested.** A tool row holds tool rows
+  (a sub-agent's transcript), and a rule keyed on the row's state with a descendant combinator
+  coloured every call under a finished line as finished (#271). Compare the nested one with a
+  copy of itself put outside, and check the look on its own as well, or a rule that matches
+  nothing passes the comparison (`nested-rows.spec.ts`).
+- **A stream test also sends what our producers never send.** Every adapter test sent a
+  well-formed sequence; a server writing its own wire did not, and neither does a model that
+  reasons again after it answers (#272). The unit suite now holds properties over seeded
+  sequences; a spec that drives a stream should vary the order too.
+- **A test is seen red before it is believed.** Break what it guards (revert the fix, or
+  sabotage the code) and watch it fail, then restore. Two first attempts at these specs could
+  not fail: a heading check that only said "not the settled one", and a thread measured on its
+  first exchange.
+
 ## Suites
 
 | Spec | Scope |
@@ -82,7 +105,9 @@ angular spec fails, including the idle chat. Measured, reverted.
 | `responsive` | 390×844: usable composer, no sideways page scroll, dropdown inside the viewport |
 | `bubble-layout` | real-geometry invariants of the bubble (vanilla, incl. WebKit) |
 | `vanilla-dist` | human-in-the-loop tool approval, against core's published `dist` |
-| `subagent-transcript` | tool rows INSIDE a tool row (a sub-agent's conversation under its line): each looks as it would alone, whatever the line's state; a sub-agent's slow reasoning keeps its heading and does not move a scrolled thread (vanilla incl. WebKit, react). Known failures marked with their issue (#270, #271) |
+| `subagent-transcript` | a sub-agent's conversation under its line, through the scripted model: a failed read, a refused command, a working line under reduced motion, each call looks as it would alone; its slow reasoning reads "Thinking" in every frame (vanilla incl. WebKit, react) |
+| `nested-rows` | every state of a line with a call of every state under it (196 calls, `?harness=nested-rows`): each looks as it would alone, with and without reduced motion; each state still looks as designed on its own; one caret in a reply being written (vanilla incl. WebKit) |
+| `thread-holds-still` | a reasoning reply streaming into an already scrolled thread, read after every frame at half a pixel: the reply's own block, a sub-agent's line closed and open (every example) |
 | `real-model` | opt-in un-mocked smoke against a local model (`E2E_REAL_MODEL=1`) |
 
 Which spec runs on which app is decided by `suiteFor()` in `playwright.config.ts`: the
