@@ -239,3 +239,41 @@ describe('a property given before the element is defined', () => {
         el.remove();
     });
 });
+
+describe('a key that leaves the props bag', () => {
+    // `props={{ conversations, ...(fetching && { loading: true }) }}`: once fetching ends, the
+    // next bag has no `loading` key. Only the keys present were written, so the attribute stayed
+    // and the skeleton rows never went away; a CSS variable dropped from the bag stayed too. The
+    // generated React elements clear a prop that goes away; <AparteUi> in all four wrappers
+    // hands its bag here.
+    it('is cleared: an attribute removed, a CSS variable removed, a property set to undefined', () => {
+        const el = document.createElement('div');
+        const list = { rows: 1 };
+        applyElementProps(el, { loading: true, '--x': '1px', items: list }, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(true);
+        expect(el.style.getPropertyValue('--x')).toBe('1px');
+        expect((el as HTMLElement & { items?: unknown }).items).toBe(list);
+
+        applyElementProps(el, {}, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(false);
+        expect(el.style.getPropertyValue('--x')).toBe('');
+        expect((el as HTMLElement & { items?: unknown }).items).toBeUndefined();
+    });
+
+    it('and set again when it comes back', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { loading: true }, undefined, { replace: true });
+        applyElementProps(el, {}, undefined, { replace: true });
+        applyElementProps(el, { loading: true }, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(true);
+    });
+});
+
+describe('a bag of only what changed (a generated component)', () => {
+    it('leaves alone a key it does not name', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { loading: true });
+        applyElementProps(el, { label: 'x' });
+        expect(el.hasAttribute('loading')).toBe(true);
+    });
+});

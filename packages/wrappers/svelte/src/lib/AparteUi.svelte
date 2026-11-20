@@ -26,7 +26,7 @@
   let cleanups: Array<() => void> = [];
 
   function applyProps() {
-    if (el) applyElementProps(el, props);
+    if (el) applyElementProps(el, props, undefined, { replace: true });
   }
 
   function create() {

@@ -117,6 +117,11 @@ function writeOnce(el: HTMLElement, key: string, value: string | null, write: ()
     write();
 }
 
+/** The keys of the last props bag applied to each element: a key that leaves it is cleared. */
+const bags = new WeakMap<HTMLElement, Set<string>>();
+/** The keys written to each element as PROPERTIES (an object, a function): cleared as `undefined`. */
+const assignedProps = new WeakMap<Element, Set<string>>();
+
 /** Properties given to an element not defined yet, kept for its setters. */
 const pendingProps = new WeakMap<Element, Map<string, unknown>>();
 
@@ -129,6 +134,10 @@ const pendingProps = new WeakMap<Element, Map<string, unknown>>();
  * aside, it is handed to the setter once the element is defined.
  */
 function assignProperty(el: Element, key: string, value: unknown): void {
+    let keys = assignedProps.get(el);
+    if (!keys) assignedProps.set(el, (keys = new Set()));
+    if (value === undefined) keys.delete(key);
+    else keys.add(key);
     const tag = el.localName;
     const waiting = tag.includes('-') && typeof customElements !== 'undefined' && !customElements.get(tag);
     if (!waiting) {
@@ -176,8 +185,30 @@ export function applyElementProps(
     el: HTMLElement,
     props: Record<string, unknown>,
     transformValue: (value: unknown) => unknown = (value) => value,
+    /**
+     * `replace`: `props` is the element's WHOLE set of props (an `<AparteUi>` bag), so a key the
+     * last such bag had and this one does not is cleared, as if it were given `undefined`.
+     * `{ ...(fetching && { loading: true }) }` drops `loading` once fetching ends, and only the
+     * keys present were written: the attribute stayed, and the skeleton rows with it. Without it,
+     * `props` holds only what changed (a generated component), and an absent key is left alone.
+     */
+    options: { replace?: boolean } = {},
 ): void {
-    for (const [key, value] of Object.entries(props)) {
+    const previous = options.replace ? bags.get(el) : undefined;
+    if (options.replace) bags.set(el, new Set(Object.keys(props)));
+    if (previous) {
+        for (const key of previous) {
+            if (key in props) continue;
+            if (assignedProps.get(el)?.has(key)) assignProperty(el, key, undefined);
+            else applyOne(el, key, undefined, transformValue);
+        }
+    }
+    for (const [key, value] of Object.entries(props)) applyOne(el, key, value, transformValue);
+}
+
+/** One key of a props bag, written on `el` (see `applyElementProps`). */
+function applyOne(el: HTMLElement, key: string, value: unknown, transformValue: (value: unknown) => unknown): void {
+    {
         if (key.startsWith('--')) {
             /*
              * `null` / `undefined` REMOVE the property; they are not stringified.
