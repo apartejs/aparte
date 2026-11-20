@@ -515,8 +515,9 @@ describe('runStreamAgent — limits, abort & error', () => {
         await expect(
             runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter })),
         ).rejects.toThrow('boom');
-        // The throw escapes before text-flush and run-done (like _streamLoop).
-        expect(rec.types()).toEqual(['run-start', 'turn-start', 'text-delta']);
+        // The call's text is handed over before the throw (its last words beside the error),
+        // and no run-done: the caller says how the run ended.
+        expect(rec.types()).toEqual(['run-start', 'turn-start', 'text-delta', 'text-flush']);
     });
 
     it('throws an Error that carries the code the event names, so the caller can act on it', async () => {

@@ -2154,7 +2154,15 @@ export class AparteClient {
             // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
-        }).catch((error: unknown) => { throw asToolCrash(error); });
+        }).catch((error: unknown) => {
+            // A run that fails ends its text too: what the parser holds (the end of an open
+            // fence, a lone backtick) is handed over before the error is shown. The runner
+            // flushes on the way out of a call it finished, never past a thrown error, so a
+            // reply cut by a mid-stream error lost its last characters, or all of it when it
+            // ended on inline code.
+            adapter({ type: 'text-flush' });
+            throw asToolCrash(error);
+        });
         return {
             usage: usage ?? undefined,
             ...(finishReason ? { finishReason } : {}),

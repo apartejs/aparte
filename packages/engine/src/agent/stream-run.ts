@@ -731,15 +731,19 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 if (settled.stopRun) continueLoop = false;
             }
 
-            // Turn boundary: finalize the parser (flush residual text). Mirrors
-            // `_streamLoop`'s `textParser.finalize()` call — runs on normal
-            // end AND abort-break, but NOT after a thrown `error` (which escapes
-            // this try before reaching here, exactly like `_streamLoop`).
+            // Turn boundary: finalize the parser (flush residual text), on a normal end and on
+            // an abort-break. A thrown error leaves through the catch below, which flushes too.
             emitter({ type: 'text-flush' });
             // Everything this turn streamed belongs to the turn, including what came
             // after the call that opened the envelope.
             syncEnvelopeText();
 
+        } catch (error) {
+            // A call that fails ends its text too: what the parser holds (the end of an open
+            // fence, a lone backtick) is the reply's last words, shown beside the error that
+            // cut them. Left unflushed, a reply cut by a mid-stream error lost them.
+            emitter({ type: 'text-flush' });
+            throw error;
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator,
             // however it fails on the way out (see `bailOnAbort`). Not awaited while a read
