@@ -24,6 +24,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '../aparte-composer.js';
 import '../aparte-composer-attachments.js';
+import '../aparte-composer-input.js';
 import { aparteGlobalConfig } from '../../../config/index.js';
 import { APARTE_DEFAULT_LOCALE } from '../../../config/locale.js';
 import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
@@ -257,5 +258,33 @@ describe('the image tile as a preview button', () => {
         expect(rule, 'no focus-visible rule for the image preview button').toBeTruthy();
         expect(rule).toMatch(/outline:/);
         expect(rule, 'a positive offset is clipped by the tile').toMatch(/outline-offset:\s*calc\(\s*-1/);
+    });
+});
+
+describe('the focus, when a file is removed from the keyboard', () => {
+    // The strip is drawn again whole on every change, so the remove button that had the focus was
+    // destroyed with it: the focus fell to <body>, and the next Tab started again at the top of the
+    // page. The conversation list and the bubble's edit put it back after the same kind of redraw.
+    const pdf = (name: string) => new File(['x'], name, { type: 'application/pdf' });
+
+    it('moves to the next file\'s remove button, and to the editor once none is left', () => {
+        const { composer, strip } = mount([pdf('one.pdf'), pdf('two.pdf')]);
+        const input = document.createElement('aparte-composer-input');
+        composer.appendChild(input);
+        removeButtons(strip)[0]!.focus();
+        removeButtons(strip)[0]!.click();
+        expect(document.activeElement, 'not left on the page').not.toBe(document.body);
+        expect(document.activeElement).toBe(removeButtons(strip)[0]);
+        expect(removeButtons(strip)[0]!.getAttribute('aria-label')).toContain('two.pdf');
+        removeButtons(strip)[0]!.click();
+        expect(document.activeElement).not.toBe(document.body);
+        expect(input.contains(document.activeElement)).toBe(true);
+    });
+
+    it('a file added while a remove button has the focus keeps it on that file', () => {
+        const { composer, strip } = mount([pdf('one.pdf')]);
+        removeButtons(strip)[0]!.focus();
+        composer.addAttachments([pdf('two.pdf')]);
+        expect(document.activeElement).toBe(removeButtons(strip)[0]);
     });
 });
