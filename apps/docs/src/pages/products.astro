@@ -5,12 +5,13 @@ import Landing from '../layouts/Landing.astro';
  * roadmap: a page of its own, not a docs page.
  *
  * Every product weighs the same here: one card each, its mark, one sentence, what it is
- * built on, where it stands, and its site when it has one. No price, no product put before
- * another: the order is where each one stands, live first.
+ * built on, where it stands, and its site when it has one. No price and no product put before
+ * another: the order is where each one stands, live first. A product free to use (open
+ * source, MIT) says so, beside where it stands.
  *
- * Marks: each product's own, as a file in public/products/. A product with no mark of its
- * own wears aparté's. A mark drawn for both themes (the desks, the n8n chat) shows the one
- * that matches the page's.
+ * Marks: each product's own, as files in public/products/, one per theme, drawn from the
+ * product's own source and its own theme tokens. The page shows the one that matches its
+ * theme. A product with no mark of its own would wear aparté's (/favicon.svg).
  */
 interface Product {
     name: string;
@@ -19,6 +20,8 @@ interface Product {
     /** What it is built on: the wrapper, the platform. */
     stack: string;
     state: 'live' | 'building' | 'planned';
+    /** Free to use: open source, under the MIT licence. */
+    free?: boolean;
     href?: string;
     /** The mark, or one per theme. */
     mark: string | { light: string; dark: string };
@@ -38,14 +41,16 @@ const PRODUCTS: Product[] = [
         about: 'A chat assistant whose language model runs entirely in the browser: no inference server, and nothing the visitor writes or attaches leaves their device.',
         stack: 'Angular',
         state: 'live',
+        free: true,
         href: 'https://mon.apartejs.dev',
-        mark: '/products/monaparte.svg',
+        mark: { light: '/products/monaparte-light.svg', dark: '/products/monaparte-dark.svg' },
     },
     {
         name: 'aparté chat for n8n',
         about: 'n8n\'s chat widget, drawn by aparté: change the import, keep your call. Your workflow answers with rich cards, in ten languages.',
         stack: 'n8n · plain HTML',
         state: 'live',
+        free: true,
         href: 'https://n8n-chat.apartejs.dev',
         mark: { light: '/products/n8n-chat-light.svg', dark: '/products/n8n-chat-dark.svg' },
     },
@@ -54,7 +59,8 @@ const PRODUCTS: Product[] = [
         about: 'A desktop app to talk with AI models that run on your own machine.',
         stack: 'React',
         state: 'building',
-        mark: '/products/bonaparte.svg',
+        free: true,
+        mark: { light: '/products/bonaparte-light.svg', dark: '/products/bonaparte-dark.svg' },
     },
     {
         name: 'aparté Desk for Strapi',
@@ -112,6 +118,7 @@ const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a ch
             <p class="pr-about">{p.about}</p>
             <p class="pr-meta">
               <span class={`pr-state pr-state--${p.state}`}>{STATE_LABEL[p.state]}</span>
+              {p.free && <span class="pr-state pr-free">Free</span>}
               <span class="pr-stack">{p.stack}</span>
             </p>
             {p.href && (
@@ -194,6 +201,7 @@ const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a ch
     border: 1px solid var(--aparte-border);
   }
   .pr-state--live { border-color: var(--aparte-success-border); color: var(--aparte-success-ink); }
+  .pr-free { border-color: var(--accent); color: var(--accent-text); }
   .pr-stack { color: var(--aparte-text-muted); }
   .pr-link {
     margin-block-start: auto;
