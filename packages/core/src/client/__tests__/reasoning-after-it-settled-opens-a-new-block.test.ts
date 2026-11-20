@@ -19,7 +19,7 @@ import { describe, it, expect } from 'vitest';
 import { createStreamAdapter } from '../stream-adapter.js';
 import { aparteGlobalConfig } from '../../config/index.js';
 import type { AparteSegment } from '../../types/index.js';
-import type { AparteStreamEvent } from '@aparte/engine';
+import type { StreamRunEvent } from '@aparte/engine';
 
 interface Seen {
     type: string;
@@ -32,40 +32,40 @@ interface Seen {
 
 /** A target that keeps each segment as the adapter leaves it, and every rule it breaks. */
 function target() {
-    const segments = new Map<string, Seen>();
+    const seen = new Map<string, Seen>();
     const order: string[] = [];
     const broken: string[] = [];
     const contentOf = (s: Partial<AparteSegment>): string | undefined =>
         typeof (s as { content?: unknown }).content === 'string' ? (s as { content: string }).content : undefined;
     return {
-        segments, order, broken,
+        seen, order, broken,
         addSegment: (s: AparteSegment) => {
-            if (segments.has(s.id)) broken.push(`id ${s.id} added twice`);
-            segments.set(s.id, { type: s.type, content: contentOf(s) ?? '', streaming: (s as { isStreaming?: boolean }).isStreaming });
+            if (seen.has(s.id)) broken.push(`id ${s.id} added twice`);
+            seen.set(s.id, { type: s.type, content: contentOf(s) ?? '', streaming: (s as { isStreaming?: boolean }).isStreaming });
             order.push(s.id);
         },
         updateSegment: (id: string, u: Partial<AparteSegment>) => {
-            const seen = segments.get(id);
-            if (!seen) return;
+            const was = seen.get(id);
+            if (!was) return;
             const content = contentOf(u);
-            if (content !== undefined && seen.settledAs !== undefined && content !== seen.settledAs) {
-                broken.push(`${seen.type} ${id} changed after it was settled`);
+            if (content !== undefined && was.settledAs !== undefined && content !== was.settledAs) {
+                broken.push(`${was.type} ${id} changed after it was settled`);
             }
-            if (content !== undefined) seen.content = content;
+            if (content !== undefined) was.content = content;
             const streaming = (u as { isStreaming?: boolean }).isStreaming;
-            if (streaming !== undefined) seen.streaming = streaming;
-            if (streaming === false) seen.settledAs = seen.content;
+            if (streaming !== undefined) was.streaming = streaming;
+            if (streaming === false) was.settledAs = was.content;
         },
         updateMessage: () => {},
         dispatchEvent: () => true,
     };
 }
 
-function run(events: AparteStreamEvent[]) {
+function run(events: StreamRunEvent[]) {
     const t = target();
     const emit = createStreamAdapter({ target: t, config: aparteGlobalConfig, messageId: 'm1' });
     for (const e of events) emit(e);
-    const thinking = t.order.map((id) => t.segments.get(id)!).filter((s) => s.type === 'thinking');
+    const thinking = t.order.map((id) => t.seen.get(id)!).filter((s) => s.type === 'thinking');
     return { t, thinking };
 }
 
@@ -115,8 +115,8 @@ function random(seed: number): () => number {
     };
 }
 
-function sequence(next: () => number): AparteStreamEvent[] {
-    const events: AparteStreamEvent[] = [{ type: 'run-start' }, { type: 'turn-start' }];
+function sequence(next: () => number): StreamRunEvent[] {
+    const events: StreamRunEvent[] = [{ type: 'run-start' }, { type: 'turn-start' }];
     const open: string[] = [];
     let calls = 0;
     const length = 4 + Math.floor(next() * 30);
@@ -131,9 +131,9 @@ function sequence(next: () => number): AparteStreamEvent[] {
         } else if (roll < 0.8 && open.length > 0) {
             events.push({ type: 'tool-resolved', toolCallId: open.shift()!, result: 'ok' });
         } else if (roll < 0.9) events.push({ type: 'turn-start' });
-        else events.push({ type: 'text-flush' } as AparteStreamEvent);
+        else events.push({ type: 'text-flush' } as StreamRunEvent);
     }
-    if (next() < 0.5) events.push({ type: 'run-done' } as AparteStreamEvent);
+    if (next() < 0.5) events.push({ type: 'run-done' } as StreamRunEvent);
     return events;
 }
 

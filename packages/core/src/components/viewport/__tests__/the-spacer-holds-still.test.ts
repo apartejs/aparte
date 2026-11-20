@@ -42,7 +42,7 @@ function random(seed: number): () => number {
 }
 
 function mount(framework: boolean, layout: Layout): { vp: Viewport; spacer: () => number } {
-    const vp = document.createElement('aparte-chat-viewport') as Viewport;
+    const vp = document.createElement('aparte-chat-viewport') as unknown as Viewport;
     if (framework) vp.setAttribute('framework-managed', '');
     document.body.appendChild(vp);
     const surface = (framework ? vp : vp.querySelector('.aparte-viewport-container')) as HTMLElement;
