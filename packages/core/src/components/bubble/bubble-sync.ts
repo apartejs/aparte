@@ -46,6 +46,35 @@ export interface SyncableBubble {
  * and a flag the producer set is kept. The bubble settles it when the message ends — this
  * function's caller sends `isStreaming: false` then.
  */
+/** Fields core stamps on a segment as it joins a bubble: never a change the parent made. */
+const STAMPED = new Set(['id', 'type', 'messageId', 'index', 'meta']);
+
+/** An object field, serialised once per object: a re-render hands the same ones again. */
+const serialised = new WeakMap<object, string>();
+const valueKey = (value: unknown): unknown => {
+    if (value === null || typeof value !== 'object') return value;
+    let key = serialised.get(value);
+    if (key === undefined) {
+        key = JSON.stringify(value);
+        serialised.set(value, key);
+    }
+    return key;
+};
+
+/** What `seg` says that `had` does not, field by field; `null` when nothing changed. */
+function changedFields(seg: AparteSegment, had: AparteSegment | undefined): Partial<AparteSegment> | null {
+    const patch: Record<string, unknown> = {};
+    let changed = false;
+    const before = (had ?? {}) as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(seg)) {
+        if (STAMPED.has(key)) continue;
+        if (valueKey(value) === valueKey(before[key])) continue;
+        patch[key] = value;
+        changed = true;
+    }
+    return changed ? (patch as Partial<AparteSegment>) : null;
+}
+
 function withLastArriving(message: AparteMessage): AparteSegment[] {
     const segments = message.segments!;
     const last = segments[segments.length - 1];
@@ -93,7 +122,11 @@ export function populateBubbleFromMessage(
 
     if (message.segments && message.segments.length > 0) {
         const existing = bubble.getSegments?.() ?? [];
-        if (existing.length === message.segments.length) {
+        // A segment the message holds under an id the bubble does not: one the parent replaced.
+        // The patches below would find nothing to patch, so the bubble is drawn again whole.
+        const held = new Set(existing.map((s) => s.id));
+        const replaced = message.segments.some((seg) => !held.has(seg.id));
+        if (existing.length === message.segments.length && !replaced) {
             // A re-sync of a message that is NOT actively streaming (load,
             // branch switch, post-completion re-render) stamps its segments
             // `isStreaming: false`. The text renderer then reconciles via the
@@ -115,6 +148,12 @@ export function populateBubbleFromMessage(
                     const had = existing.find((s) => s.id === seg.id) as { sources?: unknown; citations?: unknown } | undefined;
                     if (seg.type === 'text' && (seg.sources || seg.citations || had?.sources || had?.citations)) Object.assign(patch, { sources: seg.sources, citations: seg.citations });
                     bubble.updateSegment?.(seg.id, patch);
+                } else {
+                    // A segment with no `content` (a tool call, a card, an artifact): only what it
+                    // changed. Patched for `content` alone, a call the parent marked resolved kept
+                    // spinning, and a card's new data never showed.
+                    const patch = changedFields(seg, existing.find((s) => s.id === seg.id));
+                    if (patch) bubble.updateSegment?.(seg.id, patch);
                 }
             }
         } else {
