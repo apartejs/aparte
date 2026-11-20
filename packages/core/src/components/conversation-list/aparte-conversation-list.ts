@@ -1448,6 +1448,10 @@ ${moving}
             return;
         }
         if (target.matches('[data-rename-id]')) {
+            // The Enter that confirms a candidate and the Escape that cancels a composition (an
+            // input method: Japanese, Chinese, Korean) are the word's, not the rename's. Firefox
+            // flags them `isComposing`; Safari sends that Enter after the composition, as 229.
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter') { e.preventDefault(); this._finishRename(true, true); }
             else if (e.key === 'Escape') { e.preventDefault(); this._finishRename(false, true); }
             return;
