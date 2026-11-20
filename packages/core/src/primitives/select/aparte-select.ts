@@ -103,13 +103,31 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
     /**
+     * A key typed while the focus is on nothing (the page itself), the list open: the list's. A
+     * click on a part of it that takes no focus (a group's header, in WebKit) leaves the focus
+     * there. A key typed in any other field is that field's, and is left alone.
+     */
+    private _boundHandleStrayKeydown = (e: KeyboardEvent): void => {
+        if (!this._isOpen) return;
+        const origin = eventOrigin(e);
+        const doc = this.ownerDocument;
+        if (origin !== doc.body && origin !== doc.documentElement && origin !== doc) return;
+        this._handleKeydown(e);
+    };
+    /**
      * The trigger's own three, bound for the same reason as the option click: the
      * trigger element survives a re-connect, so listeners that cannot be removed would
      * stack. One re-parent would make a click toggle twice — open and shut inside the
      * same click, i.e. a control that looks dead — and announce `aparte-select-open`
      * twice.
      */
-    private _boundHandleTriggerClick = (): void => { this._toggle(); };
+    private _boundHandleTriggerClick = (): void => {
+        // The focus on the trigger, where the keys that follow are heard: WebKit focuses no
+        // button on a click, and the select listens on itself, so the arrows and Enter after
+        // opening the list with the mouse reached nothing in Safari.
+        this._trigger?.focus({ preventScroll: true });
+        this._toggle();
+    };
     private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
         if (e.key === 'Enter' || e.key === ' ') {
             // When open, Enter/Space selects the active option — handled by the
@@ -157,6 +175,7 @@ export class AparteSelect extends HTMLElement {
         this.removeEventListener('click', this._boundHandleOptionClick);
         document.removeEventListener('click', this._boundHandleDocumentClick);
         this.removeEventListener('keydown', this._boundHandleKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown);
         this._observer?.disconnect();
     }
 
@@ -498,6 +517,8 @@ export class AparteSelect extends HTMLElement {
         // up: a launcher closed the chat on the Escape meant for the list.
         this.removeEventListener('keydown', this._boundHandleKeydown);
         this.addEventListener('keydown', this._boundHandleKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown);
+        document.addEventListener('keydown', this._boundHandleStrayKeydown);
     }
 
     private _handleOptionClick(e: Event): void {

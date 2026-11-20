@@ -78,3 +78,43 @@ describe('an open select', () => {
         expect(closedTheChat).toBe(false);
     });
 });
+
+describe('a select opened with the mouse', () => {
+    // A click does not focus a button in WebKit (Safari's rule; jsdom does the same). Listening
+    // on the document, the select heard the arrows typed after a click wherever the focus was;
+    // listening on itself, it heard nothing: arrows and Enter after opening the list with the
+    // mouse moved nothing in Safari. The click on its trigger puts the focus there, as Chromium does.
+    it('takes the focus on its trigger, so the arrows and Enter that follow reach it', () => {
+        const el = mountSelect();
+        trigger(el).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(isOpen(el)).toBe(true);
+        expect(document.activeElement).toBe(trigger(el));
+        press(document.activeElement!, 'ArrowDown');
+        press(document.activeElement!, 'Enter');
+        expect(el.getAttribute('value')).not.toBe('one');
+    });
+
+    it('opened by code (the open attribute), it leaves the focus where it is', () => {
+        const el = mountSelect();
+        const field = document.createElement('textarea');
+        document.body.appendChild(field);
+        field.focus();
+        el.setAttribute('open', '');
+        expect(isOpen(el)).toBe(true);
+        expect(document.activeElement).toBe(field);
+    });
+});
+
+describe('an open select, the focus on nothing', () => {
+    // A click on a part of the list that takes no focus (a group's header, in WebKit) leaves the
+    // focus on the page's body: the keys typed then are nobody's but the open list's.
+    it('answers the keys typed while the focus is on the page itself', () => {
+        const el = mountSelect();
+        trigger(el).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        (document.activeElement as HTMLElement).blur();
+        expect(document.activeElement).toBe(document.body);
+        press(document.body, 'ArrowDown');
+        press(document.body, 'Enter');
+        expect(el.getAttribute('value')).not.toBe('one');
+    });
+});
