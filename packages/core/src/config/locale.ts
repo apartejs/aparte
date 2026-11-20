@@ -132,6 +132,15 @@ export type AparteLocale = {
     /** The same item on a pinned row (default: "Unpin") */
     unpinConversation?: string;
     /**
+     * The "Move to…" item of a row's menu, when the list has `moveTargets` (default:
+     * "Move to…"). Choosing it lists the groups the conversation can go to, in the menu.
+     */
+    moveConversation?: string;
+    /** The name of that list while the menu shows it (default: "Move “{title}” to"). `{title}` is the row's title. */
+    moveConversationTo?: string;
+    /** The item that takes a row out of its group (default: "Remove from “{group}”"). `{group}` is the group's label. */
+    removeFromGroup?: string;
+    /**
      * The question asked before a delete (default: "Delete “{title}”?"). `{title}` is
      * replaced with the row's title; a delete is the one action of the menu that asks
      * first, because it is the one that cannot be undone.
@@ -810,6 +819,9 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationTitle: "Conversation title",
     pinConversation: "Pin",
     unpinConversation: "Unpin",
+    moveConversation: "Move to…",
+    moveConversationTo: "Move “{title}” to",
+    removeFromGroup: "Remove from “{group}”",
     deleteConversationConfirm: "Delete “{title}”?",
     cancel: "Cancel",
     conversationGroupPinned: "Pinned",

@@ -24,7 +24,7 @@
  *     aparteGlobalConfig.setIconProvider({ retry: () => historyIcon });
  */
 
-import { prevBranchIcon, nextBranchIcon, expandIcon, collapseIcon, moreIcon, trashIcon, messageSquareIcon } from './glyphs.js';
+import { prevBranchIcon, nextBranchIcon, expandIcon, collapseIcon, moreIcon, trashIcon, messageSquareIcon, folderIcon } from './glyphs.js';
 
 /** Add */
 export const plusIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v15M4.5 12h15"/></svg>`;
@@ -73,8 +73,9 @@ export const externalLinkIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fi
 /** A hyperlink */
 export const linkIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 13.5a4 4 0 0 0 5.66 0l2.83-2.83a4 4 0 0 0-5.66-5.66L12 6.34"/><path d="M13.5 10.5a4 4 0 0 0-5.66 0l-2.83 2.83a4 4 0 0 0 5.66 5.66L12 17.66"/></svg>`;
 
-/** A directory */
-export const folderIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4.2l2 2h7.8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2Z"/></svg>`;
+/* `folderIcon` moved to `glyphs.ts` when the conversation list's "Move to…" item started
+   drawing it; it is re-exported below so `import { folderIcon } from '@aparte/core/icons'` holds. */
+export { folderIcon };
 
 /** Source code */
 export const codeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 4.5 4.5-4.5 4.5M8.5 7.5 4 12l4.5 4.5"/></svg>`;

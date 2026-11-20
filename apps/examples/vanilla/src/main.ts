@@ -6,6 +6,7 @@ import { connectArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-ar
 import { mountModelSelector, setupSite } from '../../_shared/site-setup';
 import { routeLink } from '../../_shared/links';
 import { mountNestedRowsHarness } from '../../_shared/nested-rows-harness';
+import { mountConversationMoveHarness } from '../../_shared/conversation-move-harness';
 import { wireShell } from './shell';
 
 // The setup every example shares — the locale, the renderers and the markdown, the
@@ -213,6 +214,8 @@ async function main(): Promise<void> {
     // `?harness=nested-rows`: tool rows inside tool rows, drawn straight into the transcript
     // for the browser suite (see the module). Nothing happens without the flag.
     mountNestedRowsHarness();
+    // `?harness=conversation-move`: a list of its own whose rows move between groups.
+    mountConversationMoveHarness();
 
     if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
         // `wireShell()` (above) already gave this element its id (`main-chat`, since

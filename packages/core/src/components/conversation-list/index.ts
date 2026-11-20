@@ -9,4 +9,6 @@ export {
     type AparteConversationRenameDetail,
     type AparteConversationStatus,
     type AparteConversationStatusDetail,
+    type AparteConversationGroup,
+    type AparteConversationMoveDetail,
 } from './aparte-conversation-list.js';
