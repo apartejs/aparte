@@ -1771,13 +1771,26 @@ export class AparteChatViewport extends HTMLElement {
         return this._bottomSpacer?.offsetHeight ?? 0;
     }
 
-    /** Set the spacer — host padding (framework, additive to base padding) or element height (core). */
+    /**
+     * Set the spacer — host padding (framework, additive to base padding) or element height (core).
+     *
+     * In whole pixels. `_recalculateSpacer` reads the content as `scrollHeight − spacer`, and a
+     * browser gives `scrollHeight` in whole pixels: a fractional spacer made that difference
+     * wrong by up to half a pixel, the other way on the next measure. Under a wrapper the
+     * spacer read back was the exact fraction written, so it never settled: 65.6, 66.1, 65.6…
+     * on every streamed delta, and the thread, held at the end of its scroll, moved a pixel up
+     * and down for as long as the reply streamed (apartejs/aparte#270). In core mode
+     * `offsetHeight` rounded it back, which only half helped: a pixel's jump on the second
+     * measure. A whole spacer is read back exactly in both modes, so measuring again with
+     * nothing changed gives the same spacer (`the-spacer-holds-still.test.ts`).
+     */
     private _setSpacerHeight(px: number): void {
+        const whole = Math.round(px);
         if (this._frameworkManagedDOM) {
-            this._fwSpacerHeight = px;
-            this.style.setProperty('--aparte-fw-spacer', `${px}px`);
+            this._fwSpacerHeight = whole;
+            this.style.setProperty('--aparte-fw-spacer', `${whole}px`);
         } else if (this._bottomSpacer) {
-            this._bottomSpacer.style.height = `${px}px`;
+            this._bottomSpacer.style.height = `${whole}px`;
         }
     }
 

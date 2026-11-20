@@ -303,6 +303,9 @@ const SUBAGENT_TRANSCRIPT = /[\\/]subagent-transcript\.spec\.ts$/;
 // vanilla example's harness (`?harness=nested-rows`): core's cascade, the same under every
 // wrapper, so vanilla carries it, WebKit too.
 const NESTED_ROWS = /[\\/]nested-rows\.spec\.ts$/;
+// A scrolled thread holds still while a reply reasons (#270): the space under the reply is
+// core's in raw core and kept by each framework's render under a wrapper, so every example.
+const THREAD_STILL = /[\\/]thread-holds-still\.spec\.ts$/;
 // An agent's activity drawn by the renderer the site registers for its type, updated in place.
 // Core's own drawing, the same everywhere: vanilla carries it.
 const ACTIVITY = /[\\/]activity\.spec\.ts$/;
@@ -365,24 +368,24 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
-    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, SUBAGENT_TRANSCRIPT, NESTED_ROWS, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
-    k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, SUBAGENT_TRANSCRIPT, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, SUBAGENT_TRANSCRIPT, NESTED_ROWS, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
+    k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, SUBAGENT_TRANSCRIPT, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three
     // deep suites whose path goes through what that component owns: the turn's lifecycle
     // (the messages it mirrors), the segments it hands to core, and the approval switch
     // mounted through its `toolbar` snippet. Not ELICITATION: that suite drives
     // vanilla's own page.
-    k === 'svelte5' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS, HANDOFF] :
+    k === 'svelte5' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, STREAMING, SEGMENTS, APPROVAL, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, LINKS, HANDOFF] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    k === 'svelte4' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, LINKS, HANDOFF] :
+    k === 'svelte4' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, LINKS, HANDOFF] :
     // Angular also runs OVERLAY: its wrapper binds `overlay-composer` in the update pass, after
     // the viewport has connected — the one binding that reaches core late. React, Vue and Svelte
     // set it before the element is inserted, so only Angular proves the viewport follows it.
-    [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, LINKS, HANDOFF, ...(k === 'angular' ? [OVERLAY] : [])];
+    [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, LINKS, HANDOFF, ...(k === 'angular' ? [OVERLAY] : [])];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
