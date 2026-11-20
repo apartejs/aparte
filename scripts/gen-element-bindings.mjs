@@ -418,6 +418,19 @@ function renderAngular(elements, config, { native, configPath, sources }) {
     refuse(imported.missing.map((type) => `a directive carries \`${type}\`, which no source exports: export it from the package's barrel.`));
     out += imported.lines.join('');
 
+    // A default-ON boolean (see `isThreeState`) unset keeps the element's own default: Angular's
+    // `booleanAttribute(undefined)` is false, and a binding to a field not always set turned it off.
+    const anyThreeState = kept.some((el) => (el.attributes ?? []).some((a) =>
+        !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name)
+        && (a.type?.text ?? 'string') === 'boolean' && isThreeState(config, el.tagName, a.name)));
+    if (anyThreeState) out += `
+/** A default-ON input: unset (\`undefined\`, \`null\`) stays unset, and the element keeps its default. */
+// A declaration, not an arrow: Angular's compiler resolves an input transform statically.
+function keepUnset(v: unknown): boolean | undefined {
+    return v === undefined || v === null ? undefined : booleanAttribute(v);
+}
+`;
+
     if (anyAttrs) out += `
 /**
  * Writes one declared attribute onto the host element.
@@ -472,7 +485,11 @@ abstract class AparteElementBase {
                 // what every boolean used to do — REMOVES the attribute on `false`, and
                 // these elements read an absent attribute as ON. So `[multiple]="false"`
                 // turned multi-file selection on. That is the inversion this branch stops.
-                out += `    @Input({ transform: booleanAttribute }) set ${prop}(v: boolean) { this.write('${a.name}', v ? '' : 'false'); }\n`;
+                //
+                // Unset (`undefined`, `null`) removes it, so the element keeps its default (ON),
+                // as in React, Vue and Svelte: through `booleanAttribute`, an unset binding wrote
+                // `'false'` and the header, multi-file picking or Enter-to-send went off.
+                out += `    @Input({ transform: keepUnset }) set ${prop}(v: boolean | undefined) { this.write('${a.name}', v === undefined ? null : v ? '' : 'false'); }\n`;
             } else if (t === 'boolean') {
                 out += `    @Input({ transform: booleanAttribute }) set ${prop}(v: boolean) { this.write('${a.name}', v); }\n`;
             } else if (t === 'number') {
