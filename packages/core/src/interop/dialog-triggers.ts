@@ -48,13 +48,28 @@ function onPointerUp(event: Event): void {
     releaseTarget = eventOrigin(event);
 }
 
-function onClick(event: Event): void {
-    // Where the click began: from inside an app's shadow root, `event.target` is the shadow
-    // HOST by the time it reaches the document, so no opener or closer was ever found there.
-    const target = eventOrigin(event) as HTMLElement | null;
-    if (!target?.closest) return;
+/**
+ * The nearest element matching `selector` on the click's way up, across every shadow root it
+ * crossed. From inside an app's shadow root, `event.target` is the shadow HOST by the time it
+ * reaches the document, so an opener in there was never found; from where the click began,
+ * `closest()` stops at the root it began in, so a web-component button (its label, its icon,
+ * each in the component's own shadow root) was not found either. The composed path holds both.
+ */
+function closestOnPath(event: Event, selector: string): HTMLElement | null {
+    const path = event.composedPath?.() ?? [];
+    for (const node of path) {
+        if (node instanceof Element && node.matches(selector)) return node as HTMLElement;
+    }
+    // A path read after the dispatch is empty: the target, as the document saw it.
+    const target = event.target as Element | null;
+    return path.length === 0 && target?.closest ? target.closest<HTMLElement>(selector) : null;
+}
 
-    const opener = target.closest<HTMLElement>('[data-aparte-dialog-open]');
+function onClick(event: Event): void {
+    const target = eventOrigin(event) as HTMLElement | null;
+    if (!target) return;
+
+    const opener = closestOnPath(event, '[data-aparte-dialog-open]');
     // An opener inside a reply is text the model wrote, not a control the app placed: its
     // markup may not carry the attribute, and if a custom sanitizer lets it through it
     // still opens nothing. The closer gets the same rule below: a chat can itself sit in
@@ -72,7 +87,7 @@ function onClick(event: Event): void {
         return;
     }
 
-    const closer = target.closest<HTMLElement>('[data-aparte-dialog-close]');
+    const closer = closestOnPath(event, '[data-aparte-dialog-close]');
     if (closer && !inRenderedContent(closer)) {
         const dialog = closer.closest('dialog');
         if (dialog instanceof HTMLDialogElement && dialog.open) {
