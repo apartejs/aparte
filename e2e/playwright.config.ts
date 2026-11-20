@@ -306,6 +306,10 @@ const NESTED_ROWS = /[\\/]nested-rows\.spec\.ts$/;
 // A scrolled thread holds still while a reply reasons (#270): the space under the reply is
 // core's in raw core and kept by each framework's render under a wrapper, so every example.
 const THREAD_STILL = /[\\/]thread-holds-still\.spec\.ts$/;
+// A conversation moved between the app's groups (`moveTargets`), by a real drag and by the menu
+// with the keyboard (`?harness=conversation-move`): core's list, the same under every wrapper,
+// so vanilla carries it, WebKit too, where drag and drop is the browser's own.
+const CONVERSATION_MOVE = /[\\/]conversation-move\.spec\.ts$/;
 // An agent's activity drawn by the renderer the site registers for its type, updated in place.
 // Core's own drawing, the same everywhere: vanilla carries it.
 const ACTIVITY = /[\\/]activity\.spec\.ts$/;
@@ -368,7 +372,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
-    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, SUBAGENT_TRANSCRIPT, NESTED_ROWS, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, SUBAGENT_TRANSCRIPT, NESTED_ROWS, CONVERSATION_MOVE, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
     k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, THREAD_STILL, SUBAGENT_TRANSCRIPT, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three

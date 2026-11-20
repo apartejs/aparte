@@ -1,5 +1,7 @@
 # @aparte/plugin-katex
 
+## 1.16.0
+
 ## 1.15.1
 
 ### Patch Changes

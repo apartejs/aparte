@@ -18,6 +18,21 @@
   margin-block-start: var(--aparte-space-3);
 }
 
+/* A row dragged to another group (`moveTargets`): the row stays where it is, faded, and the
+   group a drop would move it to is marked whole, heading and rows, as a folder is marked
+   in the market's sidebars. Nothing is marked where a drop would do nothing (its own
+   group, a group that is not a target). An outline, not a fill: it adds no height and
+   moves no row. */
+.aparte-conv-item--dragging {
+  opacity: 0.5;
+}
+
+.aparte-conv-group--drop {
+  border-radius: var(--aparte-conv-item-radius);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
 /* A row in a list, which is what `.aparte-menu__item` is. What stays is what belongs
    to a CONVERSATION row: it truncates, so it needs `min-width: 0`; and its own
    measurements, because a sidebar row is tighter than a dropdown row.

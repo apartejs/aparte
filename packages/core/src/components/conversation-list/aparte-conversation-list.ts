@@ -31,7 +31,27 @@ export interface AparteConversationListItem {
      * first appearance, and the items without one fall to the date groups below. `flat`
      * still renders no heading.
      */
-    group?: { key: string; label: string };
+    group?: AparteConversationGroup;
+}
+
+/** A group of the app's (a project, a folder): what an item's `group` and `moveTargets` hold. */
+export interface AparteConversationGroup {
+    /** The app's id for the group; what `aparte-conversation-move` names. */
+    key: string;
+    /** Its heading in the list, and its item in the "Move to…" menu. */
+    label: string;
+}
+
+/**
+ * A conversation moved to another group, by its menu or by a drop. The list moves nothing
+ * itself: the app writes the new group and assigns `conversations` again.
+ */
+export interface AparteConversationMoveDetail {
+    id: string;
+    /** The key of the group it leaves, or `null` when it was in none. */
+    from: string | null;
+    /** The key of the group it goes to (one of `moveTargets`), or `null` to take it out of its group. */
+    to: string | null;
 }
 
 /** What `renderMeta` is: an element, text, or `null` for a row with nothing to say. */
@@ -92,6 +112,8 @@ interface ConversationGroup {
     key: string;
     label: string | null;
     items: AparteConversationListItem[];
+    /** One of the app's groups (an item's `group`), not a date: a row dropped on it moves there. */
+    app?: true;
 }
 
 /** Locale keys this element reads; each falls back to the English default. */
@@ -101,7 +123,8 @@ type ListLocaleKey =
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
     | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty'
-    | 'conversationRunning' | 'conversationWaiting';
+    | 'conversationRunning' | 'conversationWaiting'
+    | 'moveConversation' | 'moveConversationTo' | 'removeFromGroup';
 
 /** A selector for the row button carrying `id` on `attr`. */
 function rowSelector(attr: string, id: string): string {
@@ -179,6 +202,7 @@ const VIEWPORT_MARGIN = 8;
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-archive - The archive item was chosen on a live conversation. Cancelable: `preventDefault()` takes the gesture back from `manage`.
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-unarchive - The same item on an already-archived one; same detail shape, opposite intent. Cancelable, like the rest.
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-conversation-delete - The delete was confirmed. Cancelable: `preventDefault()` takes the gesture back from `manage`.
+ * @fires {CustomEvent<AparteConversationMoveDetail>} aparte-conversation-move - A conversation was moved to another group of `moveTargets` (`to`), or out of its group (`to: null`), by its menu or by a drop. The list moves nothing: assign `conversations` again with the new group. `manage` does not carry it out either, since a group is the app's, so there is nothing for `preventDefault()` to take back.
  *
  * @cssprop [--aparte-conv-list-gap=var(--aparte-space-1)] - Vertical gap between rows, and between a group's heading and its rows.
  * @cssprop [--aparte-conv-item-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of a row's title button.
@@ -226,6 +250,16 @@ const VIEWPORT_MARGIN = 8;
  * // rename / pin / archive / delete are carried out for you. The events still fire.
  * aparteGlobalConfig.setConversationManager(manager);
  * list.setAttribute('manage', '');
+ *
+ * @example
+ * // Moving a conversation between your groups (projects, folders): name where a row can go,
+ * // and write the move yourself. "Move to…" joins the row's menu, a row can be dropped on a
+ * // group, and a row in a group gets "Remove from …".
+ * list.moveTargets = [{ key: 'p-launch', label: 'Launch' }, { key: 'p-docs', label: 'Docs' }];
+ * list.addEventListener('aparte-conversation-move', (e) => {
+ *   store.setGroup(e.detail.id, e.detail.to); // `to` is a key, or null for no group
+ *   list.conversations = store.items();
+ * });
  */
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
@@ -292,6 +326,12 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('keydown', this._onKeydown);
         this.addEventListener('aparte-menu-select', this._onMenuSelect);
         this.addEventListener('pointerdown', this._onPress);
+        this.addEventListener('dragstart', this._onDragStart);
+        this.addEventListener('dragenter', this._onDragEnter);
+        this.addEventListener('dragover', this._onDragOver);
+        this.addEventListener('dragleave', this._onDragLeave);
+        this.addEventListener('drop', this._onDrop);
+        this.addEventListener('dragend', this._onDragEnd);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
         window.addEventListener('aparte-conversation-status', this._onStatus);
@@ -303,6 +343,13 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('keydown', this._onKeydown);
         this.removeEventListener('aparte-menu-select', this._onMenuSelect);
         this.removeEventListener('pointerdown', this._onPress);
+        this.removeEventListener('dragstart', this._onDragStart);
+        this.removeEventListener('dragenter', this._onDragEnter);
+        this.removeEventListener('dragover', this._onDragOver);
+        this.removeEventListener('dragleave', this._onDragLeave);
+        this.removeEventListener('drop', this._onDrop);
+        this.removeEventListener('dragend', this._onDragEnd);
+        this._dragging = null;
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
         this._pressed = false;
@@ -431,7 +478,9 @@ export class AparteConversationList extends HTMLElement {
      * rename started by the click that closed a menu is not wiped by the render that menu held.
      */
     private _renderUnlessHeld(): void {
-        if ((this._renaming && !this._renaming.done) || this.querySelector('[data-menu-for]')) {
+        // A drag too: drawing the rows again under it removes the row being dragged, and the
+        // drop then lands nowhere.
+        if ((this._renaming && !this._renaming.done) || this.querySelector('[data-menu-for]') || this._dragging) {
             this._renderAfterMenu = true;
             return;
         }
@@ -441,6 +490,35 @@ export class AparteConversationList extends HTMLElement {
         if (!this._renderAfterMenu || !this.isConnected) return;
         this._renderAfterMenu = false;
         this._render();
+    }
+
+    private _moveTargets: AparteConversationGroup[] = [];
+
+    /**
+     * Where a conversation can be moved: the app's groups (projects, folders), the same
+     * `{ key, label }` an item's `group` carries, in the order "Move to…" lists them.
+     *
+     * Empty, the default, nothing moves and the list is what it always was. Set, a row's menu
+     * offers "Move to…" (every target but the row's own group, listed in the menu) and, for a
+     * row in a group, "Remove from …"; and a row can be dragged onto another group, or out of
+     * its group onto the rest of the list. Each sends `aparte-conversation-move`, and the list
+     * moves nothing until `conversations` is assigned again. A target no row is in has no
+     * heading to drop on: the menu reaches it.
+     */
+    set moveTargets(targets: AparteConversationGroup[]) {
+        // Kept as given, as `conversations` is: a wrapper hands the same array back on every
+        // render, and reads back the one it gave.
+        this._moveTargets = Array.isArray(targets) ? targets : [];
+        this._renderUnlessHeld();
+    }
+
+    get moveTargets(): AparteConversationGroup[] {
+        return this._moveTargets;
+    }
+
+    /** The targets that are groups: a `{ key, label }` of strings, anything else skipped. */
+    private _targets(): AparteConversationGroup[] {
+        return this._moveTargets.filter((t) => !!t && typeof t.key === 'string' && typeof t.label === 'string');
     }
 
     get conversations(): AparteConversationListItem[] {
@@ -513,13 +591,18 @@ export class AparteConversationList extends HTMLElement {
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
         // `mouseup` and `click` follow `pointerup` in the same task: this runs after them.
-        setTimeout(() => {
-            this._pressed = false;
-            if (!this._renderAfterPress) return;
-            this._renderAfterPress = false;
-            if (this.isConnected) this._renderUnlessHeld();
-        }, 0);
+        setTimeout(() => this._endPress(), 0);
     };
+
+    /** The press is over: the render it held runs now, unless something else still holds it. */
+    private _endPress(): void {
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        this._pressed = false;
+        if (!this._renderAfterPress) return;
+        this._renderAfterPress = false;
+        if (this.isConnected) this._renderUnlessHeld();
+    }
 
     /** The name this element last wrote, so one the app wrote — before or after connect — is left alone. */
     private _ownLabel: string | null = null;
@@ -703,7 +786,7 @@ export class AparteConversationList extends HTMLElement {
                 // a group called 'today' cannot be mistaken for the date bucket.
                 let g = named.get(c.group.key);
                 if (!g) {
-                    g = { key: c.group.key, label: c.group.label, items: [] };
+                    g = { key: c.group.key, label: c.group.label, items: [], app: true };
                     named.set(c.group.key, g);
                 }
                 g.items.push(c);
@@ -742,8 +825,10 @@ export class AparteConversationList extends HTMLElement {
             return `<div class="aparte-conv-group">${rows}</div>`;
         }
         const label = escapeHtml(group.label);
+        // The app's own group says which it is, for a row dropped on it (`moveTargets`).
+        const key = group.app ? ` data-group-key="${escapeAttr(group.key)}"` : '';
         return `
-<div class="aparte-conv-group" role="group" aria-label="${escapeAttr(group.label)}">
+<div class="aparte-conv-group"${key} role="group" aria-label="${escapeAttr(group.label)}">
   <div class="aparte-menu__label aparte-conv-group__label" aria-hidden="true">${label}</div>
   ${rows}
 </div>`;
@@ -770,8 +855,11 @@ export class AparteConversationList extends HTMLElement {
         const statusAttr = status ? ` data-status="${escapeAttr(status)}"` : '';
         const titleClass = escapeAttr(status === 'running' ? 'aparte-conv-item__title aparte-shimmer' : 'aparte-conv-item__title');
         const heard = escapeHtml(this._statusWords(status));
+        // Draggable only when there is somewhere to drag it to: without `moveTargets` a row is
+        // what it always was, and a press that moves the mouse selects text as it did.
+        const draggable = this._targets().length > 0 ? ' draggable="true"' : '';
         return `
-<div class="${escapeAttr(classes)}" data-conv-id="${escapedId}"${statusAttr}>
+<div class="${escapeAttr(classes)}" data-conv-id="${escapedId}"${statusAttr}${draggable}>
   <button
     class="aparte-conv-item__select"
     type="button"
@@ -802,12 +890,53 @@ export class AparteConversationList extends HTMLElement {
         const pin = escapeHtml(this._t(conv.pinnedAt ? 'unpinConversation' : 'pinConversation'));
         const archive = escapeHtml(this._t(conv.archivedAt ? 'unarchiveConversation' : 'archiveConversation'));
         const remove = escapeHtml(this._t('deleteConversation'));
+        // With `moveTargets`: "Move to…" when there is another group to go to, and "Remove
+        // from …" for a row that is in one, where the market puts them (after pin, before
+        // archive). Without, the menu is the one it always was.
+        let moving = '';
+        const targets = this._targets();
+        if (targets.length > 0) {
+            const folderGlyph = config.getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
+            const closeGlyph = config.getIcon('close');  // safe-text: the icon provider's SVG — markup by contract.
+            if (targets.some((t) => t.key !== conv.group?.key)) {
+                const move = escapeHtml(this._t('moveConversation'));
+                moving += `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move" aria-haspopup="menu">${folderGlyph}<span>${move}</span></button>`;
+            }
+            if (conv.group) {
+                const out = escapeHtml(this._t('removeFromGroup').replace('{group}', () => conv.group!.label));
+                moving += `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="ungroup">${closeGlyph}<span>${out}</span></button>`;
+            }
+        }
         return `
 <button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="rename">${editGlyph}<span>${rename}</span></button>
 <button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="pin">${pinGlyph}<span>${pin}</span></button>
+${moving}
 <button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="archive">${archiveGlyph}<span>${archive}</span></button>
 <div class="aparte-menu__separator" role="separator"></div>
 <button type="button" class="aparte-menu__item aparte-conv-menu__item--danger" role="menuitem" data-menu-action="delete">${trashGlyph}<span>${remove}</span></button>`;
+    }
+
+    /** "Move to…"'s step: every target but the row's own group, as items of the same menu. */
+    private _moveMarkup(conv: AparteConversationListItem): string {
+        const folderGlyph = resolveConfig(this).getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
+        return this._targets()
+            .filter((t) => t.key !== conv.group?.key)
+            .map((t) => `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move-to" data-move-to="${escapeAttr(t.key)}">${folderGlyph}<span>${escapeHtml(t.label)}</span></button>`)
+            .join('');
+    }
+
+    /**
+     * Say a conversation moved, from the group it is in to `to` (`null`: out of any). The
+     * list moves nothing: the app writes it and assigns `conversations` again. Nothing is
+     * said for a move to where it already is.
+     */
+    private _move(conv: AparteConversationListItem, to: string | null): void {
+        const from = conv.group?.key ?? null;
+        if (from === to) return;
+        this.dispatchEvent(new CustomEvent<AparteConversationMoveDetail>(
+            'aparte-conversation-move',
+            { detail: { id: conv.id, from, to }, bubbles: true, composed: true }
+        ));
     }
 
     /** The question the confirm step asks — the popover's accessible name while it asks it. */
@@ -927,7 +1056,9 @@ export class AparteConversationList extends HTMLElement {
     private _onMenuSelect = (e: CustomEvent<AparteMenuSelectDetail>): void => {
         if ((e.target as HTMLElement).dataset['menuFor'] === undefined) return;
         e.stopPropagation();
-        if (e.detail.item.dataset['menuAction'] === 'delete') e.preventDefault();
+        // Delete asks, and "Move to…" lists where to: both keep the menu open for their step.
+        const action = e.detail.item.dataset['menuAction'];
+        if (action === 'delete' || action === 'move') e.preventDefault();
     };
 
     /**
@@ -970,11 +1101,32 @@ export class AparteConversationList extends HTMLElement {
      * What the item does, once the menu has done its part: by now it has closed and put the
      * focus back on the `⋯` (or the row) — except for delete, kept open to ask.
      */
-    private _onMenuAction(action: string, menu: HTMLElement): void {
+    private _onMenuAction(action: string, menu: HTMLElement, item?: HTMLElement): void {
         const conv = this._conversations.find(c => c.id === menu.dataset['menuFor']);
         if (!conv) return;
         const id = conv.id;
         switch (action) {
+            case 'move': {
+                // The groups take the items' place, in the same menu, as delete's question
+                // does and for the same reason: the first one takes the focus BEFORE the items
+                // it replaces are removed, or the blur of the removed item closes the menu.
+                // They are menu items, so the menu's own keys walk them.
+                const previous = [...menu.childNodes];
+                const holder = document.createElement('div');
+                holder.innerHTML = this._moveMarkup(conv);  // safe-text: _moveMarkup escapes every label and key, and interpolates only provider glyphs.
+                menu.append(...holder.childNodes);
+                menu.setAttribute('aria-label', this._t('moveConversationTo').replace('{title}', () => conv.title || this._t('newChat')));
+                menu.querySelector<HTMLElement>('[data-menu-action="move-to"]')?.focus();
+                for (const node of previous) node.remove();
+                this._placeQuestion(menu, id);
+                return;
+            }
+            case 'move-to':
+                this._move(conv, item?.dataset['moveTo'] ?? null);
+                return;
+            case 'ungroup':
+                this._move(conv, null);
+                return;
             case 'rename': {
                 const row = this.querySelector<HTMLElement>(rowSelector('data-conv-id', id));  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
                 if (row) this._startRename(row, conv);
@@ -1148,6 +1300,115 @@ export class AparteConversationList extends HTMLElement {
         }
     }
 
+    // ─── Moving a row by dragging it (`moveTargets`) ──────────────────────
+
+    /** The row being dragged and the group it is in, while a drag of this list's lasts. */
+    private _dragging: { id: string; from: string | null } | null = null;
+
+    /**
+     * Where a drop on `target` would move the dragged row: an app group's key, `null` for out
+     * of any group (a date group, or the list's undated rows), `undefined` for nowhere — the
+     * group it is already in, a group that is not a target, or outside the list's groups.
+     */
+    private _dropTo(target: EventTarget | null): string | null | undefined {
+        if (!this._dragging || !(target instanceof Element)) return undefined;
+        const group = target.closest<HTMLElement>('.aparte-conv-group');
+        if (!group || !this.contains(group)) return undefined;
+        const to = group.dataset['groupKey'] ?? null;
+        if (to === this._dragging.from) return undefined;
+        if (to !== null && !this._targets().some((t) => t.key === to)) return undefined;
+        return to;
+    }
+
+    /** The group a drop would land in, marked; every other one unmarked. */
+    private _markDrop(group: Element | null): void {
+        for (const el of this.querySelectorAll('.aparte-conv-group--drop')) {
+            if (el !== group) el.classList.remove('aparte-conv-group--drop');
+        }
+        group?.classList.add('aparte-conv-group--drop');
+    }
+
+    /**
+     * A drag ends the press it began with: a drag is never a click, so the press hold has
+     * nothing left to protect, and WebKit sends no `pointerup` nor `pointercancel` after a native
+     * drag to end it (Chromium sends `pointercancel`). Left waiting, it held every render until
+     * the next click anywhere: the moved row stayed where it was. Ended after the drag's own
+     * hold is set, so a render the press was holding is held by the drag instead.
+     */
+    private _onDragStart = (e: DragEvent): void => {
+        this._beginDrag(e);
+        if (this._pressed) this._endPress();
+    };
+
+    private _beginDrag(e: DragEvent): void {
+        if (this._targets().length === 0 || (this._renaming && !this._renaming.done)) return;
+        const row = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-conv-id]') : null;
+        if (!row || !this.contains(row)) return;
+        const conv = this._conversations.find((c) => c.id === row.dataset['convId']);
+        if (!conv) return;
+        this._dragging = { id: conv.id, from: conv.group?.key ?? null };
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            // A drag carries data or some browsers start none: the id, under a type of the
+            // list's own, so the row dropped into a text field writes nothing there.
+            e.dataTransfer.setData('application/x-aparte-conversation', conv.id);
+        }
+        row.classList.add('aparte-conv-item--dragging');
+    }
+
+    /**
+     * Entering a group a drop would land in: allowed here too, not only on `dragover`. WebKit
+     * takes an element whose `dragenter` was not cancelled for no drop target, and sends the
+     * drop to the page's body: the group was marked while the row hovered it, and the row
+     * stayed where it was (Safari). Chromium drops on `dragover` alone.
+     */
+    private _onDragEnter = (e: DragEvent): void => {
+        if (this._dropTo(e.target) !== undefined) e.preventDefault();
+    };
+
+    private _onDragOver = (e: DragEvent): void => {
+        const to = this._dropTo(e.target);
+        if (to === undefined) {
+            this._markDrop(null);
+            return;
+        }
+        // Allowed here: without this, the browser refuses the drop.
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        this._markDrop((e.target as Element).closest('.aparte-conv-group'));
+    };
+
+    /** Off the list altogether: nothing is where it would land any more. */
+    private _onDragLeave = (e: DragEvent): void => {
+        const at = document.elementFromPoint(e.clientX, e.clientY);
+        if (!at || !this.contains(at)) this._markDrop(null);
+    };
+
+    private _onDrop = (e: DragEvent): void => {
+        const to = this._dropTo(e.target);
+        const dragging = this._dragging;
+        if (to === undefined || !dragging) return;
+        e.preventDefault();
+        const conv = this._conversations.find((c) => c.id === dragging.id);
+        // Over before the event: an app that assigns `conversations` in its listener is drawn
+        // at once, not held for a drag that has ended.
+        this._endDrag();
+        if (conv) this._move(conv, to);
+    };
+
+    /** Dropped anywhere, or Escape: the browser ends the drag here either way. */
+    private _onDragEnd = (): void => {
+        this._endDrag();
+    };
+
+    private _endDrag(): void {
+        if (!this._dragging) return;
+        this._dragging = null;
+        this._markDrop(null);
+        this.querySelector('.aparte-conv-item--dragging')?.classList.remove('aparte-conv-item--dragging');
+        this._renderHeld();
+    }
+
     // ─── Events ───────────────────────────────────────────────────────────
 
     private _onClick = (e: Event): void => {
@@ -1158,7 +1419,7 @@ export class AparteConversationList extends HTMLElement {
         const menu = menuAction?.closest<HTMLElement>('[data-menu-for]');
         if (menuAction && menu) {
             e.stopPropagation();
-            this._onMenuAction(menuAction.dataset['menuAction']!, menu);
+            this._onMenuAction(menuAction.dataset['menuAction']!, menu, menuAction);
             return;
         }
         // The `⋯` opens and closes its menu itself (`enhanceMenu`).

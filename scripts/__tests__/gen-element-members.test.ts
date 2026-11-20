@@ -171,7 +171,7 @@ describe('on the real manifest', () => {
 
     it('finds the properties a template has to bind: the list the issue could not bind, and its row hook', () => {
         const withProperties = real.filter((m) => m.properties.length);
-        expect(withProperties.map((m) => [m.tag, m.properties.map((p) => p.name)])).toEqual([['aparte-conversation-list', ['conversations', 'renderMeta']]]);
+        expect(withProperties.map((m) => [m.tag, m.properties.map((p) => p.name)])).toEqual([['aparte-conversation-list', ['conversations', 'moveTargets', 'renderMeta']]]);
     });
 });
 

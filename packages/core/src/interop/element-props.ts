@@ -60,6 +60,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-conversation-rename',
     'aparte-conversation-pin',
     'aparte-conversation-unpin',
+    'aparte-conversation-move',
     // The conversation controller, on the chat host: a conversation's messages are on screen.
     'aparte-conversation-loaded',
     // the select primitives

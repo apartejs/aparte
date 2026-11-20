@@ -410,3 +410,49 @@ export class ChatPage {
             ) as Promise<T[]>;
     }
 }
+
+/**
+ * A conversation list on its own, found by its id: its rows, their menus, and where a row is.
+ * The list's markup stays here, as the chat's does in `ChatPage`.
+ */
+export class ConversationListPage {
+    readonly root: Locator;
+
+    constructor(readonly page: Page, id: string) {
+        this.root = page.locator(`aparte-conversation-list#${id}`);
+    }
+
+    row(id: string): Locator {
+        return this.root.locator(`[data-conv-id="${id}"]`);
+    }
+
+    /** A row's `⋯`, which opens its menu. */
+    more(id: string): Locator {
+        return this.row(id).locator('.aparte-conv-item__more');
+    }
+
+    /** The row menu while it is open. */
+    get menu(): Locator {
+        return this.root.locator('[data-menu-for]');
+    }
+
+    /** An item of the open menu, by its action: `move`, `ungroup`, `move-to`, `pin`… */
+    menuItem(action: string): Locator {
+        return this.menu.locator(`[data-menu-action="${action}"]`);
+    }
+
+    /** The key of the app's group a row sits in, or null for none. */
+    groupOf(id: string): Promise<string | null> {
+        return this.row(id).evaluate((row) => row.closest('[data-group-key]')?.getAttribute('data-group-key') ?? null);
+    }
+
+    /** The groups marked as where a drop would land. */
+    get dropMarked(): Locator {
+        return this.root.locator('.aparte-conv-group--drop');
+    }
+
+    /** The headings of the list's groups, in order. */
+    headings(): Promise<string[]> {
+        return this.root.locator('.aparte-conv-group__label').allTextContents();
+    }
+}

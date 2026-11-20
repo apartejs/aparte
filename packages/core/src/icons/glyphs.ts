@@ -112,6 +112,9 @@ export const moreIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none
 /** Pin a conversation to the top of the list — a pushpin: head, body, needle. */
 export const pinIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3.5h7"/><path d="M10 3.5v5l-3 3.5V14h10v-2l-3-3.5v-5"/><path d="M12 14v6.5"/></svg>`;
 
+/** A group a conversation is in, and the "Move to…" item that changes it — a folder. */
+export const folderIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4.2l2 2h7.8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2Z"/></svg>`;
+
 /** Delete — a bin with its lid and two slats. */
 export const trashIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M8 7V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v2"/><path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></svg>`;
 
@@ -156,6 +159,7 @@ export const APARTE_ICON_GLYPHS = {
     download: downloadIcon,
     more: moreIcon,
     pin: pinIcon,
+    folder: folderIcon,
     trash: trashIcon,
     menu: menuIcon,
     alertTriangle: alertTriangleIcon,

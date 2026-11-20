@@ -78,6 +78,8 @@ export interface AparteIconProvider {
     more?: () => string;
     /** Pin a conversation */
     pin?: () => string;
+    /** Move a conversation to another group (a folder): the conversation list's "Move to…" item */
+    folder?: () => string;
     /** Delete (a bin) */
     trash?: () => string;
     /** Open a navigation drawer (☰) — the app header's toggle */

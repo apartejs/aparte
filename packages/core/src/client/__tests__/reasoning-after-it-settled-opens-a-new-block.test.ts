@@ -123,7 +123,8 @@ function sequence(next: () => number): StreamRunEvent[] {
     for (let i = 0; i < length; i++) {
         const roll = next();
         if (roll < 0.3) events.push({ type: 'thinking-delta', delta: `t${i} ` });
-        else if (roll < 0.55) events.push({ type: 'text-delta', delta: `w${i} ` });
+        // Inline code too: a delta ending on a backtick is held by the parser until more comes.
+        else if (roll < 0.55) events.push({ type: 'text-delta', delta: next() < 0.3 ? `w${i} \`c${i}\`` : `w${i} ` });
         else if (roll < 0.7) {
             const id = `c${++calls}`;
             open.push(id);
@@ -156,6 +157,13 @@ describe('whatever arrives, in whatever order', () => {
             if (streamingNow > 1) problems.push(`${streamingNow} reasoning blocks streaming at once`);
             const reasoned = events.filter((e) => e.type === 'thinking-delta').map((e) => (e as { delta: string }).delta).join('');
             if (thinking.map((s) => s.content).join('') !== reasoned) problems.push('reasoning lost or doubled');
+            // Once the run is over, every word written is on the reply, once (apartejs/aparte#275):
+            // a text-flush is not needed for that, the run's end is the text's end.
+            if (events.at(-1)?.type === 'run-done') {
+                const written = events.filter((e) => e.type === 'text-delta').map((e) => (e as { delta: string }).delta).join('');
+                const shown = t.order.map((id) => t.seen.get(id)!).filter((s) => s.type === 'text').map((s) => s.content).join('');
+                if (shown !== written) problems.push(`text lost or doubled: ${JSON.stringify(shown)} for ${JSON.stringify(written)}`);
+            }
             if (problems.length > 0) failures.push(`${problems.join('; ')} on ${JSON.stringify(events.map((e) => e.type === 'thinking-delta' || e.type === 'text-delta' ? `${e.type}:${(e as { delta: string }).delta.trim()}` : e.type))}`);
         }
         expect(failures.slice(0, 5), `${failures.length} of 400 sequences`).toEqual([]);

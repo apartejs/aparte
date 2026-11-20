@@ -1,5 +1,22 @@
 # @aparte/core
 
+## 1.16.0
+
+### Minor Changes
+
+- 4130c3e: `<aparte-conversation-list>` can move a conversation to another of your groups: set `moveTargets`, and each row's menu offers "Move to…" and "Remove from “…”", a row can be dragged onto another group, and `aparte-conversation-move` tells you where.
+
+  Nothing changes without `moveTargets`: the menu and the rows are the ones they were. Set it to the groups a conversation can go to (`[{ key, label }]`, the shape an item's `group` already has). "Move to…" lists every target but the row's own group, in the same menu and walked by its keys; "Remove from “…”" takes a row in a group out of it; a row dragged onto another group (its heading or its rows) moves there, the group marked while a drop would land, and dropped on the rows of no group it leaves its group. Each sends `aparte-conversation-move` with `{ id, from, to }` (`to` is a key, or `null` for no group), and the list moves nothing: you write it and assign `conversations` again. `manage` does not carry it out, since a group is your data. A target no row is in has no heading to drop on, so the menu reaches it. Under a wrapper, `moveTargets` is a prop or input and the event is `onConversationMove` in React, `(conversationMove)` in Angular, `aparte-conversation-move` in Vue and Svelte.
+
+  Three locale keys, in the nine languages of `@aparte/locales`: `moveConversation`, `moveConversationTo`, `removeFromGroup`. The icon provider gains `folder`, which the "Move to…" item draws; `folderIcon` is still exported from `@aparte/core/icons`.
+
+### Patch Changes
+
+- 0ad9f5c: A reply, or a sub-agent's conversation, no longer loses its last words when the server sends no `text-flush` before the next call or the run's end.
+
+  Nothing to change in your code. The stream parser holds a delta that ends on a backtick (or on the start of a block tag) until more arrives, and only `text-flush` handed it over. aparté's own runner sends one at the end of every model call; a server loop of one's own may not (apartejs/aparte#275). Then a reply ending on inline code lost it, and was saved that way: "La valeur est `42`" in one delta showed nothing at all. The text is now handed over at every `turn-start` and at the run's end (done, suspended, stopped), and a sub-agent's at its own end and at the run's; after a `text-flush` there is nothing left to hand over, so nothing appears twice. The server-loop guide's wire example closes each call with `text-flush`.
+  - @aparte/engine@1.16.0
+
 ## 1.15.1
 
 ### Patch Changes

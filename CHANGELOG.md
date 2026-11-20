@@ -4,6 +4,33 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.16.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [4130c3e](https://github.com/apartejs/aparte/commit/4130c3e): `<aparte-conversation-list>` can move a conversation to another of your groups: set `moveTargets`, and each row's menu offers "Move to…" and "Remove from “…”", a row can be dragged onto another group, and `aparte-conversation-move` tells you where.
+
+  Nothing changes without `moveTargets`: the menu and the rows are the ones they were. Set it to the groups a conversation can go to (`[{ key, label }]`, the shape an item's `group` already has). "Move to…" lists every target but the row's own group, in the same menu and walked by its keys; "Remove from “…”" takes a row in a group out of it; a row dragged onto another group (its heading or its rows) moves there, the group marked while a drop would land, and dropped on the rows of no group it leaves its group. Each sends `aparte-conversation-move` with `{ id, from, to }` (`to` is a key, or `null` for no group), and the list moves nothing: you write it and assign `conversations` again. `manage` does not carry it out, since a group is your data. A target no row is in has no heading to drop on, so the menu reaches it. Under a wrapper, `moveTargets` is a prop or input and the event is `onConversationMove` in React, `(conversationMove)` in Angular, `aparte-conversation-move` in Vue and Svelte.
+
+  Three locale keys, in the nine languages of `@aparte/locales`: `moveConversation`, `moveConversationTo`, `removeFromGroup`. The icon provider gains `folder`, which the "Move to…" item draws; `folderIcon` is still exported from `@aparte/core/icons`.
+  <sub>`@aparte/core`, `@aparte/locales`</sub>
+
+### Patch Changes
+
+- [0ad9f5c](https://github.com/apartejs/aparte/commit/0ad9f5c): A reply, or a sub-agent's conversation, no longer loses its last words when the server sends no `text-flush` before the next call or the run's end.
+
+  Nothing to change in your code. The stream parser holds a delta that ends on a backtick (or on the start of a block tag) until more arrives, and only `text-flush` handed it over. aparté's own runner sends one at the end of every model call; a server loop of one's own may not (apartejs/aparte#275). Then a reply ending on inline code lost it, and was saved that way: "La valeur est `42`" in one delta showed nothing at all. The text is now handed over at every `turn-start` and at the run's end (done, suspended, stopped), and a sub-agent's at its own end and at the run's; after a `text-flush` there is nothing left to hand over, so nothing appears twice. The server-loop guide's wire example closes each call with `text-flush`.
+  <sub>`@aparte/core`, `@aparte/plugin-subagents`</sub>
+
+- [0448d6f](https://github.com/apartejs/aparte/commit/0448d6f): `<aparte-model-selector>` lists the new models when a provider is replaced while it is on screen, instead of an empty list or the old models.
+
+  Nothing to change in your code. An app that replaces its model catalogue (`unregisterAIProvider(id)`, then `registerAIProvider(createModelCatalogue({ id, ... }))` with the new models) saw an empty picker: the second change was compared with the list loaded before the first one, taken for no change, and the load the first one had started, which saw no provider, wrote an empty list (apartejs/aparte#276). A change that comes while a load runs now makes that load go round again. And a provider registered again under the same id, a catalogue whose models changed, now reloads the list: the selector compared provider ids only, and kept the old models. A fresh id per catalogue, the workaround, is no longer needed.
+  <sub>`@aparte/plugin-model-selector`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-katex`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/docs-mcp`.</sub>
+
 ## 1.15.1
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
