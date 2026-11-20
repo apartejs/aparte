@@ -20,6 +20,7 @@
  * a host that builds the page before importing core, and idempotent.
  */
 
+import { eventOrigin } from '../utils/event-target.js';
 import { inRenderedContent } from '../utils/rendered-content.js';
 
 const INSTALLED = Symbol.for('aparte.dialogTriggers');
@@ -39,16 +40,18 @@ let pressTarget: EventTarget | null = null;
 let releaseTarget: EventTarget | null = null;
 
 function onPointerDown(event: Event): void {
-    pressTarget = event.target;
+    pressTarget = eventOrigin(event);
     releaseTarget = null;
 }
 
 function onPointerUp(event: Event): void {
-    releaseTarget = event.target;
+    releaseTarget = eventOrigin(event);
 }
 
 function onClick(event: Event): void {
-    const target = event.target as HTMLElement | null;
+    // Where the click began: from inside an app's shadow root, `event.target` is the shadow
+    // HOST by the time it reaches the document, so no opener or closer was ever found there.
+    const target = eventOrigin(event) as HTMLElement | null;
     if (!target?.closest) return;
 
     const opener = target.closest<HTMLElement>('[data-aparte-dialog-open]');
@@ -59,7 +62,9 @@ function onClick(event: Event): void {
     // wrote the control. The backdrop stays: it is the `<dialog>` element, never content.
     if (opener && !inRenderedContent(opener)) {
         const id = opener.getAttribute('data-aparte-dialog-open');
-        const dialog = id ? document.getElementById(id) : null;
+        // Looked up where the opener is: its shadow root, or the document.
+        const root = opener.getRootNode() as Document | ShadowRoot;
+        const dialog = id ? (typeof root.getElementById === 'function' ? root.getElementById(id) : document.getElementById(id)) : null;
         if (dialog instanceof HTMLDialogElement && !dialog.open) {
             event.preventDefault();
             dialog.showModal();

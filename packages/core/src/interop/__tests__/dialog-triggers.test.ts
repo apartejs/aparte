@@ -156,3 +156,30 @@ describe('the dialog triggers', () => {
         expect(closes, 'one listener, one close').toBe(1);
     });
 });
+
+describe('inside a shadow root of the app', () => {
+    // A Lit or Stencil app puts its markup in its own shadow root. A click from there reaches the
+    // document with the shadow HOST as its target, so the opener and the closer were never found,
+    // and the dialog was looked up in the document, where it is not.
+    function shadowPage(): { root: ShadowRoot; dialog: HTMLDialogElement } {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = `
+            <button id="open" type="button" data-aparte-dialog-open="settings">Open</button>
+            <dialog class="aparte-dialog" id="settings">
+                <button id="save" type="button" data-aparte-dialog-close="saved">Save</button>
+            </dialog>`;
+        return { root, dialog: root.getElementById('settings') as HTMLDialogElement };
+    }
+    const click = (el: Element) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+
+    it('the opener opens the dialog of its own root, and the closer closes it', () => {
+        const { root, dialog } = shadowPage();
+        click(root.getElementById('open')!);
+        expect(dialog.open).toBe(true);
+        click(root.getElementById('save')!);
+        expect(dialog.open).toBe(false);
+        expect(dialog.returnValue).toBe('saved');
+    });
+});
