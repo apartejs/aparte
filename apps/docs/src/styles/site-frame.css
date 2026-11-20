@@ -69,6 +69,47 @@ html {
   gap: var(--aparte-space-1);
 }
 
+/* "Made with aparté" (a section marked `apart` in sections.ts): a brass pill after the sections,
+   its last word in the wordmark's face. The header shows it from 66rem, where the row has room;
+   under that, the drawer and the footer carry it. */
+.site-made {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin-inline-start: var(--aparte-space-3);
+  padding: 2px var(--aparte-space-3) 3px;
+  border: var(--aparte-border-width) solid color-mix(in srgb, var(--brand-brass-text) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-brass-text) 8%, transparent);
+  color: var(--aparte-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.site-made:hover,
+.site-made[aria-current] {
+  border-color: var(--brand-brass-text);
+  color: var(--aparte-text);
+}
+.site-made[aria-current] {
+  background: color-mix(in srgb, var(--brand-brass-text) 16%, transparent);
+}
+.site-made__word {
+  font-family: var(--brand-font-serif);
+  font-style: italic;
+  font-size: 1.15em;
+  color: var(--brand-brass-text);
+}
+.site-header__sections .site-made {
+  align-self: center;
+}
+@media (max-width: 66rem) {
+  .site-header__sections .site-made {
+    display: none;
+  }
+}
+
 .site-brand {
   font-family: var(--brand-font-serif);
   font-style: italic;
@@ -194,6 +235,12 @@ html {
 }
 .site-nav__section[aria-current] {
   background: var(--aparte-surface-3);
+}
+/* In the drawer, under the sections: its own width, its text on the sections' line. */
+.site-nav__made {
+  justify-self: start;
+  margin-block-start: var(--aparte-space-2);
+  margin-inline-start: 0;
 }
 /* The header carries the sections on a wide screen; the drawer carries them on a phone. */
 @media (min-width: 48.0625rem) {
