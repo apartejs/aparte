@@ -151,6 +151,13 @@ describe('with moveTargets: a drag', () => {
         expect(el.querySelector('.aparte-conv-group--drop, .aparte-conv-item--dragging')).toBeNull();
     });
 
+    it('entering a group a drop would land in is allowed too (WebKit drops only where dragenter was)', () => {
+        const el = mount(ITEMS, [LAUNCH, DOCS]);
+        drag(rowOf(el, 'c1'), 'dragstart');
+        expect(drag(rowOf(el, 'c2'), 'dragenter').defaultPrevented, 'another project').toBe(true);
+        expect(drag(rowOf(el, 'c1'), 'dragenter').defaultPrevented, 'its own').toBe(false);
+    });
+
     it('a drop on a date group takes it out of its group', () => {
         const el = mount(ITEMS, [LAUNCH, DOCS]);
         const seen = moves(el);

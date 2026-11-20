@@ -327,6 +327,7 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('aparte-menu-select', this._onMenuSelect);
         this.addEventListener('pointerdown', this._onPress);
         this.addEventListener('dragstart', this._onDragStart);
+        this.addEventListener('dragenter', this._onDragEnter);
         this.addEventListener('dragover', this._onDragOver);
         this.addEventListener('dragleave', this._onDragLeave);
         this.addEventListener('drop', this._onDrop);
@@ -343,6 +344,7 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('aparte-menu-select', this._onMenuSelect);
         this.removeEventListener('pointerdown', this._onPress);
         this.removeEventListener('dragstart', this._onDragStart);
+        this.removeEventListener('dragenter', this._onDragEnter);
         this.removeEventListener('dragover', this._onDragOver);
         this.removeEventListener('dragleave', this._onDragLeave);
         this.removeEventListener('drop', this._onDrop);
@@ -1335,6 +1337,16 @@ ${moving}
             e.dataTransfer.setData('application/x-aparte-conversation', conv.id);
         }
         row.classList.add('aparte-conv-item--dragging');
+    };
+
+    /**
+     * Entering a group a drop would land in: allowed here too, not only on `dragover`. WebKit
+     * takes an element whose `dragenter` was not cancelled for no drop target, and sends the
+     * drop to the page's body: the group was marked while the row hovered it, and the row
+     * stayed where it was (Safari). Chromium drops on `dragover` alone.
+     */
+    private _onDragEnter = (e: DragEvent): void => {
+        if (this._dropTo(e.target) !== undefined) e.preventDefault();
     };
 
     private _onDragOver = (e: DragEvent): void => {
