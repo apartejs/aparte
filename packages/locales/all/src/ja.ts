@@ -175,6 +175,8 @@ export const ja: AparteLocale = {
     moveConversation: "移動…",
     moveConversationTo: "「{title}」の移動先",
     removeFromGroup: "「{group}」から外す",
+    notifications: "通知",
+    dismissNotification: "閉じる",
     deleteConversationConfirm: "「{title}」を削除しますか？",
     cancel: "キャンセル",
     conversationGroupPinned: "ピン留め済み",

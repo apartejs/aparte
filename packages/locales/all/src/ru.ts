@@ -175,6 +175,8 @@ export const ru: AparteLocale = {
     moveConversation: "Переместить в…",
     moveConversationTo: "Переместить «{title}» в",
     removeFromGroup: "Убрать из «{group}»",
+    notifications: "Уведомления",
+    dismissNotification: "Закрыть",
     deleteConversationConfirm: "Удалить «{title}»?",
     cancel: "Отмена",
     conversationGroupPinned: "Закреплённые",

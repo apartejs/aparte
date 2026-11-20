@@ -175,6 +175,8 @@ export const de: AparteLocale = {
     moveConversation: "Verschieben nach…",
     moveConversationTo: "„{title}“ verschieben nach",
     removeFromGroup: "Aus „{group}“ entfernen",
+    notifications: "Benachrichtigungen",
+    dismissNotification: "Schließen",
     deleteConversationConfirm: "„{title}“ löschen?",
     cancel: "Abbrechen",
     conversationGroupPinned: "Angeheftet",

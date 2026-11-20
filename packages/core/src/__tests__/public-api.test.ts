@@ -134,6 +134,7 @@ describe('@aparte/core public API', () => {
             "segmentDuration",
             "segmentTiming",
             "setupSuggestionBlocks",
+            "showToast",
             "startSubAgent",
             "subscribeConfigChange",
             "toToolCallView",

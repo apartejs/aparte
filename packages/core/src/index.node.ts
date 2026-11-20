@@ -387,6 +387,7 @@ export { placeFloating } from './utils/place-floating.js';
 export type { AparteFloatingOptions } from './utils/place-floating.js';
 // They touch the DOM only when called, so a server can import them beside the markup it renders.
 export { enhanceMenu, enhanceContextMenu } from './utils/menu.js';
+export { showToast, type AparteToast, type AparteToastOptions, type AparteToastTone } from './utils/toast.js';
 export type { AparteMenuOptions, AparteContextMenuOptions, AparteMenuSelectDetail } from './utils/menu.js';
 export { enhanceTabs } from './utils/tabs.js';
 export type { AparteTabsOptions, AparteTabChangeDetail } from './utils/tabs.js';
