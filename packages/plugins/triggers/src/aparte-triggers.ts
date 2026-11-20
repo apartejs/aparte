@@ -83,8 +83,13 @@ export class AparteTriggers extends HTMLElement {
             this.close();
             return;
         }
+        const asking = typeof again.trigger.items === 'function' && typeof hit.trigger.items === 'function' && again.query === hit.query;
         this._hit = again;
         this._collectCommands(again);
+        // A list asked of a function, for the same search: its answer is on its way, or on screen.
+        // Asked again on every render, the request was aborted and the debounce armed anew each
+        // time, so a list never arrived while a reply streamed and the app re-rendered per token.
+        if (asking) return;
         this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
         this._keepChildren = true;
         this._loadRoot(again);
@@ -258,7 +263,15 @@ export class AparteTriggers extends HTMLElement {
         const delay = query ? trigger.debounce ?? DEFAULT_DEBOUNCE_MS : 0;
         if (delay > 0) this._debounce = setTimeout(run, delay);
         else run();
-        if (this._root().rows.length === 0) this._show(0, local, local.length ? null : 'loading');
+        // Until the new list arrives, the rows on screen are the search before's: only those that
+        // still match what is typed stay. Left as they were, Enter chose one that did not ("@car"
+        // took Alice, the row active for "@").
+        const shown = this._root().rows;
+        if (shown.length === 0) this._show(0, local, local.length ? null : 'loading');
+        else {
+            const kept = matchRows(shown.map((row) => row.item), query, trigger);
+            this._show(0, kept, kept.length ? null : 'loading');
+        }
     }
 
     /** Ask a source. A reply or a failure that a newer question has overtaken is dropped. */
