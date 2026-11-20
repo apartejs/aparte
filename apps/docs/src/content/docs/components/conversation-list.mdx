@@ -204,12 +204,16 @@ of your own (a project's heading) can take it too:
 ```ts
 import { APARTE_CONVERSATION_DRAG_TYPE } from '@aparte/core';
 
-heading.addEventListener('dragover', (e) => {
+// Your app writes the move, then assigns the lists' `conversations` again.
+function moveToProject(conversationId: string, projectKey: string): void { /* … */ }
+
+const heading = document.querySelector<HTMLElement>('[data-project="p-docs"]')!;
+heading.addEventListener('dragover', (e: DragEvent) => {
     if (e.dataTransfer?.types.includes(APARTE_CONVERSATION_DRAG_TYPE)) e.preventDefault();
 });
-heading.addEventListener('drop', (e) => {
+heading.addEventListener('drop', (e: DragEvent) => {
     const id = e.dataTransfer?.getData(APARTE_CONVERSATION_DRAG_TYPE);
-    if (id) moveToProject(id, heading.dataset.project);
+    if (id) moveToProject(id, heading.dataset.project ?? '');
 });
 ```
 
