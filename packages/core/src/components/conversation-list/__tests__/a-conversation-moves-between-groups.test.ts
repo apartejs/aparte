@@ -248,3 +248,23 @@ describe('with moveTargets: a drag', () => {
         expect(seen).toEqual([]);
     });
 });
+
+describe('a drag that starts while a press holds a render', () => {
+    // The list holds a render while a pointer is down, and the drag ends that press. If the press
+    // ended BEFORE the drag's own hold was set, the render it was holding ran at once and replaced
+    // the row being dragged: the drag began on a row no longer in the list, and the drop landed
+    // nowhere. Any list the app updates while a person grabs a row (a save, a select) does it.
+    it('keeps the dragged row, and the drop moves it', () => {
+        const el = mount(ITEMS, [LAUNCH, DOCS]);
+        const seen = moves(el);
+        press(rowOf(el, 'c1'));
+        // The app assigns the rows while the pointer is down: held by the press.
+        el.conversations = [...ITEMS];
+        const row = rowOf(el, 'c1');
+        drag(row, 'dragstart');
+        expect(row.isConnected, 'the row being dragged is still the one in the list').toBe(true);
+        expect(drag(rowOf(el, 'c2'), 'dragover').defaultPrevented).toBe(true);
+        drag(rowOf(el, 'c2'), 'drop');
+        expect(seen).toEqual([{ id: 'c1', from: 'p-launch', to: 'p-docs' }]);
+    });
+});
