@@ -20,6 +20,15 @@ interface ProviderModels {
     models: AparteAIModel[];
 }
 
+/** A number per provider object, so two providers under one id are told apart (`_providersKey`). */
+const providerSerials = new WeakMap<AparteAIProvider, number>();
+let nextProviderSerial = 0;
+function providerSerial(provider: AparteAIProvider): number {
+    let serial = providerSerials.get(provider);
+    if (serial === undefined) providerSerials.set(provider, (serial = ++nextProviderSerial));
+    return serial;
+}
+
 interface CommandRow {
     id: string;
     label: string;
@@ -183,9 +192,14 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         return `${c.defaultProvider ?? ''}::${c.defaultModel ?? ''}`;
     }
 
-    /** The registered providers, as one comparable string: what the list was built from. */
+    /**
+     * The registered providers, as one comparable string: what the list was built from. Each
+     * provider OBJECT, not only its id: an app replaces a catalogue whose models changed by
+     * registering another under the same id, and a key of ids said nothing had changed, so the
+     * old models stayed listed (apartejs/aparte#276).
+     */
     private _providersKey(): string {
-        return this._cfg.getAIProviders().map(p => p.id).join('\n');
+        return this._cfg.getAIProviders().map(p => `${p.id}\u0000${providerSerial(p)}`).join('\n');
     }
 
     /** Listen for configuration changes (e.g. from an onboarding flow). */
@@ -197,7 +211,14 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 // read — its selection, or the set of providers the list was built from
                 // (an app that registers a provider once a key is typed in its settings).
                 const selectionMoved = this._configSelectionKey() !== this._seenConfigSelection;
+                // Not while a load runs: `_loadedProvidersKey` is still the key of the list
+                // before it, so "nothing changed" could be read against a list about to be
+                // replaced. An app that unregisters a catalogue and registers its new one at
+                // once had the second change taken for no change, and the running load, which
+                // saw no provider, wrote an empty list (#276). Asked again, a running load
+                // goes round once more and reads the providers as they are now.
                 if (!selectionMoved &&
+                    !this._isLoading &&
                     this._providerModels.length > 0 &&
                     this._providersKey() === this._loadedProvidersKey) {
                     // …but a config change is not only a MODEL change. A language
