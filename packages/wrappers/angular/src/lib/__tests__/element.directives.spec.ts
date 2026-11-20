@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import '@angular/compiler';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { registerAllComponents, type AparteConversationListItem } from '@aparte/core';
+import { registerAllComponents, type AparteConversationGroup, type AparteConversationListItem } from '@aparte/core';
 import {
     APARTE_ELEMENT_DIRECTIVES,
     AparteSelectDirective,
@@ -52,6 +52,7 @@ registerAllComponents();
         <aparte-conversation-list
             [activeId]="activeId"
             [conversations]="conversations"
+            [moveTargets]="moveTargets"
             (conversationSelect)="picked = $event.id"
         ></aparte-conversation-list>
 
@@ -74,6 +75,7 @@ class Host {
     streaming = false;
     activeId: string | undefined = 'c1';
     conversations: AparteConversationListItem[] = [{ id: 'c1', title: 'First', updatedAt: 1 }];
+    moveTargets: AparteConversationGroup[] = [{ key: 'p-launch', label: 'Launch' }];
     threshold = 64;
     showViewport = true;
 
@@ -154,6 +156,15 @@ describe('the element directives', () => {
         host.conversations = [...host.conversations, { id: 'c2', title: 'Second', updatedAt: 2 }];
         fixture.detectChanges();
         expect(list.conversations?.map((c) => c.id)).toEqual(['c1', 'c2']);
+    });
+
+    it('hands [moveTargets] over as the list\'s property, the array it was given', () => {
+        const list = el('aparte-conversation-list') as HTMLElement & { moveTargets?: AparteConversationGroup[] };
+        expect(list.moveTargets).toBe(host.moveTargets);
+        expect(list.hasAttribute('moveTargets')).toBe(false);
+        host.moveTargets = [];
+        fixture.detectChanges();
+        expect(list.moveTargets).toEqual([]);
     });
 
     /*
@@ -305,7 +316,8 @@ describe('the element directives', () => {
             (conversationUnarchive)="seen['conversationUnarchive'] = true"
             (conversationRename)="seen['conversationRename'] = true"
             (conversationPin)="seen['conversationPin'] = true"
-            (conversationUnpin)="seen['conversationUnpin'] = true"></aparte-conversation-list>
+            (conversationUnpin)="seen['conversationUnpin'] = true"
+            (conversationMove)="seen['conversationMove'] = true"></aparte-conversation-list>
 
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
 
@@ -455,6 +467,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-conversation-rename', 'conversationRename'],
         ['aparte-conversation-list', 'aparte-conversation-pin', 'conversationPin'],
         ['aparte-conversation-list', 'aparte-conversation-unpin', 'conversationUnpin'],
+        ['aparte-conversation-list', 'aparte-conversation-move', 'conversationMove'],
         ['aparte-context', 'aparte-context-threshold', 'contextThreshold'],
         ['aparte-launcher', 'aparte-launcher-toggle', 'launcherToggle'],
         ['aparte-scroll-rail', 'aparte-scroll-rail-jump', 'scrollRailJump'],
