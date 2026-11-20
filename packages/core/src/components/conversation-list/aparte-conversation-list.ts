@@ -504,14 +504,19 @@ export class AparteConversationList extends HTMLElement {
      * heading to drop on: the menu reaches it.
      */
     set moveTargets(targets: AparteConversationGroup[]) {
-        this._moveTargets = Array.isArray(targets)
-            ? targets.filter((t) => !!t && typeof t.key === 'string' && typeof t.label === 'string')
-            : [];
+        // Kept as given, as `conversations` is: a wrapper hands the same array back on every
+        // render, and reads back the one it gave.
+        this._moveTargets = Array.isArray(targets) ? targets : [];
         this._renderUnlessHeld();
     }
 
     get moveTargets(): AparteConversationGroup[] {
         return this._moveTargets;
+    }
+
+    /** The targets that are groups: a `{ key, label }` of strings, anything else skipped. */
+    private _targets(): AparteConversationGroup[] {
+        return this._moveTargets.filter((t) => !!t && typeof t.key === 'string' && typeof t.label === 'string');
     }
 
     get conversations(): AparteConversationListItem[] {
@@ -845,7 +850,7 @@ export class AparteConversationList extends HTMLElement {
         const heard = escapeHtml(this._statusWords(status));
         // Draggable only when there is somewhere to drag it to: without `moveTargets` a row is
         // what it always was, and a press that moves the mouse selects text as it did.
-        const draggable = this._moveTargets.length > 0 ? ' draggable="true"' : '';
+        const draggable = this._targets().length > 0 ? ' draggable="true"' : '';
         return `
 <div class="${escapeAttr(classes)}" data-conv-id="${escapedId}"${statusAttr}${draggable}>
   <button
@@ -882,10 +887,11 @@ export class AparteConversationList extends HTMLElement {
         // from …" for a row that is in one, where the market puts them (after pin, before
         // archive). Without, the menu is the one it always was.
         let moving = '';
-        if (this._moveTargets.length > 0) {
+        const targets = this._targets();
+        if (targets.length > 0) {
             const folderGlyph = config.getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
             const closeGlyph = config.getIcon('close');  // safe-text: the icon provider's SVG — markup by contract.
-            if (this._moveTargets.some((t) => t.key !== conv.group?.key)) {
+            if (targets.some((t) => t.key !== conv.group?.key)) {
                 const move = escapeHtml(this._t('moveConversation'));
                 moving += `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move" aria-haspopup="menu">${folderGlyph}<span>${move}</span></button>`;
             }
@@ -906,7 +912,7 @@ ${moving}
     /** "Move to…"'s step: every target but the row's own group, as items of the same menu. */
     private _moveMarkup(conv: AparteConversationListItem): string {
         const folderGlyph = resolveConfig(this).getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
-        return this._moveTargets
+        return this._targets()
             .filter((t) => t.key !== conv.group?.key)
             .map((t) => `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move-to" data-move-to="${escapeAttr(t.key)}">${folderGlyph}<span>${escapeHtml(t.label)}</span></button>`)
             .join('');
@@ -1303,7 +1309,7 @@ ${moving}
         if (!group || !this.contains(group)) return undefined;
         const to = group.dataset['groupKey'] ?? null;
         if (to === this._dragging.from) return undefined;
-        if (to !== null && !this._moveTargets.some((t) => t.key === to)) return undefined;
+        if (to !== null && !this._targets().some((t) => t.key === to)) return undefined;
         return to;
     }
 
@@ -1316,7 +1322,7 @@ ${moving}
     }
 
     private _onDragStart = (e: DragEvent): void => {
-        if (this._moveTargets.length === 0 || (this._renaming && !this._renaming.done)) return;
+        if (this._targets().length === 0 || (this._renaming && !this._renaming.done)) return;
         const row = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-conv-id]') : null;
         if (!row || !this.contains(row)) return;
         const conv = this._conversations.find((c) => c.id === row.dataset['convId']);

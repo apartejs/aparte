@@ -126,9 +126,13 @@ describe('with moveTargets: the menu', () => {
         expect(actionsOf(openMenu(el, 'c1'))).toEqual(['rename', 'pin', 'ungroup', 'archive', 'delete']);
     });
 
-    it('drops a target that is not a group', () => {
-        const el = mount(ITEMS, [LAUNCH, null as unknown as AparteConversationGroup, { key: 3 } as unknown as AparteConversationGroup]);
-        expect(el.moveTargets).toEqual([LAUNCH]);
+    it('skips a target that is not a group, and keeps the array it was given', () => {
+        const targets = [DOCS, null as unknown as AparteConversationGroup, { key: 3 } as unknown as AparteConversationGroup];
+        const el = mount(ITEMS, targets);
+        expect(el.moveTargets).toBe(targets);
+        const menu = openMenu(el, 'c1');
+        menu.querySelector<HTMLElement>('[data-menu-action="move"]')!.click();
+        expect([...el.querySelectorAll<HTMLElement>('[data-move-to]')].map((b) => b.dataset['moveTo'])).toEqual(['p-docs']);
     });
 });
 
