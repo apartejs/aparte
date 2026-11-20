@@ -17,6 +17,7 @@ import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble
 import { parseMarkdownToSegments } from '../../parsers/index.js';
 import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { activeElementIn } from '../../utils/event-target.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { isModelReply } from '../../utils/is-model-reply.js';
 import { presenceOn } from '../../utils/presence.js';
@@ -2507,6 +2508,11 @@ export class AparteChatViewport extends HTMLElement {
         // once it had one, pushed the composer past the eighth Tab on the vanilla
         // example. A control nobody can see is not a control anybody can reach.
         if (hidden) {
+            // Pressed from the keyboard, it hides at the bottom with the focus on it: left there, a
+            // screen reader sat on a node gone from the tree and Space kept pressing nothing. The
+            // transcript is a named tab stop, where the reader just arrived.
+            const surface = this._container;
+            if (surface && activeElementIn(this) === btn) surface.focus({ preventScroll: true });
             btn.setAttribute('tabindex', '-1');
             btn.setAttribute('aria-hidden', 'true');
         } else {
