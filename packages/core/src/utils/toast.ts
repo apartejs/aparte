@@ -89,16 +89,16 @@ export function showToast(text: string, options: AparteToastOptions = {}): Apart
     let closed = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let left = timeout;
-    let startedAt = 0;
+    let runningSince = 0;
     const stop = (): void => {
         if (timer === null) return;
         clearTimeout(timer);
         timer = null;
-        left -= Date.now() - startedAt;
+        left -= Date.now() - runningSince;
     };
     const start = (): void => {
         if (closed || timeout === 0 || timer !== null) return;
-        startedAt = Date.now();
+        runningSince = Date.now();
         timer = setTimeout(close, Math.max(0, left));
     };
     function close(): void {
