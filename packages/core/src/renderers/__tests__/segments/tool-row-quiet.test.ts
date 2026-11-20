@@ -131,6 +131,9 @@ describe('a quiet row', () => {
     });
 });
 
+// These read the sheet as text, so they say a rule is written, not that it applies. What a
+// browser computes, on a row alone and on a row under another, is `e2e/tests/nested-rows.spec.ts`:
+// the rules name the row's own line (the selector's last branch is the wrapped disclosure's).
 describe('a quiet row on the page', () => {
     const css = readAparteStylesheet().replace(/\/\*[\s\S]*?\*\//g, ' ');
     const rule = (selector: string): string => {
@@ -140,11 +143,11 @@ describe('a quiet row on the page', () => {
     };
 
     it('writes the target in the chat\'s font, not the code font', () => {
-        expect(rule('.aparte-segment-tool-call[data-quiet] .aparte-tool-target')).toMatch(/font-family:\s*inherit/);
+        expect(rule('.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-target')).toMatch(/font-family:\s*inherit/);
     });
 
     it('puts the chevron at the end of the line, where a chat app puts it', () => {
-        expect(rule('.aparte-segment-tool-call[data-quiet] .aparte-tool-toggle')).toMatch(/order:\s*1/);
+        expect(rule('.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-toggle')).toMatch(/order:\s*1/);
     });
 });
 
@@ -154,7 +157,7 @@ describe('where the sweep cannot say "running"', () => {
         const sheet = readAparteStylesheet();
         const block = sheet.slice(sheet.indexOf('@media (prefers-reduced-motion: reduce), (forced-colors: active)'));
         expect(block, 'no media block for reduced motion and forced colours').not.toBe(sheet);
-        const rule = block.match(/\.aparte-segment-tool-call\[data-quiet\]\[data-status='pending'\] \.aparte-tool-state\s*\{([^}]*)\}/)?.[1] ?? '';
+        const rule = block.match(/\.aparte-segment-tool-call\[data-quiet\]\[data-status='pending'\] > :where\(\.aparte-tool-disclosure\) > :where\(\.aparte-tool-summary\) \.aparte-tool-state\s*\{([^}]*)\}/)?.[1] ?? '';
         expect(rule).toMatch(/position:\s*static/);
         expect(rule).toMatch(/clip:\s*auto/);
     });

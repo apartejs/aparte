@@ -299,6 +299,10 @@ const SUBAGENTS = /[\\/]subagents\.spec\.ts$/;
 // written slowly. Core's cascade and the viewport, the same under every wrapper: vanilla (core
 // raw, WebKit too) and react, the wrapper the desktop agent that found #270 and #271 runs.
 const SUBAGENT_TRANSCRIPT = /[\\/]subagent-transcript\.spec\.ts$/;
+// Every way a line and the calls under it can be, drawn straight into the transcript by the
+// vanilla example's harness (`?harness=nested-rows`): core's cascade, the same under every
+// wrapper, so vanilla carries it, WebKit too.
+const NESTED_ROWS = /[\\/]nested-rows\.spec\.ts$/;
 // An agent's activity drawn by the renderer the site registers for its type, updated in place.
 // Core's own drawing, the same everywhere: vanilla carries it.
 const ACTIVITY = /[\\/]activity\.spec\.ts$/;
@@ -361,7 +365,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
     // — see theming.spec.ts's own per-project branch (RA-14).
     k === 'vanilla-dist' ? [DEMO, THEMING, HIDDEN_ATTRIBUTE] :
-    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, SUBAGENT_TRANSCRIPT, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, TESTING_GUIDE, REAL, AXE, RTL, LAYOUT, SHELL_LAYOUT, LAUNCHER, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, TYPE_TO_FOCUS, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, AGENT_LOOP, PLUGIN_CARDS, SUBAGENTS, SUBAGENT_TRANSCRIPT, NESTED_ROWS, ACTIVITY, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
     k === 'react' ? [SMOKE, TESTING_GUIDE, REAL, AXE, CONTROLLED, TOOLBAR, TYPE_TO_FOCUS, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, AGENT_LOOP, FRAMEWORK_TOOL_UI, PLUGIN_CARDS, SUBAGENTS, SUBAGENT_TRANSCRIPT, PLUGIN_DIFF, LINKS, HANDOFF, ...DEEP] :
     // svelte5 runs the chat from `@aparte/svelte/runes` — a second component, not the
     // Svelte 4 one compiled by a newer major — so besides the boundary it runs the three

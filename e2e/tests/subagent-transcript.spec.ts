@@ -10,7 +10,7 @@
  * What a person sees:
  * - a call in the transcript looks as the same call looks on its own (its state word's ink and
  *   whether it shows, its name's ink, its target's face, where its chevron sits), whatever the
- *   line around it is doing;
+ *   line around it is doing (every state under every state: `nested-rows.spec.ts`);
  * - the sub-agent's reasoning reads as in progress for as long as it is written, then says how
  *   long it took;
  * - the thread does not move up and down while that reasoning is written slowly, line closed
@@ -19,8 +19,8 @@
  *   a thread already scrolled: on a first exchange the space kept under the reply takes every
  *   change of its height, which is why a first attempt at this test could not fail.
  *
- * Each test was seen to fail without what it guards: the comparisons with core's rules scoped
- * to the row's own line (they then pass, so their `fail` marks turn red), the reasoning ones
+ * Each test was seen to fail without what it guards: the comparisons on 1.15.0, whose rules
+ * reached every row under the line (apartejs/aparte#271), the reasoning ones
  * with a renderer made to show the settled heading early, and to nudge the thread's scroll by
  * three pixels one way then the other on every delta (caught closed and open, both engines).
  *
@@ -112,7 +112,6 @@ test.describe('a sub-agent that read a file and failed to read another', () => {
     });
 
     test('each call in its transcript looks as it would on its own: the failed read is not drawn as done', async () => {
-        test.fail(true, 'apartejs/aparte#271: the resolved line colours the state of every call under it');
         expectEachLooksAsAlone(await nestedAgainstAlone(chat.toolRow('File checker')));
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
@@ -139,7 +138,6 @@ test.describe('a sub-agent whose command was refused', () => {
     });
 
     test('its refused call looks as a refused call does on its own, not as done', async () => {
-        test.fail(true, 'apartejs/aparte#271: the resolved line colours the state of every call under it');
         expectEachLooksAsAlone(await nestedAgainstAlone(chat.toolRow('Build runner')));
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
@@ -164,7 +162,6 @@ test.describe('reduced motion, while the line still works', () => {
     });
 
     test('the calls under a working line look as they would on their own', async () => {
-        test.fail(true, 'apartejs/aparte#271: the working line\'s rule shows the state word of every call under it');
         const rows = await nestedAgainstAlone(chat.toolRow('File checker'));
         // Read while the line still works, or the comparison says nothing about it.
         await expect(chat.toolRow('File checker')).toHaveAttribute('data-status', 'pending');

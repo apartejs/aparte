@@ -5,6 +5,7 @@ import '@aparte/core'; // registers the <aparte-*> custom elements
 import { connectArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-artifacts/panel';
 import { mountModelSelector, setupSite } from '../../_shared/site-setup';
 import { routeLink } from '../../_shared/links';
+import { mountNestedRowsHarness } from '../../_shared/nested-rows-harness';
 import { wireShell } from './shell';
 
 // The setup every example shares — the locale, the renderers and the markdown, the
@@ -209,6 +210,10 @@ async function main(): Promise<void> {
     // so a reply can only land in the chat that sent it. The E2E multi-chat suite
     // drives this; the model gate is satisfied globally by the first selector, which
     // is why the second chat needs no selector of its own.
+    // `?harness=nested-rows`: tool rows inside tool rows, drawn straight into the transcript
+    // for the browser suite (see the module). Nothing happens without the flag.
+    mountNestedRowsHarness();
+
     if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
         // `wireShell()` (above) already gave this element its id (`main-chat`, since
         // nothing had set one) and built its conversation controller around that id —

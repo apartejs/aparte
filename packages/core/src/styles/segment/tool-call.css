@@ -187,17 +187,28 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     font-weight: var(--aparte-font-weight-normal);
     color: var(--aparte-text-muted);
 }
+/* A rule keyed on a row's state reaches that row's OWN line and nothing under it. A row can
+   hold rows: a sub-agent's conversation under its line (`details: 'transcript'`) is a list of
+   calls in the row's detail. With a plain descendant combinator, `[data-status="resolved"]
+   .aparte-tool-state` coloured every call of the transcript as done, the failed ones included
+   (apartejs/aparte#271). So each such rule names the line's two homes: the line itself (or the
+   row's own summary), and the summary of a wrapped disclosure, a grandchild (see the
+   `[data-current]` rule below for why that is two selectors). `:where()` keeps the specificity
+   these rules always had. `e2e/tests/nested-rows.spec.ts` draws every state under every state. */
+
 /* The quiet line (registerToolDisplay `quiet`), the one a person reads: what the call is
    about in the chat's own font — a search's words are not code — and the chevron at the
    end of the line, where chat apps put it, so every icon of a turn starts on the same
    edge whether or not its row opens. */
-.aparte-segment-tool-call[data-quiet] .aparte-tool-target {
+.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-line, .aparte-tool-summary) .aparte-tool-target,
+.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-target {
     font-family: inherit;
 }
 /* A target the tool-line provider gave (a sub-agent's task) is a sentence, not a path read
    off the arguments: the chat's face on an agent's row too, as a declared label is. */
 .aparte-tool-target--words { font-family: inherit; }
-.aparte-segment-tool-call[data-quiet] .aparte-tool-toggle {
+.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-line, .aparte-tool-summary) .aparte-tool-toggle,
+.aparte-segment-tool-call[data-quiet] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-toggle {
     order: 1;
 }
 /* What the call is doing now, then what it did (`setToolLineProvider`'s `activity`): a
@@ -312,7 +323,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    <div data-status="rejected"> re-tinted every completed tool call's word red, because
    0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
    itself documents data-status as a free-form host attribute on <aparte-option>. */
-.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success-ink); }
+.aparte-segment-tool-call[data-status="resolved"] > :where(.aparte-tool-line, .aparte-tool-summary) .aparte-tool-state,
+.aparte-segment-tool-call[data-status="resolved"] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-state { color: var(--aparte-success-ink); }
 /* Rejected and aborted have NO rule: they keep the base's muted ink. They used to
    share one — red, the error ink — which said "something went wrong" about a call the
    user declined or a run they stopped, and made the two indistinguishable. The market
@@ -338,8 +350,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    not running yet. No motion (the renderer turns the spinner and the shimmer off, so reduced
    motion has nothing to hold), its word shown on both rows, and its name in the muted ink the
    state word already wears, so it reads as next rather than now. */
-.aparte-segment-tool-call[data-queued] .aparte-tool-name,
-.aparte-segment-tool-call[data-queued] .aparte-tool-target {
+.aparte-segment-tool-call[data-queued] > :where(.aparte-tool-line, .aparte-tool-summary) :is(.aparte-tool-name, .aparte-tool-target),
+.aparte-segment-tool-call[data-queued] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) :is(.aparte-tool-name, .aparte-tool-target) {
     color: var(--aparte-text-muted);
 }
 
@@ -350,7 +362,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    a running call and a finished one differed by their ink alone, or not at all. "Done" stays
    for a screen reader: once the word goes, that change is the signal. */
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  .aparte-segment-tool-call[data-quiet][data-status='pending'] .aparte-tool-state {
+  .aparte-segment-tool-call[data-quiet][data-status='pending'] > :where(.aparte-tool-line, .aparte-tool-summary) .aparte-tool-state,
+  .aparte-segment-tool-call[data-quiet][data-status='pending'] > :where(.aparte-tool-disclosure) > :where(.aparte-tool-summary) .aparte-tool-state {
     position: static;
     width: auto;
     height: auto;
