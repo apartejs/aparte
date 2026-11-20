@@ -9,8 +9,8 @@ import Landing from '../layouts/Landing.astro';
  * another: the order is where each one stands, live first.
  *
  * Marks: each product's own, as a file in public/products/. A product with no mark of its
- * own wears aparté's. A mark drawn for both themes (the desks) shows the one that matches
- * the page's.
+ * own wears aparté's. A mark drawn for both themes (the desks, the n8n chat) shows the one
+ * that matches the page's.
  */
 interface Product {
     name: string;
@@ -42,12 +42,12 @@ const PRODUCTS: Product[] = [
         mark: '/products/monaparte.svg',
     },
     {
-        name: 'n8n-chat',
+        name: 'aparté chat for n8n',
         about: 'n8n\'s chat widget, drawn by aparté: change the import, keep your call. Your workflow answers with rich cards, in ten languages.',
         stack: 'n8n · plain HTML',
         state: 'live',
         href: 'https://n8n-chat.apartejs.dev',
-        mark: '/favicon.svg',
+        mark: { light: '/products/n8n-chat-light.svg', dark: '/products/n8n-chat-dark.svg' },
     },
     {
         name: 'bonaparte',
