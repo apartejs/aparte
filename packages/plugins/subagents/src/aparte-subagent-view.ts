@@ -96,6 +96,15 @@ function findSubagentWhere(segments: readonly AparteSegment[], match: (segment: 
 }
 
 /**
+ * The view of its own drawing its rows now, or `null` for the chat. A nested sub-agent's line is
+ * drawn in the chat (inside its parent's transcript) and in a view of the parent beside it: the
+ * transcript keeps one conversation element per surface, or the one element moved back and forth
+ * between the two rows on every update. A view under a line draws on the surface around it.
+ */
+let drawingSurface: Element | null = null;
+export const currentSurface = (): Element | null => drawingSurface;
+
+/**
  * The call a view's sub-agent was opened from, by view: set by `connectSubagentView` from the
  * line pressed. Kept inside the plugin: an app wiring a view itself names the sub-agent by its
  * id, as before.
@@ -505,7 +514,19 @@ export class AparteSubagentView extends ElementBase {
         this._task!.hidden = !task;
         this._relabelHead(config);
         const lane = anchor ? laneOf(anchor) : { segments: [], live: false };
-        runWithConfig(config, () => drawing.sync(lane.segments, config, lane.live));
+        // A view of its own (not under a line) is the surface its rows are drawn on: see `currentSurface`.
+        const outer = drawingSurface;
+        drawingSurface = fed.has(this) ? outer : this.ownSurface();
+        try {
+            runWithConfig(config, () => drawing.sync(lane.segments, config, lane.live));
+        } finally {
+            drawingSurface = outer;
+        }
+    }
+
+    /** This view, as the surface its rows are drawn on (see `currentSurface`). */
+    private ownSurface(): Element {
+        return this;
     }
 
     /** Out of the page for good: every row's renderer cleans up, and the drawing goes. */
