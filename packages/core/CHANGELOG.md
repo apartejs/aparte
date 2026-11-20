@@ -1,5 +1,28 @@
 # @aparte/core
 
+## 1.15.1
+
+### Patch Changes
+
+- 0ff08c9: Reasoning that arrives after its block was closed now opens a new block, instead of growing a block that already reads "Thought for 3s".
+
+  Nothing to change in your code. A reasoning block closes when the answer starts or a tool is called, and only a `turn-start` let the next reasoning open a block of its own. Later reasoning in the same turn was appended to the closed block, folded, above the calls made since, and the block kept its finished label while it grew. It happened to a server loop that sent one `turn-start` per run instead of one per model call (apartejs/aparte#272), and as well to a model that reasons again after it starts answering within one call (the engine, `ai-sdk` and AG-UI all pass that through), in the reply and in a sub-agent's transcript.
+
+  The server-loop guide now says what a server writing its own wire must send: a `turn-start` before each model call, a sub-agent's with its `agentId`.
+
+- 350930e: A call in a sub-agent's conversation under its line now shows its own state: a failed or refused call no longer reads in the success colour, and a reply being written has one caret instead of one per paragraph of the transcript.
+
+  Nothing to change in your code. Five rules of the tool row (the success ink of a call that is done, the quiet line's target face and chevron place, a queued call's muted name, a running quiet call's state word under reduced motion) were keyed on the row's state with a descendant combinator, so they reached every row drawn under it: with `setupSubagents({ details: 'transcript' })` a failed call in the transcript of a line that was done read "Failed" in green (apartejs/aparte#271), and a quiet line made the calls under it quiet. They now name the row's own line; their specificity is unchanged. The streaming caret (`setStreamingCaret`) had the same reach and blinked after the last paragraph of every text in a transcript; it now stays at the reply's own words.
+
+  A browser test now draws every state of a line with a call of every state under it, and compares each call with the same call on its own.
+
+- 4879492: Under React, Vue, Svelte and Angular, a scrolled conversation no longer moves up and down by a pixel while a reply streams reasoning.
+
+  Nothing to change in your code. The space kept under a reply (so the question stays at the top) was written as a fraction and, under a wrapper, read back as that fraction against a `scrollHeight` the browser gives in whole pixels. It never settled: on every streamed delta that grew nothing on screen, a closed reasoning block in the reply or in a sub-agent's transcript, it went 65.6, 66.1, 65.6 px, and the thread, held at the end of its scroll, moved a pixel each way for as long as the reply streamed (apartejs/aparte#270). The space is now whole pixels, so measuring it again with nothing changed gives the same value, in both modes; raw core also loses a one-pixel jump on the second measure.
+
+  A browser test now reads every frame of a reasoning reply streaming into an already scrolled thread, on every example, at half a pixel.
+  - @aparte/engine@1.15.1
+
 ## 1.15.0
 
 ### Minor Changes
