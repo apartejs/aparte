@@ -6,7 +6,7 @@ import { connectArtifactPanel, type ArtifactPanelSplit } from '@aparte/plugin-ar
 import { mountModelSelector, setupSite } from '../../_shared/site-setup';
 import { routeLink } from '../../_shared/links';
 import { mountNestedRowsHarness } from '../../_shared/nested-rows-harness';
-import { mountConversationMoveHarness } from '../../_shared/conversation-move-harness';
+import { mountConversationListsHarness, mountConversationMoveHarness } from '../../_shared/conversation-move-harness';
 import { wireShell } from './shell';
 
 // The setup every example shares — the locale, the renderers and the markdown, the
@@ -216,6 +216,7 @@ async function main(): Promise<void> {
     mountNestedRowsHarness();
     // `?harness=conversation-move`: a list of its own whose rows move between groups.
     mountConversationMoveHarness();
+    mountConversationListsHarness();
 
     if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
         // `wireShell()` (above) already gave this element its id (`main-chat`, since
