@@ -180,3 +180,33 @@ describe('two sub-agents of one reply across a pause', () => {
         expect(lineOn(c, 'c2')).toMatchObject({ id: 'b1', name: 'Reader' });
     });
 });
+
+describe('a sub-agent with no call, under an id a finished one had', () => {
+    // A detached sub-agent is announced with no call. A backend that mints ids per run (the
+    // engine's default counter) names the resume's first one like the paused run's: taken for
+    // the first one resumed, its name and its text were written on the first one's line, and
+    // no line of its own appeared. A FINISHED sub-agent never resumes: its id announced again
+    // is a new sub-agent. Only one left waiting or running is re-announced to go on.
+    it('is a new sub-agent, with its own line', () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'first' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'First.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done', result: 'First.' },
+            { type: 'run-suspended', pending: [] },
+        );
+        const resumed = c.again();
+        for (const e of [
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'second' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Second.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done', result: 'Second.' },
+            { type: 'run-done' },
+        ] as AparteStreamRunEvent[]) resumed(e);
+
+        const lines = c.segments().map((s) => subagentOf(s)).filter((s) => s !== undefined);
+        expect(lines.map((s) => [s!.name, textOfAll(s!.segments)])).toEqual([['first', 'First.'], ['second', 'Second.']]);
+    });
+});

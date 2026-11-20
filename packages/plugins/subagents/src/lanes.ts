@@ -487,8 +487,12 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
          * id — a backend that mints ids per request names a resume's first one like the paused
          * run's — and taking it for the first one resumed wrote its name and its text on the
          * first one's line. The first one is over; the new one gets a line of its own.
+         * With no call (a detached sub-agent), a finished one is the tell: nothing resumes a
+         * sub-agent that ended, so its id announced again is a new one. Only one left waiting
+         * or running goes on.
          */
-        const reused = known !== undefined && e.toolCallId !== undefined && e.toolCallId !== known.toolCallId;
+        const over = known !== undefined && (known.status === 'done' || known.status === 'failed' || known.status === 'stopped');
+        const reused = known !== undefined && (e.toolCallId !== undefined ? e.toolCallId !== known.toolCallId : over);
         if (known && reused) retire(run, known);
         if (known && !reused) {
             known.status = 'running';
