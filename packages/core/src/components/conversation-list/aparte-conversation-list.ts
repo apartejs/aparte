@@ -587,9 +587,22 @@ export class AparteConversationList extends HTMLElement {
         window.addEventListener('pointercancel', this._onRelease, true);
     };
 
-    private _onRelease = (): void => {
+    private _onRelease = (e: Event): void => {
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
+        // A finger's tap: its click comes after the finger is lifted, as a gesture of its own,
+        // later than the next task. Ended then, the held render replaced the row under the
+        // finger before its click arrived. It lasts until that click, or a moment if none comes.
+        if (e.type === 'pointerup' && (e as PointerEvent).pointerType === 'touch') {
+            const end = (): void => {
+                clearTimeout(timer);
+                window.removeEventListener('click', end, true);
+                setTimeout(() => this._endPress(), 0);
+            };
+            const timer = setTimeout(end, 600);
+            window.addEventListener('click', end, true);
+            return;
+        }
         // `mouseup` and `click` follow `pointerup` in the same task: this runs after them.
         setTimeout(() => this._endPress(), 0);
     };

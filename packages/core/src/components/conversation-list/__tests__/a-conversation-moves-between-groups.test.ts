@@ -268,3 +268,28 @@ describe('a drag that starts while a press holds a render', () => {
         expect(seen).toEqual([{ id: 'c1', from: 'p-launch', to: 'p-docs' }]);
     });
 });
+
+describe('a tap on a row while the app updates the list', () => {
+    // The press held the app's render until the click, ending one task after `pointerup`: the
+    // click of a MOUSE follows in that same task. A tap's click comes later (after touchend, a
+    // gesture of its own), so the held render ran first and replaced the row under the finger:
+    // WebKit sent no click, Chromium sent it to the list, where nothing matched.
+    it('holds the render until the tap\'s click, which reaches the row it was on', async () => {
+        const el = mount(ITEMS);
+        const picked: string[] = [];
+        el.addEventListener('aparte-conversation-select', (e) => picked.push((e as CustomEvent<{ id: string }>).detail.id));
+        const row = rowOf(el, 'c2');
+        const finger = (type: string) => {
+            const event = new Event(type, { bubbles: true });
+            Object.defineProperty(event, 'pointerType', { value: 'touch' });
+            row.dispatchEvent(event);
+        };
+        finger('pointerdown');
+        el.conversations = [...ITEMS];
+        finger('pointerup');
+        await tick();
+        expect(row.isConnected, 'still the row under the finger').toBe(true);
+        row.querySelector<HTMLElement>('.aparte-conv-item__select')!.click();
+        expect(picked).toEqual(['c2']);
+    });
+});
