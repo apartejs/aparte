@@ -41,7 +41,8 @@
     {
       "plugin": "@nx/vite/plugin",
       "exclude": [
-        "e2e/ssr/**"
+        "e2e/ssr/**",
+        "vitest.config.ts"
       ],
       "options": {
         "buildTargetName": "vite:build",
@@ -99,7 +100,7 @@
       ]
     },
     "test": {
-      "//": "A wrapper's tests load its generated bindings, as its build and typecheck do.",
+      "//": "A wrapper's tests load its generated bindings, as its build and typecheck do. A package's own test target is `vitest run` in its folder, not `@nx/vite:test`: that executor takes `vite.config.ts` (the build's, no `test` block) before `vitest.config.ts`, so the tests ran without their environment and failed, and its reporter printed nothing, a failure included. The root's `vitest.config.ts` is excluded from the vite plugin above: inferred, it was a `test` target running `vitest` in watch mode over the whole workspace, which `nx affected:test` never saw the end of.",
       "dependsOn": [
         "gen"
       ]

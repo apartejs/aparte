@@ -15,13 +15,10 @@
             }
         },
         "test": {
-            "executor": "@nx/vite:test",
-            "outputs": [
-                "{options.reportsDirectory}"
-            ],
+            "executor": "nx:run-commands",
             "options": {
-                "reportsDirectory": "../../../../coverage/packages/providers/ai/transformers",
-                "cwd": "packages/providers/ai/transformers"
+                "command": "vitest run",
+                "cwd": "{projectRoot}"
             }
         },
         "typecheck": {

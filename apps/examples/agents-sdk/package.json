@@ -11,6 +11,15 @@
         "dev": "vite",
         "typecheck": "tsc --noEmit"
     },
+    "nx": {
+        "targets": {
+            "test": {
+                "options": {
+                    "command": "vitest run"
+                }
+            }
+        }
+    },
     "dependencies": {
         "@ag-ui/core": "^1.0.3",
         "@aparte/core": "workspace:*",
