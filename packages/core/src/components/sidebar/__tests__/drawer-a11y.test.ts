@@ -194,3 +194,50 @@ describe('a filtered-out row keeps no tab stop', () => {
         expect(document.activeElement).toBe(sidebar.querySelector('#search'));
     });
 });
+
+describe('the open drawer leaves the keys of what is above it', () => {
+    /** A modal dialog the drawer's own content opens, beside the shell (the kit's documented pattern). */
+    function openDialog(): { dialog: HTMLDialogElement; inside: HTMLButtonElement } {
+        const dialog = document.createElement('dialog');
+        dialog.innerHTML = '<button type="button" id="in-dialog">OK</button>';
+        document.body.appendChild(dialog);
+        // jsdom has no showModal: what it does to the dialog is enough for the drawer to read.
+        dialog.setAttribute('open', '');
+        const inside = dialog.querySelector('button')!;
+        inside.focus();
+        return { dialog, inside };
+    }
+
+    it('Escape in a modal dialog opened from the drawer is the dialog\'s, and the drawer stays open', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const { inside } = openDialog();
+        const notPrevented = key(inside, 'Escape');
+        expect(notPrevented, 'the dialog gets its own Escape').toBe(true);
+        expect(sidebar.collapsed).toBe(false);
+    });
+
+    it('Tab in that dialog stays in the dialog, not pulled back into the drawer behind it', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const { inside } = openDialog();
+        const notPrevented = key(inside, 'Tab');
+        expect(notPrevented).toBe(true);
+        expect(document.activeElement).toBe(inside);
+        expect(sidebar.contains(document.activeElement)).toBe(false);
+    });
+
+    it('Escape that cancels a word being composed in its search field closes nothing', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const search = sidebar.querySelector<HTMLInputElement>('#search')!;
+        search.focus();
+        const composing = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, isComposing: true });
+        search.dispatchEvent(composing);
+        expect(composing.defaultPrevented).toBe(false);
+        expect(sidebar.collapsed).toBe(false);
+    });
+});
