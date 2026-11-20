@@ -155,6 +155,28 @@ describe('a formula still arriving', () => {
         expect(renderer().render(b('b + 1'))).toContain('katex');
     });
 
+    it('paces each part of a sub-agent\'s conversation on its own, under its line', () => {
+        // A sub-agent's text is drawn under the line of the call that opened it: its parts are
+        // segments inside a segment of the reply. Keyed on the reply's segment, every formula
+        // of the conversation (and of sub-agents writing at once) waited on one pace.
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        setupKatexWith(katex);
+        const line = part();
+        const transcript = document.createElement('div');
+        transcript.className = 'aparte-subagent-transcript';
+        line.appendChild(transcript);
+        const segmentIn = (id: string): HTMLElement => {
+            const el = document.createElement('div');
+            el.setAttribute('data-segment-id', id);
+            transcript.appendChild(el);
+            return el;
+        };
+        const a = inPart(segmentIn('t1'));
+        const b = inPart(segmentIn('t2'));
+        expect(renderer().render(a('a + 1'))).toContain('katex');
+        expect(renderer().render(b('b + 1'))).toContain('katex');
+    });
+
     it('keeps its pace in a reply with no segments, whose paragraph is written anew each token', () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         setupKatexWith(katex);
