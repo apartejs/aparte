@@ -30,6 +30,7 @@ import { LaneDrawing } from './drawing.js';
 import { lastLaneWrite, watchLaneWrites, type LaneWrite } from './lanes.js';
 import { subagentOf, subagentStatus } from './status.js';
 import { ensureStyles } from './styles.js';
+import type { AparteSubagent } from './types.js';
 import { word } from './words.js';
 
 /** Where the view reads the conversation: a chat element, its viewport, or anything with `getMessages()`. */
@@ -69,17 +70,44 @@ export function laneOf(anchor: AparteSegment): { segments: readonly AparteSegmen
     return { segments: settled, live: false };
 }
 
-/** The segment that stands for `agentId` among `segments`, or in the lanes of the sub-agents there. */
-export function findSubagent(segments: readonly AparteSegment[], agentId: string, depth = 0): AparteSegment | undefined {
+/**
+ * The segment that stands for `agentId` among `segments`, or in the lanes of the sub-agents
+ * there. With `toolCallId`, the one on that call first: two sub-agents of one reply can share an
+ * id (a backend minting ids per run), and the first match was then always the first of them.
+ */
+export function findSubagent(segments: readonly AparteSegment[], agentId: string, depth = 0, toolCallId?: string): AparteSegment | undefined {
+    if (toolCallId !== undefined) {
+        const onCall = findSubagentWhere(segments, (s, sub) => sub.id === agentId && s.id === `tool-${toolCallId}`, depth);
+        if (onCall) return onCall;
+    }
+    return findSubagentWhere(segments, (_s, sub) => sub.id === agentId, depth);
+}
+
+function findSubagentWhere(segments: readonly AparteSegment[], match: (segment: AparteSegment, sub: AparteSubagent) => boolean, depth: number): AparteSegment | undefined {
     for (const segment of segments) {
         const sub = subagentOf(segment);
         if (!sub) continue;
-        if (sub.id === agentId) return segment;
+        if (match(segment, sub)) return segment;
         if (depth >= MAX_DEPTH) continue;
-        const found = findSubagent(laneOf(segment).segments, agentId, depth + 1);
+        const found = findSubagentWhere(laneOf(segment).segments, match, depth + 1);
         if (found) return found;
     }
     return undefined;
+}
+
+/**
+ * The call a view's sub-agent was opened from, by view: set by `connectSubagentView` from the
+ * line pressed. Kept inside the plugin: an app wiring a view itself names the sub-agent by its
+ * id, as before.
+ */
+const viewCalls = new WeakMap<Element, string>();
+
+/** Point `view` at the sub-agent on `toolCallId` (or at the first under its id, with none), and draw it again. */
+export function setViewCall(view: Element, toolCallId: string | undefined): void {
+    if (viewCalls.get(view) === toolCallId) return;
+    if (toolCallId === undefined) viewCalls.delete(view);
+    else viewCalls.set(view, toolCallId);
+    (view as { refresh?: () => void }).refresh?.();
 }
 
 /** A view drawn under a line: the anchor it was handed, and the config of the row it is in. */
@@ -169,7 +197,7 @@ export class AparteSubagentView extends ElementBase {
     private readonly _onWrite = (write: LaneWrite): void => {
         if (fed.has(this) || !this.isConnected) return;
         if (write.messageId !== this.getAttribute('message-id') || write.agentId !== this.getAttribute('agent-id')) return;
-        if (!this._matches(write)) return;
+        if (!this._matches(write) || !this._onItsCall(write.anchor)) return;
         this._draw(write.anchor, this._sourceConfig());
     };
     /**
@@ -303,6 +331,16 @@ export class AparteSubagentView extends ElementBase {
         }));
     }
 
+    /**
+     * An anchor of the sub-agent this view was opened on: any, when it was opened by id alone;
+     * the one on its call, when the line pressed named one. Another sub-agent under the same id
+     * (a backend minting ids per run) writes too, and was drawn over the one opened.
+     */
+    private _onItsCall(anchor: AparteSegment): boolean {
+        const call = viewCalls.get(this);
+        return call === undefined || anchor.type !== 'tool_call' || anchor.id === `tool-${call}`;
+    }
+
     /** A write from this view's chat: the run's target is the chat, inside it, or named by its id. */
     private _matches(write: LaneWrite): boolean {
         const source = this._source();
@@ -337,8 +375,8 @@ export class AparteSubagentView extends ElementBase {
         // A run still going may have written the lane before the chat a framework mirrors
         // holds it: the last write, then, as the next one would bring it.
         const live = lastLaneWrite(messageId, agentId);
-        const anchor = (message ? findSubagent(message.segments ?? [], agentId) : undefined)
-            ?? (live && this._matches(live) ? live.anchor : undefined);
+        const anchor = (message ? findSubagent(message.segments ?? [], agentId, 0, viewCalls.get(this)) : undefined)
+            ?? (live && this._matches(live) && this._onItsCall(live.anchor) ? live.anchor : undefined);
         // Said once, for the developer: a finished reply that holds no such sub-agent. A reply
         // still being written may hold it soon, and a missing reply may arrive.
         const key = `${messageId}\u0000${agentId}`;

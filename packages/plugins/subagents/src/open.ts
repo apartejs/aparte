@@ -16,18 +16,35 @@ const shown = new Map<object, string>();
 
 const keyOf = (messageId: string, agentId: string): string => `${messageId}\u0000${agentId}`;
 
-/** Whether some view shows this sub-agent now. */
-export function isShown(messageId: string | undefined, agentId: string): boolean {
+/** The calls the shown sub-agents were opened from, by owner: two of one reply can share an id. */
+const shownCalls = new Map<object, string>();
+
+/**
+ * Whether some view shows this sub-agent now. With `toolCallId`, the line on that call only, when
+ * the view was opened from a line that named one: a second sub-agent under the same id (a backend
+ * minting ids per run) read as shown too.
+ */
+export function isShown(messageId: string | undefined, agentId: string, toolCallId?: string): boolean {
     if (!messageId || shown.size === 0) return false;
     const key = keyOf(messageId, agentId);
-    for (const value of shown.values()) if (value === key) return true;
+    for (const [owner, value] of shown) {
+        if (value !== key) continue;
+        const call = shownCalls.get(owner);
+        if (call === undefined || toolCallId === undefined || call === toolCallId) return true;
+    }
     return false;
 }
 
 /** `owner` shows this sub-agent now, or nothing (`null`). */
-export function setShown(owner: object, at: { messageId: string; agentId: string } | null): void {
-    if (at) shown.set(owner, keyOf(at.messageId, at.agentId));
-    else shown.delete(owner);
+export function setShown(owner: object, at: { messageId: string; agentId: string; toolCallId?: string } | null): void {
+    if (at) {
+        shown.set(owner, keyOf(at.messageId, at.agentId));
+        if (at.toolCallId !== undefined) shownCalls.set(owner, at.toolCallId);
+        else shownCalls.delete(owner);
+    } else {
+        shown.delete(owner);
+        shownCalls.delete(owner);
+    }
 }
 
 /**

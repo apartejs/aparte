@@ -8,7 +8,7 @@
  * clears the mark and gives the focus back. An app with its own layout reads this file and
  * writes its own.
  */
-import type { AparteSubagentView } from './aparte-subagent-view.js';
+import { setViewCall, type AparteSubagentView } from './aparte-subagent-view.js';
 import { markRow, openButtonOf, setShown, unmarkAll } from './open.js';
 import type { AparteSubagentOpenEventDetail } from './types.js';
 
@@ -81,8 +81,10 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         const row = event.target instanceof HTMLElement ? event.target : null;
         opener = row;
         opened = detail;
-        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId });
+        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId, ...(detail.toolCallId ? { toolCallId: detail.toolCallId } : {}) });
         mark(row);
+        // The line pressed names its call: two sub-agents of one reply can share an id.
+        setViewCall(view, detail.toolCallId);
         view.setAttribute('message-id', detail.messageId);
         view.setAttribute('agent-id', detail.agentId);
         if (split) {

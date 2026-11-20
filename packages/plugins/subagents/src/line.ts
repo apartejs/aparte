@@ -187,7 +187,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
             const shownName = name || word(config, 'subagentsUnnamed');
             line.open = {
                 label: word(config, 'subagentsOpen').replace('{name}', () => shownName),
-                current: isShown(segment.messageId, sub.id),
+                current: isShown(segment.messageId, sub.id, standIn ? undefined : segment.toolCall?.id),
                 onOpen: (row) => dispatchOpen(row, segment, sub, standIn),
             };
         }
