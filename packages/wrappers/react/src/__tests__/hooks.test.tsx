@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import { AparteClient, aparteGlobalConfig, type AparteChatImperativeApi, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, AparteConfig, aparteGlobalConfig, type AparteChatImperativeApi, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { useAparteChat } from '../hooks/useAparteChat';
 import { useAparteClient } from '../hooks/useAparteClient';
 import { useConversationManager } from '../hooks/useConversationManager';
@@ -219,5 +219,23 @@ describe('useConversationManager', () => {
         // manager must not push state into an unmounted tree (React would warn).
         await act(async () => { await result.current.createNew('After unmount'); });
         expect(result.current.conversations).toHaveLength(before);
+    });
+});
+
+describe('useConversationManager().init, overtaken by a newer one', () => {
+    it('registers nothing when it resolves after the newer init', async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((r) => { release = r; });
+        const slow = new MemoryAdapter();
+        slow.loadAll = async () => { await gate; return []; };
+        const config = new AparteConfig();
+        const { result } = renderHook(() => useConversationManager());
+        let first!: Promise<void>;
+        await act(async () => { first = result.current.init(slow, config); });
+        await act(async () => { await result.current.init(new MemoryAdapter(), config); });
+        const newer = result.current.manager;
+        await act(async () => { release(); await first; });
+        expect(config.getConversationManager()).toBe(newer);
+        expect(result.current.manager).toBe(newer);
     });
 });

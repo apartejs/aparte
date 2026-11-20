@@ -29,3 +29,25 @@ describe('ConversationManagerService.init, called twice', () => {
         service.ngOnDestroy();
     });
 });
+
+function slowAdapter(): { adapter: AparteStorageAdapter; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    return { adapter: { async loadAll() { await gate; return []; }, async save() {}, async delete() {} }, release };
+}
+
+describe('ConversationManagerService.init, overtaken by a newer one', () => {
+    it('registers nothing when it resolves after the newer init', async () => {
+        const service = new ConversationManagerService();
+        const config = new AparteConfig();
+        const slow = slowAdapter();
+        const first = service.init(slow.adapter, config);
+        await service.init(memoryAdapter(), config);
+        const newer = service.manager;
+        slow.release();
+        await first;
+        expect(config.getConversationManager()).toBe(newer);
+        expect(service.manager).toBe(newer);
+        service.ngOnDestroy();
+    });
+});

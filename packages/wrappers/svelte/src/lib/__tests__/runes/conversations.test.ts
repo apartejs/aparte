@@ -49,3 +49,24 @@ describe('AparteConversations (Svelte 5)', () => {
         expect(() => new AparteConversations().createNew()).toThrow(/init\(adapter\)/);
     });
 });
+
+function slowAdapter(): { adapter: AparteStorageAdapter; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    return { adapter: { async loadAll() { await gate; return []; }, async save() {}, async delete() {} }, release };
+}
+
+describe('AparteConversations.init, overtaken by a newer one', () => {
+    it('registers nothing when it resolves after the newer init', async () => {
+        const conversations = new AparteConversations();
+        const config = new AparteConfig();
+        const slow = slowAdapter();
+        const first = conversations.init(slow.adapter, config);
+        await conversations.init(memoryAdapter(), config);
+        const newer = conversations.manager;
+        slow.release();
+        await first;
+        expect(config.getConversationManager()).toBe(newer);
+        expect(conversations.manager).toBe(newer);
+    });
+});
