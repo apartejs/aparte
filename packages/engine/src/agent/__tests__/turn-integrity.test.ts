@@ -118,6 +118,69 @@ describe('two calls in one turn are two calls', () => {
     });
 });
 
+describe('two calls of one reply are two calls, whichever model call made them', () => {
+    // A vendor that sends no id has one minted per stream (openai-compat), so every model call
+    // starts again at `aparte-call-1`; a server that numbers its ids per response does the same.
+    // The transcript keys a row on the id for the whole reply: the second call's result went onto
+    // the first call's row, the second row stayed pending, and the history filed both answers
+    // under one id.
+    const weather = (): StreamToolHandler => async (call) => ({ content: `${(call.input as { city: string }).city} weather` });
+    const starts = (events: StreamRunEvent[]) => events.filter((e) => e.type === 'tool-start').map((e) => (e as { toolCallId: string }).toolCallId);
+
+    it('an id a later model call repeats is renamed, and each answer is filed under its own call', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'aparte-call-1', name: 'get_weather', input: { city: 'Lille' } }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'aparte-call-1', name: 'get_weather', input: { city: 'Paris' } }, { type: 'done' }],
+            [{ type: 'text', delta: 'Done.' }, { type: 'done' }],
+        ]);
+        const events: StreamRunEvent[] = [];
+        await runStreamAgent(baseOpts({ transportCall: t.transportCall, toolLookup: weather, emitter: (e) => events.push(e) }));
+        const ids = starts(events);
+        expect(new Set(ids).size, 'two rows').toBe(2);
+        const history = t.calls[2]!.messages;
+        for (const city of ['Lille', 'Paris']) {
+            const call = history.flatMap((m) => m.toolCalls ?? []).find((c) => (c.input as { city: string }).city === city)!;
+            expect(history.find((m) => m.role === 'tool' && m.toolCallId === call.id)?.content, city).toBe(`${city} weather`);
+        }
+    });
+
+    it('a resumed run does not reuse an id the reply used before the pause', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'aparte-call-1', name: 'get_weather', input: { city: 'Paris' } }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
+        const events: StreamRunEvent[] = [];
+        await runStreamAgent(baseOpts({
+            baseRequest: { modelId: 'm', messages: [
+                { role: 'user', content: 'weather?' },
+                { role: 'assistant', content: '', toolCalls: [{ id: 'aparte-call-1', name: 'get_weather', input: { city: 'Lille' } }] },
+                { role: 'tool', content: 'Lille weather', toolCallId: 'aparte-call-1', toolName: 'get_weather' },
+            ] },
+            transportCall: t.transportCall, toolLookup: weather, emitter: (e) => events.push(e),
+        }));
+        expect(starts(events)).not.toContain('aparte-call-1');
+    });
+
+    it('an id an EARLIER reply used is left alone', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'aparte-call-1', name: 'get_weather', input: { city: 'Paris' } }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
+        const events: StreamRunEvent[] = [];
+        await runStreamAgent(baseOpts({
+            baseRequest: { modelId: 'm', messages: [
+                { role: 'user', content: 'weather in Lille?' },
+                { role: 'assistant', content: '', toolCalls: [{ id: 'aparte-call-1', name: 'get_weather', input: { city: 'Lille' } }] },
+                { role: 'tool', content: 'Lille weather', toolCallId: 'aparte-call-1', toolName: 'get_weather' },
+                { role: 'assistant', content: 'Mild.' },
+                { role: 'user', content: 'and Paris?' },
+            ] },
+            transportCall: t.transportCall, toolLookup: weather, emitter: (e) => events.push(e),
+        }));
+        expect(starts(events)).toEqual(['aparte-call-1']);
+    });
+});
+
 describe('the text of a turn that also called a tool', () => {
     it('keeps what was streamed AFTER the call, not only before it', async () => {
         // The envelope snapshotted the text at declare time and the loop kept

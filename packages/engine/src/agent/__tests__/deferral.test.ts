@@ -385,7 +385,8 @@ describe('deferral: the resume', () => {
         });
         await done;
         expect(ran).toEqual([{ path: 'a' }]);
-        expect(suspension(events).pending).toEqual([{ toolCallId: 'd1', name: 'delete_file', input: { path: 'everything' }, reason: 'approval' }]);
+        // Asked again, under an id of its own: the paused call's row is `tool-d1` already.
+        expect(suspension(events).pending).toEqual([{ toolCallId: 'd1#2', name: 'delete_file', input: { path: 'everything' }, reason: 'approval' }]);
     });
 
     it('hands the model its turn after a refusal even when a later call of the pause has no handler here', async () => {
@@ -430,6 +431,7 @@ describe('deferral: the resume', () => {
         });
         await done;
         expect(events.filter((e) => e.type === 'tool-rejected').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['d1', 'r1']);
-        expect(events.filter((e) => e.type === 'tool-resolved').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['r1']);
+        // Run, under an id of its own: the refused `r1` has its row already.
+        expect(events.filter((e) => e.type === 'tool-resolved').map((e) => (e as { toolCallId: string }).toolCallId)).toEqual(['r1#2']);
     });
 });

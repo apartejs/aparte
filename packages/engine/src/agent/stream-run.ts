@@ -358,6 +358,27 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
     }
 
+    /*
+     * A call id must be unique WITHIN the reply: the transcript keys a row on it (`tool-${id}`,
+     * and `updateSegment` takes the first match) and the history files a `tool` message under
+     * it. A vendor that omits `id` used to give every call of a turn the same one; and one that
+     * has ids minted per stream (openai-compat for a server that sends none) starts again at the
+     * same id on the next model call. Either way the second call's result was written onto the
+     * first call's row, the second row stayed pending, and the next request filed both answers
+     * under one id. So the ids are the reply's: every call of this run, and the calls the request
+     * already carries after the person's last message (a resume's, made before the pause). An
+     * earlier reply's ids are left alone: its rows are in another message. A repeat is renamed
+     * rather than refused — the model asked for both.
+     */
+    const lastPerson = messages.map((m) => m.role).lastIndexOf('user');
+    const idsThisReply = new Set<string>(messages.slice(lastPerson + 1).flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => c.id) : [])));
+    const uniqueCallId = (raw: string): string => {
+        let id = raw;
+        for (let n = 2; idsThisReply.has(id); n++) id = `${raw}#${n}`;
+        idsThisReply.add(id);
+        return id;
+    };
+
     // ── outer (turn) loop — one iteration = one transport call ────────────────
     while (continueLoop) {
         // Abort at the top of a turn: no stream open yet, so no cancel needed. The
@@ -526,21 +547,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
          */
         const syncEnvelopeText = (): void => {
             if (envelope) envelope.content = precedingText.trim();
-        };
-        /*
-         * A call id must be unique WITHIN the turn: the transcript keys a row on it
-         * (`tool-${id}`, and `updateSegment` takes the first match) and the history
-         * files a `tool` message under it. A vendor that omits `id` used to give every
-         * call of a turn the same one, so the second call's result was written onto the
-         * first call's row and the pair could not be matched at all on the next turn.
-         * A repeat is renamed rather than refused — the model asked for both.
-         */
-        const idsThisTurn = new Set<string>();
-        const uniqueCallId = (raw: string): string => {
-            let id = raw;
-            for (let n = 2; idsThisTurn.has(id); n++) id = `${raw}#${n}`;
-            idsThisTurn.add(id);
-            return id;
         };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
