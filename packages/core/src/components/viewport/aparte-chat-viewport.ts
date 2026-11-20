@@ -1881,6 +1881,10 @@ export class AparteChatViewport extends HTMLElement {
         this._container?.addEventListener('pointerdown', this._holdPointer, { passive: true });
         document.addEventListener('pointerup', this._releasePointer, true);
         document.addEventListener('pointercancel', this._releasePointer, true);
+        // A drag ends the press too: a selection or a link dragged out of the transcript. WebKit
+        // sends no pointerup nor pointercancel after a native drag, so the press stayed held for
+        // the rest of the turn, and the engine's own settle read as the reader scrolling up.
+        document.addEventListener('dragstart', this._releasePointer, true);
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
         this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
@@ -2678,6 +2682,7 @@ export class AparteChatViewport extends HTMLElement {
         this._container?.removeEventListener('pointerdown', this._holdPointer);
         document.removeEventListener('pointerup', this._releasePointer, true);
         document.removeEventListener('pointercancel', this._releasePointer, true);
+        document.removeEventListener('dragstart', this._releasePointer, true);
         this._pointerHeld = false;
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
