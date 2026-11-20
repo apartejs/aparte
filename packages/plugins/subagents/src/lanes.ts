@@ -32,7 +32,7 @@ import {
     type AparteToolCallSegment,
     type StreamAdapterTarget,
 } from '@aparte/core';
-import { subagentOf } from './status.js';
+import { subagentOf, subagentStatus } from './status.js';
 import { stepEnded, stepStarted, stepsEnded } from './steps.js';
 import {
     SUBAGENT_SEGMENT_TYPE,
@@ -463,7 +463,18 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
     const savedAnchor = (segments: readonly AparteSegment[] | undefined, agentId: string, toolCallId?: string): AparteSegment | undefined => {
         if (!segments) return undefined;
         return segments.find((s) => s.id === ownSegmentId(agentId) && subagentOf(s)?.id === agentId)
-            ?? (toolCallId ? segments.find((s) => s.id === `tool-${toolCallId}` && subagentOf(s)?.id === agentId) : undefined);
+            ?? (toolCallId
+                ? segments.find((s) => s.id === `tool-${toolCallId}` && subagentOf(s)?.id === agentId)
+                // Named again with no call (an AG-UI runner meeting a tagged event after a
+                // reload): the call it was saved on, while a sub-agent under its id still waits
+                // or works there. Only the call it named was looked for, and it got a second line.
+                : [...segments].reverse().find((s) => s.type === 'tool_call' && subagentOf(s)?.id === agentId && goesOn(s)));
+    };
+
+    /** A saved sub-agent a resume can take up: one that was waiting or working when it was saved. */
+    const goesOn = (anchor: AparteSegment): boolean => {
+        const status = subagentStatus(anchor);
+        return status === 'waiting' || status === 'running';
     };
 
     /** A lane whose id a new sub-agent now carries: settled as it stands, written, and no longer reached by its id. */
@@ -511,8 +522,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         const segments = hostSegments(run, host);
         // What the host holds under this id is the retired one's, never this one's to adopt.
         const saved = reused ? undefined : savedAnchor(segments, e.agentId, e.toolCallId);
-        const callKey = e.toolCallId ? hostKey(host, e.toolCallId) : '';
-        const callId = e.toolCallId ? `tool-${e.toolCallId}` : '';
+        // Named again with no call, found on the call it was saved on: that call is its.
+        const toolCallId = e.toolCallId ?? (saved?.type === 'tool_call' ? (saved as AparteToolCallSegment).toolCall?.id : undefined);
+        const callKey = toolCallId ? hostKey(host, toolCallId) : '';
+        const callId = toolCallId ? `tool-${toolCallId}` : '';
         const callTaken = callKey !== '' && (run.callAgents.has(callKey)
             || !!segments?.some((s) => s.id === callId && subagentOf(s) && subagentOf(s)!.id !== e.agentId));
         const onCall = saved ? saved.type === 'tool_call' : callKey !== '' && !callTaken;
@@ -525,7 +538,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             ...(e.name !== undefined ? { name: e.name } : previous?.name !== undefined ? { name: previous.name } : {}),
             ...(e.description !== undefined ? { description: e.description } : previous?.description !== undefined ? { description: previous.description } : {}),
             ...(e.parentAgentId !== undefined ? { parentId: e.parentAgentId } : {}),
-            ...(e.toolCallId !== undefined ? { toolCallId: e.toolCallId } : {}),
+            ...(toolCallId !== undefined ? { toolCallId } : {}),
             status: 'running',
             list,
             // Not observed: every observer heard these events from the reply's adapter already.
@@ -563,7 +576,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             else run.target.addSegment?.(segment);
         }
 
-        announce(run, lane, e.toolCallId);
+        announce(run, lane, toolCallId);
         // What arrived for it before it was announced.
         const early = run.early.get(lane.id);
         if (early) {
@@ -662,6 +675,20 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (lane) {
             feed(run, lane, event);
             return;
+        }
+        // Saved before a reload and resumed without being announced again (an AG-UI agent
+        // answering its call through a ticket): its saved line takes it up, while it was waiting
+        // or working. Held "until it is announced", its events were dropped at the run's end,
+        // and the transcript kept a call that ran as waiting, then Stopped.
+        const saved = savedAnchor(hostSegments(run, null), agentId as string);
+        if (saved && goesOn(saved)) {
+            const call = saved.type === 'tool_call' ? (saved as AparteToolCallSegment).toolCall?.id : undefined;
+            startAgent(run, { type: 'agent-start', agentId: agentId as string, ...(call ? { toolCallId: call } : {}) }, ctx);
+            const resumed = run.lanes.get(agentId as string);
+            if (resumed) {
+                feed(run, resumed, event);
+                return;
+            }
         }
         // Not announced yet (a resume after a reload): held until it is.
         if (run.earlyCount >= MAX_EARLY) return;
