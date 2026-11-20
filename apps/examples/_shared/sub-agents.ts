@@ -17,7 +17,8 @@
  */
 import { contentToText, type AparteChatRequest, type AparteToolCallSegment } from '@aparte/core';
 import { connectSubagentView } from '@aparte/plugin-subagents';
-import type { Scenario, ScenarioStep } from '@aparte/provider-scenario';
+import type { Scenario } from '@aparte/provider-scenario';
+import { SLOW_REASONING } from './slow-reasoning';
 
 /** The tool the delegating steps call: the scenario provider's default name. */
 export const DELEGATE = 'delegate';
@@ -32,22 +33,6 @@ export const SUBAGENT_PROMPTS = {
 
 /** A path the workspace has no file for: `read_file` throws on it (site-setup.ts), so a call fails on screen. */
 export const MISSING_FILE = 'RELEASE-NOTES.md';
-
-/**
- * Reasoning written the way a small local model writes it: a few words, then a pause of its
- * own length. Paced by the script, not by the provider's even typing, because a thread that
- * moved under a sub-agent's reasoning was seen at a few uneven tokens per second
- * (apartejs/aparte#270).
- */
-const SLOW_REASONING: ScenarioStep[] = [
-    ['Two files to check. ', 350],
-    ['The changelog first, ', 120],
-    ['it sits at the root. ', 600],
-    ['Then the release notes, ', 200],
-    ['which may not exist yet. ', 450],
-    ['Reading both ', 90],
-    ['says which one is missing.', 300],
-].flatMap(([thinking, wait]) => [{ thinking: thinking as string }, { wait: wait as number }]);
 
 /** The steps the one-sub-agent path announces: the model's own, and its sub-agent's. */
 export const STEPS = {

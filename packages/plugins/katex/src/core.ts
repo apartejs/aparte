@@ -88,9 +88,11 @@ function createKatexRenderer(
     /**
      * The reply part a formula belongs to, which outlives a rebuilt block: its segment, or
      * the bubble's content when the reply has no segments — not the paragraph, which the
-     * Markdown provider writes anew on every token.
+     * Markdown provider writes anew on every token. The NEAREST segment: a sub-agent's text is
+     * drawn under the line of the call that opened it, segments inside a segment of the reply,
+     * and keyed on the reply's segment every formula of the conversation waited on one pace.
      */
-    const partOf = (host: HTMLElement): Element => host.closest('.aparte-segments > [data-segment-id], .aparte-content') ?? host.parentElement ?? host;
+    const partOf = (host: HTMLElement): Element => host.closest('[data-segment-id], .aparte-content') ?? host.parentElement ?? host;
 
     const ensure = (): KatexLike | Promise<KatexLike> => {
         if (katex) return katex;

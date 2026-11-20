@@ -4,6 +4,40 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 1.15.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [0ff08c9](https://github.com/apartejs/aparte/commit/0ff08c9): Reasoning that arrives after its block was closed now opens a new block, instead of growing a block that already reads "Thought for 3s".
+
+  Nothing to change in your code. A reasoning block closes when the answer starts or a tool is called, and only a `turn-start` let the next reasoning open a block of its own. Later reasoning in the same turn was appended to the closed block, folded, above the calls made since, and the block kept its finished label while it grew. It happened to a server loop that sent one `turn-start` per run instead of one per model call (apartejs/aparte#272), and as well to a model that reasons again after it starts answering within one call (the engine, `ai-sdk` and AG-UI all pass that through), in the reply and in a sub-agent's transcript.
+
+  The server-loop guide now says what a server writing its own wire must send: a `turn-start` before each model call, a sub-agent's with its `agentId`.
+  <sub>`@aparte/core`</sub>
+
+- [350930e](https://github.com/apartejs/aparte/commit/350930e): A call in a sub-agent's conversation under its line now shows its own state: a failed or refused call no longer reads in the success colour, and a reply being written has one caret instead of one per paragraph of the transcript.
+
+  Nothing to change in your code. Five rules of the tool row (the success ink of a call that is done, the quiet line's target face and chevron place, a queued call's muted name, a running quiet call's state word under reduced motion) were keyed on the row's state with a descendant combinator, so they reached every row drawn under it: with `setupSubagents({ details: 'transcript' })` a failed call in the transcript of a line that was done read "Failed" in green (apartejs/aparte#271), and a quiet line made the calls under it quiet. They now name the row's own line; their specificity is unchanged. The streaming caret (`setStreamingCaret`) had the same reach and blinked after the last paragraph of every text in a transcript; it now stays at the reply's own words.
+
+  A browser test now draws every state of a line with a call of every state under it, and compares each call with the same call on its own.
+  <sub>`@aparte/core`</sub>
+
+- [4879492](https://github.com/apartejs/aparte/commit/4879492): Under React, Vue, Svelte and Angular, a scrolled conversation no longer moves up and down by a pixel while a reply streams reasoning.
+
+  Nothing to change in your code. The space kept under a reply (so the question stays at the top) was written as a fraction and, under a wrapper, read back as that fraction against a `scrollHeight` the browser gives in whole pixels. It never settled: on every streamed delta that grew nothing on screen, a closed reasoning block in the reply or in a sub-agent's transcript, it went 65.6, 66.1, 65.6 px, and the thread, held at the end of its scroll, moved a pixel each way for as long as the reply streamed (apartejs/aparte#270). The space is now whole pixels, so measuring it again with nothing changed gives the same value, in both modes; raw core also loses a one-pixel jump on the second measure.
+
+  A browser test now reads every frame of a reasoning reply streaming into an already scrolled thread, on every example, at half a pixel.
+  <sub>`@aparte/core`</sub>
+
+- [11895b0](https://github.com/apartejs/aparte/commit/11895b0): Formulas in a sub-agent's conversation under its line are drawn at their own pace again, instead of waiting on each other.
+
+  Nothing to change in your code. A formula still arriving is drawn at most once a frame per reply part, and the part was found as a segment of the reply. A sub-agent's text is drawn inside a segment of the reply (the line of the call that opened it), so every formula of its conversation, and of sub-agents writing at once, shared one pace: each answered null while another's turn came. The part is now the nearest segment.
+  <sub>`@aparte/plugin-katex`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/runner-ag-ui`, `@aparte/runner-n8n`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-cards`, `@aparte/plugin-chartjs`, `@aparte/plugin-compaction`, `@aparte/plugin-diff`, `@aparte/plugin-echarts`, `@aparte/plugin-marked`, `@aparte/plugin-mermaid`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-storage-idb`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-subagents`, `@aparte/plugin-titler`, `@aparte/plugin-triggers`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locales`, `@aparte/docs-mcp`.</sub>
+
 ## 1.15.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

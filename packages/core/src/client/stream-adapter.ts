@@ -379,6 +379,17 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'thinking-delta': {
+                // Reasoning after its block was settled (the answer started, or a tool was
+                // called) is a block of its own, after what came since. Only `turn-start` used
+                // to clear the block, so later reasoning in the same turn grew a block that read
+                // "Thought for 3s", folded, above the calls made since: a server loop sending one
+                // `turn-start` per run (apartejs/aparte#272), or a model that reasons again after
+                // it starts answering, within one call.
+                if (thinkingId && thinkingCollapsed) {
+                    thinkingId = null;
+                    thinkingContent = '';
+                    thinkingCollapsed = false;
+                }
                 thinkingContent += e.delta;
                 if (!thinkingId) {
                     // No `collapsed` of its own: a field the producer sets beats the app's

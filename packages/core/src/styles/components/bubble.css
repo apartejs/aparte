@@ -491,8 +491,10 @@ aparte-chat-bubble:not([data-kind]):not(:has(~ aparte-chat-bubble:not([data-kind
 }
 
 /* `setStreamingCaret`: at the end of the last paragraph or list item, the only places a line of
-   words is being written. Not after code, a table or a heading. */
-.aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+   words is being written. Not after code, a table or a heading. And never under a tool row: a
+   sub-agent's conversation drawn under its line holds text segments of its own, and each last
+   one blinked as if the reply were being written there (`e2e/tests/nested-rows.spec.ts`). */
+.aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child):not(.aparte-segment-tool-call *)::after {
   content: '';
   display: inline-block;
   width: 0.45em;
@@ -508,7 +510,7 @@ aparte-chat-bubble:not([data-kind]):not(:has(~ aparte-chat-bubble:not([data-kind
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child)::after {
+  .aparte-message[data-caret] :is(.aparte-segment-text:last-child > .aparte-segment-content, .aparte-message-content) > :is(p:last-child, :is(ul, ol):last-child > li:last-child):not(.aparte-segment-tool-call *)::after {
     animation: none;
   }
 }

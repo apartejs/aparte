@@ -62,6 +62,7 @@ import { DELEGATE, delegateLabel, MISSING_FILE, mountSubagentPane, REFUSAL, rout
 import { ACTIVITY_SCENARIOS, setupActivity } from './activity';
 import { DIFF_SCENARIOS, setupDiffReview } from './diff-review';
 import { LINK_SCENARIOS } from './links';
+import { REASONING_SCENARIOS } from './slow-reasoning';
 
 /**
  * The four tools the "ship it" chain calls, and what they answer. An app's own names, an
@@ -195,6 +196,9 @@ async function run(): Promise<SiteSetup> {
                 ...DIFF_SCENARIOS,
                 // A reply holding a same-site link, another site's and an in-page one (links.ts).
                 ...LINK_SCENARIOS,
+                // Reasoning at a small local model's pace (slow-reasoning.ts), before the
+                // showcase's `slow`, which listens for "slow".
+                ...REASONING_SCENARIOS,
                 // The reply once a person hands the conversation back (handoff.ts).
                 ...HANDOFF_SCENARIOS,
                 ...showcase,
