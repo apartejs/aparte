@@ -293,3 +293,84 @@ describe('a tap on a row while the app updates the list', () => {
         expect(picked).toEqual(['c2']);
     });
 });
+
+describe('a list that stands for a group of its own (dropKey), and a row from another list', () => {
+    // An app showing one flat list per project, each under a heading of its own, moved rows with
+    // the menu but not by drag: a flat list had no key, so a drop on it meant "out of any group",
+    // and a row dragged from one list onto another landed nowhere (the drag was the first list's
+    // own business). The drag's type was a comment, not a contract a host could rely on.
+    type KeyedList = ListEl & { dropKey: string | null };
+    const keyed = (key: string, items: AparteConversationListItem[], targets: AparteConversationGroup[] = []): KeyedList => {
+        const el = mount(items, targets) as KeyedList;
+        el.dropKey = key;
+        return el;
+    };
+    const A = { key: 'p-a', label: 'A' };
+    const B = { key: 'p-b', label: 'B' };
+
+    it('names the drag type it carries, the conversation id as its data', async () => {
+        const { APARTE_CONVERSATION_DRAG_TYPE } = await import('../aparte-conversation-list.js');
+        expect(APARTE_CONVERSATION_DRAG_TYPE).toBe('application/x-aparte-conversation');
+    });
+
+    it('its rows are in its group: dropped back on it, nothing moves; Move to… does not list it', () => {
+        const el = keyed('p-a', [{ id: 'a1', title: 'One' }, { id: 'a2', title: 'Two' }], [A, B]);
+        const seen = moves(el);
+        drag(rowOf(el, 'a1'), 'dragstart');
+        expect(drag(rowOf(el, 'a2'), 'dragover').defaultPrevented).toBe(false);
+        drag(rowOf(el, 'a2'), 'drop');
+        expect(seen).toEqual([]);
+        drag(rowOf(el, 'a1'), 'dragend');
+        openMenu(el, 'a1').querySelector<HTMLElement>('[data-menu-action="move"]')!.click();
+        expect([...el.querySelectorAll<HTMLElement>('[data-move-to]')].map((b) => b.dataset['moveTo'])).toEqual(['p-b']);
+    });
+
+    it('takes a row dragged from another list, and says the move from its key to its own', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(rowOf(b, 'b1'), 'dragenter').defaultPrevented).toBe(true);
+        expect(drag(rowOf(b, 'b1'), 'dragover').defaultPrevented).toBe(true);
+        expect(b.querySelector('.aparte-conv-group--drop')).not.toBeNull();
+        drag(rowOf(b, 'b1'), 'drop');
+        expect(seen).toEqual([{ id: 'a1', from: 'p-a', to: 'p-b' }]);
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+    });
+
+    it('an empty list takes it too', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', []);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(b, 'dragover').defaultPrevented).toBe(true);
+        drag(b, 'drop');
+        expect(seen).toEqual([{ id: 'a1', from: 'p-a', to: 'p-b' }]);
+    });
+
+    it('takes a drag of the host\'s own that carries the type, the id read at the drop', () => {
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        const hostDrag = (type: string): Event => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'dataTransfer', {
+                value: { types: ['application/x-aparte-conversation'], dropEffect: 'none', getData: (t: string) => (t === 'application/x-aparte-conversation' ? 'h1' : '') },
+            });
+            rowOf(b, 'b1').dispatchEvent(event);
+            return event;
+        };
+        expect(hostDrag('dragover').defaultPrevented).toBe(true);
+        hostDrag('drop');
+        expect(seen).toEqual([{ id: 'h1', from: null, to: 'p-b' }]);
+    });
+
+    it('a list with no key of its own still refuses a row from another list, as before', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const plain = mount([{ id: 'c1', title: 'Plain' }], [A]);
+        const seen = moves(plain);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(rowOf(plain, 'c1'), 'dragover').defaultPrevented).toBe(false);
+        drag(rowOf(plain, 'c1'), 'drop');
+        expect(seen).toEqual([]);
+    });
+});

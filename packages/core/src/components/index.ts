@@ -10,7 +10,7 @@ export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposer
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteQueuedMessage, AparteTypeToFocus, AparteActionClickEventDetail } from './composer/index.js';
 
 // Conversation list primitive
-export { AparteConversationList } from './conversation-list/index.js';
+export { AparteConversationList, APARTE_CONVERSATION_DRAG_TYPE } from './conversation-list/index.js';
 export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail, AparteConversationGroup, AparteConversationMoveDetail } from './conversation-list/index.js';
 
 // Prompt starters

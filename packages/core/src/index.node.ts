@@ -199,6 +199,8 @@ export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProg
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteQueuedMessage, AparteTypeToFocus, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail, AparteConversationGroup, AparteConversationMoveDetail } from './components/index.js';
+// The drag type of a conversation row: a constant, DOM-free, for a server-rendered drop target too.
+export { APARTE_CONVERSATION_DRAG_TYPE } from './components/conversation-list/drag-type.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 // From its own file, not the components barrel: it registers a code language on a config and
 // touches no DOM at import, so a server can set it up beside the rest of its config.

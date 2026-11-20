@@ -15,6 +15,7 @@ import {
     type AparteConversationStatus,
 } from '../../conversations/conversation-status.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
+import { APARTE_CONVERSATION_DRAG_TYPE } from './drag-type.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -53,6 +54,11 @@ export interface AparteConversationMoveDetail {
     /** The key of the group it goes to (one of `moveTargets`), or `null` to take it out of its group. */
     to: string | null;
 }
+
+export { APARTE_CONVERSATION_DRAG_TYPE };
+
+/** The row a list of the page is dragging now, seen by the others: one with a `dropKey` takes it. */
+let pageDrag: { list: Element; id: string; from: string | null } | null = null;
 
 /** What `renderMeta` is: an element, text, or `null` for a row with nothing to say. */
 export type AparteConversationMetaRenderer = (item: AparteConversationListItem) => HTMLElement | string | null;
@@ -178,6 +184,7 @@ const VIEWPORT_MARGIN = 8;
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
  * @attr {boolean} flat - Render the rows flat, in host order, with no date headings.
+ * @attr {string} drop-key - The key of the group this whole list stands for (a project the app draws a heading of its own for). Its rows with no `group` are in it, a row dropped on it moves `to` it, from this list's other groups or from another list of the page, and dropped back on it, nothing moves. Unset, the default, a drop on rows of no group takes a row out of its group.
  * @attr {boolean} data-no-match - Reflected BY the element while `filter()` holds a query no title matches. Read-only.
  * @attr {boolean} loading - The list is on its way: six skeleton rows stand where the rows will be, the
  *                    element is `aria-busy` and a visually hidden line names the wait. A list that is
@@ -276,7 +283,7 @@ export class AparteConversationList extends HTMLElement {
     private _warnedNoManager = false;
 
     static get observedAttributes(): string[] {
-        return ['active-id', 'flat', 'loading', 'manage'];
+        return ['active-id', 'flat', 'loading', 'manage', 'drop-key'];
     }
 
     /**
@@ -350,6 +357,8 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('drop', this._onDrop);
         this.removeEventListener('dragend', this._onDragEnd);
         this._dragging = null;
+        // A list taken off the page mid-drag gets no `dragend`: its row is no longer the page's drag.
+        if (pageDrag?.list === this) pageDrag = null;
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
         this._pressed = false;
@@ -365,6 +374,9 @@ export class AparteConversationList extends HTMLElement {
             this._updateActiveState();
         } else if ((name === 'flat' || name === 'loading') && this.isConnected) {
             this._render();
+        } else if (name === 'drop-key' && this.isConnected) {
+            // The rows' own group changes with it: what Move to… lists.
+            this._renderUnlessHeld();
         }
     }
 
@@ -515,6 +527,17 @@ export class AparteConversationList extends HTMLElement {
     get moveTargets(): AparteConversationGroup[] {
         return this._moveTargets;
     }
+
+    /** The key of the group this whole list stands for, or `null`: the `drop-key` attribute. */
+    get dropKey(): string | null {
+        return this.getAttribute('drop-key') || null;
+    }
+
+    set dropKey(key: string | null) {
+        if (key) this.setAttribute('drop-key', key);
+        else this.removeAttribute('drop-key');
+    }
+
 
     /** The targets that are groups: a `{ key, label }` of strings, anything else skipped. */
     private _targets(): AparteConversationGroup[] {
@@ -911,7 +934,7 @@ export class AparteConversationList extends HTMLElement {
         if (targets.length > 0) {
             const folderGlyph = config.getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
             const closeGlyph = config.getIcon('close');  // safe-text: the icon provider's SVG — markup by contract.
-            if (targets.some((t) => t.key !== conv.group?.key)) {
+            if (targets.some((t) => t.key !== this._groupOf(conv))) {
                 const move = escapeHtml(this._t('moveConversation'));
                 moving += `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move" aria-haspopup="menu">${folderGlyph}<span>${move}</span></button>`;
             }
@@ -933,7 +956,7 @@ ${moving}
     private _moveMarkup(conv: AparteConversationListItem): string {
         const folderGlyph = resolveConfig(this).getIcon('folder');  // safe-text: the icon provider's SVG — markup by contract.
         return this._targets()
-            .filter((t) => t.key !== conv.group?.key)
+            .filter((t) => t.key !== this._groupOf(conv))
             .map((t) => `<button type="button" class="aparte-menu__item" role="menuitem" data-menu-action="move-to" data-move-to="${escapeAttr(t.key)}">${folderGlyph}<span>${escapeHtml(t.label)}</span></button>`)
             .join('');
     }
@@ -944,12 +967,18 @@ ${moving}
      * said for a move to where it already is.
      */
     private _move(conv: AparteConversationListItem, to: string | null): void {
-        const from = conv.group?.key ?? null;
+        const from = this._groupOf(conv);
         if (from === to) return;
-        this.dispatchEvent(new CustomEvent<AparteConversationMoveDetail>(
-            'aparte-conversation-move',
-            { detail: { id: conv.id, from, to }, bubbles: true, composed: true }
-        ));
+        this._dispatchMove({ id: conv.id, from, to });
+    }
+
+    private _dispatchMove(detail: AparteConversationMoveDetail): void {
+        this.dispatchEvent(new CustomEvent<AparteConversationMoveDetail>('aparte-conversation-move', { detail, bubbles: true, composed: true }));
+    }
+
+    /** The group a row is in: its own `group`, else the list's key (`dropKey`), else none. */
+    private _groupOf(conv: AparteConversationListItem): string | null {
+        return conv.group?.key ?? this.dropKey ?? null;
     }
 
     /** The question the confirm step asks — the popover's accessible name while it asks it. */
@@ -1323,14 +1352,37 @@ ${moving}
      * of any group (a date group, or the list's undated rows), `undefined` for nowhere — the
      * group it is already in, a group that is not a target, or outside the list's groups.
      */
-    private _dropTo(target: EventTarget | null): string | null | undefined {
-        if (!this._dragging || !(target instanceof Element)) return undefined;
-        const group = target.closest<HTMLElement>('.aparte-conv-group');
-        if (!group || !this.contains(group)) return undefined;
-        const to = group.dataset['groupKey'] ?? null;
-        if (to === this._dragging.from) return undefined;
-        if (to !== null && !this._targets().some((t) => t.key === to)) return undefined;
+    private _dropTo(target: EventTarget | null, e?: DragEvent): string | null | undefined {
+        const drag = this._dragging ?? this._incoming(e);
+        if (!drag || !(target instanceof Element)) return undefined;
+        const group = this._groupAt(target);
+        if (!group) return undefined;
+        // A group of no key of its own (a date group, the flat list) is the list's key, if it has one.
+        const to = (group !== this ? group.dataset['groupKey'] : undefined) ?? this.dropKey ?? null;
+        if (to === drag.from) return undefined;
+        if (to !== null && to !== this.dropKey && !this._targets().some((t) => t.key === to)) return undefined;
         return to;
+    }
+
+    /** The group of this list under `target`; the list itself for a list with a key of its own and no row there (an empty one). */
+    private _groupAt(target: Element): HTMLElement | null {
+        const group = target.closest<HTMLElement>('.aparte-conv-group');
+        if (group && this.contains(group)) return group;
+        return this.dropKey !== null && this.contains(target) ? this : null;
+    }
+
+    /**
+     * A drag that did not start in this list: a row of another list of the page, or an element of
+     * the app's own that carries {@link APARTE_CONVERSATION_DRAG_TYPE}. Taken only by a list with a
+     * key of its own (`dropKey`), which is what a drop on it means; `id` is empty until the drop
+     * reads it, for a drag of the app's own.
+     */
+    private _incoming(e?: DragEvent): { id: string; from: string | null } | null {
+        if (this.dropKey === null) return null;
+        if (pageDrag && pageDrag.list !== this) return { id: pageDrag.id, from: pageDrag.from };
+        const types = e?.dataTransfer?.types;
+        if (types && Array.from(types).includes(APARTE_CONVERSATION_DRAG_TYPE)) return { id: '', from: null };
+        return null;
     }
 
     /** The group a drop would land in, marked; every other one unmarked. */
@@ -1359,12 +1411,15 @@ ${moving}
         if (!row || !this.contains(row)) return;
         const conv = this._conversations.find((c) => c.id === row.dataset['convId']);
         if (!conv) return;
-        this._dragging = { id: conv.id, from: conv.group?.key ?? null };
+        this._dragging = { id: conv.id, from: this._groupOf(conv) };
+        // Seen by the other lists of the page, which take it when they have a key of their own.
+        pageDrag = { list: this, ...this._dragging };
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
-            // A drag carries data or some browsers start none: the id, under a type of the
-            // list's own, so the row dropped into a text field writes nothing there.
-            e.dataTransfer.setData('application/x-aparte-conversation', conv.id);
+            // A drag carries data or some browsers start none: the id, under the list's own type
+            // (public: an app's own drop target reads it), so the row dropped into a text field
+            // writes nothing there.
+            e.dataTransfer.setData(APARTE_CONVERSATION_DRAG_TYPE, conv.id);
         }
         row.classList.add('aparte-conv-item--dragging');
     }
@@ -1376,11 +1431,11 @@ ${moving}
      * stayed where it was (Safari). Chromium drops on `dragover` alone.
      */
     private _onDragEnter = (e: DragEvent): void => {
-        if (this._dropTo(e.target) !== undefined) e.preventDefault();
+        if (this._dropTo(e.target, e) !== undefined) e.preventDefault();
     };
 
     private _onDragOver = (e: DragEvent): void => {
-        const to = this._dropTo(e.target);
+        const to = this._dropTo(e.target, e);
         if (to === undefined) {
             this._markDrop(null);
             return;
@@ -1388,7 +1443,7 @@ ${moving}
         // Allowed here: without this, the browser refuses the drop.
         e.preventDefault();
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        this._markDrop((e.target as Element).closest('.aparte-conv-group'));
+        this._markDrop(this._groupAt(e.target as Element));
     };
 
     /** Off the list altogether: nothing is where it would land any more. */
@@ -1398,10 +1453,19 @@ ${moving}
     };
 
     private _onDrop = (e: DragEvent): void => {
-        const to = this._dropTo(e.target);
+        const to = this._dropTo(e.target, e);
         const dragging = this._dragging;
-        if (to === undefined || !dragging) return;
+        if (to === undefined) return;
         e.preventDefault();
+        if (!dragging) {
+            // From another list, or the app's own: said here, where it lands. The list it came
+            // from ends its drag on its own `dragend`.
+            const incoming = this._incoming(e);
+            const id = incoming?.id || e.dataTransfer?.getData(APARTE_CONVERSATION_DRAG_TYPE) || '';
+            this._markDrop(null);
+            if (incoming && id) this._dispatchMove({ id, from: incoming.from, to });
+            return;
+        }
         const conv = this._conversations.find((c) => c.id === dragging.id);
         // Over before the event: an app that assigns `conversations` in its listener is drawn
         // at once, not held for a drag that has ended.
@@ -1417,6 +1481,7 @@ ${moving}
     private _endDrag(): void {
         if (!this._dragging) return;
         this._dragging = null;
+        if (pageDrag?.list === this) pageDrag = null;
         this._markDrop(null);
         this.querySelector('.aparte-conv-item--dragging')?.classList.remove('aparte-conv-item--dragging');
         this._renderHeld();
