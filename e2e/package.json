@@ -13,6 +13,9 @@
         "typecheck": "tsc --noEmit",
         "install-browser": "playwright install chromium webkit firefox"
     },
+    "nx": {
+        "includedScripts": ["test:ssr", "test:ui", "test:headed", "report", "typecheck", "install-browser"]
+    },
     "devDependencies": {
         "@axe-core/playwright": "^4.13.0",
         "@playwright/test": "^1.49.0",

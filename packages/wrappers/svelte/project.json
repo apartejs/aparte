@@ -21,13 +21,14 @@
             }
         },
         "test": {
-            "executor": "@nx/vite:test",
-            "outputs": [
-                "{options.reportsDirectory}"
-            ],
+            "executor": "nx:run-commands",
             "options": {
-                "reportsDirectory": "../../../coverage/packages/wrappers/svelte",
-                "cwd": "packages/wrappers/svelte"
+                "commands": [
+                    "vitest run",
+                    { "command": "vitest run --config vitest.server.config.ts", "forwardAllArgs": false }
+                ],
+                "parallel": false,
+                "cwd": "{projectRoot}"
             }
         },
         "typecheck": {

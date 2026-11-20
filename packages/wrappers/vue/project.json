@@ -29,13 +29,14 @@
             "outputs": []
         },
         "test": {
-            "executor": "@nx/vite:test",
-            "outputs": [
-                "{options.reportsDirectory}"
-            ],
+            "executor": "nx:run-commands",
             "options": {
-                "reportsDirectory": "../../../coverage/packages/wrappers/vue",
-                "cwd": "packages/wrappers/vue"
+                "commands": [
+                    "vitest run",
+                    { "command": "vitest run --config vitest.server.config.ts", "forwardAllArgs": false }
+                ],
+                "parallel": false,
+                "cwd": "{projectRoot}"
             }
         }
     }

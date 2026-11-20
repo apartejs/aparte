@@ -10,11 +10,10 @@
             "options": { "script": "build" }
         },
         "test": {
-            "executor": "@nx/vite:test",
-            "outputs": ["{options.reportsDirectory}"],
+            "executor": "nx:run-commands",
             "options": {
-                "reportsDirectory": "../../../coverage/packages/plugins/compaction",
-                "cwd": "packages/plugins/compaction"
+                "command": "vitest run",
+                "cwd": "{projectRoot}"
             }
         },
         "typecheck": {

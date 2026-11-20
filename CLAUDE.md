@@ -274,8 +274,8 @@ pnpm test                    # vitest run (root)
 pnpm e2e                     # browser smoke E2E (Playwright; run `pnpm e2e:install` once first)
 
 nx build @aparte/core
-nx test  @aparte/core
-nx affected:test             # when touching shared packages
+nx test  @aparte/core        # `vitest run` in the package (a wrapper's server config too); one file: -- src/…
+nx affected:test             # when touching shared packages (the e2e is `pnpm e2e`, not an nx target)
 nx affected:build
 
 pnpm run docs                # apps/docs (Starlight dev) — `run` required: bare `pnpm docs` hits npm's builtin `docs` command (opens the browser), which shadows the script
