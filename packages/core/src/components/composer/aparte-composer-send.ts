@@ -86,6 +86,14 @@ export class AparteComposerSend extends HTMLElement {
 
     // Bound handler
     private _onClick = this._handleClick.bind(this);
+    /**
+     * What the button showed when it was pressed: a click does that, not what the button became
+     * meanwhile. A reply ending between the press and the release turned Stop back into Send, and
+     * the click sent the draft the person had written for later. `null` for a click no press
+     * began (the keyboard, a script), which does what the button shows.
+     */
+    private _pressedAct: string | null = null;
+    private _onPress = (): void => { this._pressedAct = this._button?.getAttribute('data-act') ?? null; };
 
     connectedCallback(): void {
         this._render();
@@ -93,11 +101,13 @@ export class AparteComposerSend extends HTMLElement {
         // _render keeps the existing DOM (see aparte-composer-input for the full rule).
         this._button = this.querySelector('.aparte-cs-button');
         this._button?.addEventListener('click', this._onClick);
+        this._button?.addEventListener('pointerdown', this._onPress);
         this._connectToRoot();
     }
 
     disconnectedCallback(): void {
         this._button?.removeEventListener('click', this._onClick);
+        this._button?.removeEventListener('pointerdown', this._onPress);
         this._unsubscribes.forEach(fn => fn());
         this._unsubscribes = [];
     }
@@ -213,6 +223,11 @@ export class AparteComposerSend extends HTMLElement {
 
     private _handleClick(e: MouseEvent): void {
         e.preventDefault();
+        const pressed = this._pressedAct;
+        this._pressedAct = null;
+        // Pressed as Stop, released once the reply had ended: there is nothing left to stop, and
+        // the person did not ask to send.
+        if (pressed === 'stop' && this._button?.getAttribute('data-act') !== 'stop') return;
         this._getRoot()?.submit();
     }
 
