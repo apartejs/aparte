@@ -210,3 +210,26 @@ test('the context gauge\'s panel stays on screen near the left edge of a right-t
     await expect(panel).toBeVisible();
     expect((await panel.boundingBox())!.x).toBeGreaterThanOrEqual(0);
 });
+
+test('a tool row\'s detail and a reasoning block put their indent beside their rule, on the right', async ({ page }) => {
+    // Their rule is `border-inline-start`, the RIGHT edge in a right-to-left chat, but the
+    // indent came from physical shorthands that set the LEFT padding: the Input/Output panels
+    // and the reasoning text sat flush against the rule, with an empty strip on the other side.
+    await rightToLeft(page);
+    await page.goto('/');
+    await expect(page.locator('aparte-chat-viewport')).toBeVisible();
+    const sides = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.setAttribute('dir', 'rtl');
+        host.innerHTML = '<div class="aparte-tool-detail">x</div><div class="aparte-thinking-header">x</div><div class="aparte-thinking-content">x</div>';
+        document.body.appendChild(host);
+        const read = (sel: string) => {
+            const style = getComputedStyle(host.querySelector(sel)!);
+            return { right: parseFloat(style.paddingRight), left: parseFloat(style.paddingLeft) };
+        };
+        return { detail: read('.aparte-tool-detail'), header: read('.aparte-thinking-header'), content: read('.aparte-thinking-content') };
+    });
+    for (const [part, { right, left }] of Object.entries(sides)) {
+        expect(right, `${part}: the indent is on the side of the rule`).toBeGreaterThan(left);
+    }
+});

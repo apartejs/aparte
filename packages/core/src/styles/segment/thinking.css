@@ -79,7 +79,9 @@
      end, which is what an accordion is, but this is a one-line disclosure, and "Reasoning"
      and its chevron were 692px apart at 1280 (T18). */
   justify-content: flex-start;
-  padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-5);
+  /* Logical: the rail is `border-inline-start`, the right edge in a right-to-left chat. */
+  padding-block: var(--aparte-space-1);
+  padding-inline: var(--aparte-space-5) 0;
   font-size: var(--aparte-font-size-sm);
   color: var(--aparte-thinking-text);
 }

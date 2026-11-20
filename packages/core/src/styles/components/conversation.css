@@ -240,7 +240,8 @@
 .aparte-conv-item__input {
   flex: 1;
   min-width: 0;
-  margin: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-1);
+  margin-block: var(--aparte-space-1);
+  margin-inline: var(--aparte-space-1) 0;
 }
 
 /* The row's menu: the menu recipe draws it, the element places it (`position: fixed`,
