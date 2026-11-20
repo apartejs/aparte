@@ -120,6 +120,12 @@ export function adoptSegment(
     messageId: string,
     /** The message arrives in flight (`streaming`/`pending`): its running calls are live. */
     live = false,
+    /**
+     * The message is paused on a sub-agent's call (`deferredCalls`): no gate of the page is open,
+     * so a call WAITING is waiting on that pause — the call that opened the sub-agent, which a
+     * plugin marks while the sub-agent's question is up — and a resume hands it back open.
+     */
+    paused = false,
 ): AparteSegment {
     const { queued: _live, ...rest } = segment as AparteSegment & { queued?: true };
     return {
@@ -128,7 +134,7 @@ export function adoptSegment(
         index: segments.length,
         isStreaming: false,
         ...(segment.type === 'tool_call'
-            && (segment.status === 'awaiting-approval' || (segment.status === 'pending' && !live))
+            && ((segment.status === 'awaiting-approval' && !paused) || (segment.status === 'pending' && !live))
             && !segment.deferred?.ticket
             ? { status: 'aborted' as const }
             : {}),
@@ -407,11 +413,12 @@ export function adoptMessageSegments<T extends { id: string; segments?: AparteSe
     // calls; a finished one — every saved reply, which the save normalises — does not.
     // Nor does one paused on a sub-agent's call (`deferredCalls`): the call that opened the
     // sub-agent waits on the same pause, and a resume hands it back open.
-    const live = message.status === 'streaming' || message.status === 'pending' || (message.deferredCalls?.length ?? 0) > 0;
+    const paused = (message.deferredCalls?.length ?? 0) > 0;
+    const live = message.status === 'streaming' || message.status === 'pending' || paused;
     return {
         ...message,
         segments: message.segments.reduce<AparteSegment[]>((acc, segment) => {
-            acc.push(adoptSegment(acc, segment, message.id, live));
+            acc.push(adoptSegment(acc, segment, message.id, live, paused));
             return acc;
         }, []),
     };
