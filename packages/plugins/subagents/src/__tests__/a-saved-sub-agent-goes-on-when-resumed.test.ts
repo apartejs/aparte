@@ -46,7 +46,7 @@ function pausedReply(): AparteMessage {
     c.host.remove();
     stop();
     return {
-        id: 'a1', role: 'assistant', status: 'completed', content: '',
+        id: 'a1', role: 'assistant', status: 'completed', content: '', timestamp: 1,
         deferredCalls: [{ toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, reason: 'approval', agentId: 'sub1' }],
         segments: saved!,
     } as AparteMessage;
