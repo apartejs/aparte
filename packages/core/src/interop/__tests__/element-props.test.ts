@@ -211,3 +211,31 @@ describe('applyElementProps — a value written before is not written again', ()
         expect(b.getAttribute('mode')).toBe('ask');
     });
 });
+
+describe('a property given before the element is defined', () => {
+    // A tag mounted before its definition upgrades once the definition arrives, which is what
+    // makes lazy-loading a plugin work, and what <AparteUi>'s docs promise. A property assigned
+    // before then became the element's OWN property, which shadows the setter the definition
+    // brings, for good: the element never saw `diff`, `comments`, `chat` or `conversations`.
+    it('reaches the setter once the element is defined', async () => {
+        const tag = 'aparte-props-lazy-test';
+        const el = document.createElement(tag);
+        document.body.appendChild(el);
+        const value = { lines: 3 };
+        applyElementProps(el, { data: value });
+
+        const seen: unknown[] = [];
+        customElements.define(tag, class extends HTMLElement {
+            private _data: unknown = null;
+            get data(): unknown { return this._data; }
+            set data(next: unknown) { this._data = next; seen.push(next); }
+        });
+        await customElements.whenDefined(tag);
+        await Promise.resolve();
+
+        expect(seen).toEqual([value]);
+        expect(Object.prototype.hasOwnProperty.call(el, 'data'), 'no own property shadowing the setter').toBe(false);
+        expect((el as HTMLElement & { data: unknown }).data).toBe(value);
+        el.remove();
+    });
+});

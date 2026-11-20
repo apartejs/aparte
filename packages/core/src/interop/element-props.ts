@@ -117,6 +117,41 @@ function writeOnce(el: HTMLElement, key: string, value: string | null, write: ()
     write();
 }
 
+/** Properties given to an element not defined yet, kept for its setters. */
+const pendingProps = new WeakMap<Element, Map<string, unknown>>();
+
+/**
+ * Assign a property, or keep it for the element's setter when it is not defined yet.
+ *
+ * A tag mounted before its definition upgrades once the definition arrives (a plugin loaded
+ * lazily, a server render). A property assigned before then becomes the element's OWN property,
+ * which shadows the setter the definition brings, for good: the element never saw it. Kept
+ * aside, it is handed to the setter once the element is defined.
+ */
+function assignProperty(el: Element, key: string, value: unknown): void {
+    const tag = el.localName;
+    const waiting = tag.includes('-') && typeof customElements !== 'undefined' && !customElements.get(tag);
+    if (!waiting) {
+        (el as unknown as Record<string, unknown>)[key] = value;
+        return;
+    }
+    let held = pendingProps.get(el);
+    if (!held) {
+        pendingProps.set(el, (held = new Map()));
+        void customElements.whenDefined(tag).then(() => {
+            const props = pendingProps.get(el);
+            pendingProps.delete(el);
+            if (!props) return;
+            customElements.upgrade?.(el);
+            for (const [k, v] of props) {
+                delete (el as unknown as Record<string, unknown>)[k];
+                (el as unknown as Record<string, unknown>)[k] = v;
+            }
+        });
+    }
+    held.set(key, value);
+}
+
 /**
  * Apply props to an aparté custom element. aparté elements are
  * **attribute-driven** (`observedAttributes`): assigning a property is either a
@@ -213,7 +248,7 @@ export function applyElementProps(
             // Always, even the same object or function: it may have been mutated in place (a Vue
             // `push` behind a deep watch, a Svelte 5 proxy, Svelte 4's `arr = arr`), and the element
             // keeps what the person was doing in it when given its own value again.
-            (el as unknown as Record<string, unknown>)[key] = transformValue(value);
+            assignProperty(el, key, transformValue(value));
         } else {
             writeOnce(el, key, String(value), () => el.setAttribute(key, String(value)));
         }
