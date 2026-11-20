@@ -156,7 +156,7 @@ export class AparteSelect extends HTMLElement {
     disconnectedCallback(): void {
         this.removeEventListener('click', this._boundHandleOptionClick);
         document.removeEventListener('click', this._boundHandleDocumentClick);
-        document.removeEventListener('keydown', this._boundHandleKeydown);
+        this.removeEventListener('keydown', this._boundHandleKeydown);
         this._observer?.disconnect();
     }
 
@@ -490,8 +490,12 @@ export class AparteSelect extends HTMLElement {
         // Close on outside click
         document.addEventListener('click', this._boundHandleDocumentClick);
 
-        // Keyboard navigation
-        document.addEventListener('keydown', this._boundHandleKeydown);
+        // Keyboard navigation: the keys typed IN the select. On the document, an open select took
+        // Enter, the arrows and Escape typed anywhere on the page (Enter in the composer sent the
+        // message and switched the model), and its Escape came after every listener on the way
+        // up: a launcher closed the chat on the Escape meant for the list.
+        this.removeEventListener('keydown', this._boundHandleKeydown);
+        this.addEventListener('keydown', this._boundHandleKeydown);
     }
 
     private _handleOptionClick(e: Event): void {
@@ -513,6 +517,13 @@ export class AparteSelect extends HTMLElement {
 
     private _handleKeydown(e: KeyboardEvent): void {
         if (!this._isOpen) return;
+        // A key that confirms a word being composed (IME) in the filter field is the field's.
+        if (e.isComposing || e.keyCode === 229) return;
+        // Tab leaves the select: the list goes with it, and the focus moves on as Tab says.
+        if (e.key === 'Tab') {
+            this._closeDropdown();
+            return;
+        }
 
         // Home/End move the caret when typing in the search box; only hijack
         // them for option navigation when focus is not in the search field.
