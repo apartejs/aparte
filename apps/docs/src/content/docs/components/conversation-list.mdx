@@ -12,6 +12,7 @@ catalog:
 import Variant from '../../../components/catalog/Variant.astro';
 import Usage from '../../../generated/api/elements/aparte-conversation-list.usage.mdx';
 import ListApi from '../../../generated/api/elements/aparte-conversation-list.api.mdx';
+import { Tabs, TabItem } from '../../../components/content/tabs';
 
 <Variant id="conversation-list" />
 
@@ -105,6 +106,9 @@ The list moves nothing. It sends `aparte-conversation-move` with the conversatio
 of the group it leaves (`from`) and the one it goes to (`to`, `null` for out of any group). You
 write it and assign `conversations` again:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```js
 const list = document.querySelector('aparte-conversation-list');
 list.moveTargets = [
@@ -119,11 +123,65 @@ list.addEventListener('aparte-conversation-move', (e) => {
 });
 ```
 
+</TabItem>
+<TabItem label="React">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```tsx
+<AparteConversationList
+  conversations={items}
+  moveTargets={projects}
+  onConversationMove={(detail) => setItems(store.setGroup(detail.id, detail.to))}
+/>
+```
+
+</TabItem>
+<TabItem label="Vue">
+
+{/* doc-check: skip excerpt — a fragment of your template */}
+```vue
+<aparte-conversation-list
+  :conversations="items"
+  :moveTargets="projects"
+  @aparte-conversation-move="(e) => (items = store.setGroup(e.detail.id, e.detail.to))"
+></aparte-conversation-list>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+{/* doc-check: skip excerpt — a fragment of your component */}
+```svelte
+<aparte-conversation-list
+  conversations={items}
+  moveTargets={projects}
+  on:aparte-conversation-move={(e) => (items = store.setGroup(e.detail.id, e.detail.to))}
+></aparte-conversation-list>
+```
+
+In Svelte 5's runes mode, `onaparte-conversation-move` in place of `on:aparte-conversation-move`.
+
+</TabItem>
+<TabItem label="Angular">
+
+{/* doc-check: skip excerpt — a fragment of your component's template */}
+```html
+<aparte-conversation-list
+  [conversations]="items()"
+  [moveTargets]="projects"
+  (conversationMove)="items.set(store.setGroup($event.id, $event.to))"
+></aparte-conversation-list>
+```
+
+The output emits the detail, with `AparteConversationListDirective` from `APARTE_ELEMENT_DIRECTIVES`.
+
+</TabItem>
+</Tabs>
+
 A target no conversation is in yet has no heading to drop on: **Move to…** reaches it. Without
 `moveTargets`, which is the default, the menu and the rows are what they were: nothing is draggable
 and no item is added. `manage` does not carry a move out, since a group is your data, not the
-conversation manager's. Under a wrapper, `moveTargets` is a prop and the event is
-`onConversationMove` (React), `@conversation-move` (Vue), and so on.
+conversation manager's.
 
 ### Marks of your own on a row
 
