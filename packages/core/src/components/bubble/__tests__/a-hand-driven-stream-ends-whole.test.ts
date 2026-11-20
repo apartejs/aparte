@@ -91,3 +91,21 @@ describe('a stream driven by hand', () => {
         expect(text(bubble)).toBe('Set at once.');
     });
 });
+
+describe('an edit of a reply that is not streaming', () => {
+    // An app corrects a finished reply in place (`updateSegment` with new content). The segment has
+    // no `isStreaming` flag, as every restored one, and the update path read a missing flag as
+    // streaming: the incremental parser wrote it, held back its tail, and nothing ended it, since
+    // the bubble never streamed. The last characters were lost and the last block stayed open.
+    it('is written whole', () => {
+        const { ended } = installHoldingBackProvider();
+        const bubble = document.createElement('aparte-chat-bubble');
+        bubble.setAttribute('message-id', 'm1');
+        bubble.setAttribute('data-role', 'assistant');
+        document.body.appendChild(bubble);
+        bubble.setSegments([{ id: 's1', type: 'text', content: 'Old.' }]);
+        bubble.updateSegment('s1', { content: 'That is the whole wiring.' });
+        expect(text(bubble)).toBe('That is the whole wiring.');
+        expect(ended).not.toContain('That is the whole wiring');
+    });
+});

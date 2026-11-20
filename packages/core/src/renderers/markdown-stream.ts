@@ -93,6 +93,20 @@ function hasOneShotMarkdownProvider(): boolean {
 }
 
 /**
+ * Whether a text or reasoning segment drawn in `el` is still being written. A flag the producer
+ * set wins. With none (a restored segment, an app editing a finished reply in place), the bubble
+ * says: one that streams is still writing it, one that does not is done with it. Read as
+ * "still writing", an edit of a finished reply went through the incremental parser, which held
+ * back its tail, and nothing ended it. Outside a bubble (a sub-agent's pane) the missing flag
+ * reads as it did: still writing.
+ */
+export function isStillWriting(el: Element, flag: boolean | undefined): boolean {
+    if (flag !== undefined) return flag;
+    const bubble = el.closest('aparte-chat-bubble');
+    return bubble ? bubble.hasAttribute('streaming') : true;
+}
+
+/**
  * Render `content` into `contentEl`, incrementally while streaming, then draw the code
  * languages a renderer is registered for — maths, a diagram — on every path out, so a
  * formula is drawn as soon as its provider has written it.
