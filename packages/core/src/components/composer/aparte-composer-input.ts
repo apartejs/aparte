@@ -123,8 +123,21 @@ export class AparteComposerInput extends HTMLElement {
         // miss a box not yet laid out: the placeholder wraps in a 0 px column and
         // `scrollHeight` reads ~300 px, which would stay the inline height until the
         // first keystroke.
+        // The height is set on the next frame, and for a change of WIDTH only: set inside the
+        // callback, on the element the observer watches, it ended each width change (a window
+        // resize, the launcher maximized, the drawer toggled) in the browser's "ResizeObserver
+        // loop completed with undelivered notifications", an error monitors log for every user.
+        // The height it writes comes back as a resize of the same width, which is nothing to do.
         if (this._editor && typeof ResizeObserver === "function") {
-            this._resizeObserver = new ResizeObserver(() => this._adjustHeight());
+            let width: number | null = null;
+            this._resizeObserver = new ResizeObserver((entries) => {
+                const next = entries[entries.length - 1]?.contentRect?.width ?? null;
+                if (next === null || next === width) return;
+                width = next;
+                requestAnimationFrame(() => {
+                    if (this.isConnected) this._adjustHeight();
+                });
+            });
             this._resizeObserver.observe(this._editor);
         }
         // The placeholder is the one string in this composer a sighted user can
