@@ -328,6 +328,11 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
 
     /** The lane's open segments, settled: its text streams no more, and at the run's end its open calls stop. */
     const settleLane = (lane: Lane, calls: boolean): void => {
+        // Its last words first: what its parser still holds (a delta ending on a backtick) is
+        // handed over, as at the end of a reply. A server that sends no `text-flush` before
+        // `agent-end` lost them from the transcript (apartejs/aparte#275); one that does
+        // leaves the parser empty, and this adds nothing.
+        lane.emit({ type: 'text-flush' } as AparteStreamRunEvent);
         for (const segment of lane.list.segments) {
             if (segment.type === 'tool_call') {
                 if (calls && isOpen((segment as AparteToolCallSegment).status)) {

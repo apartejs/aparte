@@ -360,6 +360,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'turn-start':
+                // The call before this one is over, so is its text: what the parser still holds
+                // (a delta ending on a backtick, the start of a tag) is handed over before the
+                // parser is replaced. aparté's runner sends `text-flush` first; a server loop of
+                // its own may not, and the words were lost (apartejs/aparte#275). After a
+                // `text-flush` the parser holds nothing, so this adds nothing twice.
+                flushText();
                 // A step that was reasoning only (an AG-UI run that finished on it) ends here.
                 settleThinking(false);
                 parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
@@ -565,11 +571,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
 
             case 'run-aborted':
+                // The run's end is its text's end, as at `turn-start` (#275): what was written
+                // before the stop stays, all of it.
+                flushText();
                 endSteps();
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
 
             case 'run-suspended': {
+                flushText();
                 endSteps();
                 // A server loop paused: each pending call records why it waits and the
                 // server's ticket (the wire adds `ticket` to this event), so the paused
@@ -598,6 +608,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             }
 
             case 'run-done':
+                flushText();
                 endSteps();
                 // Persisted with the message, so a reload shows a cut-off reply as cut off.
                 target.updateMessage?.(messageId, {

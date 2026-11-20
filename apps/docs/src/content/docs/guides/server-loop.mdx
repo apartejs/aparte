@@ -438,7 +438,10 @@ A server that writes these lines itself, with a loop of its own rather than
 each one after a tool round. A sub-agent's calls get theirs, with its `agentId`. The page reads one
 reply of the model between two `turn-start` lines: without the second one, the text after a tool
 round continues the previous call's, and its sources are numbered with that call's, so an `s1`
-can point at the first call's first source.
+can point at the first call's first source. Close each call's text with a `text-flush`, as
+aparté's own runner does: it hands over what the page still holds, a reply ending on inline code
+for one. Since 1.16 the page also does it itself at the next `turn-start` and at the run's end,
+so a server that leaves it out loses nothing there.
 
 ```json
 {"type":"run-start"}
@@ -447,6 +450,7 @@ can point at the first call's first source.
 {"type":"tool-start","toolCallId":"call_1","name":"get_weather","input":{"city":"Lille"}}
 {"type":"tool-resolved","toolCallId":"call_1","result":"11°C, overcast."}
 {"type":"turn-start"}
-{"type":"text-delta","delta":"It is 11°C and overcast in Lille."}
+{"type":"text-delta","delta":"It is 11°C and overcast in `Lille`."}
+{"type":"text-flush"}
 {"type":"run-done"}
 ```
