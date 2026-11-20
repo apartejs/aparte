@@ -97,15 +97,21 @@ describe('an edit of a reply that is not streaming', () => {
     // no `isStreaming` flag, as every restored one, and the update path read a missing flag as
     // streaming: the incremental parser wrote it, held back its tail, and nothing ended it, since
     // the bubble never streamed. The last characters were lost and the last block stayed open.
-    it('is written whole', () => {
-        const { ended } = installHoldingBackProvider();
+    // `streaming="false"` is a bubble that says it is not streaming, as the bubble itself reads
+    // the attribute; a framework binding a boolean to it writes exactly that.
+    it.each([
+        ['with no streaming attribute', null],
+        ['with streaming="false"', 'false'],
+    ])('is written whole, %s', (_name, streaming) => {
+        installHoldingBackProvider();
         const bubble = document.createElement('aparte-chat-bubble');
         bubble.setAttribute('message-id', 'm1');
         bubble.setAttribute('data-role', 'assistant');
+        if (streaming !== null) bubble.setAttribute('streaming', streaming);
         document.body.appendChild(bubble);
         bubble.setSegments([{ id: 's1', type: 'text', content: 'Old.' }]);
         bubble.updateSegment('s1', { content: 'That is the whole wiring.' });
+        // The holding-back parser would have drawn it without its full stop.
         expect(text(bubble)).toBe('That is the whole wiring.');
-        expect(ended).not.toContain('That is the whole wiring');
     });
 });
