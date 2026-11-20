@@ -417,9 +417,9 @@ describe('on the real manifest', () => {
         expect(list.component).toBe('AparteConversationList');
         expect(list.element).toBe('AparteConversationList');
         expect(list.attributes).toEqual(expect.arrayContaining(['active-id', 'flat', 'loading', 'manage', 'target']));
-        expect(list.properties.map((p) => p.name)).toEqual(['conversations', 'renderMeta']);
+        expect(list.properties.map((p) => p.name)).toEqual(['conversations', 'moveTargets', 'renderMeta']);
         expect(list.events.map((e) => e.prop)).toEqual([
-            'onConversationSelect', 'onConversationRename', 'onConversationPin', 'onConversationUnpin',
+            'onConversationMove', 'onConversationSelect', 'onConversationRename', 'onConversationPin', 'onConversationUnpin',
             'onConversationArchive', 'onConversationUnarchive', 'onConversationDelete',
         ]);
         expect(list.events.filter((e) => e.cancelable).map((e) => e.prop)).toEqual([

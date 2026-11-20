@@ -202,7 +202,7 @@ const VIEWPORT_MARGIN = 8;
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-archive - The archive item was chosen on a live conversation. Cancelable: `preventDefault()` takes the gesture back from `manage`.
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-unarchive - The same item on an already-archived one; same detail shape, opposite intent. Cancelable, like the rest.
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-conversation-delete - The delete was confirmed. Cancelable: `preventDefault()` takes the gesture back from `manage`.
- * @fires {CustomEvent<AparteConversationMoveDetail>} aparte-conversation-move - A conversation was moved to another group of `moveTargets` (`to`), or out of its group (`to: null`), by its menu or by a drop. The list moves nothing: assign `conversations` again with the new group. `manage` does not carry it out either, since a group is the app's, so there is nothing to take back and it is not cancelable.
+ * @fires {CustomEvent<AparteConversationMoveDetail>} aparte-conversation-move - A conversation was moved to another group of `moveTargets` (`to`), or out of its group (`to: null`), by its menu or by a drop. The list moves nothing: assign `conversations` again with the new group. `manage` does not carry it out either, since a group is the app's, so there is nothing for `preventDefault()` to take back.
  *
  * @cssprop [--aparte-conv-list-gap=var(--aparte-space-1)] - Vertical gap between rows, and between a group's heading and its rows.
  * @cssprop [--aparte-conv-item-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of a row's title button.
