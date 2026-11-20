@@ -22,6 +22,28 @@ async function open(page: Page): Promise<ConversationListPage> {
     return list;
 }
 
+/**
+ * The drag events the page saw, in order, with where each landed and what it carried: put in
+ * a failure's message, so a drop that does not land in one engine says which step it lost.
+ */
+async function recordDrag(page: Page): Promise<() => Promise<string>> {
+    await page.evaluate(() => {
+        const log: string[] = [];
+        (window as unknown as { __drag: string[] }).__drag = log;
+        for (const type of ['dragstart', 'dragenter', 'dragover', 'dragleave', 'drop', 'dragend']) {
+            document.addEventListener(type, (e) => {
+                const t = e.target as Element | null;
+                const where = t?.closest?.('[data-group-key]')?.getAttribute('data-group-key') ?? t?.tagName ?? '?';
+                const effect = (e as DragEvent).dataTransfer?.dropEffect ?? '-';
+                const entry = `${type}@${where}/${effect}/${e.defaultPrevented ? 'prevented' : 'open'}`;
+                // dragover repeats: one line per change of place.
+                if (log.at(-1) !== entry) log.push(entry);
+            }, { capture: false });
+        }
+    });
+    return () => page.evaluate(() => (window as unknown as { __drag: string[] }).__drag.join(' → '));
+}
+
 /** Press on `from`, move over `to` in steps (as a hand does), and stay there. */
 async function dragOver(page: Page, from: Locator, to: Locator): Promise<void> {
     const a = (await from.boundingBox())!;
@@ -36,11 +58,12 @@ test.describe('with the mouse', () => {
     test('a row dragged onto another project moves there; the project is marked while a drop there would land', async ({ page }) => {
         const errors = collectPageErrors(page);
         const list = await open(page);
+        const events = await recordDrag(page);
         await dragOver(page, list.row('plan'), list.row('api'));
         await expect(list.dropMarked).toHaveCount(1);
         await expect(list.dropMarked).toHaveAttribute('data-group-key', 'p-docs');
         await page.mouse.up();
-        await expect.poll(() => list.groupOf('plan')).toBe('p-docs');
+        await expect.poll(() => list.groupOf('plan'), { message: `drag events: ${await events()}` }).toBe('p-docs');
         await expect(list.dropMarked).toHaveCount(0);
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
