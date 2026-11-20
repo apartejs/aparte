@@ -591,13 +591,18 @@ export class AparteConversationList extends HTMLElement {
         window.removeEventListener('pointerup', this._onRelease, true);
         window.removeEventListener('pointercancel', this._onRelease, true);
         // `mouseup` and `click` follow `pointerup` in the same task: this runs after them.
-        setTimeout(() => {
-            this._pressed = false;
-            if (!this._renderAfterPress) return;
-            this._renderAfterPress = false;
-            if (this.isConnected) this._renderUnlessHeld();
-        }, 0);
+        setTimeout(() => this._endPress(), 0);
     };
+
+    /** The press is over: the render it held runs now, unless something else still holds it. */
+    private _endPress(): void {
+        window.removeEventListener('pointerup', this._onRelease, true);
+        window.removeEventListener('pointercancel', this._onRelease, true);
+        this._pressed = false;
+        if (!this._renderAfterPress) return;
+        this._renderAfterPress = false;
+        if (this.isConnected) this._renderUnlessHeld();
+    }
 
     /** The name this element last wrote, so one the app wrote — before or after connect — is left alone. */
     private _ownLabel: string | null = null;
@@ -1323,7 +1328,19 @@ ${moving}
         group?.classList.add('aparte-conv-group--drop');
     }
 
+    /**
+     * A drag ends the press it began with: a drag is never a click, so the press hold has
+     * nothing left to protect, and WebKit sends no `pointerup` nor `pointercancel` after a native
+     * drag to end it (Chromium sends `pointercancel`). Left waiting, it held every render until
+     * the next click anywhere: the moved row stayed where it was. Ended after the drag's own
+     * hold is set, so a render the press was holding is held by the drag instead.
+     */
     private _onDragStart = (e: DragEvent): void => {
+        this._beginDrag(e);
+        if (this._pressed) this._endPress();
+    };
+
+    private _beginDrag(e: DragEvent): void {
         if (this._targets().length === 0 || (this._renaming && !this._renaming.done)) return;
         const row = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-conv-id]') : null;
         if (!row || !this.contains(row)) return;
@@ -1337,7 +1354,7 @@ ${moving}
             e.dataTransfer.setData('application/x-aparte-conversation', conv.id);
         }
         row.classList.add('aparte-conv-item--dragging');
-    };
+    }
 
     /**
      * Entering a group a drop would land in: allowed here too, not only on `dragover`. WebKit

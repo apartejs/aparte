@@ -56,6 +56,11 @@ const drag = (target: Element, type: string): Event => {
     target.dispatchEvent(event);
     return event;
 };
+/** A pointer pressed on `target`, the way every real drag begins. */
+const press = (target: Element): void => {
+    target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+};
+const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 afterEach(() => { document.body.innerHTML = ''; });
 
@@ -193,6 +198,44 @@ describe('with moveTargets: a drag', () => {
         drag(rowOf(el, 'c2'), 'dragover');
         drag(rowOf(el, 'c2'), 'drop');
         expect(rowOf(el, 'c1').closest('[data-group-key]')?.getAttribute('data-group-key')).toBe('p-docs');
+    });
+
+    // A real drag starts with a press, and the list holds every render while a pointer is down
+    // (a row replaced under a press loses its click). The drag ends that press differently in
+    // each engine: Chromium sends `pointercancel` as the drag starts, WebKit sends nothing at
+    // all, neither `pointerup` nor `pointercancel`, so a hold waiting for one never ended there
+    // and the moved row stayed where it was until the next click anywhere.
+    it.each([
+        ['WebKit: nothing after the press', [] as string[]],
+        ['Chromium: pointercancel as the drag starts', ['pointercancel']],
+    ])('a drag begun with a press lands where the app puts it (%s)', async (_engine, afterStart) => {
+        const el = mount(ITEMS, [LAUNCH, DOCS]);
+        el.addEventListener('aparte-conversation-move', (e) => {
+            const { id, to } = (e as CustomEvent<AparteConversationMoveDetail>).detail;
+            el.conversations = el.conversations.map((c) => (c.id === id ? { ...c, group: to === 'p-docs' ? DOCS : LAUNCH } : c));
+        });
+        press(rowOf(el, 'c1'));
+        const source = rowOf(el, 'c1');
+        drag(source, 'dragstart');
+        for (const type of afterStart) window.dispatchEvent(new Event(type));
+        // A drag spans tasks: the pointer travels before it drops.
+        await tick();
+        drag(rowOf(el, 'c2'), 'dragenter');
+        drag(rowOf(el, 'c2'), 'dragover');
+        drag(rowOf(el, 'c2'), 'drop');
+        drag(source, 'dragend');
+        expect(rowOf(el, 'c1').closest('[data-group-key]')?.getAttribute('data-group-key')).toBe('p-docs');
+    });
+
+    it('any drag out of the list ends its press: a list with nothing to move draws what is assigned after it', async () => {
+        const el = mount(ITEMS);
+        // Text dragged out of a row's title: not a move, but a press all the same.
+        press(rowOf(el, 'c1'));
+        drag(rowOf(el, 'c1'), 'dragstart');
+        await tick();
+        drag(rowOf(el, 'c1'), 'dragend');
+        el.conversations = [...ITEMS, { id: 'c9', title: 'Added after the drag' }];
+        expect(rowOf(el, 'c9')).not.toBeNull();
     });
 
     it('a drag that ends anywhere else (Escape included) leaves nothing marked and says nothing', () => {
