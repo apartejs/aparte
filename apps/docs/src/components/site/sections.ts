@@ -27,6 +27,8 @@ export const SECTIONS: Section[] = [
     { id: 'articles', label: 'Articles', href: '/articles/', prefixes: ['/articles/'] },
     // No sidebar: where the library is going, one page.
     { id: 'roadmap', label: 'Roadmap', href: '/roadmap/', prefixes: ['/roadmap/'] },
+    // No sidebar: what is built with the library, one page.
+    { id: 'products', label: 'Products', href: '/products/', prefixes: ['/products/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
 ];
 

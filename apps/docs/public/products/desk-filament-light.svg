@@ -1,0 +1,18 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="aparté Desk for Filament">
+  <!-- The desk's mark, light theme (src/brand/desk-mark.mjs, checked by tests/brand.test.mjs): the docs' logo in
+       their light theme. -->
+  <title>aparté Desk for Filament</title>
+  <defs>
+    <clipPath id="band-sides">
+      <rect x="0" y="0" width="38" height="128"/>
+      <rect x="90" y="0" width="38" height="128"/>
+    </clipPath>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#f6f2ea"/>
+  <path d="M26 63 A38 38 0 0 1 102 63" fill="none" stroke="#e08a00" stroke-width="8" clip-path="url(#band-sides)"/>
+  <rect x="18" y="53" width="14" height="26" rx="6" fill="#e08a00"/>
+  <rect x="96" y="53" width="14" height="26" rx="6" fill="#e08a00"/>
+  <path d="M103 77 Q102 93 82 93" fill="none" stroke="#e08a00" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="78" cy="93" r="5" fill="#e08a00"/>
+  <text x="64" y="76" font-family="Georgia, 'Times New Roman', serif" font-size="38" text-anchor="middle" fill="#b07d33">'.'</text>
+</svg>

@@ -1,0 +1,211 @@
+---
+import Landing from '../layouts/Landing.astro';
+/*
+ * The products built with aparté, on the shared frame (src/layouts/Landing.astro), like the
+ * roadmap: a page of its own, not a docs page.
+ *
+ * Every product weighs the same here: one card each, its mark, one sentence, what it is
+ * built on, where it stands, and its site when it has one. No price and no product put before
+ * another: the order is where each one stands, live first. A product free to use (open
+ * source, MIT) says so, beside where it stands.
+ *
+ * Marks: each product's own, as files in public/products/, one per theme, drawn from the
+ * product's own source and its own theme tokens. The page shows the one that matches its
+ * theme. A product with no mark of its own would wear aparté's (/favicon.svg).
+ */
+interface Product {
+    name: string;
+    /** One sentence: what it is, for whom. */
+    about: string;
+    /** What it is built on: the wrapper, the platform. */
+    stack: string;
+    state: 'live' | 'building' | 'planned';
+    /** Free to use: open source, under the MIT licence. */
+    free?: boolean;
+    href?: string;
+    /** The mark, or one per theme. */
+    mark: string | { light: string; dark: string };
+}
+
+const PRODUCTS: Product[] = [
+    {
+        name: 'aparté Desk for Filament',
+        about: 'A support desk inside your Filament panel: when your AI assistant cannot help, it hands the conversation over and someone on your team answers, in the visitor\'s chat.',
+        stack: 'Laravel · Filament',
+        state: 'live',
+        href: 'https://desk.apartejs.dev',
+        mark: { light: '/products/desk-filament-light.svg', dark: '/products/desk-filament-dark.svg' },
+    },
+    {
+        name: 'monaparte',
+        about: 'A chat assistant whose language model runs entirely in the browser: no inference server, and nothing the visitor writes or attaches leaves their device.',
+        stack: 'Angular',
+        state: 'live',
+        free: true,
+        href: 'https://mon.apartejs.dev',
+        mark: { light: '/products/monaparte-light.svg', dark: '/products/monaparte-dark.svg' },
+    },
+    {
+        name: 'aparté chat for n8n',
+        about: 'n8n\'s chat widget, drawn by aparté: change the import, keep your call. Your workflow answers with rich cards, in ten languages.',
+        stack: 'n8n · plain HTML',
+        state: 'live',
+        free: true,
+        href: 'https://n8n-chat.apartejs.dev',
+        mark: { light: '/products/n8n-chat-light.svg', dark: '/products/n8n-chat-dark.svg' },
+    },
+    {
+        name: 'bonaparte',
+        about: 'A desktop app to talk with AI models that run on your own machine.',
+        stack: 'React',
+        state: 'building',
+        free: true,
+        mark: { light: '/products/bonaparte-light.svg', dark: '/products/bonaparte-dark.svg' },
+    },
+    {
+        name: 'aparté Desk for Strapi',
+        about: 'The same desk, inside Strapi\'s admin: your AI answers, your team takes over.',
+        stack: 'Strapi',
+        state: 'planned',
+        mark: { light: '/products/desk-strapi-light.svg', dark: '/products/desk-strapi-dark.svg' },
+    },
+];
+
+const STATE_LABEL: Record<Product['state'], string> = {
+    live: 'Live',
+    building: 'In development',
+    planned: 'Planned',
+};
+
+const TITLE = 'aparté — products built with the library';
+const DESCRIPTION = 'What is built on aparté: a support desk for Filament, an assistant whose model runs in the browser, a chat for n8n, a desktop app for local AI, and a desk for Strapi.';
+// Written from the og map entry (src/pages/og/[...slug].ts): it is what the card shows.
+const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a chat for n8n, and more, each on the same chat.';
+---
+
+<Landing
+  title={TITLE}
+  description={DESCRIPTION}
+  canonical="https://apartejs.dev/products/"
+  ogImage="https://apartejs.dev/og/products.png"
+  ogImageAlt={IMAGE_ALT}
+>
+  <div class="pr">
+    <header class="pr-head">
+      <p class="eyebrow">Products</p>
+      <h1 class="thesis serif">Built with <em>aparté.</em></h1>
+      <p class="lede">
+        What runs on the library today, and what is on the way. Each one is the same chat underneath,
+        mounted in a different place: a Filament panel, a browser tab, an n8n workflow, a desktop app.
+      </p>
+    </header>
+
+    <ul class="pr-grid">
+      {PRODUCTS.map((p) => (
+        <li class="pr-card">
+          <div class="pr-mark">
+            {typeof p.mark === 'string'
+              ? <img src={p.mark} alt="" width="64" height="64" />
+              : (
+                <>
+                  <img class="pr-mark--dark" src={p.mark.dark} alt="" width="64" height="64" />
+                  <img class="pr-mark--light" src={p.mark.light} alt="" width="64" height="64" />
+                </>
+              )}
+          </div>
+          <div class="pr-body">
+            <h2 class="pr-name">{p.name}</h2>
+            <p class="pr-about">{p.about}</p>
+            <p class="pr-meta">
+              <span class={`pr-state pr-state--${p.state}`}>{STATE_LABEL[p.state]}</span>
+              {p.free && <span class="pr-state pr-free">Free</span>}
+              <span class="pr-stack">{p.stack}</span>
+            </p>
+            {p.href && (
+              <a class="pr-link" href={p.href}>{new URL(p.href).host}<span aria-hidden="true"> →</span></a>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</Landing>
+
+<style>
+  .pr {
+    max-inline-size: 1040px;
+    margin-inline: auto;
+    padding: 72px 24px 96px;
+  }
+  .pr-head {
+    max-inline-size: 720px;
+    margin-block-end: 48px;
+  }
+  .pr-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 20px;
+  }
+  .pr-card {
+    display: flex;
+    gap: 18px;
+    padding: 22px;
+    border: 1px solid var(--aparte-border);
+    border-radius: 16px;
+    background: var(--aparte-surface-1);
+  }
+  .pr-mark {
+    flex: none;
+    inline-size: 64px;
+    block-size: 64px;
+  }
+  .pr-mark img {
+    display: block;
+    inline-size: 64px;
+    block-size: 64px;
+  }
+  /* A mark drawn for both themes shows the page's: the night one by default. */
+  .pr-mark--light { display: none !important; }
+  :global(:root[data-theme='light']) .pr-mark--dark { display: none !important; }
+  :global(:root[data-theme='light']) .pr-mark--light { display: block !important; }
+  .pr-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-inline-size: 0;
+  }
+  .pr-name {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.3;
+  }
+  .pr-about {
+    margin: 0;
+    color: var(--aparte-text-muted);
+    line-height: 1.55;
+  }
+  .pr-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+  }
+  .pr-state {
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--aparte-border);
+  }
+  .pr-state--live { border-color: var(--aparte-success-border); color: var(--aparte-success-ink); }
+  .pr-free { border-color: var(--accent); color: var(--accent-text); }
+  .pr-stack { color: var(--aparte-text-muted); }
+  .pr-link {
+    margin-block-start: auto;
+    padding-block-start: 6px;
+    font-size: 0.95rem;
+  }
+</style>
