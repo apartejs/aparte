@@ -20,7 +20,9 @@ import OptgroupApi from '../../../generated/api/elements/aparte-optgroup.api.mdx
 `<aparte-select>` is the dropdown the [model selector](/components/model-selector/) and the
 [approval mode](/components/approval-mode/) switch are built on. Its options are
 `<aparte-option>` children, optionally grouped in `<aparte-optgroup>`. The value is an attribute;
-a change fires `aparte-select-change` with the new value, its label and the previous value.
+a choice the person makes fires `aparte-select-change` with the new value, its label and the previous
+value. A value set by code, through the attribute or the `value` property, fires nothing, as on a
+native `<select>`.
 
 ## Variants
 

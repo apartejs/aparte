@@ -49,7 +49,7 @@ export interface AparteSelectChangeDetail {
  * @attr {boolean} searchable - Adds a filter field above the options. Set or removed later, the field comes or goes.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
- * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
+ * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The person chose an option; carries the new value, its label and the previous value. A value set by code (the `value` property or attribute) fires nothing, as on a native select.
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
  *
@@ -209,11 +209,13 @@ export class AparteSelect extends HTMLElement {
 
     set value(val: string) {
         if (val === this._value) return;
-        const previousValue = this._value;
         this._value = val;
         this.setAttribute('value', val);
         this._updateTriggerLabel();
-        this._emitChange(previousValue);
+        // No `aparte-select-change`: a value set by code is not a choice, as on a native select,
+        // and the attribute already set it silently. Announced from the property only, a value a
+        // framework wrote (Vue, Svelte 5 write the property; React's element and Angular's
+        // directive the attribute) echoed back in two of four, and saved a choice nobody made.
     }
 
     get open(): boolean {
