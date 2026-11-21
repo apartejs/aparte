@@ -75,6 +75,22 @@ describe('the list hears what a turn is doing', () => {
         expect(heard.at(-1)).toEqual({ id: 'a', status: null });
     });
 
+    // Queued by the host, then the chat goes (a route change) before the turn ends: its end is
+    // heard by nobody, and a sidebar that outlives the chat read Queued, or Answering, for good.
+    it.each([
+        ['still queued', [] as string[]],
+        ['served since', ['running']],
+    ])('a chat that goes mid-turn while %s leaves no row queued or running', async (_name, told) => {
+        const ctrl = new AparteConversationController(binding(host), { manager });
+        ctrl.bind();
+        await ctrl.setConversationId('a');
+        window.dispatchEvent(new CustomEvent('aparte-conversation-status', { detail: { id: 'a', status: 'queued' } }));
+        fire('aparte-message-start');
+        for (const status of told) window.dispatchEvent(new CustomEvent('aparte-conversation-status', { detail: { id: 'a', status } }));
+        ctrl.unbind();
+        expect(heard.at(-1)).toEqual({ id: 'a', status: null });
+    });
+
     it('running when a turn starts, nothing once it is done', async () => {
         const ctrl = new AparteConversationController(binding(host), { manager });
         ctrl.bind();

@@ -573,9 +573,10 @@ export class AparteConversationController {
         this._persistActive();
         // A turn still running when the chat goes (a route change, a remount) ends here as
         // far as the lists know: its end event will come after these listeners are gone,
-        // and a sidebar that outlives the chat would shimmer "Answering" for good. A pause
-        // is saved, so its conversation keeps waiting.
-        if (this._turn?.status === 'running') this._setTurn(null);
+        // and a sidebar that outlives the chat would shimmer "Answering" for good. One the host
+        // queued goes the same way, served since or not. A pause is saved, so its conversation
+        // keeps waiting.
+        if (this._turn && this._turn.status !== 'waiting') this._setTurn(null);
         this._turn = null;
         this._turnMessage = null;
         this._stopHydrationRetry?.();
