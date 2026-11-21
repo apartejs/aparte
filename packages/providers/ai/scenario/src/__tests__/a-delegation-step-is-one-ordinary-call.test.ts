@@ -66,17 +66,17 @@ describe('two delegations sharing an id in one turn', () => {
         await p.send('Go');
         const [first, second] = starts(p.events);
         expect(first).toMatchObject({ name: 'First', toolCallId: 'same' });
-        expect(second).toMatchObject({ name: 'Second', toolCallId: 'same#2' });
+        expect(second).toMatchObject({ name: 'Second', toolCallId: 'same_2' });
         expect(textOf(p.events, first!.agentId)).toBe('From the first.');
         expect(textOf(p.events, second!.agentId)).toBe('From the second.');
-        expect(p.events.find((e) => e.type === 'tool-resolved' && e.toolCallId === 'same#2')).toMatchObject({ result: 'From the second.' });
+        expect(p.events.find((e) => e.type === 'tool-resolved' && e.toolCallId === 'same_2')).toMatchObject({ result: 'From the second.' });
     });
 });
 
 describe('two delegations sharing an id in two turns of one reply', () => {
-    // The loop names a call once per REPLY: the second turn's `same` is `same#2`, since the first
+    // The loop names a call once per REPLY: the second turn's `same` is `same_2`, since the first
     // turn's call already holds `same`. The scripts were filed per turn, the second under
-    // `same`, and its handler, asked for `same#2`, found no script: the second sub-agent never ran.
+    // `same`, and its handler, asked for `same_2`, found no script: the second sub-agent never ran.
     it('each finds its own scripts under the id the loop gave it', async () => {
         const provider = createScenarioProvider({
             pacing: 'instant',
@@ -90,9 +90,9 @@ describe('two delegations sharing an id in two turns of one reply', () => {
         await p.send('Go');
         const [first, second] = starts(p.events);
         expect(first).toMatchObject({ name: 'First', toolCallId: 'same' });
-        expect(second).toMatchObject({ name: 'Second', toolCallId: 'same#2' });
+        expect(second).toMatchObject({ name: 'Second', toolCallId: 'same_2' });
         expect(textOf(p.events, second!.agentId)).toBe('From the second.');
-        expect(p.events.find((e) => e.type === 'tool-resolved' && e.toolCallId === 'same#2')).toMatchObject({ result: 'From the second.' });
+        expect(p.events.find((e) => e.type === 'tool-resolved' && e.toolCallId === 'same_2')).toMatchObject({ result: 'From the second.' });
     });
 });
 

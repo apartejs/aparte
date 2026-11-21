@@ -374,7 +374,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     const idsThisReply = new Set<string>(messages.slice(lastPerson + 1).flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => c.id) : [])));
     const uniqueCallId = (raw: string): string => {
         let id = raw;
-        for (let n = 2; idsThisReply.has(id); n++) id = `${raw}#${n}`;
+        // `_`, not `#`: a vendor reads the id back, and Anthropic takes `[a-zA-Z0-9_-]` only.
+        for (let n = 2; idsThisReply.has(id); n++) id = `${raw}_${n}`;
         idsThisReply.add(id);
         return id;
     };

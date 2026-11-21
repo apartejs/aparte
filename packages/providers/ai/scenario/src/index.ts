@@ -292,7 +292,7 @@ function play(
     const inputChars = request.messages.reduce((n, m) => n + textOf(m).length, 0);
     /*
      * The id the loop gives each call of this model call. It renames a repeat within the
-     * REPLY (`id`, then `id#2`, …): an id an earlier model call of the same reply holds, or one
+     * REPLY (`id`, then `id_2`, …): an id an earlier model call of the same reply holds, or one
      * repeated in this one. Each call has its own row and history slot, and the handler is
      * handed the RENAMED id. Scripts are filed under that same name, by the same rule applied
      * to the same calls: seeded, as the loop's set is, with the calls in the history after the
@@ -305,7 +305,7 @@ function play(
     );
     const loopIdOf = (raw: string): string => {
         let id = raw;
-        for (let n = 2; idsThisCall.has(id); n++) id = `${raw}#${n}`;
+        for (let n = 2; idsThisCall.has(id); n++) id = `${raw}_${n}`;
         idsThisCall.add(id);
         return id;
     };
