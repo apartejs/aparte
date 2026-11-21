@@ -408,7 +408,7 @@ describe('createAparteAgentHandler', () => {
             [{ type: 'tool_use', id: 'c1', name: 'read_file', input: {} }, { type: 'done' }],
         );
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const out = await lines(await handlerWith(provider, { tools: [research, failingTool] })(post(firstBody())));
+        const out = await lines(await handlerWith(provider, { tools: [research as never, failingTool] })(post(firstBody())));
         errorSpy.mockRestore();
         expect(out.find((l) => l.type === 'agent-end')).toMatchObject({ status: 'failed' });
         expect(JSON.stringify(out)).not.toContain('/srv/secrets');
