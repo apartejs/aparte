@@ -120,7 +120,8 @@ export class AparteArtifactPanel extends ElementBase {
 
     private readonly _onConversation = (): void => this._schedule();
     private readonly _onKeydown = (event: KeyboardEvent): void => {
-        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        // An IME's Escape cancels a candidate in a field inside: the field's.
+        if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
         this._emitClose();
     };

@@ -204,7 +204,8 @@ export class AparteSubagentView extends ElementBase {
 
     private readonly _onConversation = (): void => this._schedule();
     private readonly _onKeydown = (event: KeyboardEvent): void => {
-        if (event.key !== 'Escape' || event.defaultPrevented || !this._closable()) return;
+        // An IME's Escape cancels a candidate in a field inside (a diff comment): the field's.
+        if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.keyCode === 229 || !this._closable()) return;
         event.preventDefault();
         this._emitClose();
     };

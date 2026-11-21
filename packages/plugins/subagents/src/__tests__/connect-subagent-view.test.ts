@@ -189,6 +189,20 @@ describe('connectSubagentView', () => {
         expect(split!.single).toBe(true);
     });
 
+    // An IME's Escape cancels a candidate in a field inside the view (a diff comment): it is the
+    // field's, and folded the pane mid-composition once the diff stopped taking it.
+    it.each([
+        ['isComposing', { isComposing: true }],
+        ['keyCode 229', {}],
+    ])('keeps the pane open on an Escape that ends a composition (%s)', async (name, init) => {
+        const { c, view, split } = await setUp();
+        openButton(c.row('tool-c1'))!.click();
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init });
+        if (name === 'keyCode 229') Object.defineProperty(event, 'keyCode', { value: 229 });
+        view.querySelector('.aparte-subagent-name')!.dispatchEvent(event);
+        expect(split!.single).toBe(false);
+    });
+
     it('on a phone, shows the view pane and then the chat again: the same two properties', async () => {
         const { c, split } = await setUp();
         // Stacked: one pane at a time, the one `pane` names.
