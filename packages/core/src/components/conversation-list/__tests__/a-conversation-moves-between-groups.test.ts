@@ -348,6 +348,57 @@ describe('a list that stands for a group of its own (dropKey), and a row from an
         expect(seen).toEqual([{ id: 'a1', from: 'p-a', to: 'p-b' }]);
     });
 
+    // An empty list is its own drop zone: the mark went on the list element itself, and the
+    // clearing looked only inside it. The focus outline stayed after the drag, through every
+    // render after it.
+    it.each([
+        ['dropped on', (b: Element) => drag(b, 'drop')],
+        ['left', (b: Element) => drag(b, 'dragleave')],
+    ])('an empty list it was %s keeps no mark after the drag', (_name, end) => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', []);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(b, 'dragenter');
+        drag(b, 'dragover');
+        expect(b.classList.contains('aparte-conv-group--drop'), 'marked while the row is over it').toBe(true);
+        end(b);
+        drag(rowOf(a, 'a1'), 'dragend');
+        expect(b.classList.contains('aparte-conv-group--drop')).toBe(false);
+    });
+
+    // A drag that ends elsewhere (Escape, a drop the page refused) sends its `dragend` to the row
+    // it began on, in the other list. The list it hovered kept its mark until the next drag.
+    it('the list a row hovered drops its mark when the drag ends elsewhere', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(rowOf(b, 'b1'), 'dragenter');
+        drag(rowOf(b, 'b1'), 'dragover');
+        expect(b.querySelector('.aparte-conv-group--drop')).not.toBeNull();
+        drag(rowOf(a, 'a1'), 'dragend');
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+    });
+
+    // Once a row's drag is over, the page's drag is not that row any more: a text or a file dragged
+    // over a list afterwards is not taken for it, and moves nothing.
+    it('a drag that is not a row, after a row\'s drag has ended, is refused and moves nothing', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(rowOf(a, 'a1'), 'dragend');
+        const text = (type: string): Event => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'dataTransfer', { value: { types: ['text/plain'], dropEffect: 'none', getData: () => 'hello' } });
+            rowOf(b, 'b1').dispatchEvent(event);
+            return event;
+        };
+        expect(text('dragover').defaultPrevented).toBe(false);
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+        text('drop');
+        expect(seen).toEqual([]);
+    });
+
     it('takes a drag of the host\'s own that carries the type, the id read at the drop', () => {
         const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
         const seen = moves(b);

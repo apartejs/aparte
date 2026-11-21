@@ -339,6 +339,7 @@ export class AparteConversationList extends HTMLElement {
         this.addEventListener('dragleave', this._onDragLeave);
         this.addEventListener('drop', this._onDrop);
         this.addEventListener('dragend', this._onDragEnd);
+        this.ownerDocument.addEventListener('dragend', this._onPageDragEnd, true);
         this._render();
         window.addEventListener('aparte-config-change', this._onConfigChange);
         window.addEventListener('aparte-conversation-status', this._onStatus);
@@ -356,6 +357,7 @@ export class AparteConversationList extends HTMLElement {
         this.removeEventListener('dragleave', this._onDragLeave);
         this.removeEventListener('drop', this._onDrop);
         this.removeEventListener('dragend', this._onDragEnd);
+        this.ownerDocument.removeEventListener('dragend', this._onPageDragEnd, true);
         this._dragging = null;
         // A list taken off the page mid-drag gets no `dragend`: its row is no longer the page's drag.
         if (pageDrag?.list === this) pageDrag = null;
@@ -1385,13 +1387,26 @@ ${moving}
         return null;
     }
 
-    /** The group a drop would land in, marked; every other one unmarked. */
+    /**
+     * The group a drop would land in, marked; every other one unmarked, the list itself included:
+     * an empty list with a key of its own is its own drop zone, and a clearing that looked only
+     * inside it left its outline after the drag.
+     */
     private _markDrop(group: Element | null): void {
-        for (const el of this.querySelectorAll('.aparte-conv-group--drop')) {
+        for (const el of [this, ...this.querySelectorAll('.aparte-conv-group--drop')]) {
             if (el !== group) el.classList.remove('aparte-conv-group--drop');
         }
         group?.classList.add('aparte-conv-group--drop');
     }
+
+    /**
+     * Any drag of the page ended, wherever it began. Its `dragend` goes to the element it began on
+     * (a row of another list, an element of the app's own), never to a list it only hovered: a
+     * drag ended by Escape over this list, or dropped where the page refused it, left the mark.
+     */
+    private _onPageDragEnd = (): void => {
+        this._markDrop(null);
+    };
 
     /**
      * A drag ends the press it began with: a drag is never a click, so the press hold has
