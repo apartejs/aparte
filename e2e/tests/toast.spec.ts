@@ -74,12 +74,27 @@ test('a toast shown from a modal dialog in a shadow root is inside that dialog, 
     await page.locator('#harness-shadow-save').click();
     const toast = page.locator('.aparte-toasts > .aparte-alert', { hasText: 'Saved in the shadow.' });
     await expect(toast).toBeVisible();
-    expect(await toast.evaluate((el) => el.closest('dialog')?.id)).toBe('harness-shadow-dialog');
+    // In the page's own tree, drawn by the dialog through its slot: the kit's stylesheet reaches it
+    // there (in the component's shadow root it was drawn bare), and the dialog does not make it inert.
+    const placed = await toast.evaluate((el) => ({
+        lightDom: el.getRootNode() === document,
+        fixed: getComputedStyle(el.parentElement!).position === 'fixed',
+        inDialog: !!el.closest('#harness-shadow-host'),
+    }));
+    expect(placed).toEqual({ lightDom: true, fixed: true, inDialog: true });
     const dismiss = toast.locator('.aparte-alert__dismiss');
     const hit = await dismiss.evaluate((el) => {
         const box = el.getBoundingClientRect();
-        const at = (el.getRootNode() as ShadowRoot).elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-        return at === el || el.contains(at);
+        let at: Element | null = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        while (at?.shadowRoot) {
+            const inner = at.shadowRoot.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            if (!inner || inner === at) break;
+            at = inner;
+        }
+        // A slotted node is hit through its slot: the composed path back to the button.
+        return at === el || el.contains(at) || (at instanceof HTMLSlotElement && at.assignedElements({ flatten: true }).some((n) => n.contains(el)));
     });
     expect(hit, 'the dismiss button is what lies under the pointer, not the backdrop').toBe(true);
+    await dismiss.click();
+    await expect(toast).toHaveCount(0);
 });
