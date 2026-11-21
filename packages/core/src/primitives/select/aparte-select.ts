@@ -131,17 +131,25 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
         if (e.key === 'Enter' || e.key === ' ') {
             // When open, Enter/Space selects the active option — handled by the
-            // document-level nav handler. Only toggle when closed, so we don't close the
+            // select's own key handler. Only toggle when closed, so we don't close the
             // dropdown on the very keystroke meant to select.
             if (this._isOpen) return;
             e.preventDefault();
+            this._openedBy = e;
             this._toggle();
         }
         if (e.key === 'ArrowDown' && !this._isOpen) {
             e.preventDefault();
+            this._openedBy = e;
             this._openDropdown();
         }
     };
+    /**
+     * The keydown that just opened the list from the trigger. It goes on up to the select's own
+     * key handler, which found the list open and the selection active: Enter chose it again and
+     * closed the list, and ArrowDown moved one past it. That key is spent.
+     */
+    private _openedBy: KeyboardEvent | null = null;
     private _boundHandleSearchInput = (e: Event): void => {
         this._filterOptions((e.target as HTMLInputElement).value.toLowerCase());
     };
@@ -175,7 +183,7 @@ export class AparteSelect extends HTMLElement {
         this.removeEventListener('click', this._boundHandleOptionClick);
         document.removeEventListener('click', this._boundHandleDocumentClick);
         this.removeEventListener('keydown', this._boundHandleKeydown);
-        document.removeEventListener('keydown', this._boundHandleStrayKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown, true);
         this._observer?.disconnect();
     }
 
@@ -517,8 +525,9 @@ export class AparteSelect extends HTMLElement {
         // up: a launcher closed the chat on the Escape meant for the list.
         this.removeEventListener('keydown', this._boundHandleKeydown);
         this.addEventListener('keydown', this._boundHandleKeydown);
-        document.removeEventListener('keydown', this._boundHandleStrayKeydown);
-        document.addEventListener('keydown', this._boundHandleStrayKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown, true);
+        // Captured: the list's before any listener on the page, a drawer's Escape among them.
+        document.addEventListener('keydown', this._boundHandleStrayKeydown, true);
     }
 
     private _handleOptionClick(e: Event): void {
@@ -540,6 +549,10 @@ export class AparteSelect extends HTMLElement {
 
     private _handleKeydown(e: KeyboardEvent): void {
         if (!this._isOpen) return;
+        if (e === this._openedBy) {
+            this._openedBy = null;
+            return;
+        }
         // A key that confirms a word being composed (IME) in the filter field is the field's.
         if (e.isComposing || e.keyCode === 229) return;
         // Tab leaves the select: the list goes with it, and the focus moves on as Tab says.

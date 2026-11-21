@@ -118,3 +118,26 @@ describe('an open select, the focus on nothing', () => {
         expect(el.getAttribute('value')).not.toBe('one');
     });
 });
+
+describe('a closed select, opened from the keyboard', () => {
+    // The trigger opened the list on Enter, and the same keydown went on up to the select's own
+    // handler, which found the list open and the selected option active: it chose it again and
+    // closed the list. Enter never opened a select; the arrow landed one past the selection.
+    it('opens on Enter, and chooses nothing', () => {
+        const el = mountSelect();
+        const changes: unknown[] = [];
+        el.addEventListener('aparte-select-change', (e) => changes.push((e as CustomEvent).detail));
+        trigger(el).focus();
+        press(trigger(el), 'Enter');
+        expect(isOpen(el)).toBe(true);
+        expect(changes).toEqual([]);
+    });
+
+    it('opens on ArrowDown with the selected option active, not the one after it', () => {
+        const el = mountSelect();
+        trigger(el).focus();
+        press(trigger(el), 'ArrowDown');
+        expect(isOpen(el)).toBe(true);
+        expect(el.querySelector('aparte-option[data-active]')?.getAttribute('value')).toBe('one');
+    });
+});

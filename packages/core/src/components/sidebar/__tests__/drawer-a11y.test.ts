@@ -17,6 +17,7 @@
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-sidebar.js';
+import '../../../primitives/select/aparte-select.js';
 import type { AparteSidebar } from '../aparte-sidebar.js';
 
 type MediaListener = (e: { matches: boolean }) => void;
@@ -239,5 +240,32 @@ describe('the open drawer leaves the keys of what is above it', () => {
         search.dispatchEvent(composing);
         expect(composing.defaultPrevented).toBe(false);
         expect(sidebar.collapsed).toBe(false);
+    });
+});
+
+describe('a select open in the drawer', () => {
+    // WebKit leaves the focus on the page after a click on a part of the list that takes none, and
+    // the select hears the keys typed there. Its Escape ran after the drawer's, which had already
+    // closed the drawer: the list and the drawer went with one key.
+    it('takes an Escape typed on the page before the drawer does', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        expect(sidebar.collapsed).toBe(false);
+        const select = document.createElement('aparte-select');
+        for (const value of ['one', 'two']) {
+            const option = document.createElement('aparte-option');
+            option.setAttribute('value', value);
+            option.textContent = value;
+            select.append(option);
+        }
+        sidebar.append(select);
+        const trigger = select.querySelector<HTMLElement>('.aparte-select-trigger')!;
+        trigger.click();
+        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+        (document.activeElement as HTMLElement | null)?.blur();
+        key(document.body, 'Escape');
+        expect(trigger.getAttribute('aria-expanded')).toBe('false');
+        expect(sidebar.collapsed, 'the drawer stays: that Escape was the list\'s').toBe(false);
     });
 });
