@@ -699,6 +699,59 @@ describe('<aparte-triggers>', () => {
             expect(asked, 'the newest source, asked once the renders stopped').toEqual(['an', 'an']);
         });
 
+        // Renders further apart than the settle time, a source slower than they are: every render
+        // re-asked, the re-ask aborted the answer on its way, and the list never arrived.
+        it('a slow source, re-rendered more slowly than the settle time, still answers, and nothing on its way is aborted', async () => {
+            vi.useFakeTimers();
+            let asked = 0;
+            let cut = 0;
+            let declared = 0;
+            const from: number[] = [];
+            const declare = () => { const n = declared++; return [{
+                ...AT, debounce: 150,
+                items: (_q: string, { signal }: { signal: AbortSignal }) => {
+                    asked += 1;
+                    from.push(n);
+                    let answered = false;
+                    signal.addEventListener('abort', () => { if (!answered) cut += 1; });
+                    return new Promise<AparteTriggerItem[]>((resolve) => setTimeout(() => { answered = true; resolve(list('Ann')); }, 400));
+                },
+            }]; };
+            const { element, type } = mount(declare());
+            type('@an');
+            let arrived = false;
+            for (let n = 0; n < 10; n++) {
+                await vi.advanceTimersByTimeAsync(300);
+                element.triggers = declare();
+                if (labels(element).includes('Ann')) arrived = true;
+            }
+            expect(arrived, 'the list arrived while the app re-rendered').toBe(true);
+            expect(cut, 'no answer on its way was aborted').toBe(0);
+            expect(asked, 'one question at a time, not one per render').toBeLessThan(10);
+            // The renders stopped: the source declared last is asked, once the answer on its way is in.
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(from.at(-1)).toBe(declared - 1);
+        });
+
+        it('a source handed anew while the answer is on its way is asked once that answer is in', async () => {
+            vi.useFakeTimers();
+            const from: string[] = [];
+            const slow = (name: string) => [{
+                ...AT, debounce: 150,
+                items: () => { from.push(name); return new Promise<AparteTriggerItem[]>((resolve) => setTimeout(() => resolve(list(`an-${name}`)), 400)); },
+            }];
+            const { element, type } = mount(slow('first'));
+            type('@an');
+            await vi.advanceTimersByTimeAsync(200);
+            // The first question left at 150 ms and answers at 550: another channel's source comes now.
+            element.triggers = slow('second');
+            await vi.advanceTimersByTimeAsync(400);
+            expect(labels(element), 'the answer on its way arrived').toEqual(['an-first']);
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(from).toEqual(['first', 'second']);
+            expect(labels(element)).toEqual(['an-second']);
+        });
+
         it('holds Enter while the list is on its way', async () => {
             const send = vi.fn();
             const { composer, type, key } = mount([{ ...AT, debounce: 0, items: () => new Promise(() => {}) }]);
