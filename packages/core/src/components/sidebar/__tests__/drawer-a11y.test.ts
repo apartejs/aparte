@@ -253,6 +253,25 @@ describe('the open drawer leaves the keys of what is above it', () => {
             expect(sidebar.collapsed).toBe(false);
         });
 
+        // A dialog the app placed inside the sidebar (a settings dialog beside its button): the
+        // drawer took its Escape and closed, then made itself inert with the open modal inside it.
+        it.each(['Escape', 'Tab'])('a modal dialog inside the drawer keeps its %s, and the drawer stays open', (name) => {
+            modalWhen((el) => el instanceof HTMLDialogElement && el.hasAttribute('data-modal'));
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const dialog = document.createElement('dialog');
+            dialog.setAttribute('data-modal', '');
+            dialog.innerHTML = '<button type="button" id="in-dialog">OK</button>';
+            sidebar.appendChild(dialog);
+            dialog.setAttribute('open', '');
+            const inside = dialog.querySelector('button')!;
+            inside.focus();
+            expect(key(inside, name)).toBe(true);
+            expect(sidebar.collapsed).toBe(false);
+            expect(sidebar.hasAttribute('inert')).toBe(false);
+        });
+
         it('a dialog that is not modal leaves the Escape to the drawer', () => {
             modalWhen(() => false);
             const { toggle, sidebar } = mountPage();

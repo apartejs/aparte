@@ -491,16 +491,18 @@ export class AparteSidebar extends HTMLElement {
 
     /**
      * A key typed in a modal dialog that is open above the drawer (one its own content opened,
-     * beside the shell): the dialog's. The drawer read it as its own, so Tab in the dialog was
-     * pulled back into the drawer it covers (inert, so Tab did nothing) and Escape closed the
-     * drawer behind the dialog instead of the dialog.
+     * beside the shell or inside the drawer itself): the dialog's. The drawer read it as its own,
+     * so Tab in the dialog was pulled back into the drawer it covers (inert, so Tab did nothing)
+     * and Escape closed the drawer behind the dialog instead of the dialog. One placed inside the
+     * drawer was taken for the drawer's own content: the drawer closed, and made itself inert
+     * with the open modal in it.
      */
     private _inModalDialog(e: Event): boolean {
         // Along the key's whole path: from a field inside a component's own shadow root,
         // `closest()` stops at that root and finds no dialog around it.
         const dialog = e.composedPath?.().find((node): node is HTMLDialogElement => node instanceof HTMLDialogElement && node.open)
             ?? (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
-        if (!dialog || this.contains(dialog)) return false;
+        if (!dialog) return false;
         try {
             return dialog.matches(':modal');
         } catch {
