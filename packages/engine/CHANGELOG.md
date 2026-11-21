@@ -1,5 +1,41 @@
 # @aparte/engine
 
+## 1.17.0
+
+### Minor Changes
+
+- 6db770f: A step can say what it is about: `step-start` carries a `detail`, a new `step-update { name, detail }` changes it while the step stays open, and the step's label function is handed `detail` and the reply's `messageId`.
+
+  A server waiting for a slot of a local engine knows who holds it, and the words belong to the page. A step carried its name alone and its label saw only that: an app kept the last holder in a module of its own, ended and restarted the step to have the words asked again, and two chats waiting showed the last one told. The detail travels with the step to the reply's waiting indicator and to a sub-agent's line, and the label is asked again when it changes. A second `step-start` of the same name still opens a nested step, as AG-UI's rule says: update a step with `step-update`. (apartejs/aparte#288)
+
+- 8783037: A sub-agent whose own run stops before it answers (its turn limit, a call it could not make) now ends `partial`, with a `reason` and what it found as its `result`, and its line reads "Cut short" instead of Done.
+
+  `runSubAgent` reported every such sub-agent as `done` with its last text, often empty after a round of tool calls, so the parent model read a finished answer and the line said Done above a transcript showing the turn limit's error. `StreamAgentStatus` and `AparteSubagentStatus` gain `'partial'`, `agent-end` gains `reason` (a `StreamAgentCutReason`: `turn-limit`, `timeout`, `no-handler`, `no-resolver`, `aborted` for a call that stopped itself, or `context` for a host's own loop), `runSubAgent` returns them, and a background sub-agent cut short is reported to the model as such. `aparte-subagent-end` carries the `reason` too. A host that matched every status exhaustively has one more to handle. (apartejs/aparte#285)
+
+- 1f24530: A sub-agent can name the model it runs on: `agent-start` carries `model`, `runSubAgent` and `startSubAgent` fill it from their request (or take a `model` you give), and `setupSubagents({ model: true })` draws it quietly on the sub-agent's line.
+
+  A host whose sub-agents run on other models than the conversation (a small local one beside the main) had only the name to show it, "Reader · qwen3:8b", which a host matching lines by name then had to strip. The model is kept on the segment, so a thread read back still says it. Off by default: every existing line would change. `aparte-subagent-start` carries it too, as `model`. (apartejs/aparte#286)
+
+- dd2fce8: A tool can set its own time limit (`timeoutMs` on the tool), which replaces the client's or the server handler's `toolTimeoutMs` for that tool; `Infinity` means no limit.
+
+  A tool that runs a whole sub-agent on a slow local model, or a command with a limit of its own, was cut at five minutes like a lookup, and a host that raised the shared bound to spare it lost the bound for every other tool. `Infinity`, or any delay above 2^31-1 ms, used to fire at once (a timer reads such a delay as zero): it is no limit now. A sub-agent a call opens in the background is bounded by that call's limit. The docs now say what happens when a limit fires: the call is abandoned and the run stops, since a handler that ignores its signal may still be running. (apartejs/aparte#290)
+
+- 6075c93: An approval policy can rule asynchronously: `setApprovalPolicy` and the server handler's `approvalPolicy` may return a promise, awaited before the call runs, pauses or is refused.
+
+  Security fix included: a policy that returned a promise used to let every call run unasked in the page (the promise was taken for a ruling with no verdict, so the gate opened, `needsApproval` tools included), and was ignored on the server, where a `deny` on a tool with no flag let the call run. While a policy rules, the calls the model made after that one wait, as they wait for a person's answer, so the order guarantee holds; a synchronous policy stays synchronous. A promise that rejects asks a person, with the reason on the console. A policy is asked once per call, so the ruling that paused a call is the one that answers it, and a Stop does not wait for a ruling still on its way. `config.ruleOnToolCall` stays synchronous and answers `ask` for a policy still ruling; the new `config.ruleOnToolCallAsync` waits for it. The engine's `needsApproval` predicate may answer with a promise too. (apartejs/aparte#291)
+
+  Code that CALLS a policy (one that wraps `config.getApprovalPolicy()` to compose two) now gets a type whose answer may be a promise: await it, or ask `config.ruleOnToolCallAsync`. A policy you write is unaffected, and `createApprovalPolicy` from `@aparte/plugin-approval` is still typed as ruling at once.
+
+### Patch Changes
+
+- 6962a28: A reply cut by an error keeps its last words: the text the parser was holding (the end of a code block, a closing backtick) is no longer lost.
+
+  The engine flushes the call's text before it throws, and the client flushes on its error path too, for a runner of your own that does not.
+
+- 33e80e4: Two tool calls of one reply now keep two rows, even when a later model call repeats an earlier call's id.
+
+  A vendor that sends no call ids has them minted per stream (openai-compat), and a server that numbers ids per response repeats them: the second call's result was written onto the first call's row, the second row stayed pending, and the next request filed both answers under one id. A repeated id is now renamed for the whole reply (`aparte-call-1_2`), the calls a resumed run made before its pause included. An earlier reply's ids are left alone. The suffix is `_`, not `#`: Anthropic takes only `[a-zA-Z0-9_-]` in a call id, and a history replayed to it after a change of model must not carry a `#`.
+
 ## 1.16.0
 
 ## 1.15.1

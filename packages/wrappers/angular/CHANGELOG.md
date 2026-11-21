@@ -1,5 +1,31 @@
 # @aparte/angular
 
+## 1.17.0
+
+### Minor Changes
+
+- 608fb2c: A conversation can be dragged from one `<aparte-conversation-list>` onto another: give each list the key of the group it stands for in `drop-key` (`dropKey`). The drag type is public: `APARTE_CONVERSATION_DRAG_TYPE`.
+
+  For an app that renders one `flat` list per project under headings of its own. A list's rows with no `group` are in its key's group, a row dropped on it moves there, from another list of the page or from an element of the app's own that carries the type, and a row dropped back on its own list moves nothing. A list with no rows still takes a drop. The move is the same `aparte-conversation-move`, sent by the list the row lands on, `from` the key of the list it came from. Without `drop-key`, nothing changes. (apartejs/aparte#278)
+
+- 2ba627d: `new AparteConversationManager(adapter, { orderBy })` orders its lists as the app chooses: `'updated'` (the default, unchanged), `'created'`, or a compare function.
+
+  The lists were by `updatedAt`, the last change of content: a reply that ends moves its conversation up, as most chat products do. An app that keeps a conversation in its place, or orders by the person's last message, sorted the manager's lists again itself. A conversation list's date groups still read each row's `updatedAt`: with another order, hand it the date you order by. Opening, renaming or reloading a conversation never moved it, and still does not. The framework helpers' lists (`useConversationManager` in React and Vue, Angular's `ConversationManagerService`, Svelte's `createConversationManager` and `createConversations`) follow the same option, given to their `init`; `manager.compare(a, b)` sorts a list of the app's own the same way. (apartejs/aparte#293)
+
+### Patch Changes
+
+- adeaffe: A key that leaves `<AparteUi>`'s `props` is now cleared on the element: its attribute or CSS variable is removed, and its property is set to `undefined`.
+
+  With the usual `{ ...(fetching && { loading: true }) }`, the next bag has no `loading` once fetching ends, and only the keys present were written, so the attribute stayed and the skeleton rows never went away, in all four wrappers. `applyElementProps` takes `{ replace: true }` for a bag that is the element's whole set of props; without it, as the generated components call it with only what changed, an absent key is left alone.
+
+- 41bcabe: A property input given `undefined`, `null` or `false` now clears the element's property: `[moveTargets]="canMove ? groups : undefined"` in Angular, or a key kept in an `<AparteUi>` bag with no value (`moveTargets: canMove && groups`).
+
+  Only the attribute of the same name was removed, and the element went on with the old array or function: rows kept offering "Move to…", an old `renderMeta` kept drawing. A key given an object or a function before is a property, and is cleared as one.
+
+- 9f95728: In Angular, an unset binding of an input that is on by default (`[elicitation]`, `[submitOnEnter]`, a launcher's `[header]`, a file picker's `[multiple]`) now keeps it on, as in React, Vue and Svelte.
+
+  Angular's `booleanAttribute(undefined)` is false, so binding a field that is not always set turned the default off: no question presenter (every call needing approval aborted with nothing to click), Enter inserted a newline instead of sending, the launcher lost its header, and the picker took one file. `undefined` and `null` now leave the element on its own default.
+
 ## 1.16.0
 
 ## 1.15.1

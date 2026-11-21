@@ -1,5 +1,21 @@
 # @aparte/locales
 
+## 1.17.0
+
+### Minor Changes
+
+- 3a59a20: A message the server refuses for its size (HTTP 413) now reads "This message is too large to send. Remove a file or send a shorter one." instead of promising a retry, and is left out of later requests.
+
+  `AparteError.codeForStatus` had no case for 413, so the error fell back to a failing provider: "Try again in a moment", and a retry sends the same bytes. It is easy to hit: nginx refuses a body over 1 MB by default, PHP one over 8 MB, and an image travels in base64. It has its own code now, `USAGE_TOO_LARGE`, its own sentence, `errorTooLarge`, in the nine languages of `@aparte/locales`, and it joins the codes whose message is left out of every later request: a long pasted text refused for its size no longer goes out again with the next message and takes it down too. (apartejs/aparte#294)
+
+- 6d1f934: A conversation row can say its turn is queued: `setConversationStatus(id, 'queued')` (or `aparte-conversation-status` with `status: 'queued'`) draws a muted mark, no shimmer, and "Queued" for a screen reader.
+
+  For a turn sent but waiting behind another conversation's: a local engine that serves one turn at a time, a backend's queue. Read as `running`, the row shimmered and said "Answering" while nothing was being written. Only the app knows a turn is queued, so the app says it, and says `running` once the turn is served; the conversation controller's `running` at the turn's start no longer takes a `queued` back. `AparteConversationStatus` gains `'queued'`: a host that matched every status exhaustively has one more to handle. The new locale key `conversationQueued` is translated in the nine languages of `@aparte/locales`. (apartejs/aparte#289)
+
+- 85ea6eb: New `showToast(text, { tone, timeout, target })` in the kit: a short message in a corner of the page that goes away on its own.
+
+  For what has nowhere else to be said, such as why an action did not happen. It is the kit's alert, stacked in a fixed corner that never moves the layout under the pointer. It is announced as a status, or as an alert in the `danger` tone, waits while it is hovered or holds the focus, and closes by its button or Escape, giving the focus back to where it came from. Shown while a modal dialog is open, it goes inside the dialog, since everything outside one is inert; for a design system's dialog drawn in its own shadow root, it goes in the page's own content the dialog shows, where the kit's stylesheet reaches it. `target` names the element it is about: the toast goes in that element's shadow root and wears its theme. It returns a handle with `close()`, and does nothing in a server render. Two locale keys name its region and its button (`notifications`, `dismissNotification`), in the nine languages. (apartejs/aparte#279)
+
 ## 1.16.0
 
 ### Minor Changes

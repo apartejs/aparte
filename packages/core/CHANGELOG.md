@@ -1,5 +1,194 @@
 # @aparte/core
 
+## 1.17.0
+
+### Minor Changes
+
+- 3a59a20: A message the server refuses for its size (HTTP 413) now reads "This message is too large to send. Remove a file or send a shorter one." instead of promising a retry, and is left out of later requests.
+
+  `AparteError.codeForStatus` had no case for 413, so the error fell back to a failing provider: "Try again in a moment", and a retry sends the same bytes. It is easy to hit: nginx refuses a body over 1 MB by default, PHP one over 8 MB, and an image travels in base64. It has its own code now, `USAGE_TOO_LARGE`, its own sentence, `errorTooLarge`, in the nine languages of `@aparte/locales`, and it joins the codes whose message is left out of every later request: a long pasted text refused for its size no longer goes out again with the next message and takes it down too. (apartejs/aparte#294)
+
+- 118707f: A sub-agent opened by another sub-agent, saved while it waited for an approval, now goes on on its own line in its parent's transcript when the reply is resumed after a reload.
+
+  Its saved line was looked for in the reply's own segments only, so its resumed work was dropped, or went to a second, top-level line, and its call stayed awaiting approval. The plugin now finds it at any depth and takes up the sub-agents it sits under first. `createSegmentList` gains a `paused` option for that: a saved list taken up as a pause keeps its calls waiting for an approval open, where history aborts them.
+
+- 6d1f934: A conversation row can say its turn is queued: `setConversationStatus(id, 'queued')` (or `aparte-conversation-status` with `status: 'queued'`) draws a muted mark, no shimmer, and "Queued" for a screen reader.
+
+  For a turn sent but waiting behind another conversation's: a local engine that serves one turn at a time, a backend's queue. Read as `running`, the row shimmered and said "Answering" while nothing was being written. Only the app knows a turn is queued, so the app says it, and says `running` once the turn is served; the conversation controller's `running` at the turn's start no longer takes a `queued` back. `AparteConversationStatus` gains `'queued'`: a host that matched every status exhaustively has one more to handle. The new locale key `conversationQueued` is translated in the nine languages of `@aparte/locales`. (apartejs/aparte#289)
+
+- 608fb2c: A conversation can be dragged from one `<aparte-conversation-list>` onto another: give each list the key of the group it stands for in `drop-key` (`dropKey`). The drag type is public: `APARTE_CONVERSATION_DRAG_TYPE`.
+
+  For an app that renders one `flat` list per project under headings of its own. A list's rows with no `group` are in its key's group, a row dropped on it moves there, from another list of the page or from an element of the app's own that carries the type, and a row dropped back on its own list moves nothing. A list with no rows still takes a drop. The move is the same `aparte-conversation-move`, sent by the list the row lands on, `from` the key of the list it came from. Without `drop-key`, nothing changes. (apartejs/aparte#278)
+
+- 6db770f: A step can say what it is about: `step-start` carries a `detail`, a new `step-update { name, detail }` changes it while the step stays open, and the step's label function is handed `detail` and the reply's `messageId`.
+
+  A server waiting for a slot of a local engine knows who holds it, and the words belong to the page. A step carried its name alone and its label saw only that: an app kept the last holder in a module of its own, ended and restarted the step to have the words asked again, and two chats waiting showed the last one told. The detail travels with the step to the reply's waiting indicator and to a sub-agent's line, and the label is asked again when it changes. A second `step-start` of the same name still opens a nested step, as AG-UI's rule says: update a step with `step-update`. (apartejs/aparte#288)
+
+- 6d5eab5: A sub-agent heard before it names the call that opened it (an AG-UI agent whose first event arrives before `SUBAGENT_STARTED`) now moves onto that call: one line with all it said, and nothing marked Stopped.
+
+  It got a line of its own first, as a sub-agent with no call does. Announced again with its call, it was taken for another sub-agent under the same id: the first line read Stopped and what it said was split across two lines. `createSegmentList` gains `removeSegment`, so a sub-agent's own transcript can take a line out as a reply can.
+
+- 85ea6eb: New `showToast(text, { tone, timeout, target })` in the kit: a short message in a corner of the page that goes away on its own.
+
+  For what has nowhere else to be said, such as why an action did not happen. It is the kit's alert, stacked in a fixed corner that never moves the layout under the pointer. It is announced as a status, or as an alert in the `danger` tone, waits while it is hovered or holds the focus, and closes by its button or Escape, giving the focus back to where it came from. Shown while a modal dialog is open, it goes inside the dialog, since everything outside one is inert; for a design system's dialog drawn in its own shadow root, it goes in the page's own content the dialog shows, where the kit's stylesheet reaches it. `target` names the element it is about: the toast goes in that element's shadow root and wears its theme. It returns a handle with `close()`, and does nothing in a server render. Two locale keys name its region and its button (`notifications`, `dismissNotification`), in the nine languages. (apartejs/aparte#279)
+
+- dd2fce8: A tool can set its own time limit (`timeoutMs` on the tool), which replaces the client's or the server handler's `toolTimeoutMs` for that tool; `Infinity` means no limit.
+
+  A tool that runs a whole sub-agent on a slow local model, or a command with a limit of its own, was cut at five minutes like a lookup, and a host that raised the shared bound to spare it lost the bound for every other tool. `Infinity`, or any delay above 2^31-1 ms, used to fire at once (a timer reads such a delay as zero): it is no limit now. A sub-agent a call opens in the background is bounded by that call's limit. The docs now say what happens when a limit fires: the call is abandoned and the run stops, since a handler that ignores its signal may still be running. (apartejs/aparte#290)
+
+- 6075c93: An approval policy can rule asynchronously: `setApprovalPolicy` and the server handler's `approvalPolicy` may return a promise, awaited before the call runs, pauses or is refused.
+
+  Security fix included: a policy that returned a promise used to let every call run unasked in the page (the promise was taken for a ruling with no verdict, so the gate opened, `needsApproval` tools included), and was ignored on the server, where a `deny` on a tool with no flag let the call run. While a policy rules, the calls the model made after that one wait, as they wait for a person's answer, so the order guarantee holds; a synchronous policy stays synchronous. A promise that rejects asks a person, with the reason on the console. A policy is asked once per call, so the ruling that paused a call is the one that answers it, and a Stop does not wait for a ruling still on its way. `config.ruleOnToolCall` stays synchronous and answers `ask` for a policy still ruling; the new `config.ruleOnToolCallAsync` waits for it. The engine's `needsApproval` predicate may answer with a promise too. (apartejs/aparte#291)
+
+  Code that CALLS a policy (one that wraps `config.getApprovalPolicy()` to compose two) now gets a type whose answer may be a promise: await it, or ask `config.ruleOnToolCallAsync`. A policy you write is unaffected, and `createApprovalPolicy` from `@aparte/plugin-approval` is still typed as ruling at once.
+
+- 2ba627d: `new AparteConversationManager(adapter, { orderBy })` orders its lists as the app chooses: `'updated'` (the default, unchanged), `'created'`, or a compare function.
+
+  The lists were by `updatedAt`, the last change of content: a reply that ends moves its conversation up, as most chat products do. An app that keeps a conversation in its place, or orders by the person's last message, sorted the manager's lists again itself. A conversation list's date groups still read each row's `updatedAt`: with another order, hand it the date you order by. Opening, renaming or reloading a conversation never moved it, and still does not. The framework helpers' lists (`useConversationManager` in React and Vue, Angular's `ConversationManagerService`, Svelte's `createConversationManager` and `createConversations`) follow the same option, given to their `init`; `manager.compare(a, b)` sorts a list of the app's own the same way. (apartejs/aparte#293)
+
+### Patch Changes
+
+- e1685e0: Escape and Tab typed in a field of a web component inside a modal dialog are the dialog's again: an open drawer or the launcher no longer takes them.
+
+  The drawer and the launcher leave a modal dialog's keys to it, and looked for the dialog around where the key began with `closest()`, which stops at the edge of the component's own shadow root: the drawer closed, or the launcher hid the chat, on the dialog's Escape. They now look along the key's whole path.
+
+- aee4d0c: A dialog opener or closer made of a web component (a Shoelace or Material button, or a button holding an icon component) opens and closes its dialog again.
+
+  Since the dialog wiring learned to work inside an app's shadow root, it read the click from where it began and looked for the control with `closest()`, which stops at the edge of the shadow root it starts in: a click on the label or the icon of a component button, each in the component's own shadow root, found no opener. The control is now looked for along the click's whole path, across every shadow root it crossed.
+
+- 3c2d7e3: In Safari, dragging text or a link out of the transcript no longer leaves the chat unable to follow the next reply to the bottom.
+
+  The transcript holds a press from `pointerdown` to the next `pointerup` or `pointercancel`, and WebKit sends neither after a native drag. The press stayed held for the rest of the turn, and the engine's own settle at the end of a reply read as the reader scrolling up, which stopped the follow. A drag now ends the press, as it already does in the conversation list.
+
+- adeaffe: A key that leaves `<AparteUi>`'s `props` is now cleared on the element: its attribute or CSS variable is removed, and its property is set to `undefined`.
+
+  With the usual `{ ...(fetching && { loading: true }) }`, the next bag has no `loading` once fetching ends, and only the keys present were written, so the attribute stayed and the skeleton rows never went away, in all four wrappers. `applyElementProps` takes `{ replace: true }` for a bag that is the element's whole set of props; without it, as the generated components call it with only what changed, an absent key is left alone.
+
+- 6962a28: A reply cut by an error keeps its last words: the text the parser was holding (the end of a code block, a closing backtick) is no longer lost.
+
+  The engine flushes the call's text before it throws, and the client flushes on its error path too, for a runner of your own that does not.
+
+- 5ed682c: A reply streamed by hand through a framework chat (`appendToSegment` in a loop) is written incrementally again, chunk by chunk, until `isStreaming: false` ends it.
+
+  Since 1.16's fix for edited replies, a segment with no `isStreaming` flag followed the bubble's `streaming` attribute, and every wrapper drops that attribute as soon as a reply driven by hand has a segment. Each chunk, and each frame's re-sync, then closed the stream and drew the whole text again: an unclosed `**` showed raw, and a highlighter, a diagram or a formula ran once per token. An append is now a stream whatever the attribute says, and a stream already open goes on until a flag ends it. A bubble with `streaming="false"` now reads as not streaming, as the bubble itself reads that value, so an edit of its finished reply is written whole.
+
+- a6ed3a6: Under React, Vue, Svelte or Angular, a reply you write by hand into an empty assistant message now streams until you give it a status, as it already did without a framework: end it with `updateMessage(id, { status: 'completed' })`.
+
+  The bring-your-own-loop flow (`appendMessage` with no status, `addSegment`, `appendToSegment`, then a status) lost its stream as soon as the first segment arrived when the empty bubble had been painted first, which any real wait before the first token causes: a wrapper draws a bubble's `streaming` from `isAwaitingReply`, which a segment turns false, and the bubble took that for the reply's end. Every chunk after it was drawn whole, an unclosed `**` showed raw, and a reasoning block read finished while it was still being written. The host now marks such a shell `streaming` when its first segment is written, and the status the app gives it ends it. A reply that already had words when a segment was added keeps the status the app gave it.
+
+- 2ce599e: A Stop pressed just as the reply ends no longer sends the message the person had drafted for later.
+
+  The reply could end between the press and the release: the same button turned back into Send, and the click sent the unfinished draft. A click now does what the button showed when it was pressed, so a Stop with nothing left to stop does nothing. The keyboard already refused it, since Enter neither sends nor stops during a turn.
+
+- de4b389: A modal dialog placed inside `<aparte-sidebar>` keeps its Escape and Tab while the sidebar is a drawer: the drawer no longer closes behind it.
+
+  A settings dialog put beside its button in the sidebar was taken for the drawer's own content. Its Escape closed the drawer, which then made itself inert with the open modal inside it, so the page could not be used until a second Escape; Tab from the dialog's last button went nowhere. A modal dialog anywhere on the key's path now has the key, as one outside the sidebar already did.
+
+- a96cbe2: After a reload, resuming a reply paused on a sub-agent's call no longer tells the model the call that opened the sub-agent was stopped.
+
+  `@aparte/plugin-subagents` marks that call `awaiting-approval` while the sub-agent's question is up. Loading the reply turned it into `aborted`, so the resume answered it "The tool call was stopped before it ran." for a delegation whose sub-agent was about to go on, and its line read Stopped. In a reply paused on `deferredCalls` no gate of the page is open, so a waiting call is kept open and the resume hands it back open.
+
+- 41bcabe: A property input given `undefined`, `null` or `false` now clears the element's property: `[moveTargets]="canMove ? groups : undefined"` in Angular, or a key kept in an `<AparteUi>` bag with no value (`moveTargets: canMove && groups`).
+
+  Only the attribute of the same name was removed, and the element went on with the old array or function: rows kept offering "Move to…", an old `renderMeta` kept drawing. A key given an object or a function before is a property, and is cleared as one.
+
+- c510994: A property given to an element before its definition loads (a lazily imported plugin's `diff`, `comments`, `chat`, `triggers`) now reaches the element once it is defined.
+
+  `<AparteUi>` and the wrappers' generated elements assigned it right away, so it became the element's own property and hid the setter the definition brought, for good, although the docs promise a tag mounted before its definition upgrades on its own. The value is now kept and handed to the setter when the element is defined.
+
+- a642064: Clicking a scroll-rail tick in a chat embedded in a scrolling page now scrolls only the transcript, not the page around it.
+
+  The jump used `scrollIntoView`, which aligns the message in every scrolling ancestor, the page included. In a dashboard panel or on a docs page, each tick moved the whole page and pushed the chat's own header out of view. The transcript's surface is now scrolled by the distance to the message.
+
+- 27bd996: A framework chat's re-sync now carries every field a segment changed, a text segment's included, and a change the app wrote in place on the segment it handed over.
+
+  A reasoning block's label, a code block's language, an error's details reached the bubble only when the segment was drawn anew: for a segment with text, only the text was patched. And a field written in place (`seg.status = 'resolved'`, idiomatic in Svelte and Vue) was compared with the bubble's copy, which is the same object, so a resolved call kept reading as running. Each re-sync now compares with what was last handed over.
+
+- 53b3347: Renaming a conversation with an input method (Japanese, Chinese, Korean) no longer commits or cancels the rename on the Enter or Escape meant for the word being composed.
+
+  Enter confirms a candidate and Escape cancels a composition. Firefox sends them flagged `isComposing`, and Safari sends that Enter after the composition with keyCode 229. The list took both for its own: the title was saved half converted, in the middle of the word, or the rename was thrown away.
+
+- c44971e: In controlled mode (`messages` and `onMessagesChange`), a tool call's new status or result, a card's new data, and any other segment without text now show when the parent hands the message again.
+
+  When the message kept the same number of segments, the wrappers' re-sync patched only segments carrying `content`: a call the parent marked resolved kept spinning "Running", and a segment replaced under another id was ignored. The fields a segment changed are now patched, and a replaced segment draws the bubble again.
+
+- 628e1ce: An open `<aparte-select>` (the model selector, the approval mode) now answers only the keys typed in it, and Tab closes it.
+
+  It listened on the whole document: open, it took Enter, the arrows and Escape typed anywhere. Tab back to the composer left it open, and Enter there sent the message, then also switched the model. Its Escape also came after every listener on the way up, so inside a launcher the whole chat closed on the Escape meant to dismiss the list.
+
+- aa39bb9: The server handler keeps a failed sub-agent's error text on the server: the page reads "The sub-agent failed.", and the real message goes to the server's log.
+
+  A sub-agent that failed on a server tool's error (a path, a connection string) or on its model's (a vendor message that can echo a key) ended with that text in `agent-end`'s `error`, which went out as it was: the page drew it on the sub-agent's line and the conversation saved it. A tool's own failure was already masked this way; the sub-agent's end now is too.
+
+- 1174c83: A tap on a kit menu item (a row's Rename, Pin, Delete) now keeps the menu open until the tap's click lands.
+
+  The menu closes when the focus leaves for nowhere unless a press inside it is under way, and that press ended at `pointerup`. On a touch screen the tap's click comes after the finger is lifted, and on iOS so does the compatibility `mousedown`, which blurs the focused item: the menu could close before the click reached the item. A touch press now lasts until its click, or 600 ms if none comes. iOS's event order was not measured here; the change leaves mouse presses as they were.
+
+- cfef2ed: A tap on a conversation row while the app updates the list now selects that row.
+
+  The list holds the app's render during a press so a row is not replaced under it, and lifted the hold one task after `pointerup`, where a mouse click already landed. A tap's click comes later, so the held render could replace the row under the finger first. A touch press now holds the render until its click, or 600 ms if none comes.
+
+- da08615: Setting `value` on `<aparte-select>` from code no longer fires `aparte-select-change`; only a choice the person makes does. If you relied on the event after setting `value` yourself, run your handler there.
+
+  The attribute set the value silently and the property announced it, so the same app echoed under Vue, Svelte 5 and a raw tag (which write the property) and not under React's element or Angular's directive (which write the attribute): a value loaded from a saved conversation came back as a change, and a handler saving the person's choice saved one nobody made. Both paths now behave as a native `<select>`. `<aparte-approval-mode>` relays only that event, so a mode set by code (`getApprovalController().setMode(...)` on a switch of conversation) no longer comes out as `aparte-approval-mode-change` either. (apartejs/aparte#295)
+
+- 7e83934: Enter or Space on the Send button sends again after a press on Stop that never became a click (the pointer slid off before the release, or a touch turned into a scroll).
+
+  The button remembers what it showed when it was pressed, so a Stop released just after the reply ended does not send the draft. That record outlived a press that produced no click, and the next activation from the keyboard was read as that Stop: the draft was not sent until a second press. The record now only counts for a click a press produced.
+
+- c3eb2f9: Editing a finished reply in place (`updateSegment` with new text) now draws the whole text, its last characters included.
+
+  A segment with no `isStreaming` flag (every restored one) was read as still being written on update: the incremental parser wrote it and held back its tail, and nothing ended it since the bubble never streamed. A missing flag now follows the bubble: still writing while it streams, finished when it does not.
+
+- bd46542: An Escape that cancels a word being composed with an input method (Japanese, Chinese, Korean) no longer closes a diff comment or a message edit, and no longer drops what is being written.
+
+  The diff's comment field took every Escape as its own and let go of the form. The bubble's inline edit checked `isComposing`, which Safari does not set on the key it sends after a composition ends (keyCode 229). Both now leave a composition's keys to the composition, as the composer, the rename and the select already do.
+
+- e513b1f: The kit's dialog attributes (`data-aparte-dialog-open`, `data-aparte-dialog-close`, the backdrop click) now work inside an app's own shadow root.
+
+  A click from a shadow root reaches the document with the shadow host as its target, so the opener and the closer were never found, and the dialog was looked up in the document, where it is not. The click is now read where it began, and the dialog is found in the opener's own root.
+
+- ed45742: Enter opens a closed `<aparte-select>` from the keyboard, and ArrowDown opens it on the selected option; neither chooses anything on the way.
+
+  The keydown that opened the list went on up to the select's own key handler, which found the list open with the selection active: Enter chose it again and closed the list at once, firing `aparte-select-change` with the same value, and ArrowDown moved one past it. Only Space opened a select. Also, an Escape typed while the focus is on the page, the list open inside a drawer, now closes the list and leaves the drawer open: the select hears that key before any listener on the page.
+
+- 8d2b64a: Resizing the window or the chat no longer raises "ResizeObserver loop completed with undelivered notifications" from the composer.
+
+  The editor set its own height inside the observer that watches it, so each width change (a window resize, the launcher maximized, the drawer toggled) ended in that browser error, which monitors log for every user and dev servers show full screen. The height is now set on the next frame, and only when the width changed.
+
+- b4f313a: Removing an attachment from the keyboard now leaves the focus on the next file's remove button, or in the editor when none is left, instead of on the page.
+
+  The strip is drawn again whole on every change, so the focused remove button was destroyed and the next Tab started again at the top of the page. A file added while a remove button has the focus keeps it on that file.
+
+- 523ceef: In a right-to-left chat, a tool row's opened detail and a reasoning block now put their indent beside their rule, on the right.
+
+  Their rule is `border-inline-start`, the right edge in a right-to-left chat, but the indent came from physical shorthands that set the left padding, so the Input/Output panels and the reasoning text sat flush against the rule with an empty strip on the other side. The rename field in the conversation list had the same mismatch. All four now use logical properties.
+
+- 3fbaf76: In a right-to-left chat, a reasoning block written in English keeps its indent beside its rail, and the compact weather card and the link chip pad the right side.
+
+  The reasoning panel reads its own direction (`dir="auto"`), so English reasoning in an Arabic chat put its indent on the left while the rail, which follows the chat, is on the right. When the two directions differ, the indent now goes on the rail's side. The weather card's extra space for its accent bar and the link chip's tighter icon side were physical paddings: they are logical now.
+
+- 1902a42: Text a model writes after a tool call, in the same model call, now appears after the call's row instead of being appended to the text above it.
+
+  The adapter hands over the text before a call, as it already did around an activity and as the AG-UI and n8n runners do. Seen with `@aparte/provider-scenario` and with Gemini through the AI SDK.
+
+- c7334d0: The open sidebar drawer now leaves Tab and Escape to a modal dialog opened above it, and to a word being composed in its search field.
+
+  A dialog opened from the drawer (the kit's `data-aparte-dialog-open` pattern) had Tab pulled back into the drawer it covers, so Tab did nothing, and Escape closed the drawer behind the dialog. The Escape that cancels an IME composition in the drawer's search field closed the whole drawer.
+
+- edce799: Pressing the scroll-to-bottom button from the keyboard now moves the focus to the transcript as the button hides, instead of leaving it on a hidden control.
+
+  At the bottom the button turns transparent, leaves the tab order and is marked `aria-hidden`, but it kept the focus. A screen reader was left on a node removed from the tree, a keyboard user had no focus ring, and Space kept pressing a control nobody could see.
+
+- Updated dependencies [6962a28]
+- Updated dependencies [33e80e4]
+- Updated dependencies [6db770f]
+- Updated dependencies [8783037]
+- Updated dependencies [1f24530]
+- Updated dependencies [dd2fce8]
+- Updated dependencies [6075c93]
+  - @aparte/engine@1.17.0
+
 ## 1.16.0
 
 ### Minor Changes

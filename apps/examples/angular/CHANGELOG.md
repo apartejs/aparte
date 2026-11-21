@@ -1,5 +1,83 @@
 # @aparte-workspace/playground-angular
 
+## 0.0.89
+
+### Patch Changes
+
+- Updated dependencies [e1685e0]
+- Updated dependencies [aee4d0c]
+- Updated dependencies [3c2d7e3]
+- Updated dependencies [adeaffe]
+- Updated dependencies [6962a28]
+- Updated dependencies [5aafbdc]
+- Updated dependencies [5ed682c]
+- Updated dependencies [a6ed3a6]
+- Updated dependencies [2ce599e]
+- Updated dependencies [3a59a20]
+- Updated dependencies [de4b389]
+- Updated dependencies [118707f]
+- Updated dependencies [89fa900]
+- Updated dependencies [a96cbe2]
+- Updated dependencies [41bcabe]
+- Updated dependencies [c510994]
+- Updated dependencies [6d1f934]
+- Updated dependencies [a642064]
+- Updated dependencies [27bd996]
+- Updated dependencies [e93fd76]
+- Updated dependencies [53b3347]
+- Updated dependencies [1e5b147]
+- Updated dependencies [c44971e]
+- Updated dependencies [33e80e4]
+- Updated dependencies [608fb2c]
+- Updated dependencies [8963bfe]
+- Updated dependencies [8ed00af]
+- Updated dependencies [a4a4a07]
+- Updated dependencies [628e1ce]
+- Updated dependencies [6db770f]
+- Updated dependencies [8783037]
+- Updated dependencies [6d5eab5]
+- Updated dependencies [aa39bb9]
+- Updated dependencies [1f24530]
+- Updated dependencies [1174c83]
+- Updated dependencies [cfef2ed]
+- Updated dependencies [85ea6eb]
+- Updated dependencies [dd2fce8]
+- Updated dependencies [da08615]
+- Updated dependencies [28327d1]
+- Updated dependencies [a76de60]
+- Updated dependencies [7e83934]
+- Updated dependencies [6075c93]
+- Updated dependencies [c3eb2f9]
+- Updated dependencies [bd46542]
+- Updated dependencies [74ba274]
+- Updated dependencies [9f95728]
+- Updated dependencies [e513b1f]
+- Updated dependencies [ed45742]
+- Updated dependencies [8d2b64a]
+- Updated dependencies [b4f313a]
+- Updated dependencies [523ceef]
+- Updated dependencies [3fbaf76]
+- Updated dependencies [1902a42]
+- Updated dependencies [c7334d0]
+- Updated dependencies [2ba627d]
+- Updated dependencies [84b6aee]
+- Updated dependencies [edce799]
+- Updated dependencies [4a838b8]
+- Updated dependencies [c4b8933]
+  - @aparte/core@1.17.0
+  - @aparte/angular@1.17.0
+  - @aparte/engine@1.17.0
+  - @aparte/plugin-subagents@1.17.0
+  - @aparte/provider-scenario@1.17.0
+  - @aparte/plugin-artifacts@1.17.0
+  - @aparte/plugin-approval@1.17.0
+  - @aparte/provider-openai-compat@1.17.0
+  - @aparte/plugin-ask-user@1.17.0
+  - @aparte/plugin-compaction@1.17.0
+  - @aparte/plugin-marked@1.17.0
+  - @aparte/plugin-model-selector@1.17.0
+  - @aparte/plugin-shiki@1.17.0
+
 ## 0.0.88
 
 ### Patch Changes

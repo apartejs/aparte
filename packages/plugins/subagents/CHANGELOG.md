@@ -1,5 +1,67 @@
 # @aparte/plugin-subagents
 
+## 1.17.0
+
+### Minor Changes
+
+- 6db770f: A step can say what it is about: `step-start` carries a `detail`, a new `step-update { name, detail }` changes it while the step stays open, and the step's label function is handed `detail` and the reply's `messageId`.
+
+  A server waiting for a slot of a local engine knows who holds it, and the words belong to the page. A step carried its name alone and its label saw only that: an app kept the last holder in a module of its own, ended and restarted the step to have the words asked again, and two chats waiting showed the last one told. The detail travels with the step to the reply's waiting indicator and to a sub-agent's line, and the label is asked again when it changes. A second `step-start` of the same name still opens a nested step, as AG-UI's rule says: update a step with `step-update`. (apartejs/aparte#288)
+
+- 8783037: A sub-agent whose own run stops before it answers (its turn limit, a call it could not make) now ends `partial`, with a `reason` and what it found as its `result`, and its line reads "Cut short" instead of Done.
+
+  `runSubAgent` reported every such sub-agent as `done` with its last text, often empty after a round of tool calls, so the parent model read a finished answer and the line said Done above a transcript showing the turn limit's error. `StreamAgentStatus` and `AparteSubagentStatus` gain `'partial'`, `agent-end` gains `reason` (a `StreamAgentCutReason`: `turn-limit`, `timeout`, `no-handler`, `no-resolver`, `aborted` for a call that stopped itself, or `context` for a host's own loop), `runSubAgent` returns them, and a background sub-agent cut short is reported to the model as such. `aparte-subagent-end` carries the `reason` too. A host that matched every status exhaustively has one more to handle. (apartejs/aparte#285)
+
+- 1f24530: A sub-agent can name the model it runs on: `agent-start` carries `model`, `runSubAgent` and `startSubAgent` fill it from their request (or take a `model` you give), and `setupSubagents({ model: true })` draws it quietly on the sub-agent's line.
+
+  A host whose sub-agents run on other models than the conversation (a small local one beside the main) had only the name to show it, "Reader · qwen3:8b", which a host matching lines by name then had to strip. The model is kept on the segment, so a thread read back still says it. Off by default: every existing line would change. `aparte-subagent-start` carries it too, as `model`. (apartejs/aparte#286)
+
+### Patch Changes
+
+- 5aafbdc: A sub-agent announced with no call, under the id of one that already finished, now gets its own line instead of writing over the finished one's.
+
+  A backend that mints sub-agent ids per run (the engine's default counter) names a resume's first detached sub-agent like the paused run's. A finished sub-agent never resumes, so its id announced again is a new one; only one left waiting or running goes on.
+
+- 118707f: A sub-agent opened by another sub-agent, saved while it waited for an approval, now goes on on its own line in its parent's transcript when the reply is resumed after a reload.
+
+  Its saved line was looked for in the reply's own segments only, so its resumed work was dropped, or went to a second, top-level line, and its call stayed awaiting approval. The plugin now finds it at any depth and takes up the sub-agents it sits under first. `createSegmentList` gains a `paused` option for that: a saved list taken up as a pause keeps its calls waiting for an approval open, where history aborts them.
+
+- 89fa900: A nested sub-agent's conversation now shows both in the chat and in a view of its parent beside it, instead of moving between the two.
+
+  With `details: 'transcript'`, the nested sub-agent's line is drawn inside its parent's transcript in the chat, and again in the view where the parent is opened. Both rows got the one element kept for that sub-agent, so each update moved it into the row that asked, and one of the two was always empty while it wrote. A view of its own now keeps its own elements.
+
+- e93fd76: Changing the language, the icons or a tool while a sub-agent is open in a view no longer empties the nested sub-agent's conversation in the chat.
+
+  The view relabelled its rows outside its drawing, with no surface: a nested sub-agent's row in the view asked for the chat's element of that conversation, and moved it into the view. The chat's row stayed empty until it was drawn again, which after the run's end may never come. Every pass over a view's rows now runs on that view's surface, a line's detail on the surface it sits in.
+
+- 1e5b147: After a reload, the call that opened a sub-agent reads as working again once the sub-agent's question is answered, instead of staying "awaiting approval".
+
+  While a sub-agent asks, the plugin marks the call that opened it as waiting and gives it back its progress once the question is answered. A lane taken up after a reload did not know the mark was its own, and left it.
+
+- 8963bfe: A sub-agent saved while it waited now goes on, on its own line, when the reply is resumed after a reload, whether the resumed stream announces it again or not.
+
+  After a reload the plugin knew no lane. Events for a sub-agent the resumed stream did not announce again were held until an announcement that never came, then dropped: the transcript kept a call that ran as waiting, then Stopped. Announced again with no call, the sub-agent got a second, empty line. The saved line is now found by the sub-agent's id, on its call or on a segment of its own, while it was waiting or working.
+
+- 6d5eab5: A sub-agent heard before it names the call that opened it (an AG-UI agent whose first event arrives before `SUBAGENT_STARTED`) now moves onto that call: one line with all it said, and nothing marked Stopped.
+
+  It got a line of its own first, as a sub-agent with no call does. Announced again with its call, it was taken for another sub-agent under the same id: the first line read Stopped and what it said was split across two lines. `createSegmentList` gains `removeSegment`, so a sub-agent's own transcript can take a line out as a reply can.
+
+- 28327d1: A view disconnected from its chat, or shown a new conversation, follows the sub-agent it is named again, on whatever call it runs.
+
+  `connectSubagentView` keeps a view on the call of the line pressed, since two sub-agents of one reply can share an id. That filter outlived the connection and the conversation: a sub-agent named on the view afterwards, on another call, was never drawn live.
+
+- a76de60: Open on the second of two sub-agents that share an id and have no call now shows that second one, and only its line reads as shown.
+
+  Since each such sub-agent has a line of its own, the view still told sub-agents apart by the call of the line pressed, and these lines have none: Open showed the first, and both lines were marked current. A line of its own is now told apart by its own segment.
+
+- 74ba274: An Escape that ends an IME composition in a field inside `<aparte-subagent-view closable>` or `<aparte-artifact-panel>` no longer closes the pane.
+
+  A Japanese or Chinese reader cancelling a conversion candidate in a field inside the pane (a diff comment, say) folded it mid-composition: the field now leaves that Escape to the composition, and the pane read it as its own.
+
+- 4a838b8: Open on a sub-agent's line now shows that sub-agent in the view, even when another sub-agent of the reply has the same id.
+
+  A backend that mints sub-agent ids per run names a resume's first one like the paused run's. The view took the first sub-agent under that id, drew the other's writes over it while it ran, and both lines read as the one shown. `connectSubagentView` now hands the view the call of the line pressed, and only that line is marked.
+
 ## 1.16.0
 
 ### Patch Changes

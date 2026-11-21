@@ -1,5 +1,17 @@
 # @aparte/provider-scenario
 
+## 1.17.0
+
+### Patch Changes
+
+- 8ed00af: A scenario whose reply delegates twice under the same `id`, in two turns, now runs the second sub-agent too.
+
+  The loop names a call once per reply, so the second turn's call is `id_2`. The scenario filed its scripts per turn, the second one under `id`, and its handler, asked for `id_2`, answered "No script exists for this call". The scripts are now named by the same rule as the loop's, seeded with the calls already in the reply.
+
+- a4a4a07: A scripted sub-agent cut short is reported to the parent model as cut short, with what it found.
+
+  The delegate tool's report knew only `done` and `failed`: a sub-agent that ended `partial` (its turn limit, a call it could not make) read "was stopped before it answered" and its text was dropped, while its line said Cut short.
+
 ## 1.16.0
 
 ## 1.15.1
