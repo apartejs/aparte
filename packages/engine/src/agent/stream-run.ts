@@ -863,6 +863,24 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
     return typeof (value as { then?: unknown } | null)?.then === 'function';
 }
 
+/**
+ * A ruling on its way, awaited until a Stop. A ruling gets no signal (a policy is handed the
+ * call, the tool and the turn), so a lookup that hangs would hold the run past a Stop: the loop
+ * stops listening instead, and the ruling's late outcome goes unheard. One that fails is `'ask'`:
+ * a ruling that could not be made never runs the call.
+ */
+function ruledUnlessStopped(ruling: PromiseLike<unknown>, signal: AbortSignal): Promise<unknown> {
+    return new Promise((resolve) => {
+        const onStop = (): void => resolve(undefined);
+        if (signal.aborted) onStop();
+        else signal.addEventListener('abort', onStop, { once: true });
+        Promise.resolve(ruling).then(
+            (value) => { signal.removeEventListener('abort', onStop); resolve(value); },
+            () => { signal.removeEventListener('abort', onStop); resolve('ask'); },
+        );
+    });
+}
+
 /** Why a call after the pause point waits: what the client must answer, or nothing. */
 function queuedReason(call: StreamToolCall, lookup: StreamRunOptions['toolConfigLookup']): StreamDeferredReason {
     const cfg = lookup?.(call.name);
@@ -1032,11 +1050,7 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         // they wait for a person's answer: said in the tick the call started, before the step
         // looks at the next call. A ruling that fails asks a person, never runs the call unasked.
         ctx.asking?.(true);
-        try {
-            gated = await gated;
-        } catch {
-            gated = 'ask';
-        }
+        gated = (await ruledUnlessStopped(gated, signal)) as Awaited<typeof gated>;
         if (signal.aborted) {
             ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
             return told(ctx, 'stop-run');

@@ -91,6 +91,43 @@ describe('a ruling that takes its time', () => {
         expect(events).toContainEqual({ type: 'tool-aborted', toolCallId: 'w1', cause: 'stopped' });
     });
 
+    it('allowing, it lets the calls after it run beside it, not after it', async () => {
+        const order: string[] = [];
+        const { transportCall } = scripted({ parent: [[toolUse('w1', 'write'), toolUse('w2', 'write')], [done]] });
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: () => async (call) => { order.push(`${call.id} started`); await later(null, 40); order.push(`${call.id} ended`); return { content: 'ok' }; },
+            toolConfigLookup: () => ({ parallel: true, needsApproval: () => later(false, 5) }),
+            parallelTools: true,
+            emitter: () => {},
+            signal: new AbortController().signal,
+        });
+        // An allowed call gives the step back: the second one starts while the first still runs.
+        expect(order.indexOf('w2 started')).toBeLessThan(order.indexOf('w1 ended'));
+    });
+
+    // A policy service that hangs: the Stop must not wait for it. The ruling gets no signal,
+    // so the loop is the only one that can stop listening.
+    it.each([false, true])('stopped while a ruling never comes, the run ends at once (parallelTools: %s)', async (parallelTools) => {
+        const events: StreamRunEvent[] = [];
+        const controller = new AbortController();
+        const { transportCall } = scripted({ parent: [[toolUse('w1', 'write'), toolUse('r1', 'read')], [done]] });
+        const run = runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: () => async () => ({ content: 'ok' }),
+            toolConfigLookup: (name) => (name === 'write' ? { parallel: true, needsApproval: () => new Promise<never>(() => {}) } : { parallel: true }),
+            parallelTools,
+            emitter: (e) => {
+                events.push(e);
+                if (e.type === 'tool-start' && e.toolCallId === 'w1') setTimeout(() => controller.abort(), 5);
+            },
+            signal: controller.signal,
+        });
+        const settled = await Promise.race([run.then(() => 'ended'), later('still waiting', 300)]);
+        expect(settled).toBe('ended');
+        expect(events).toContainEqual({ type: 'tool-aborted', toolCallId: 'w1', cause: 'stopped' });
+    });
+
     it('queued behind a pause, a call whose ruling is on its way waits for a person', async () => {
         const events: StreamRunEvent[] = [];
         const { transportCall } = scripted({ parent: [[toolUse('d1', 'delete'), toolUse('w1', 'write')]] });
