@@ -61,7 +61,8 @@ export interface AparteTool {
      * limit of its own, sets a longer one, and the shared bound keeps protecting the other tools.
      * `Infinity` means no limit. When it fires, the call is abandoned and the reply ends, as with
      * the shared bound: a handler that ignores its signal may still be running. A browser tool a
-     * paused server run asks the page for is bounded the same way.
+     * paused server run asks the page for is bounded the same way, by the client's `toolTimeoutMs`
+     * (5 minutes by default) when the tool declares no limit.
      */
     timeoutMs?: number;
 }

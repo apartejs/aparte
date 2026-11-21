@@ -100,6 +100,8 @@ const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was r
 
 /** Above this a timer fires at once (a 32-bit delay): such a time limit, or `Infinity`, is none. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
+/** A tool call's time limit when none is declared: the page's own loop's (`runStreamAgent`'s). */
+const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
  * A browser tool run for a paused server run, bounded as the page's own loop bounds one call: by
@@ -2344,7 +2346,8 @@ export class AparteClient {
                     // One call of the tool, bounded as the page's own loop bounds one: past its
                     // time it is abandoned, and the turn ends (it does not resume on a failure
                     // that would invite the model to try again).
-                    const bound = this._config.getTools().find((t) => t.name === p.name)?.timeoutMs ?? this.options.toolTimeoutMs;
+                    const bound = this._config.getTools().find((t) => t.name === p.name)?.timeoutMs
+                        ?? this.options.toolTimeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
                     const ranWithin = await withinToolBound((callSignal) => handler(ran, callSignal, {
                         target: targetElement as unknown as HTMLElement,
                         config: this._config,

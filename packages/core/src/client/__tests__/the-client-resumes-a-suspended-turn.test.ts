@@ -324,6 +324,29 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls, 'not resumed with an answer nobody gave').toHaveLength(1);
     });
 
+    // No limit declared anywhere: the client's own default (5 minutes, as in the page's loop)
+    // bounds it. Only a declared limit did, so under the default options it spun until a Stop.
+    it("bounds a browser tool by the client's default time limit when none is declared", async () => {
+        vi.useFakeTimers();
+        try {
+            const { el } = chat();
+            const r = runner(pauseOn({ id: 'w1', name: 'pick_file', reason: 'external' }), finish);
+            let seen: AbortSignal | undefined;
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool(
+                { name: 'pick_file', description: 'Pick.', inputSchema: { type: 'object' } },
+                (_call, signal) => { seen = signal; return new Promise(() => {}); },
+            );
+            const sent = send(c);
+            await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 10);
+            await sent;
+            expect(seen?.aborted).toBe(true);
+            expect(r.calls).toHaveLength(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('paints the row as waiting while the page asks about a browser tool', async () => {
         const { el, messages } = chat();
         const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
