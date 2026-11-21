@@ -535,6 +535,20 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         expect(el.open).toBe(true);
     });
 
+    // The dialog itself in a component's shadow root (a design system's dialog element), a field
+    // slotted into it: `contains()` does not cross that root, so the dialog read as not the card's.
+    it('leaves to a dialog in a component\'s shadow root inside the card an Escape typed in it', () => {
+        const el = mount('', '<div id="chat"><div id="composer" role="textbox" tabindex="0"></div><div id="dialog-host"></div></div>');
+        el.show();
+        const host = document.getElementById('dialog-host')!;
+        host.attachShadow({ mode: 'open' }).innerHTML = '<dialog open><slot></slot></dialog>';
+        const field = host.appendChild(document.createElement('input'));
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true });
+        field.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+    });
+
     it('ignores Escape while closed, and Escape outside', () => {
         const el = mount();
         expect(key(buttonOf(el), 'Escape').defaultPrevented).toBe(false);
