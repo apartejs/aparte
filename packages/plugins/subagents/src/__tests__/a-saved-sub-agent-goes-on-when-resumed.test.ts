@@ -190,3 +190,63 @@ describe('a sub-agent saved while it was still working, resumed after a reload',
         expect(JSON.stringify(subagentOf(callIn(c.segments(), 'c1')!)!.segments)).toContain('Done reading.');
     });
 });
+
+/** Page one, two levels down: sub1 on c1 opens sub2 on c2, which opens sub3 on c3, and sub3 waits. */
+function pausedDeepReply(): AparteMessage {
+    stop = setupSubagents();
+    const c = chat();
+    let saved: AparteSegment[] | undefined;
+    c.host.addEventListener('aparte-message-paused', () => { saved = JSON.parse(JSON.stringify(c.segments())) as AparteSegment[]; });
+    c.run(
+        { type: 'run-start' },
+        { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+        { type: 'agent-start', agentId: 'sub1', name: 'Lead', toolCallId: 'c1' },
+        ...as('sub1', { type: 'turn-start' }, { type: 'tool-start', toolCallId: 'c2', name: 'delegate', input: {} }),
+        { type: 'agent-start', agentId: 'sub2', name: 'Planner', parentAgentId: 'sub1', toolCallId: 'c2' },
+        ...as('sub2', { type: 'turn-start' }, { type: 'tool-start', toolCallId: 'c3', name: 'delegate', input: {} }),
+        { type: 'agent-start', agentId: 'sub3', name: 'Writer', parentAgentId: 'sub2', toolCallId: 'c3' },
+        ...as('sub3',
+            { type: 'turn-start' },
+            { type: 'text-delta', delta: 'Writing.' },
+            { type: 'text-flush' },
+            { type: 'tool-start', toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' } },
+        ),
+        { type: 'agent-end', agentId: 'sub3', status: 'waiting' },
+        { type: 'agent-end', agentId: 'sub2', status: 'waiting' },
+        { type: 'agent-end', agentId: 'sub1', status: 'waiting' },
+        ...as('sub3', { type: 'tool-awaiting-approval', toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' } }),
+        { type: 'run-suspended', pending: [{ toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, reason: 'approval', agentId: 'sub3' }] },
+    );
+    expect(saved, 'saved on the pause').toBeDefined();
+    c.host.remove();
+    stop();
+    return {
+        id: 'a1', role: 'assistant', status: 'completed', content: '', timestamp: 1,
+        deferredCalls: [{ toolCallId: 'w1', name: 'write_file', input: { path: 'a.ts' }, reason: 'approval', agentId: 'sub3' }],
+        segments: saved!,
+    } as AparteMessage;
+}
+
+describe('a sub-agent saved two levels down while it waited, resumed after a reload', () => {
+    // Taken up flat, the middle one became a lane of the reply's: its line was not found in its
+    // parent's transcript, and the resumed work went to a second line.
+    it.each([
+        ['not announced again', [] as AparteStreamRunEvent[]],
+        ['announced again with no parent and no call', [{ type: 'agent-start', agentId: 'sub3' }] as AparteStreamRunEvent[]],
+    ])('goes on on its line, under both of its parents (%s)', (_name, announce) => {
+        const c = resume(pausedDeepReply(), [
+            { type: 'run-start' },
+            ...announce,
+            ...as('sub3', { type: 'tool-approved', toolCallId: 'w1' }, { type: 'tool-resolved', toolCallId: 'w1', result: 'written' }),
+            { type: 'agent-end', agentId: 'sub3', status: 'done', result: 'Written.' },
+            { type: 'run-done' },
+        ]);
+        expect(c.segments().filter((s) => s.id.startsWith('subagent-'))).toEqual([]);
+        const lead = subagentOf(callIn(c.segments(), 'c1')!)!;
+        const planner = subagentOf(callIn(lead.segments, 'c2')!)!;
+        expect(planner.segments.filter((s) => s.id.startsWith('subagent-'))).toEqual([]);
+        const writer = subagentOf(callIn(planner.segments, 'c3')!)!;
+        expect(callIn(writer.segments, 'w1')!.status).toBe('resolved');
+    });
+});
+
