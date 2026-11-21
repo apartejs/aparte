@@ -136,8 +136,8 @@ export interface AparteApprovalRuling {
  * default approval channel consults it before asking. Return `undefined` to have no
  * opinion, in which case the tool's `needsApproval` decides as before.
  *
- * Evaluated once to decide whether the call pauses at all (so an allowed call never flashes
- * "awaiting approval") and once to answer. It may answer with a promise, for a ruling that
+ * Asked once per call, before it runs: that ruling decides whether the call pauses at all (so an
+ * allowed call never flashes "awaiting approval") and is the answer. It may answer with a promise, for a ruling that
  * needs a lookup (the page a browser tool acts on, a rules file, a policy service): while it
  * rules, the calls the model made after this one wait, as they wait for a person's answer.
  * A promise that rejects asks a person: a ruling that could not be made never runs the call.
