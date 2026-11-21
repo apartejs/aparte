@@ -663,6 +663,42 @@ describe('<aparte-triggers>', () => {
             expect(labels(element)).toEqual(['an-result']);
         });
 
+        it('asks a source handed anew once the declarations settle: another channel, another list', async () => {
+            // A memoized declaration recomputed on a dependency (`[channelId]`): a new function for the
+            // same search, reading another scope. It was never asked: the first channel's members
+            // stayed listed, and Enter inserted one of them.
+            vi.useFakeTimers();
+            const { element, type } = mount([{ ...AT, debounce: 0, items: () => list('A') }]);
+            type('@');
+            await vi.advanceTimersByTimeAsync(0);
+            await flush();
+            expect(labels(element)).toEqual(['A']);
+            element.triggers = [{ ...AT, debounce: 0, items: () => list('B') }];
+            await vi.advanceTimersByTimeAsync(500);
+            await flush();
+            expect(labels(element)).toEqual(['B']);
+        });
+
+        it('a wrapper handing a new function on every render still lets the first answer arrive, then asks once', async () => {
+            // An inline declaration (no memo) is a new function on every render. The answer on its way
+            // arrives while the app re-renders, and the newest source is asked once, after the renders.
+            vi.useFakeTimers();
+            const asked: string[] = [];
+            const declare = () => [{ ...AT, debounce: 100, items: (q: string) => { asked.push(q); return list(`${q}-result`); } }];
+            const { element, type } = mount(declare());
+            type('@an');
+            for (let n = 0; n < 8; n++) {
+                await vi.advanceTimersByTimeAsync(30);
+                element.triggers = declare();
+            }
+            await flush();
+            expect(asked, 'answered while the app re-rendered').toEqual(['an']);
+            expect(labels(element)).toEqual(['an-result']);
+            await vi.advanceTimersByTimeAsync(500);
+            await flush();
+            expect(asked, 'the newest source, asked once the renders stopped').toEqual(['an', 'an']);
+        });
+
         it('holds Enter while the list is on its way', async () => {
             const send = vi.fn();
             const { composer, type, key } = mount([{ ...AT, debounce: 0, items: () => new Promise(() => {}) }]);

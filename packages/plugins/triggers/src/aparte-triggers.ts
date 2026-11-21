@@ -28,6 +28,8 @@ interface Level {
 const NOTICE_MS = 4000;
 const HOVER_OPEN_MS = 120;
 const DEFAULT_DEBOUNCE_MS = 150;
+/** How long the declarations must stay put before a source handed anew is asked (see `triggers`). */
+const SETTLED_MS = 200;
 const COMPACT_WIDTH = '(max-width: 640px)';
 const BACK_ID = '__aparte-back';
 const RETRY_ID = '__aparte-retry';
@@ -60,6 +62,8 @@ export class AparteTriggers extends HTMLElement {
     private _dismissed: { start: number; char: string } | null = null;
     private _commands: readonly AparteTriggerItem[] = [];
     private _debounce: ReturnType<typeof setTimeout> | undefined;
+    /** A source handed anew for the same search, asked once the declarations settle. */
+    private _reask: ReturnType<typeof setTimeout> | undefined;
     private _hover: ReturnType<typeof setTimeout> | undefined;
     /** The row the pointer was last seen on: a move inside one row is not a new row. */
     private _hoverRow: HTMLElement | null = null;
@@ -89,7 +93,22 @@ export class AparteTriggers extends HTMLElement {
         // A list asked of a function, for the same search: its answer is on its way, or on screen.
         // Asked again on every render, the request was aborted and the debounce armed anew each
         // time, so a list never arrived while a reply streamed and the app re-rendered per token.
-        if (asking) return;
+        // A source handed anew (another function) may read another scope (a memoized declaration
+        // recomputed for another channel): it is asked once the declarations stay put, so the
+        // answer on its way still arrives while the app re-renders.
+        if (asking) {
+            if (again.trigger.items !== hit.trigger.items) {
+                clearTimeout(this._reask);
+                this._reask = setTimeout(() => {
+                    const now = this._hit;
+                    if (!now || typeof now.trigger.items !== 'function') return;
+                    this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
+                    this._keepChildren = true;
+                    this._loadRoot(now);
+                }, SETTLED_MS);
+            }
+            return;
+        }
         this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
         this._keepChildren = true;
         this._loadRoot(again);
@@ -139,6 +158,7 @@ export class AparteTriggers extends HTMLElement {
     /** Close the menu. */
     close(): void {
         clearTimeout(this._debounce);
+        clearTimeout(this._reask);
         clearTimeout(this._hover);
         this._hoverRow = null;
         this._truncate(0);
@@ -244,6 +264,7 @@ export class AparteTriggers extends HTMLElement {
 
     private _loadRoot(hit: TriggerHit): void {
         clearTimeout(this._debounce);
+        clearTimeout(this._reask);
         this._root().abort?.abort();
         const { trigger, query } = hit;
         const local = matchRows(this._commands, query, trigger);
