@@ -77,10 +77,10 @@ const STATE_LABEL: Record<Product['state'], string> = {
     planned: 'Planned',
 };
 
-const TITLE = 'aparté — products built with the library';
+const TITLE = 'Made with aparté — the products built on the library';
 const DESCRIPTION = 'What is built on aparté: a support desk for Filament, an assistant whose model runs in the browser, a chat for n8n, a desktop app for local AI, and a desk for Strapi.';
 // Written from the og map entry (src/pages/og/[...slug].ts): it is what the card shows.
-const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a chat for n8n, and more, each on the same chat.';
+const IMAGE_ALT = 'Made with aparté. A support desk, a browser assistant, a chat for n8n, and more, each on the same chat.';
 ---
 
 <Landing
@@ -93,7 +93,7 @@ const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a ch
   <div class="pr">
     <header class="pr-head">
       <p class="eyebrow">Products</p>
-      <h1 class="thesis serif">Built with <em>aparté.</em></h1>
+      <h1 class="thesis serif">Made with <em>aparté.</em></h1>
       <p class="lede">
         What runs on the library today, and what is on the way. Each one is the same chat underneath,
         mounted in a different place: a Filament panel, a browser tab, an n8n workflow, a desktop app.
@@ -122,7 +122,9 @@ const IMAGE_ALT = 'Built with aparté. A support desk, a browser assistant, a ch
               <span class="pr-stack">{p.stack}</span>
             </p>
             {p.href && (
-              <a class="pr-link" href={p.href}>{new URL(p.href).host}<span aria-hidden="true"> →</span></a>
+              <a class="pr-link" href={p.href} target="_blank" rel="noopener">
+                {new URL(p.href).host}<span aria-hidden="true"> ↗</span><span class="aparte-sr-only"> (opens in a new tab)</span>
+              </a>
             )}
           </div>
         </li>
