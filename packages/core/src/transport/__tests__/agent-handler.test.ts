@@ -11,6 +11,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { createAparteAgentHandler, type AparteAgentHandlerOptions } from '../agent-handler.js';
 import { createAgentStreamRunner } from '../../client/agent-runner.js';
+import { runSubAgent } from '../../client/stream-adapter.js';
 import { readNdjson } from '../../utils/ndjson.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 
@@ -386,6 +387,31 @@ describe('createAparteAgentHandler', () => {
         errorSpy.mockRestore();
         expect(JSON.stringify(out)).not.toContain('/srv/secrets');
         expect(out.find((l) => l.type === 'tool-failed')).toMatchObject({ toolCallId: 'r1', error: 'The tool failed.' });
+    });
+
+    // The same text, from a sub-agent's own tool: the sub-agent failed on it, and its end carried
+    // the raw message to the page, where its line drew it and the conversation saved it.
+    it("keeps a server sub-agent's error text on the server too", async () => {
+        const failingTool = {
+            tool: { name: 'read_file', description: 'Read.', inputSchema: { type: 'object' } },
+            handler: async () => { throw new Error('ENOENT: /srv/secrets/db.env'); },
+        };
+        const research = {
+            tool: { name: 'research', description: 'Research.', inputSchema: { type: 'object' } },
+            handler: async (call: { id: string }, signal: AbortSignal, ctx: { run?: unknown }) => {
+                await runSubAgent(ctx.run as never, { name: 'Researcher', request: { messages: [{ role: 'user', content: 'go' }] } as never }, signal);
+                return { toolCallId: call.id, content: 'done' };
+            },
+        };
+        const { provider } = scriptedProvider(
+            [{ type: 'tool_use', id: 'r1', name: 'research', input: {} }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'c1', name: 'read_file', input: {} }, { type: 'done' }],
+        );
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(provider, { tools: [research, failingTool] })(post(firstBody())));
+        errorSpy.mockRestore();
+        expect(out.find((l) => l.type === 'agent-end')).toMatchObject({ status: 'failed' });
+        expect(JSON.stringify(out)).not.toContain('/srv/secrets');
     });
 
     it('hands a server tool the request, so it can check who is calling', async () => {

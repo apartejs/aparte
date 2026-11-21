@@ -310,6 +310,13 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                         write({ ...event, error: 'The tool failed.' });
                         return;
                     }
+                    if (event.type === 'agent-end' && event.error !== undefined) {
+                        // A sub-agent that failed on a server tool's error, or its model's, carries
+                        // that error's words: the same path, host or key the line above keeps here.
+                        console.error(`[aparte] sub-agent ${event.agentId} failed:`, event.error);
+                        write({ ...event, error: 'The sub-agent failed.' });
+                        return;
+                    }
                     if (event.type !== 'run-suspended') {
                         write(event);
                         return;
