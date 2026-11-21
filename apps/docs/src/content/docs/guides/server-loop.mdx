@@ -314,6 +314,13 @@ sub-agent lives inside one tool call, which has to answer. Its call that needs a
 stopped, with the cause `no-resolver`. Put `needsApproval` on the tool that opens the sub-agent
 instead: that one pauses the run like any other server tool.
 
+A host that lives as long as the conversation (an Electron main process, a desktop app's own
+server) can run the loop itself instead: [`runStreamAgent`](/guides/engine/) with no `deferral` and an
+`approvalResolver` that waits for the person's answer (over IPC, say). The run then waits rather
+than pauses, `run.canAsk` is true, and a sub-agent's calls ask like any other, the call that opened
+it holding until they are answered. A stateless server cannot do this: resuming a sub-agent there
+would mean keeping its whole conversation between two requests.
+
 ## Open a file in the page when a server tool runs
 
 To have the page do something when a call runs — open a file in the editor beside the chat —

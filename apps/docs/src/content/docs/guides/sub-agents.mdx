@@ -840,7 +840,8 @@ In the [server loop](/guides/server-loop/), a sub-agent's call cannot ask: the r
 instead of waiting, and a sub-agent lives inside one tool call, which must answer. A call of a
 sub-agent that needs a decision is stopped (`tool-aborted`, cause `no-resolver`). Give the tools a
 sub-agent calls on the server no `needsApproval`, and let the approval sit on the tool that opens
-the sub-agent.
+the sub-agent. Or, in a host that lives as long as the conversation, run the loop yourself with a
+resolver that waits: see [the server loop](/guides/server-loop/).
 
 An [AG-UI agent](/providers/agent/ag-ui/) can pause on a call its own sub-agent made (an interrupt
 raised inside the sub-agent). That pause survives a reload: the call has no row in the reply, so the
