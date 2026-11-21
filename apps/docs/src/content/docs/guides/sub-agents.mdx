@@ -551,6 +551,22 @@ It is configuration, not a component, so it reads the same under every framework
 reads its own labels only. Only what is shown is labelled: `config.observeRunEvents` still hears
 `step-start` with `reread`, so a mark of the step that you keep holds the key, not the label.
 
+**What the step is about:** a step can carry data for its words, its `detail` — who holds the
+engine, which file is read — and `step-update` changes it while the step stays open. The label
+function is handed it, with the reply's `messageId` (two chats waiting, two answers), and asked
+again when it changes. The data is never shown as it is: the words stay the page's.
+
+```ts
+// The server: { "type": "step-start", "name": "slot-wait", "detail": { "holder": "Login refactor" } }
+//        then { "type": "step-update", "name": "slot-wait", "detail": { "holder": "Docs pass" } }
+aparteGlobalConfig.registerStepLabel('slot-wait', ({ detail }) =>
+  detail?.holder ? `Waiting for the engine: “${String(detail.holder)}” is running` : 'Waiting for the engine…');
+```
+
+A second `step-start` with the same name opens another step inside the first (AG-UI's rule), so
+update a step with `step-update`, not with a new start. Registering a label again also redraws an
+open step at once, for words that change for a reason of the page's own.
+
 **An AG-UI agent:** nothing to do. `STEP_STARTED` and `STEP_FINISHED` are shown as they arrive, a
 sub-agent's by its `subagentRunId`, and a step the agent leaves open closes when its run ends.
 

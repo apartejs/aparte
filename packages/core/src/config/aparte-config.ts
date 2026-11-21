@@ -2282,11 +2282,13 @@ export class AparteConfig {
      * say nothing, or the function that gives them throws — then the name itself is shown. A
      * function label is asked here, with the locale as it is now.
      */
-    getStepLabel(name: string): string | undefined {
+    getStepLabel(name: string, about: { detail?: Record<string, unknown>; messageId?: string } = {}): string | undefined {
         const entry = this._stepLabels.get(name);
         if (!entry) return undefined;
         try {
-            const text = typeof entry.label === 'function' ? entry.label({ name, locale: this._locale }) : entry.label;
+            const text = typeof entry.label === 'function'
+                ? entry.label({ name, locale: this._locale, ...(about.detail ? { detail: about.detail } : {}), ...(about.messageId ? { messageId: about.messageId } : {}) })
+                : entry.label;
             return typeof text === 'string' && text.trim() ? text.trim() : undefined;
         } catch {
             return undefined;

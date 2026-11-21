@@ -33,7 +33,7 @@ import {
     type StreamAdapterTarget,
 } from '@aparte/core';
 import { subagentOf, subagentStatus } from './status.js';
-import { stepEnded, stepStarted, stepsEnded } from './steps.js';
+import { stepEnded, stepStarted, stepUpdated, stepsEnded } from './steps.js';
 import {
     SUBAGENT_SEGMENT_TYPE,
     type AparteSubagent,
@@ -720,7 +720,8 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         }
         // Its step is said on its line, live, and kept out of its conversation: the line reads
         // it at the draw this event's write brings about.
-        if (event.type === 'step-start') stepStarted(run.messageId, lane.id, event.name);
+        if (event.type === 'step-start') stepStarted(run.messageId, lane.id, event.name, event.detail);
+        else if (event.type === 'step-update') stepUpdated(run.messageId, lane.id, event.name, event.detail);
         else if (event.type === 'step-end') stepEnded(run.messageId, lane.id, event.name);
         const before = lane.list.segments.length;
         lane.emit(event as AparteStreamRunEvent);

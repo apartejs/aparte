@@ -109,8 +109,10 @@ export type StreamChatEvent =
      * forwards it as the run event of the same name. Steps may nest and overlap; one is
      * identified by its name.
      */
-    | { type: 'step-start'; name: string }
+    | { type: 'step-start'; name: string; /** What the step is about, for its label ("who holds the engine"): data, never words. */ detail?: Record<string, unknown> }
     | { type: 'step-end'; name: string }
+    /** The latest open step of that name says something new (`detail`): its words change in place. */
+    | { type: 'step-update'; name: string; detail?: Record<string, unknown> }
     /**
      * Structured progress the agent reports ("3 of 5 sources read"): `id` names the activity,
      * `activityType` what kind it is, `content` its WHOLE current value — sent again, whole,
@@ -495,9 +497,14 @@ export type StreamRunEvent =
      * (AG-UI allows both): one is identified by its `name` within its owner, the run or the
      * sub-agent `agentId` names. Live only — nothing of it is stored or sent to the model.
      */
-    | { type: 'step-start'; name: string; agentId?: string }
+    | { type: 'step-start'; name: string; agentId?: string; /** What the step is about, handed to its label. */ detail?: Record<string, unknown> }
     /** The step of that name ends: the latest one open under that name, for that owner. */
     | { type: 'step-end'; name: string; agentId?: string }
+    /**
+     * The latest open step of that name, for that owner, says something new: its `detail` is
+     * replaced and its words are asked again. A second `step-start` would open another step.
+     */
+    | { type: 'step-update'; name: string; agentId?: string; detail?: Record<string, unknown> }
     /**
      * Structured progress the agent reports, announced by the model's stream, a runner or a
      * sub-agent; the loop only forwards it. `id` names the activity within its owner,

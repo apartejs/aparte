@@ -246,8 +246,10 @@ export interface AparteStreamEventMap {
      * name ends it. Shown while it lasts — the reply's waiting indicator, a sub-agent's line —
      * and never stored. Steps may nest and overlap.
      */
-    'step-start': { name: string }
+    'step-start': { name: string; /** What the step is about, handed to its label (`registerStepLabel`): data, never words. */ detail?: Record<string, unknown> }
     'step-end':   { name: string }
+    /** The latest open step of that name says something new: its `detail` is replaced and its words asked again. */
+    'step-update': { name: string; detail?: Record<string, unknown> }
     /**
      * Structured progress the agent reports ("3 of 5 sources read"): `id` names it,
      * `activityType` says what kind it is, and `content` is its WHOLE current value — send it

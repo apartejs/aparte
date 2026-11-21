@@ -650,9 +650,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continue;
                 }
 
-                if (event.type === 'step-start' || event.type === 'step-end') {
+                if (event.type === 'step-start' || event.type === 'step-end' || event.type === 'step-update') {
                     // Not the loop's to read: passed on for whoever shows the run.
-                    emitter({ type: event.type, name: event.name });
+                    const detail = event.type === 'step-end' ? undefined : event.detail;
+                    emitter({ type: event.type, name: event.name, ...(detail ? { detail } : {}) } as StreamRunEvent);
                     continue;
                 }
 

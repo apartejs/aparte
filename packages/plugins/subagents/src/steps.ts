@@ -9,14 +9,28 @@
  * it ends the one before it is said again.
  */
 
-const open = new Map<string, string[]>();
+/** A step open: its name, and what it is about (`detail`), for its label. */
+export interface OpenStep {
+    name: string;
+    detail?: Record<string, unknown>;
+}
+
+const open = new Map<string, OpenStep[]>();
 
 const keyOf = (messageId: string, agentId: string): string => `${messageId}\u0000${agentId}`;
 
 /** A step of the sub-agent `agentId` of the reply `messageId` begins. */
-export function stepStarted(messageId: string, agentId: string, name: string): void {
+export function stepStarted(messageId: string, agentId: string, name: string, detail?: Record<string, unknown>): void {
     const key = keyOf(messageId, agentId);
-    open.set(key, [...(open.get(key) ?? []), name]);
+    open.set(key, [...(open.get(key) ?? []), detail ? { name, detail } : { name }]);
+}
+
+/** The latest open step of that name says something new: its `detail` is replaced. */
+export function stepUpdated(messageId: string, agentId: string, name: string, detail?: Record<string, unknown>): void {
+    const steps = open.get(keyOf(messageId, agentId));
+    if (!steps) return;
+    const at = steps.map((s) => s.name).lastIndexOf(name);
+    if (at >= 0) steps[at] = detail ? { name, detail } : { name };
 }
 
 /** The latest open step of that name ends. */
@@ -24,7 +38,7 @@ export function stepEnded(messageId: string, agentId: string, name: string): voi
     const key = keyOf(messageId, agentId);
     const steps = open.get(key);
     if (!steps) return;
-    const at = steps.lastIndexOf(name);
+    const at = steps.map((s) => s.name).lastIndexOf(name);
     if (at < 0) return;
     const rest = steps.filter((_, i) => i !== at);
     if (rest.length > 0) open.set(key, rest);
@@ -40,7 +54,7 @@ export function stepsEnded(messageId: string, agentId: string): void {
  * The step the sub-agent is on, if any. Without the reply's id (a segment that does not carry
  * one), the first sub-agent of that id with a step open.
  */
-export function currentStep(messageId: string | undefined, agentId: string): string | undefined {
+export function currentStep(messageId: string | undefined, agentId: string): OpenStep | undefined {
     if (messageId !== undefined) return open.get(keyOf(messageId, agentId))?.at(-1);
     const suffix = `\u0000${agentId}`;
     for (const [key, steps] of open) if (key.endsWith(suffix)) return steps.at(-1);

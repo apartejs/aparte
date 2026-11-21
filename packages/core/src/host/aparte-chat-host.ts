@@ -37,7 +37,7 @@ import {
  * exposing the surface works (custom element, test double).
  */
 interface StreamingBubble extends SyncableBubble {
-    setStep?(name: string | null): void;
+    setStep?(name: string | null, detail?: Record<string, unknown>): void;
     addSegment?(segment: AparteSegment): void;
     removeSegment?(segmentId: string): void;
     updateMessage?(updates: { status?: string }): void;
@@ -210,7 +210,7 @@ export class AparteChatHost {
     /** Id of the assistant message currently streaming (null when idle). */
     private _streamingId: string | null = null;
     /** The step the streaming reply is on: kept until its bubble is painted, never in the list. */
-    private _step: { messageId: string; name: string } | null = null;
+    private _step: { messageId: string; name: string; detail?: Record<string, unknown> } | null = null;
     /**
      * The message object each bubble was last drawn from, by id (skip-rerender cache).
      *
@@ -657,9 +657,11 @@ export class AparteChatHost {
      * only: never written into the message list. Kept for a bubble the framework has not
      * painted yet, and given to it when it is.
      */
-    setStep(messageId: string, name: string | null): void {
-        this._step = name === null ? null : { messageId, name };
-        this._bubbleById(messageId)?.setStep?.(name);
+    setStep(messageId: string, name: string | null, detail?: Record<string, unknown>): void {
+        this._step = name === null ? null : { messageId, name, ...(detail ? { detail } : {}) };
+        const bubble = this._bubbleById(messageId);
+        if (detail) bubble?.setStep?.(name, detail);
+        else bubble?.setStep?.(name);
     }
 
     /**
@@ -1047,7 +1049,10 @@ export class AparteChatHost {
             if (!bubble) return;
             populateBubbleFromMessage(bubble, message);
             this._renderedIds.set(message.id, message);
-            if (this._step?.messageId === message.id) bubble.setStep?.(this._step.name);
+            if (this._step?.messageId === message.id) {
+                if (this._step.detail) bubble.setStep?.(this._step.name, this._step.detail);
+                else bubble.setStep?.(this._step.name);
+            }
         });
         // The bubbles may be new since the compaction began (a framework renders late).
         this._checkpointState.reapply();
@@ -1198,7 +1203,7 @@ export class AparteChatHost {
         host['updateLastMessage'] = (c: string, o?: { append?: boolean }) => this.updateLastMessage(c, o);
         host['addSegment'] = (s: AparteSegment) => this.addSegment(s);
         host['updateSegment'] = (id: string, u: Partial<AparteSegment>) => this.updateSegment(id, u);
-        host['setStep'] = (id: string, name: string | null) => this.setStep(id, name);
+        host['setStep'] = (id: string, name: string | null, detail?: Record<string, unknown>) => this.setStep(id, name, detail);
         host['removeSegment'] = (id: string) => this.removeSegment(id);
         host['appendToSegment'] = (id: string, c: string) => this.appendToSegment(id, c);
         host['getMessages'] = () => this.getMessages();

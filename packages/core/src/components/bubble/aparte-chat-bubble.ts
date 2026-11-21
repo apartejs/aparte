@@ -1151,12 +1151,18 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * are never one of the message's segments, never saved and never sent to the model, and
    * they go with the reply's end even when nobody closed the step.
    */
-  setStep(name: string | null): void {
+  setStep(name: string | null, detail?: Record<string, unknown>): void {
     const next = typeof name === 'string' && name.trim() ? name.trim() : null;
-    if (next === this._step) return;
+    // A new `detail` for the same step is new words: its label is asked again.
+    const about = next ? detail : undefined;
+    if (next === this._step && about === this._stepDetail) return;
     this._step = next;
+    this._stepDetail = about;
     this._updateWaiting();
   }
+
+  /** What the current step is about (`setStep`'s `detail`), for its label. */
+  private _stepDetail: Record<string, unknown> | undefined;
 
   /**
    * Say why the model stopped writing this reply (assistant only).
@@ -1975,7 +1981,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // the label the chat's config holds for the step's name (`registerStepLabel`), else the
     // name itself: `_step` keeps the name the run announced, and is read here at every draw,
     // so a label or a language switch changes what an open step says.
-    const step = waiting && this._step ? this._cfg.getStepLabel(this._step) ?? this._step : null;
+    const step = waiting && this._step
+      ? this._cfg.getStepLabel(this._step, { ...(this._stepDetail ? { detail: this._stepDetail } : {}), ...(this.getAttribute('message-id') ? { messageId: this.getAttribute('message-id')! } : {}) }) ?? this._step
+      : null;
     let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
     if (!words && step) {
       // A shell of the app's own may not have it: added where the default shell has it.

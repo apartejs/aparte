@@ -854,8 +854,8 @@ export class AparteChatViewport extends HTMLElement {
      * Say the step the agent is on ("Reading the parser") in the reply's waiting indicator,
      * or `null` for none. Live only: handed to the bubble, never written on the message.
      */
-    setStep(messageId: string, name: string | null): void {
-        this._notifyBubble(messageId, 'setStep', name);
+    setStep(messageId: string, name: string | null, detail?: Record<string, unknown>): void {
+        this._notifyBubble(messageId, 'setStep', { name, detail });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1486,7 +1486,7 @@ export class AparteChatViewport extends HTMLElement {
             updateSegment?: (segmentId: string, updates: Partial<AparteSegment>) => void;
             removeSegment?: (segmentId: string) => void;
             setUsage?: (usage: AparteUsage) => void;
-            setStep?: (name: string | null) => void;
+            setStep?: (name: string | null, detail?: Record<string, unknown>) => void;
             updateMessage?: (updates: Partial<AparteMessage>) => void;
         };
 
@@ -1513,9 +1513,11 @@ export class AparteChatViewport extends HTMLElement {
             case 'setUsage':
                 bubble.setUsage?.(payload as AparteUsage);
                 break;
-            case 'setStep':
-                bubble.setStep?.(payload as string | null);
+            case 'setStep': {
+                const step = payload as { name: string | null; detail?: Record<string, unknown> };
+                bubble.setStep?.(step.name, step.detail);
                 break;
+            }
             case 'update': {
                 // Atomic update: forward it when it carries anything the bubble
                 // renders. `content` and `attachments` used to be filtered out

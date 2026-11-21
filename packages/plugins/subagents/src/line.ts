@@ -24,7 +24,7 @@ import {
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
 import { dispatchOpen, isShown, lineKeyOf } from './open.js';
-import { currentStep } from './steps.js';
+import { currentStep, type OpenStep } from './steps.js';
 import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
 import type { AparteSubagent, AparteSubagentStatus, SubagentsOptions } from './types.js';
@@ -83,7 +83,7 @@ function callLine(call: AparteToolCallSegment, config: AparteConfig): string {
  * The caller asks only while the sub-agent runs or waits, so a finished call reads as the
  * step it is on until the next one starts (it is thinking or writing about that result).
  */
-function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | undefined): string {
+function activityOf(sub: AparteSubagent, config: AparteConfig, step: OpenStep | undefined, messageId?: string): string {
     let latest: AparteToolCallSegment | undefined;
     for (let i = sub.segments.length - 1; i >= 0; i -= 1) {
         const segment = sub.segments[i]!;
@@ -91,7 +91,7 @@ function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | un
         if (isOpenCall(segment)) return callLine(segment, config);
         latest ??= segment as AparteToolCallSegment;
     }
-    if (step) return config.getStepLabel(step) ?? step;
+    if (step) return config.getStepLabel(step.name, { ...(step.detail ? { detail: step.detail } : {}), ...(messageId ? { messageId } : {}) }) ?? step.name;
     return latest ? callLine(latest, config) : '';
 }
 
@@ -172,7 +172,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
             // The second line, from its start to its end: what it is on, then what it did (in
             // the state's word when there is no count to give, so the line is never empty).
             line.activity = live
-                ? activityOf(sub, config, currentStep(segment.messageId, sub.id)) || word(config, 'subagentsStarting')
+                ? activityOf(sub, config, currentStep(segment.messageId, sub.id), segment.messageId) || word(config, 'subagentsStarting')
                 : summary() || stateWord(config, status);
         } else if (!live) {
             // One line: what it did comes after the state, once, at its end.

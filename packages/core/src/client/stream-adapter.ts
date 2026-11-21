@@ -134,7 +134,8 @@ export interface StreamAdapterTarget {
      * `null` once none is. Told only when it changes, and `null` when the run ends. Never
      * stored — a target that shows nothing of it leaves it out.
      */
-    setStep?(id: string, name: string | null): void;
+    /** The step the reply is on (`null`: none), with what it is about, for its label. */
+    setStep?(id: string, name: string | null, detail?: Record<string, unknown>): void;
     /**
      * The message as the target holds it, read for its segments: a reply that resumes after a
      * pause is written by a NEW adapter, and what the paused run placed is found there — an
@@ -305,13 +306,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
     // The reply's steps still open, in the order they opened: the latest shows, and when it
     // ends the one before it shows again. Live only — nothing of it reaches the message.
-    const steps: string[] = [];
-    let shownStep: string | null = null;
+    // A step's `detail` is what it is about, handed to its label; `step-update` replaces it.
+    const steps: { name: string; detail?: Record<string, unknown> }[] = [];
+    let shownStep: { name: string; detail?: Record<string, unknown> } | null = null;
     const showStep = (): void => {
         const next = steps.at(-1) ?? null;
-        if (next === shownStep) return;
+        if (next?.name === shownStep?.name && next?.detail === shownStep?.detail) return;
         shownStep = next;
-        target.setStep?.(messageId, next);
+        if (next?.detail) target.setStep?.(messageId, next.name, next.detail);
+        else target.setStep?.(messageId, next?.name ?? null);
     };
     const endSteps = (): void => {
         steps.length = 0;
@@ -344,12 +347,20 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     const handle = (e: AparteStreamRunEvent): void => {
         switch (e.type) {
             case 'step-start':
-                steps.push(e.name);
+                steps.push(e.detail ? { name: e.name, detail: e.detail } : { name: e.name });
                 showStep();
                 break;
 
+            case 'step-update': {
+                // The latest open step of that name says something new; none open, nothing to say.
+                const at = steps.map((s) => s.name).lastIndexOf(e.name);
+                if (at >= 0) steps[at] = e.detail ? { name: e.name, detail: e.detail } : { name: e.name };
+                showStep();
+                break;
+            }
+
             case 'step-end': {
-                const at = steps.lastIndexOf(e.name);
+                const at = steps.map((s) => s.name).lastIndexOf(e.name);
                 if (at >= 0) steps.splice(at, 1);
                 showStep();
                 break;
