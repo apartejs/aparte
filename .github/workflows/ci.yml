@@ -719,6 +719,7 @@ jobs:
   # Needs the repository secret NPM_TOKEN: an npm granular access token with read and
   # write on the whole @aparte scope, allowed to bypass two-factor authentication. When it
   # expires, the publish step says so; update the secret and re-run the failed jobs.
+  # CONTEXT7_API_KEY is optional: without it, the release skips the Context7 refresh and says so.
   release-check:
     needs: [ci, node-floor, scope, e2e, e2e-ssr]
     # `always()` so a tree already judged on its pull request — every job above skipped —
@@ -848,3 +849,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.pending.outputs.tag }}
         run: node scripts/create-release.mjs
+
+      # Context7 serves these docs to coding agents (context7.com/apartejs/aparte). By itself it
+      # refreshes a library our size every 45 days, and only if somebody asked for it meanwhile,
+      # so an agent reads docs several versions old. Once per release, on the step that makes it
+      # whole: Context7 parses the repository on GitHub, where this commit already is. It never
+      # fails a release that has shipped — a missing secret is a notice, a refusal a warning.
+      - name: Refresh the docs on Context7
+        if: steps.pending.outputs.notes == 'true'
+        continue-on-error: true
+        env:
+          CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+        run: |
+          if [ -z "$CONTEXT7_API_KEY" ]; then
+            echo "::notice::The CONTEXT7_API_KEY repository secret is not set: Context7 was not refreshed."
+            exit 0
+          fi
+          body="$RUNNER_TEMP/context7.json"
+          status=$(curl -s --max-time 30 -o "$body" -w '%{http_code}' -X POST https://context7.com/api/v1/refresh \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $CONTEXT7_API_KEY" \
+            -d '{"libraryName": "/apartejs/aparte"}') || true
+          case "$status" in
+            2??) echo "Context7 refresh of /apartejs/aparte requested (HTTP $status)." ;;
+            *) echo "::warning::Context7 did not take the refresh (HTTP ${status:-none}): $(head -c 300 "$body" 2>/dev/null)" ;;
+          esac
