@@ -230,6 +230,58 @@ describe('the open drawer leaves the keys of what is above it', () => {
         expect(sidebar.contains(document.activeElement)).toBe(false);
     });
 
+    // jsdom throws on `:modal`, so the tests above ran the fallback alone: every open dialog read as
+    // modal. With `:modal` answered as a browser does, a modal dialog keeps its keys and a dialog
+    // opened with `show()` (not modal: the drawer still covers the page) does not.
+    describe('with :modal answered as a browser does', () => {
+        const matches = Element.prototype.matches;
+        afterEach(() => { Element.prototype.matches = matches; });
+        const modalWhen = (isModal: (el: Element) => boolean) => {
+            Element.prototype.matches = function (this: Element, selector: string) {
+                return selector === ':modal' ? isModal(this) : matches.call(this, selector);
+            };
+        };
+
+        it('a modal dialog keeps its Escape, and the drawer stays open', () => {
+            modalWhen((el) => el instanceof HTMLDialogElement && el.hasAttribute('data-modal'));
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { dialog, inside } = openDialog();
+            dialog.setAttribute('data-modal', '');
+            expect(key(inside, 'Escape')).toBe(true);
+            expect(sidebar.collapsed).toBe(false);
+        });
+
+        it('a dialog that is not modal leaves the Escape to the drawer', () => {
+            modalWhen(() => false);
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { inside } = openDialog();
+            key(inside, 'Escape');
+            expect(sidebar.collapsed).toBe(true);
+        });
+
+        // A field inside a component's own shadow root, in the dialog: `closest()` from where the
+        // key began stops at that root, found no dialog, and the drawer took Tab and Escape.
+        it.each(['Escape', 'Tab'])('a modal dialog keeps the %s typed in a field of a component inside it', (name) => {
+            modalWhen((el) => el instanceof HTMLDialogElement);
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { dialog } = openDialog();
+            const host = document.createElement('div');
+            dialog.append(host);
+            const field = host.attachShadow({ mode: 'open' }).appendChild(document.createElement('input'));
+            field.focus();
+            const event = new KeyboardEvent('keydown', { key: name, bubbles: true, composed: true, cancelable: true });
+            field.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(false);
+            expect(sidebar.collapsed).toBe(false);
+        });
+    });
+
     it('Escape that cancels a word being composed in its search field closes nothing', () => {
         const { toggle, sidebar } = mountPage();
         narrow(true);
