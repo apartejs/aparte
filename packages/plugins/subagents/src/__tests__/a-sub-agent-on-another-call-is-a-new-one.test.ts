@@ -120,6 +120,32 @@ describe('two sub-agents of one reply across a pause', () => {
         expect(textOfAll(lineOn(c, 'c2')!.segments)).toBe('Written.');
     });
 
+    // On a line of its own (no call), left waiting by the pause: the resume's first sub-agent
+    // under its id, on a call, is another one. It is not one heard before it named its call:
+    // that one is still in the run that heard it, with no pause between.
+    it('the first sub-agent, on a line of its own and left waiting, is not moved onto the resume\'s call', () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'agent-0', name: 'first' },
+            ...as('agent-0', { type: 'turn-start' }, { type: 'text-delta', delta: 'Waiting for you.' }),
+            { type: 'agent-end', agentId: 'agent-0', status: 'waiting' },
+            { type: 'run-suspended', pending: [] },
+        );
+        const ended: unknown[] = [];
+        c.host.addEventListener('aparte-subagent-end', (e) => ended.push((e as CustomEvent).detail));
+        const resumed = c.again();
+        for (const e of [{ type: 'run-start' }, ...delegated('c3', 'agent-0', 'second', 'From the second.')] as AparteStreamRunEvent[]) resumed(e);
+
+        const own = c.segment('subagent-agent-0');
+        expect(own).toBeDefined();
+        expect(subagentOf(own!)).toMatchObject({ name: 'first', status: 'stopped' });
+        expect(textOfAll(subagentOf(own!)!.segments)).toBe('Waiting for you.');
+        expect(textOfAll(lineOn(c, 'c3')!.segments)).toBe('From the second.');
+        expect(ended).toContainEqual(expect.objectContaining({ agentId: 'agent-0', status: 'stopped' }));
+    });
+
     it('the first sub-agent, left waiting by the pause, reads stopped once its id is reused on another call', () => {
         stop = setupSubagents();
         const c = chat();

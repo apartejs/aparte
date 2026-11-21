@@ -149,6 +149,8 @@ interface Lane {
     /** The plugin set the spawning call to `awaiting-approval`, and owes it its `pending` back. */
     holding: boolean;
     readonly depth: number;
+    /** The run's pauses when it was heard: one heard before its call is in the same stretch. */
+    readonly heardIn: number;
 }
 
 interface Run {
@@ -169,6 +171,8 @@ interface Run {
     cancelFrame: (() => void) | null;
     closed: boolean;
     unlisten: () => void;
+    /** How many times it paused (`run-suspended`) and went on in this page. */
+    pauses: number;
 }
 
 /** Cancel the frame a run's writes wait for, if any. */
@@ -456,6 +460,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             cancelFrame: null,
             closed: false,
             unlisten: () => {},
+            pauses: 0,
         };
         run.unlisten = listen(run);
         runs.set(ctx.messageId, run);
@@ -578,7 +583,9 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         // it moves onto that call, rather than being taken for another under the same id, which
         // read the first line Stopped and split what it said across two lines. Moved, it carries
         // that call, and goes on below as any lane announced again; not moved, it is retired.
-        if (known && !over && known.toolCallId === undefined && known.anchorKind === 'own' && e.toolCallId !== undefined) {
+        // Only in the stretch of the run that heard it: one left waiting by a pause is a line of
+        // its own for good, and the resume's sub-agent under its id on a call is another one.
+        if (known && !over && known.toolCallId === undefined && known.anchorKind === 'own' && e.toolCallId !== undefined && known.heardIn === run.pauses) {
             moveOntoCall(run, known, e.toolCallId);
         }
         const reused = known !== undefined && (e.toolCallId !== undefined ? e.toolCallId !== known.toolCallId : over);
@@ -649,6 +656,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             // or it read "awaiting approval" while the sub-agent worked again.
             holding: saved?.type === 'tool_call' && (saved as AparteToolCallSegment).status === 'awaiting-approval',
             depth: host ? host.depth + 1 : 0,
+            heardIn: run.pauses,
         };
         run.lanes.set(lane.id, lane);
         list.onChange(() => {
@@ -750,6 +758,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
                 case 'run-suspended':
                     for (const lane of run.lanes.values()) run.dirty.add(lane);
                     flush(run);
+                    run.pauses += 1;
                     break;
                 case 'run-done':
                 case 'run-aborted':
