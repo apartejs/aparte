@@ -28,6 +28,7 @@ import {
 } from '@aparte/core';
 import { LaneDrawing } from './drawing.js';
 import { lastLaneWrite, watchLaneWrites, type LaneWrite } from './lanes.js';
+import { currentLine } from './open.js';
 import { subagentOf, subagentStatus } from './status.js';
 import { ensureStyles } from './styles.js';
 import type { AparteSubagent } from './types.js';
@@ -356,7 +357,8 @@ export class AparteSubagentView extends ElementBase {
      * (a backend minting ids per run) writes too, and was drawn over the one opened.
      */
     private _onItsCall(anchor: AparteSegment): boolean {
-        const line = viewCalls.get(this);
+        // The line it was opened on, or the call that line moved onto since.
+        const line = currentLine(this.getAttribute('message-id'), viewCalls.get(this));
         if (line === undefined) return true;
         // A line of its own, named as such (`own:` its id): that line only.
         if (line.startsWith('own:')) return anchor.id === line.slice(4);
@@ -397,7 +399,7 @@ export class AparteSubagentView extends ElementBase {
         // A run still going may have written the lane before the chat a framework mirrors
         // holds it: the last write, then, as the next one would bring it.
         const live = lastLaneWrite(messageId, agentId);
-        const anchor = (message ? findSubagent(message.segments ?? [], agentId, 0, viewCalls.get(this)) : undefined)
+        const anchor = (message ? findSubagent(message.segments ?? [], agentId, 0, currentLine(messageId, viewCalls.get(this))) : undefined)
             ?? (live && this._matches(live) && this._onItsCall(live.anchor) ? live.anchor : undefined);
         // Said once, for the developer: a finished reply that holds no such sub-agent. A reply
         // still being written may hold it soon, and a missing reply may arrive.

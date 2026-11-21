@@ -34,6 +34,7 @@ import {
 } from '@aparte/core';
 import { subagentOf, subagentStatus } from './status.js';
 import { stepEnded, stepStarted, stepUpdated, stepsEnded } from './steps.js';
+import { lineMoved } from './open.js';
 import {
     SUBAGENT_SEGMENT_TYPE,
     type AparteSubagent,
@@ -539,6 +540,8 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         const target = (lane.host ? lane.host.list : run.target) as { removeSegment?: (id: string) => void };
         if (!target.removeSegment) return false;
         target.removeSegment(lane.anchorId);
+        // What named its own line names its call now: a view opened on it follows it there.
+        lineMoved(run.messageId, `own:${lane.anchorId}`, toolCallId);
         lane.anchorKind = 'call';
         lane.anchorId = callId;
         lane.toolCallId = toolCallId;
