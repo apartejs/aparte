@@ -542,10 +542,11 @@ export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped' | 'par
 
 /**
  * Why a sub-agent ended `partial`: its turn limit, a call its run abandoned (its time limit,
- * no handler for it, a decision nobody could take), or its context nearly full, which a host
- * running its own loop can tell.
+ * no handler for it, a decision nobody could take, or `aborted`: the call stopped itself, a tool
+ * that cancelled its own work, while nobody stopped the run), or its context nearly full, which
+ * a host running its own loop can tell.
  */
-export type StreamAgentCutReason = 'turn-limit' | 'timeout' | 'no-handler' | 'no-resolver' | 'context';
+export type StreamAgentCutReason = 'turn-limit' | 'timeout' | 'no-handler' | 'no-resolver' | 'aborted' | 'context';
 
 /**
  * The run a tool call belongs to, handed to its handler as the third argument. What a tool

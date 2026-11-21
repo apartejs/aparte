@@ -134,7 +134,10 @@ async function drive(
             if (event.type === 'turn-start') text = '';
             else if (event.type === 'text-delta') text += event.delta;
             else if (event.type === 'turn-limit-exceeded') cut = 'turn-limit';
-            else if (event.type === 'tool-aborted' && (event.cause === 'timeout' || event.cause === 'no-handler' || event.cause === 'no-resolver')) cut = event.cause;
+            // Every call the run abandons stops it. One stopped by nobody's Stop (a tool that
+            // cancelled its own work, a channel that gave up) is a cut too: a Stop of this
+            // sub-agent's own is read from its signal once the loop returns.
+            else if (event.type === 'tool-aborted') cut = event.cause === 'timeout' || event.cause === 'no-handler' || event.cause === 'no-resolver' ? event.cause : 'aborted';
         }
         agent.emit(event);
     };

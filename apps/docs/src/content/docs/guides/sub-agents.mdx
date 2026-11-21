@@ -280,7 +280,8 @@ call that opened it:
 ```
 
 `agent-end`'s `status` is `done`, `partial` (with `result` and a `reason`, a `StreamAgentCutReason`:
-`turn-limit`, `timeout`, `no-handler`, `no-resolver`, or `context` for a host that cuts a sub-agent
+`turn-limit`, `timeout`, `no-handler`, `no-resolver`, `aborted` for a call that stopped itself while
+nobody stopped the run, or `context` for a host that cuts a sub-agent
 whose context is nearly full), `failed` (with `error`), `waiting` or `stopped`. The four run
 lines — `run-start`, `run-done`, `run-aborted`, `run-suspended` — belong to the run and never carry
 an `agentId`: a sub-agent never starts or ends it, and the runner drops such a line with a warning.
