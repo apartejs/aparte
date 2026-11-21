@@ -218,3 +218,32 @@ describe('a re-sync that keeps the number of segments', () => {
         expect(bubble.getSegments!().map((s) => s.id)).toEqual(['s1', 'tool-c2']);
     });
 });
+
+describe('a re-sync of a segment that has text', () => {
+    // Only `content` (and sources) was patched for a segment that has one: an error's details, a
+    // reasoning block's label, a code block's language never reached the bubble.
+    it.each([
+        ['an error\'s details', { id: 'e1', type: 'error', content: 'Failed' }, { details: 'HTTP 429' }],
+        ['a reasoning block\'s label', { id: 't1', type: 'thinking', content: 'Thinking.', label: 'Reasoning' }, { label: 'Read 3 files' }],
+        ['a code block\'s language', { id: 'k1', type: 'code', content: 'x = 1', language: 'text' }, { language: 'python' }],
+    ])('patches %s', (_name, before, change) => {
+        const bubble = makeBubble([before as AparteSegment]);
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [{ ...before, ...change } as AparteSegment] }));
+        expect(bubble.updateSegment).toHaveBeenCalledWith(before.id, expect.objectContaining(change));
+    });
+});
+
+describe('a segment the parent changed in place', () => {
+    // A Svelte or Vue app writes `seg.status = 'resolved'` on the segment it handed over and hands
+    // the message again. The bubble holds that very object, so comparing the two found nothing to
+    // patch: the call kept reading as running.
+    it('is patched with what changed since it was last handed over', () => {
+        const seg = { id: 'tool-c1', type: 'tool_call', status: 'pending', toolCall: { id: 'c1', name: 'search', input: {} } } as AparteSegment & { status: string; result?: string };
+        const bubble = makeBubble();
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [seg] }));
+        seg.status = 'resolved';
+        seg.result = 'found';
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [seg] }));
+        expect(bubble.updateSegment).toHaveBeenCalledWith('tool-c1', expect.objectContaining({ status: 'resolved', result: 'found' }));
+    });
+});

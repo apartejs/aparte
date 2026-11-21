@@ -61,6 +61,18 @@ const valueKey = (value: unknown): unknown => {
     return key;
 };
 
+/**
+ * What each bubble was last handed, segment by segment: a shallow copy of each, so a field the
+ * parent then writes IN PLACE on the segment it shares with the bubble (`seg.status = 'resolved'`
+ * in Svelte or Vue) still reads as a change. Compared with the bubble's own segment, which is that
+ * very object, it read as none. An object field changed inside, without a new object, still reads
+ * as the same: its serialisation is kept per object.
+ */
+const handed = new WeakMap<SyncableBubble, Map<string, AparteSegment>>();
+const remember = (bubble: SyncableBubble, segments: readonly AparteSegment[]): void => {
+    handed.set(bubble, new Map(segments.map((seg) => [seg.id, { ...seg } as AparteSegment])));
+};
+
 /** What `seg` says that `had` does not, field by field; `null` when nothing changed. */
 function changedFields(seg: AparteSegment, had: AparteSegment | undefined): Partial<AparteSegment> | null {
     const patch: Record<string, unknown> = {};
@@ -139,25 +151,28 @@ export function populateBubbleFromMessage(
             // nowhere else, which is how it came to be applied to the bubble's
             // segments and never to the model's.
             const settled = isTerminalStatus(message.status);
+            const last = handed.get(bubble);
             for (const seg of message.segments) {
+                const had = existing.find((s) => s.id === seg.id);
+                // Every field it changed since it was last handed over, a text segment's too: its
+                // label, its language, an error's details. Patched for `content` alone, those never
+                // showed; and a call the parent marked resolved kept spinning.
+                const patch = (changedFields(seg, last?.get(seg.id) ?? had) ?? {}) as Partial<AparteSegment> & Record<string, unknown>;
                 if ('content' in seg) {
-                    const patch = { content: (seg as { content: unknown }).content } as Partial<AparteSegment>;
-                    if (settled) (patch as { isStreaming?: boolean }).isStreaming = false;
+                    // Its text, always: the bubble may hold a shorter one the parent's grew from.
+                    patch['content'] = (seg as { content: unknown }).content;
+                    if (settled && had?.isStreaming !== false) patch['isStreaming'] = false;
                     // Sources often arrive after the text: a re-sync carries them too, and
                     // takes back those the segment no longer has.
-                    const had = existing.find((s) => s.id === seg.id) as { sources?: unknown; citations?: unknown } | undefined;
-                    if (seg.type === 'text' && (seg.sources || seg.citations || had?.sources || had?.citations)) Object.assign(patch, { sources: seg.sources, citations: seg.citations });
-                    bubble.updateSegment?.(seg.id, patch);
-                } else {
-                    // A segment with no `content` (a tool call, a card, an artifact): only what it
-                    // changed. Patched for `content` alone, a call the parent marked resolved kept
-                    // spinning, and a card's new data never showed.
-                    const patch = changedFields(seg, existing.find((s) => s.id === seg.id));
-                    if (patch) bubble.updateSegment?.(seg.id, patch);
+                    const held = had as { sources?: unknown; citations?: unknown } | undefined;
+                    if (seg.type === 'text' && (seg.sources || seg.citations || held?.sources || held?.citations)) Object.assign(patch, { sources: seg.sources, citations: seg.citations });
                 }
+                if (Object.keys(patch).length > 0) bubble.updateSegment?.(seg.id, patch);
             }
+            remember(bubble, message.segments);
         } else {
             bubble.setSegments?.(withLastArriving(message));
+            remember(bubble, message.segments);
         }
     } else if (message.content !== undefined) {
         bubble.setContent?.(message.content);
