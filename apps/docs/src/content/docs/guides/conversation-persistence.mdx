@@ -92,6 +92,7 @@ import { LocalStorageAdapter } from './local-storage-adapter';
 
 const manager = new AparteConversationManager(new LocalStorageAdapter(), {
   retention: { maxMessages: 200 },   // optional: what a save keeps
+  orderBy: 'updated',                // optional: 'updated' (default), 'created', or (a, b) => number
 });
 await manager.init();
 aparteGlobalConfig.setConversationManager(manager);
@@ -99,8 +100,12 @@ aparteGlobalConfig.setConversationManager(manager);
 
 The manager holds the list and calls your adapter; your app talks to the manager. `init()` reads
 the store once. `retention` saves the last 200 messages of a conversation and the branches under
-them; the conversation on screen stays whole. A chat with its own configuration gets its own
-manager through that configuration's `setConversationManager`.
+them; the conversation on screen stays whole. `orderBy` orders the lists: by the last change of
+content by default (a reply that ends moves its conversation up, as most chat products do), by when
+each was started (`'created'`: a conversation keeps its place), or by a compare function of yours.
+A conversation list draws its date groups from each row's `updatedAt`, so with another order hand
+it the date you order by. A chat with its own configuration gets its own manager through that
+configuration's `setConversationManager`.
 
 | Read | Gives |
 | --- | --- |

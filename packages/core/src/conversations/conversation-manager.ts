@@ -34,6 +34,15 @@ export interface ConversationManagerOptions {
      * consumer choice, never silent.
      */
     retention?: { maxMessages: number };
+    /**
+     * The order of `activeConversations` and `archivedConversations`: `'updated'` (the default),
+     * newest change of content first, a reply that ends included, as most chat products order
+     * them; `'created'`, newest started first, so a conversation keeps its place while its reply
+     * ends; or a compare function of your own (the person's last message, say). A conversation
+     * list draws its date groups from each row's `updatedAt`: with another order, hand it the
+     * date you order by, or the groups and the order disagree.
+     */
+    orderBy?: 'updated' | 'created' | ((a: AparteConversation, b: AparteConversation) => number);
 }
 
 /**
@@ -218,7 +227,14 @@ export class AparteConversationManager {
         this._adapter = adapter;
         this._retention = options?.retention ?? null;
         this._titleProvider = options?.titleProvider ?? null;
+        const order = options?.orderBy ?? 'updated';
+        this._order = typeof order === 'function' ? order
+            : order === 'created' ? (a, b) => b.createdAt - a.createdAt
+            : (a, b) => b.updatedAt - a.updatedAt;
     }
+
+    /** How the lists are ordered (`ConversationManagerOptions.orderBy`). */
+    private readonly _order: (a: AparteConversation, b: AparteConversation) => number;
 
     // ─── Title provider ─────────────────────────────────────────────────────
 
@@ -368,18 +384,18 @@ export class AparteConversationManager {
         return this._conversations.find(c => c.id === this._activeId) ?? null;
     }
 
-    /** Active conversations (not archived), newest first. */
+    /** Active conversations (not archived), in `orderBy`'s order: newest change first by default. */
     get activeConversations(): AparteConversation[] {
         return this._conversations
             .filter(c => !c.archivedAt)
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+            .sort(this._order);
     }
 
-    /** Archived conversations, newest first. */
+    /** Archived conversations, in `orderBy`'s order: newest change first by default. */
     get archivedConversations(): AparteConversation[] {
         return this._conversations
             .filter(c => !!c.archivedAt)
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+            .sort(this._order);
     }
 
     // ─── Mutations ──────────────────────────────────────────────────────────
