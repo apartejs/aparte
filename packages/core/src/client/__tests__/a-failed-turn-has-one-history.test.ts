@@ -107,7 +107,8 @@ const KEPT = [
     AparteErrorCode.USAGE_RATE_LIMIT, AparteErrorCode.CONFIG_INVALID_KEY, AparteErrorCode.CONFIG_MISSING_KEY,
     AparteErrorCode.CONFIG_INVALID_MODEL, AparteErrorCode.UNKNOWN_ERROR,
 ];
-const DROPPED = [AparteErrorCode.USAGE_CONTEXT_EXCEEDED, AparteErrorCode.PROVIDER_POLICY, AparteErrorCode.USAGE_BAD_REQUEST];
+// A message refused for its size is refused again: sent with the next one, it took that one down too.
+const DROPPED = [AparteErrorCode.USAGE_CONTEXT_EXCEEDED, AparteErrorCode.PROVIDER_POLICY, AparteErrorCode.USAGE_BAD_REQUEST, 'USAGE_TOO_LARGE' as AparteErrorCode];
 
 describe('after a failed turn, every later request tells the same past', () => {
     for (const code of KEPT) {

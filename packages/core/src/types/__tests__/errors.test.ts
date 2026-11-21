@@ -30,6 +30,8 @@ describe('AparteError.from', () => {
         [401, AparteErrorCode.CONFIG_INVALID_KEY],
         [403, AparteErrorCode.CONFIG_INVALID_KEY],
         [408, AparteErrorCode.NET_TIMEOUT],
+        // A body the server refused for its size: sending it again meets the same refusal.
+        [413, 'USAGE_TOO_LARGE'],
         [429, AparteErrorCode.USAGE_RATE_LIMIT],
         [500, AparteErrorCode.PROVIDER_ERROR],
         [502, AparteErrorCode.PROVIDER_ERROR],

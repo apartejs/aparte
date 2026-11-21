@@ -59,6 +59,8 @@ export type AparteLocale = {
     errorRateLimited?: string;
     /** USAGE_CONTEXT_EXCEEDED, once the conversation no longer fits the model (default: "This conversation is too long for the model. Start a new one."). */
     errorTooLong?: string;
+    /** USAGE_TOO_LARGE, a 413: the message (its text, its files) is larger than the server takes (default: "This message is too large to send. Remove a file or send a shorter one."). */
+    errorTooLarge?: string;
     /** PROVIDER_ERROR and PROVIDER_UNAVAILABLE, a failing or busy provider (default: "The assistant couldn’t answer. Try again in a moment."). */
     errorFailed?: string;
     /** A request refused as malformed, a policy refusal, a provider set up so it cannot answer, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
@@ -786,6 +788,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     errorRefused: "The assistant isn’t allowed to answer right now.",
     errorRateLimited: "Too many requests right now. Try again in a moment.",
     errorTooLong: "This conversation is too long for the model. Start a new one.",
+    errorTooLarge: "This message is too large to send. Remove a file or send a shorter one.",
     errorFailed: "The assistant couldn’t answer. Try again in a moment.",
     errorNoAnswer: "The assistant couldn’t answer this request.",
     running: "Running...",

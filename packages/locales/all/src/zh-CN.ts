@@ -135,6 +135,7 @@ export const zhCN: AparteLocale = {
     errorRefused: "助手暂时无权回答。",
     errorRateLimited: "当前请求过多，请稍后再试。",
     errorTooLong: "这段对话对模型来说太长了，请开始新的对话。",
+    errorTooLarge: "这条消息太大，无法发送。请移除一个文件，或发送更短的消息。",
     errorFailed: "助手未能回答，请稍后再试。",
     errorNoAnswer: "助手无法回答这个请求。",
     running: "运行中…",

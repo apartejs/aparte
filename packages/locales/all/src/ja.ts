@@ -135,6 +135,7 @@ export const ja: AparteLocale = {
     errorRefused: "現在、アシスタントは応答を許可されていません。",
     errorRateLimited: "現在リクエストが多すぎます。しばらくしてからもう一度お試しください。",
     errorTooLong: "この会話はモデルには長すぎます。新しい会話を始めてください。",
+    errorTooLarge: "このメッセージは大きすぎて送信できません。ファイルを外すか、短いメッセージを送ってください。",
     errorFailed: "アシスタントが応答できませんでした。しばらくしてからもう一度お試しください。",
     errorNoAnswer: "アシスタントはこのリクエストに応答できませんでした。",
     running: "実行中…",

@@ -135,6 +135,7 @@ export const fr: AparteLocale = {
     errorRefused: "L'assistant n'est pas autorisé à répondre pour le moment.",
     errorRateLimited: "Trop de requêtes en ce moment. Réessayez dans un instant.",
     errorTooLong: "Cette conversation est trop longue pour le modèle. Commencez-en une nouvelle.",
+    errorTooLarge: "Ce message est trop volumineux pour être envoyé. Retirez un fichier ou envoyez-en un plus court.",
     errorFailed: "L'assistant n'a pas pu répondre. Réessayez dans un instant.",
     errorNoAnswer: "L'assistant n'a pas pu répondre à cette demande.",
     running: "Exécution...",

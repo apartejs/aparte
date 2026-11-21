@@ -229,7 +229,7 @@ What it changes depends on the code of the turn's error, the one the reply's err
   the first token: the message that failed is kept, and the next request sends it joined to the
   new message, with a blank line between them. The failed reply itself is never sent.
 - **The same request would fail again** — `USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
-  `USAGE_BAD_REQUEST`: the message is left out of every later request, with every message that went
+  `USAGE_BAD_REQUEST`, `USAGE_TOO_LARGE` (a 413): the message is left out of every later request, with every message that went
   out with it, or the conversation could not go on.
 - **The message carried files**: it is left out too. The history sends a message's text and never
   the files a send read, so the next request would ask about a file the model is not shown.

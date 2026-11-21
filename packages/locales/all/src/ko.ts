@@ -135,6 +135,7 @@ export const ko: AparteLocale = {
     errorRefused: "지금은 어시스턴트가 답변할 권한이 없습니다.",
     errorRateLimited: "지금은 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     errorTooLong: "이 대화는 모델이 처리하기에 너무 깁니다. 새 대화를 시작해 주세요.",
+    errorTooLarge: "이 메시지는 너무 커서 보낼 수 없습니다. 파일을 빼거나 더 짧은 메시지를 보내 주세요.",
     errorFailed: "어시스턴트가 답변하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     errorNoAnswer: "어시스턴트가 이 요청에 답변하지 못했습니다.",
     running: "실행 중…",
