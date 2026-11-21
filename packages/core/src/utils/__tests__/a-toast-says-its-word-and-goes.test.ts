@@ -82,3 +82,70 @@ describe('a toast', () => {
         expect(toasts()[0]!.querySelector('.aparte-alert__dismiss')!.getAttribute('aria-label')).toBe('Dismiss');
     });
 });
+
+describe('several toasts, and the focus', () => {
+    // The first toast waits for its new live region to be heard; a second one shown in the same
+    // tick went in at once, ahead of the first and into that same unheard region.
+    it('two toasts shown in one tick come in the order they were shown', () => {
+        showToast('First');
+        showToast('Second');
+        expect(toasts(), 'neither before the region is in place').toHaveLength(0);
+        vi.advanceTimersByTime(50);
+        expect(toasts().map((t) => t.textContent)).toEqual(['First', 'Second']);
+    });
+
+    // Closed while it held the focus, the toast took the focused element with it: the focus fell to
+    // <body>, and a keyboard user started again from the top of the page.
+    it.each([
+        ['by Escape', (t: HTMLElement) => t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))],
+        ['by its button', (t: HTMLElement) => t.querySelector<HTMLButtonElement>('.aparte-alert__dismiss')!.click()],
+    ])('closed %s while focused, it gives the focus back to where it came from', (_name, close) => {
+        document.body.innerHTML = '<button id="before">Before</button>';
+        const before = document.getElementById('before') as HTMLButtonElement;
+        before.focus();
+        showToast('Saved.', { timeout: 0 });
+        vi.advanceTimersByTime(50);
+        const [toast] = toasts();
+        toast!.querySelector<HTMLButtonElement>('.aparte-alert__dismiss')!.focus();
+        expect(document.activeElement?.className).toBe('aparte-alert__dismiss');
+        close(toast!);
+        expect(toasts()).toHaveLength(0);
+        expect(document.activeElement).toBe(before);
+    });
+
+    // A toast that holds the focus stays, hovered or not: leaving it with the pointer did not
+    // restart its time while the keyboard was still on it.
+    it('a toast that holds the focus stays when the pointer leaves it', () => {
+        showToast('Read me.', { timeout: 1000 });
+        vi.advanceTimersByTime(50);
+        const [toast] = toasts();
+        toast!.querySelector<HTMLButtonElement>('.aparte-alert__dismiss')!.focus();
+        toast!.dispatchEvent(new MouseEvent('mouseenter'));
+        toast!.dispatchEvent(new MouseEvent('mouseleave'));
+        vi.advanceTimersByTime(5000);
+        expect(toasts()).toHaveLength(1);
+    });
+});
+
+describe('a toast for an element', () => {
+    // A chat inside a shadow root of the app loads the kit's sheet in that root: a toast added to
+    // the document body had no style there. A dark chat on a light page got a light toast.
+    it('goes in the shadow root its target is in', () => {
+        const host = document.createElement('div');
+        document.body.append(host);
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<div class="chat"></div>';
+        showToast('Saved.', { target: root.querySelector('.chat')! });
+        vi.advanceTimersByTime(50);
+        expect(stack(), 'nothing in the page').toBeNull();
+        const inRoot = [...root.children].find((c) => c.classList.contains('aparte-toasts'));
+        expect(inRoot?.textContent).toContain('Saved.');
+    });
+
+    it('wears the theme its target wears', () => {
+        document.body.innerHTML = '<div data-aparte-theme="dark"><div class="chat"></div></div>';
+        showToast('Saved.', { target: document.querySelector('.chat')! });
+        vi.advanceTimersByTime(50);
+        expect(toasts()[0]!.getAttribute('data-aparte-theme')).toBe('dark');
+    });
+});
