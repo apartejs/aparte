@@ -221,3 +221,17 @@ describe('a policy that rules asynchronously', () => {
         error.mockRestore();
     });
 });
+
+// A tool's own time limit, declared where the page registers it, reaches the page's own loop.
+describe('a tool with a time limit of its own, in the page', () => {
+    it('is abandoned once its limit is up, and the reply ends', async () => {
+        const { cfg, el, patches } = harness([{ id: 'c1', name: 'slow_tool' }]);
+        let seen: AbortSignal | undefined;
+        cfg.registerTool(tool('slow_tool', { timeoutMs: 20 }), ((_c: unknown, signal: AbortSignal) => { seen = signal; return new Promise(() => {}); }) as never);
+        const ended = await Promise.race([run(cfg, el).then(() => 'ended', () => 'ended'), new Promise((r) => setTimeout(() => r('still waiting'), 400))]);
+        expect(ended).toBe('ended');
+        expect(seen?.aborted).toBe(true);
+        expect(patches.map((p) => p['status'])).toContain('aborted');
+    });
+});
+

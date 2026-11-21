@@ -272,6 +272,24 @@ describe('a sub-agent in the background', () => {
         expect(events.some((e) => e.type === 'text-delta' && e.delta === 'It ran out of time.')).toBe(true);
     });
 
+    // The bound is its calling tool's own (`timeoutMs`), not the run's: a tool that runs a long
+    // sub-agent sets a longer one, and one with a short limit bounds its sub-agent by it.
+    it('is bounded by its calling tool\'s own time limit, not the run\'s', async () => {
+        const { transportCall } = scripted({
+            parent: [[toolUse('c1', 'delegate'), done], [text('Waiting.'), done], [text('It ran out of time.'), done]],
+            child: [[{ wait: 400 }, text('Too late.'), done]],
+        });
+        const { events, emitter } = recorder();
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall, toolTimeoutMs: 60_000,
+            toolLookup: () => delegate,
+            toolConfigLookup: (name) => (name === 'delegate' ? { timeoutMs: 50 } : undefined),
+            emitter, signal: new AbortController().signal,
+        });
+        expect(events.find((e) => e.type === 'agent-end')).toMatchObject({ status: 'stopped' });
+        expect(events.some((e) => e.type === 'text-delta' && e.delta === 'Too late.')).toBe(false);
+    });
+
     it('does not start once the run is over: nothing of it comes after the run', async () => {
         let later: (() => void) | undefined;
         const leaking: StreamToolHandler = async (_call, _signal, run) => {
