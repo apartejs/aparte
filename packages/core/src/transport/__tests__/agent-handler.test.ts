@@ -10,6 +10,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { createAparteAgentHandler, type AparteAgentHandlerOptions } from '../agent-handler.js';
+import { createAgentStreamRunner } from '../../client/agent-runner.js';
 import { readNdjson } from '../../utils/ndjson.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 
@@ -243,6 +244,33 @@ describe('createAparteAgentHandler', () => {
         errorSpy.mockRestore();
         expect(out.find((l) => l.type === 'tool-failed')).toMatchObject({ toolCallId: 'u1' });
         expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
+    });
+
+    // A step's data over the wire, end to end: written by the handler, read back by the page's
+    // runner. It was tested past the engine only, where nothing crosses JSON.
+    it('carries a step\'s detail and its update to the page\'s runner', async () => {
+        const { provider } = scriptedProvider([
+            { type: 'step-start', name: 'search', detail: { q: 'parser' } },
+            { type: 'step-update', name: 'search', detail: { q: 'lexer' } },
+            { type: 'step-end', name: 'search' },
+            { type: 'text', delta: 'Found.' },
+            { type: 'done' },
+        ]);
+        const res = await handlerWith(provider)(post(firstBody()));
+        const heard: { type: string }[] = [];
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch: (async () => res) as unknown as typeof fetch })({
+            messageId: 'm1', providerId: 'fake',
+            baseRequest: { messages: [user], modelId: 'x', stream: true },
+            transportCall: async () => { throw new Error('never called'); },
+            toolLookup: () => undefined,
+            emitter: (e: { type: string }) => { heard.push(e); },
+            signal: new AbortController().signal,
+        } as never);
+        expect(heard.filter((e) => e.type.startsWith('step-'))).toEqual([
+            { type: 'step-start', name: 'search', detail: { q: 'parser' } },
+            { type: 'step-update', name: 'search', detail: { q: 'lexer' } },
+            { type: 'step-end', name: 'search' },
+        ]);
     });
 
     it('stops the run when the client disconnects', async () => {
