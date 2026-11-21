@@ -175,6 +175,8 @@ export const zhCN: AparteLocale = {
     moveConversation: "移动到…",
     moveConversationTo: "将“{title}”移动到",
     removeFromGroup: "从“{group}”中移出",
+    notifications: "通知",
+    dismissNotification: "关闭",
     deleteConversationConfirm: "删除“{title}”？",
     cancel: "取消",
     conversationGroupPinned: "已置顶",

@@ -708,7 +708,10 @@ export class AparteLauncher extends HTMLElement {
      * leaves the key to the dialog, which is the answer that loses nothing.
      */
     private _inModalDialog(e: Event): boolean {
-        const dialog = (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
+        // Along the key's whole path: from a field inside a component's own shadow root,
+        // `closest()` stops at that root and finds no dialog around it.
+        const dialog = e.composedPath?.().find((node): node is HTMLDialogElement => node instanceof HTMLDialogElement && node.open)
+            ?? (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
         if (!dialog || !this.contains(dialog)) return false;
         try {
             return dialog.matches(':modal');

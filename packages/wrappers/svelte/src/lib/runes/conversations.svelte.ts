@@ -48,6 +48,9 @@ export class AparteConversations {
             this.activeId = manager.activeId;
         });
         await manager.init();
+        // Overtaken by a newer init while its store loaded: that one is the manager now, and this
+        // one registered last on the config, so the chat persisted into the store just left.
+        if (this.#manager !== manager) return;
         this.activeId = manager.activeId;
         config.setConversationManager(manager);
     }

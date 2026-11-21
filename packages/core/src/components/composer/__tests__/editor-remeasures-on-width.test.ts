@@ -59,7 +59,7 @@ describe('#55 — the editor re-measures when its width changes', () => {
         expect(observed.some((el) => el === editor || el.contains(editor))).toBe(true);
     });
 
-    it('an inflated first measurement is corrected by the resize — without any input', () => {
+    it('an inflated first measurement is corrected by the resize — without any input', async () => {
         // Scripted: the connect-time read happens with the scripted 320 (a placeholder
         // wrapped in a 0 px box); once the box has its width the editor reports 24.
         const { input, editor } = mount([320, 24]);
@@ -69,7 +69,10 @@ describe('#55 — the editor re-measures when its width changes', () => {
         expect(editor.style.height).toBe('200px');
         // The box gets its width; the observer fires; the editor reads its true height.
         expect(resizeCallback).not.toBeNull();
-        resizeCallback!([{ target: editor }]);
+        // On the next frame: set inside the observer, the height the editor writes on itself ended
+        // in the browser's ResizeObserver loop error.
+        resizeCallback!([{ target: editor, contentRect: { width: 320, height: 200 } }]);
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         expect(editor.style.height).toBe('24px');
     });
 

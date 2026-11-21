@@ -37,7 +37,12 @@ function openViaTrigger(el: AparteSelect): void {
 }
 
 function key(k: string): void {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    // From where the keyboard is in the select: its filter field when it holds the focus, else
+    // its trigger. A select answers the keys typed in it, not those typed anywhere on the page.
+    const select = mounted.at(-1)!;
+    const focused = document.activeElement;
+    const from = focused && select.contains(focused) ? focused : select.querySelector('.aparte-select-trigger')!;
+    from.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
 }
 
 afterEach(() => {

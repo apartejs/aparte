@@ -180,3 +180,59 @@ describe('two sub-agents of one reply across a pause', () => {
         expect(lineOn(c, 'c2')).toMatchObject({ id: 'b1', name: 'Reader' });
     });
 });
+
+describe('a sub-agent with no call, under an id a finished one had', () => {
+    // A detached sub-agent is announced with no call. A backend that mints ids per run (the
+    // engine's default counter) names the resume's first one like the paused run's: taken for
+    // the first one resumed, its name and its text were written on the first one's line, and
+    // no line of its own appeared. A FINISHED sub-agent never resumes: its id announced again
+    // is a new sub-agent. Only one left waiting or running is re-announced to go on.
+    it('is a new sub-agent, with its own line', () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'first' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'First.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done', result: 'First.' },
+            { type: 'run-suspended', pending: [] },
+        );
+        const resumed = c.again();
+        for (const e of [
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'second' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Second.' }, { type: 'text-flush' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done', result: 'Second.' },
+            { type: 'run-done' },
+        ] as AparteStreamRunEvent[]) resumed(e);
+
+        const lines = c.segments().map((s) => subagentOf(s)).filter((s) => s !== undefined);
+        expect(lines.map((s) => [s!.name, textOfAll(s!.segments)])).toEqual([['first', 'First.'], ['second', 'Second.']]);
+    });
+});
+
+describe('a sub-agent heard before it names its call', () => {
+    // An AG-UI agent's first tagged event can reach the runner before SUBAGENT_STARTED: the runner
+    // announces the sub-agent with no call, and it gets a line of its own. Announced again with
+    // its call, it was taken for another sub-agent under the same id: the first line read
+    // Stopped, and what it said was split across two lines.
+    it('moves onto its call: one line, all it said, nothing stopped', () => {
+        stop = setupSubagents();
+        const c = chat();
+        const ends: string[] = [];
+        c.host.addEventListener('aparte-subagent-end', (e) => ends.push((e as CustomEvent<{ status: string }>).detail.status));
+        c.run(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 's1' },
+            ...as('s1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Hi' }),
+            { type: 'agent-start', agentId: 's1', name: 'Writer', toolCallId: 'c1' },
+            ...as('s1', { type: 'text-delta', delta: ' there' }),
+            { type: 'agent-end', agentId: 's1', status: 'done' },
+            { type: 'run-done' },
+        );
+        expect(c.segments().filter((s) => s.id.startsWith('subagent-s1'))).toEqual([]);
+        expect(textOfAll(subagentOf(callIn(c.segments(), 'c1')!)!.segments)).toBe('Hi there');
+        expect(ends).not.toContain('stopped');
+    });
+});

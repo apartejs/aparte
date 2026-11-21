@@ -175,6 +175,8 @@ export const ko: AparteLocale = {
     moveConversation: "이동…",
     moveConversationTo: "“{title}” 이동 위치",
     removeFromGroup: "“{group}”에서 빼기",
+    notifications: "알림",
+    dismissNotification: "닫기",
     deleteConversationConfirm: "“{title}”을(를) 삭제할까요?",
     cancel: "취소",
     conversationGroupPinned: "고정됨",

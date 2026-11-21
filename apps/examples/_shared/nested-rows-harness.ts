@@ -78,6 +78,37 @@ export function mountNestedRowsHarness(): void {
         }
     }
 
+    // `&deep` (with `&subagent-view`): the calls under each line are SUB-AGENT lines, each with a
+    // conversation of its own and an Open button, so each wraps its disclosure beside the button.
+    // That shape has rules of its own (`> .aparte-tool-disclosure > …`), and none reached a line
+    // under a line until a call was nested this way.
+    if (new URLSearchParams(location.search).has('deep')) {
+        for (const state of STATES) {
+            for (const [kind, name] of KINDS) {
+                const parent = `${state}-${kind}`;
+                const line = call(`line:deep-${parent}`, name, state);
+                const nested = children(`deep:${parent}:`).map((child, n) => {
+                    (child as AparteToolCallSegment & { subagent: unknown }).subagent = {
+                        id: `agent-deep-${parent}-${n}`,
+                        name: `Helper ${n}`,
+                        description: 'Check one file',
+                        status: child.status === 'pending' || child.status === 'awaiting-approval' ? 'running' : child.status === 'resolved' ? 'done' : 'failed',
+                        segments: [{ id: `deep-text-${parent}-${n}`, type: 'text', content: 'Checked.' } as AparteSegment],
+                    };
+                    return child;
+                });
+                (line as AparteToolCallSegment & { subagent: unknown }).subagent = {
+                    id: `agent-deep-${parent}`,
+                    name: `Lead ${parent}`,
+                    description: 'Split the checks',
+                    status: state === 'pending' || state === 'awaiting-approval' || state === 'queued' ? 'running' : 'done',
+                    segments: nested,
+                };
+                viewport.appendMessage(message(`harness-deep-${parent}`, [line]));
+            }
+        }
+    }
+
     // A reply still being written: a line whose sub-agent wrote two paragraphs, then the
     // reply's own words.
     const writer = call('line:caret', QUIET, 'pending');

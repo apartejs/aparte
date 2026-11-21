@@ -489,6 +489,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'tool-start': {
                 // A call ends the reasoning before it, as answer text does.
                 settleThinking(false);
+                // And the text before it, as an activity does: what the model writes after the
+                // call, in the same model call, is written after the row. Left open, it grew the
+                // segment above the call, so the answer read as if it came before the tool ran
+                // (a provider streaming text, a call, then text: scenario, Gemini).
+                flushText();
                 const toolSeg: AparteToolCallSegment = {
                     id: `tool-${e.toolCallId}`,
                     type: 'tool_call',

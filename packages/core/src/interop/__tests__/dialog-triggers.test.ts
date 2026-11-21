@@ -156,3 +156,86 @@ describe('the dialog triggers', () => {
         expect(closes, 'one listener, one close').toBe(1);
     });
 });
+
+describe('inside a shadow root of the app', () => {
+    // A Lit or Stencil app puts its markup in its own shadow root. A click from there reaches the
+    // document with the shadow HOST as its target, so the opener and the closer were never found,
+    // and the dialog was looked up in the document, where it is not.
+    function shadowPage(): { root: ShadowRoot; dialog: HTMLDialogElement } {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = `
+            <button id="open" type="button" data-aparte-dialog-open="settings">Open</button>
+            <dialog class="aparte-dialog" id="settings">
+                <button id="save" type="button" data-aparte-dialog-close="saved">Save</button>
+            </dialog>`;
+        return { root, dialog: root.getElementById('settings') as HTMLDialogElement };
+    }
+    const click = (el: Element) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+
+    it('the opener opens the dialog of its own root, and the closer closes it', () => {
+        const { root, dialog } = shadowPage();
+        click(root.getElementById('open')!);
+        expect(dialog.open).toBe(true);
+        click(root.getElementById('save')!);
+        expect(dialog.open).toBe(false);
+        expect(dialog.returnValue).toBe('saved');
+    });
+
+    // The backdrop asks for the press AND the release on the <dialog>. Both ends are read where
+    // the gesture began; a release read as the shadow host never matched the press.
+    it('a press and a release on the backdrop close the dialog', () => {
+        const { root, dialog } = shadowPage();
+        click(root.getElementById('open')!);
+        const pointer = (type: string) => dialog.dispatchEvent(new MouseEvent(type, { bubbles: true, composed: true }));
+        pointer('pointerdown');
+        pointer('pointerup');
+        click(dialog);
+        expect(dialog.open).toBe(false);
+    });
+});
+
+describe('an opener or a closer made of a web component', () => {
+    // A Shoelace or Material button, or an icon component inside a plain button: the click lands
+    // in the component's own shadow root, and `closest()` from there stops at that root's edge.
+    // Read from `event.target` (the host, as the document sees it), the control was found; read
+    // from where the click began, it was not.
+    class ShadowIcon extends HTMLElement {
+        constructor() {
+            super();
+            this.attachShadow({ mode: 'open' }).innerHTML = '<span part="glyph">*</span>';
+        }
+    }
+    beforeAll(() => {
+        if (!customElements.get('x-shadow-icon')) customElements.define('x-shadow-icon', ShadowIcon);
+    });
+    const glyphOf = (el: Element): Element => el.querySelector('x-shadow-icon')!.shadowRoot!.querySelector('span')!;
+    const click = (el: Element) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+
+    it('a click on the icon inside an opener opens the dialog', () => {
+        const { dialog, opener } = page();
+        opener.innerHTML = '<x-shadow-icon></x-shadow-icon>';
+        click(glyphOf(opener));
+        expect(dialog.open).toBe(true);
+    });
+
+    it('a click on the icon inside a closer closes the dialog with its value', () => {
+        const { dialog, opener } = page();
+        opener.click();
+        const save = document.getElementById('save')!;
+        save.innerHTML = '<x-shadow-icon></x-shadow-icon>';
+        click(glyphOf(save));
+        expect(dialog.open).toBe(false);
+        expect(dialog.returnValue).toBe('saved');
+    });
+
+    it('a click inside a component that IS the opener opens the dialog', () => {
+        const { dialog } = page();
+        const button = document.createElement('x-shadow-icon');
+        button.setAttribute('data-aparte-dialog-open', 'settings');
+        document.body.appendChild(button);
+        click(button.shadowRoot!.querySelector('span')!);
+        expect(dialog.open).toBe(true);
+    });
+});

@@ -213,7 +213,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
      * attribute cannot carry (objects, functions) are handed over as properties.
      */
     private applyProps(): void {
-        if (this.element) applyElementProps(this.element, this.props);
+        if (this.element) applyElementProps(this.element, this.props, undefined, { replace: true });
     }
 
     private setupEventListeners(): void {

@@ -10,6 +10,7 @@ import { contextConfig } from '../../config/index.js';
 import { isSegmentSettled, segmentDuration } from '../../utils/segments.js';
 import { formatDuration } from '../../utils/format-duration.js';
 import {
+    isStillWriting,
     writeStreamedMarkdown,
     highlightMarkdownFences,
     type AparteMarkdownStreamHost,
@@ -144,7 +145,7 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
         const wasAtBottom =
             contentEl.scrollHeight - contentEl.scrollTop - contentEl.clientHeight <= THINKING_ANCHOR_SLACK;
 
-        const streaming = segment.isStreaming !== false;
+        const streaming = isStillWriting(el, segment.isStreaming);
         writeStreamedMarkdown(el as AparteMarkdownStreamHost, contentEl, segment.content, streaming);
 
         // Highlight on settle only, exactly like the code renderer: running a

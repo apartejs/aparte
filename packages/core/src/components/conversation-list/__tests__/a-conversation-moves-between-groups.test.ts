@@ -12,7 +12,7 @@
  * The drag here is synthetic (jsdom has no drag and drop): what a browser does with it is
  * `e2e/tests/conversation-move.spec.ts`.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../aparte-conversation-list.js';
 import type { AparteConversationGroup, AparteConversationListItem, AparteConversationMoveDetail } from '../aparte-conversation-list.js';
 
@@ -245,6 +245,217 @@ describe('with moveTargets: a drag', () => {
         drag(rowOf(el, 'c2'), 'dragover');
         drag(rowOf(el, 'c1'), 'dragend');
         expect(el.querySelector('.aparte-conv-group--drop, .aparte-conv-item--dragging')).toBeNull();
+        expect(seen).toEqual([]);
+    });
+});
+
+describe('a drag that starts while a press holds a render', () => {
+    // The list holds a render while a pointer is down, and the drag ends that press. If the press
+    // ended BEFORE the drag's own hold was set, the render it was holding ran at once and replaced
+    // the row being dragged: the drag began on a row no longer in the list, and the drop landed
+    // nowhere. Any list the app updates while a person grabs a row (a save, a select) does it.
+    it('keeps the dragged row, and the drop moves it', () => {
+        const el = mount(ITEMS, [LAUNCH, DOCS]);
+        const seen = moves(el);
+        press(rowOf(el, 'c1'));
+        // The app assigns the rows while the pointer is down: held by the press.
+        el.conversations = [...ITEMS];
+        const row = rowOf(el, 'c1');
+        drag(row, 'dragstart');
+        expect(row.isConnected, 'the row being dragged is still the one in the list').toBe(true);
+        expect(drag(rowOf(el, 'c2'), 'dragover').defaultPrevented).toBe(true);
+        drag(rowOf(el, 'c2'), 'drop');
+        expect(seen).toEqual([{ id: 'c1', from: 'p-launch', to: 'p-docs' }]);
+    });
+});
+
+describe('a tap on a row while the app updates the list', () => {
+    // The press held the app's render until the click, ending one task after `pointerup`: the
+    // click of a MOUSE follows in that same task. A tap's click comes later (after touchend, a
+    // gesture of its own), so the held render ran first and replaced the row under the finger:
+    // WebKit sent no click, Chromium sent it to the list, where nothing matched.
+    it('holds the render until the tap\'s click, which reaches the row it was on', async () => {
+        const el = mount(ITEMS);
+        const picked: string[] = [];
+        el.addEventListener('aparte-conversation-select', (e) => picked.push((e as CustomEvent<{ id: string }>).detail.id));
+        const row = rowOf(el, 'c2');
+        const finger = (type: string) => {
+            const event = new Event(type, { bubbles: true });
+            Object.defineProperty(event, 'pointerType', { value: 'touch' });
+            row.dispatchEvent(event);
+        };
+        finger('pointerdown');
+        el.conversations = [...ITEMS];
+        finger('pointerup');
+        await tick();
+        expect(row.isConnected, 'still the row under the finger').toBe(true);
+        row.querySelector<HTMLElement>('.aparte-conv-item__select')!.click();
+        expect(picked).toEqual(['c2']);
+    });
+
+    // A tap whose click never comes: the render it held runs after a moment, not never.
+    it('draws the held render after a moment when no click comes', () => {
+        vi.useFakeTimers();
+        try {
+            const el = mount(ITEMS);
+            const row = rowOf(el, 'c2');
+            const finger = (type: string) => {
+                const event = new Event(type, { bubbles: true });
+                Object.defineProperty(event, 'pointerType', { value: 'touch' });
+                row.dispatchEvent(event);
+            };
+            finger('pointerdown');
+            el.conversations = [...ITEMS, { id: 'c9', title: 'New one' }];
+            finger('pointerup');
+            vi.advanceTimersByTime(100);
+            expect(rowOf(el, 'c9'), 'held while the click may still come').toBeNull();
+            vi.advanceTimersByTime(600);
+            expect(rowOf(el, 'c9'), 'drawn once the moment has passed').not.toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});
+
+describe('a list that stands for a group of its own (dropKey), and a row from another list', () => {
+    // An app showing one flat list per project, each under a heading of its own, moved rows with
+    // the menu but not by drag: a flat list had no key, so a drop on it meant "out of any group",
+    // and a row dragged from one list onto another landed nowhere (the drag was the first list's
+    // own business). The drag's type was a comment, not a contract a host could rely on.
+    type KeyedList = ListEl & { dropKey: string | null };
+    const keyed = (key: string, items: AparteConversationListItem[], targets: AparteConversationGroup[] = []): KeyedList => {
+        const el = mount(items, targets) as KeyedList;
+        el.dropKey = key;
+        return el;
+    };
+    const A = { key: 'p-a', label: 'A' };
+    const B = { key: 'p-b', label: 'B' };
+
+    it('names the drag type it carries, the conversation id as its data', async () => {
+        const { APARTE_CONVERSATION_DRAG_TYPE } = await import('../aparte-conversation-list.js');
+        expect(APARTE_CONVERSATION_DRAG_TYPE).toBe('application/x-aparte-conversation');
+    });
+
+    it('its rows are in its group: dropped back on it, nothing moves; Move to… does not list it', () => {
+        const el = keyed('p-a', [{ id: 'a1', title: 'One' }, { id: 'a2', title: 'Two' }], [A, B]);
+        const seen = moves(el);
+        drag(rowOf(el, 'a1'), 'dragstart');
+        expect(drag(rowOf(el, 'a2'), 'dragover').defaultPrevented).toBe(false);
+        drag(rowOf(el, 'a2'), 'drop');
+        expect(seen).toEqual([]);
+        drag(rowOf(el, 'a1'), 'dragend');
+        openMenu(el, 'a1').querySelector<HTMLElement>('[data-menu-action="move"]')!.click();
+        expect([...el.querySelectorAll<HTMLElement>('[data-move-to]')].map((b) => b.dataset['moveTo'])).toEqual(['p-b']);
+    });
+
+    it('takes a row dragged from another list, and says the move from its key to its own', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(rowOf(b, 'b1'), 'dragenter').defaultPrevented).toBe(true);
+        expect(drag(rowOf(b, 'b1'), 'dragover').defaultPrevented).toBe(true);
+        expect(b.querySelector('.aparte-conv-group--drop')).not.toBeNull();
+        drag(rowOf(b, 'b1'), 'drop');
+        expect(seen).toEqual([{ id: 'a1', from: 'p-a', to: 'p-b' }]);
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+    });
+
+    it('an empty list takes it too', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', []);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(b, 'dragover').defaultPrevented).toBe(true);
+        drag(b, 'drop');
+        expect(seen).toEqual([{ id: 'a1', from: 'p-a', to: 'p-b' }]);
+    });
+
+    // An empty list is its own drop zone: the mark went on the list element itself, and the
+    // clearing looked only inside it. The focus outline stayed after the drag, through every
+    // render after it.
+    it.each([
+        ['dropped on', (b: Element) => drag(b, 'drop')],
+        // Left for the page outside: jsdom has no hit-testing, so the point lands on nothing.
+        ['left', (b: Element) => {
+            const doc = document as unknown as { elementFromPoint?: (x: number, y: number) => Element | null };
+            const had = doc.elementFromPoint;
+            doc.elementFromPoint = () => null;
+            try {
+                drag(b, 'dragleave');
+            } finally {
+                if (had) doc.elementFromPoint = had;
+                else delete doc.elementFromPoint;
+            }
+        }],
+    ])('an empty list it was %s keeps no mark after the drag', (_name, end) => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', []);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(b, 'dragenter');
+        drag(b, 'dragover');
+        expect(b.classList.contains('aparte-conv-group--drop'), 'marked while the row is over it').toBe(true);
+        end(b);
+        drag(rowOf(a, 'a1'), 'dragend');
+        expect(b.classList.contains('aparte-conv-group--drop')).toBe(false);
+    });
+
+    // A drag that ends elsewhere (Escape, a drop the page refused) sends its `dragend` to the row
+    // it began on, in the other list. The list it hovered kept its mark until the next drag.
+    it('the list a row hovered drops its mark when the drag ends elsewhere', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(rowOf(b, 'b1'), 'dragenter');
+        drag(rowOf(b, 'b1'), 'dragover');
+        expect(b.querySelector('.aparte-conv-group--drop')).not.toBeNull();
+        drag(rowOf(a, 'a1'), 'dragend');
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+    });
+
+    // Once a row's drag is over, the page's drag is not that row any more: a text or a file dragged
+    // over a list afterwards is not taken for it, and moves nothing.
+    it('a drag that is not a row, after a row\'s drag has ended, is refused and moves nothing', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        drag(rowOf(a, 'a1'), 'dragend');
+        const text = (type: string): Event => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'dataTransfer', { value: { types: ['text/plain'], dropEffect: 'none', getData: () => 'hello' } });
+            rowOf(b, 'b1').dispatchEvent(event);
+            return event;
+        };
+        expect(text('dragover').defaultPrevented).toBe(false);
+        expect(b.querySelector('.aparte-conv-group--drop')).toBeNull();
+        text('drop');
+        expect(seen).toEqual([]);
+    });
+
+    it('takes a drag of the host\'s own that carries the type, the id read at the drop', () => {
+        const b = keyed('p-b', [{ id: 'b1', title: 'Other' }]);
+        const seen = moves(b);
+        const hostDrag = (type: string): Event => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'dataTransfer', {
+                value: { types: ['application/x-aparte-conversation'], dropEffect: 'none', getData: (t: string) => (t === 'application/x-aparte-conversation' ? 'h1' : '') },
+            });
+            rowOf(b, 'b1').dispatchEvent(event);
+            return event;
+        };
+        expect(hostDrag('dragover').defaultPrevented).toBe(true);
+        hostDrag('drop');
+        expect(seen).toEqual([{ id: 'h1', from: null, to: 'p-b' }]);
+    });
+
+    it('a list with no key of its own still refuses a row from another list, as before', () => {
+        const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
+        const plain = mount([{ id: 'c1', title: 'Plain' }], [A]);
+        const seen = moves(plain);
+        drag(rowOf(a, 'a1'), 'dragstart');
+        expect(drag(rowOf(plain, 'c1'), 'dragover').defaultPrevented).toBe(false);
+        drag(rowOf(plain, 'c1'), 'drop');
         expect(seen).toEqual([]);
     });
 });

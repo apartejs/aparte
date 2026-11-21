@@ -17,6 +17,7 @@
  */
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-sidebar.js';
+import '../../../primitives/select/aparte-select.js';
 import type { AparteSidebar } from '../aparte-sidebar.js';
 
 type MediaListener = (e: { matches: boolean }) => void;
@@ -192,5 +193,131 @@ describe('a filtered-out row keeps no tab stop', () => {
         toggle.click();
 
         expect(document.activeElement).toBe(sidebar.querySelector('#search'));
+    });
+});
+
+describe('the open drawer leaves the keys of what is above it', () => {
+    /** A modal dialog the drawer's own content opens, beside the shell (the kit's documented pattern). */
+    function openDialog(): { dialog: HTMLDialogElement; inside: HTMLButtonElement } {
+        const dialog = document.createElement('dialog');
+        dialog.innerHTML = '<button type="button" id="in-dialog">OK</button>';
+        document.body.appendChild(dialog);
+        // jsdom has no showModal: what it does to the dialog is enough for the drawer to read.
+        dialog.setAttribute('open', '');
+        const inside = dialog.querySelector('button')!;
+        inside.focus();
+        return { dialog, inside };
+    }
+
+    it('Escape in a modal dialog opened from the drawer is the dialog\'s, and the drawer stays open', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const { inside } = openDialog();
+        const notPrevented = key(inside, 'Escape');
+        expect(notPrevented, 'the dialog gets its own Escape').toBe(true);
+        expect(sidebar.collapsed).toBe(false);
+    });
+
+    it('Tab in that dialog stays in the dialog, not pulled back into the drawer behind it', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const { inside } = openDialog();
+        const notPrevented = key(inside, 'Tab');
+        expect(notPrevented).toBe(true);
+        expect(document.activeElement).toBe(inside);
+        expect(sidebar.contains(document.activeElement)).toBe(false);
+    });
+
+    // jsdom throws on `:modal`, so the tests above ran the fallback alone: every open dialog read as
+    // modal. With `:modal` answered as a browser does, a modal dialog keeps its keys and a dialog
+    // opened with `show()` (not modal: the drawer still covers the page) does not.
+    describe('with :modal answered as a browser does', () => {
+        const matches = Element.prototype.matches;
+        afterEach(() => { Element.prototype.matches = matches; });
+        const modalWhen = (isModal: (el: Element) => boolean) => {
+            Element.prototype.matches = function (this: Element, selector: string) {
+                return selector === ':modal' ? isModal(this) : matches.call(this, selector);
+            };
+        };
+
+        it('a modal dialog keeps its Escape, and the drawer stays open', () => {
+            modalWhen((el) => el instanceof HTMLDialogElement && el.hasAttribute('data-modal'));
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { dialog, inside } = openDialog();
+            dialog.setAttribute('data-modal', '');
+            expect(key(inside, 'Escape')).toBe(true);
+            expect(sidebar.collapsed).toBe(false);
+        });
+
+        it('a dialog that is not modal leaves the Escape to the drawer', () => {
+            modalWhen(() => false);
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { inside } = openDialog();
+            key(inside, 'Escape');
+            expect(sidebar.collapsed).toBe(true);
+        });
+
+        // A field inside a component's own shadow root, in the dialog: `closest()` from where the
+        // key began stops at that root, found no dialog, and the drawer took Tab and Escape.
+        it.each(['Escape', 'Tab'])('a modal dialog keeps the %s typed in a field of a component inside it', (name) => {
+            modalWhen((el) => el instanceof HTMLDialogElement);
+            const { toggle, sidebar } = mountPage();
+            narrow(true);
+            toggle.click();
+            const { dialog } = openDialog();
+            const host = document.createElement('div');
+            dialog.append(host);
+            const field = host.attachShadow({ mode: 'open' }).appendChild(document.createElement('input'));
+            field.focus();
+            const event = new KeyboardEvent('keydown', { key: name, bubbles: true, composed: true, cancelable: true });
+            field.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(false);
+            expect(sidebar.collapsed).toBe(false);
+        });
+    });
+
+    it('Escape that cancels a word being composed in its search field closes nothing', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        const search = sidebar.querySelector<HTMLInputElement>('#search')!;
+        search.focus();
+        const composing = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, isComposing: true });
+        search.dispatchEvent(composing);
+        expect(composing.defaultPrevented).toBe(false);
+        expect(sidebar.collapsed).toBe(false);
+    });
+});
+
+describe('a select open in the drawer', () => {
+    // WebKit leaves the focus on the page after a click on a part of the list that takes none, and
+    // the select hears the keys typed there. Its Escape ran after the drawer's, which had already
+    // closed the drawer: the list and the drawer went with one key.
+    it('takes an Escape typed on the page before the drawer does', () => {
+        const { toggle, sidebar } = mountPage();
+        narrow(true);
+        toggle.click();
+        expect(sidebar.collapsed).toBe(false);
+        const select = document.createElement('aparte-select');
+        for (const value of ['one', 'two']) {
+            const option = document.createElement('aparte-option');
+            option.setAttribute('value', value);
+            option.textContent = value;
+            select.append(option);
+        }
+        sidebar.append(select);
+        const trigger = select.querySelector<HTMLElement>('.aparte-select-trigger')!;
+        trigger.click();
+        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+        (document.activeElement as HTMLElement | null)?.blur();
+        key(document.body, 'Escape');
+        expect(trigger.getAttribute('aria-expanded')).toBe('false');
+        expect(sidebar.collapsed, 'the drawer stays: that Escape was the list\'s').toBe(false);
     });
 });

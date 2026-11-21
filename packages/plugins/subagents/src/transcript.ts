@@ -8,11 +8,13 @@
  * the rows that changed and nothing else.
  */
 import { contextConfig, type AparteConfig, type AparteToolDetails } from '@aparte/core';
-import { AparteSubagentView, feedView } from './aparte-subagent-view.js';
+import { AparteSubagentView, currentSurface, feedView } from './aparte-subagent-view.js';
 import { subagentOf } from './status.js';
 
 /** Views kept for the lines on the page, per config, by reply, segment and sub-agent. */
 const views = new WeakMap<AparteConfig, Map<string, AparteSubagentView>>();
+/** The same, for the lines a view of its own draws (see `currentSurface`). */
+const surfaces = new WeakMap<Element, Map<string, AparteSubagentView>>();
 /** Past this, the oldest views no row holds are forgotten (rows drawn but never put on the page). */
 const MAX_VIEWS = 500;
 
@@ -38,8 +40,14 @@ export const subagentTranscript: AparteToolDetails = (segment) => {
     if (!sub) return '';
     if (!sub.description?.trim() && sub.segments.length === 0) return '';
     const config = contextConfig();
-    let byKey = views.get(config);
-    if (!byKey) views.set(config, (byKey = new Map()));
+    // The chat's lines share one element per sub-agent; a view of its own keeps its own.
+    const surface = currentSurface();
+    let byKey = surface ? surfaces.get(surface) : views.get(config);
+    if (!byKey) {
+        byKey = new Map();
+        if (surface) surfaces.set(surface, byKey);
+        else views.set(config, byKey);
+    }
     const key = `${segment.messageId ?? ''}\u0000${segment.id}\u0000${sub.id}`;
     let view = byKey.get(key);
     if (!view) {

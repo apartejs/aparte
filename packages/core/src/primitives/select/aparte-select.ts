@@ -49,7 +49,7 @@ export interface AparteSelectChangeDetail {
  * @attr {boolean} searchable - Adds a filter field above the options. Set or removed later, the field comes or goes.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
- * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
+ * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The person chose an option; carries the new value, its label and the previous value. A value set by code (the `value` property or attribute) fires nothing, as on a native select.
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
  *
@@ -103,27 +103,53 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
     /**
+     * A key typed while the focus is on nothing (the page itself), the list open: the list's. A
+     * click on a part of it that takes no focus (a group's header, in WebKit) leaves the focus
+     * there. A key typed in any other field is that field's, and is left alone.
+     */
+    private _boundHandleStrayKeydown = (e: KeyboardEvent): void => {
+        if (!this._isOpen) return;
+        const origin = eventOrigin(e);
+        const doc = this.ownerDocument;
+        if (origin !== doc.body && origin !== doc.documentElement && origin !== doc) return;
+        this._handleKeydown(e);
+    };
+    /**
      * The trigger's own three, bound for the same reason as the option click: the
      * trigger element survives a re-connect, so listeners that cannot be removed would
      * stack. One re-parent would make a click toggle twice — open and shut inside the
      * same click, i.e. a control that looks dead — and announce `aparte-select-open`
      * twice.
      */
-    private _boundHandleTriggerClick = (): void => { this._toggle(); };
+    private _boundHandleTriggerClick = (): void => {
+        // The focus on the trigger, where the keys that follow are heard: WebKit focuses no
+        // button on a click, and the select listens on itself, so the arrows and Enter after
+        // opening the list with the mouse reached nothing in Safari.
+        this._trigger?.focus({ preventScroll: true });
+        this._toggle();
+    };
     private _boundHandleTriggerKeydown = (e: KeyboardEvent): void => {
         if (e.key === 'Enter' || e.key === ' ') {
             // When open, Enter/Space selects the active option — handled by the
-            // document-level nav handler. Only toggle when closed, so we don't close the
+            // select's own key handler. Only toggle when closed, so we don't close the
             // dropdown on the very keystroke meant to select.
             if (this._isOpen) return;
             e.preventDefault();
+            this._openedBy = e;
             this._toggle();
         }
         if (e.key === 'ArrowDown' && !this._isOpen) {
             e.preventDefault();
+            this._openedBy = e;
             this._openDropdown();
         }
     };
+    /**
+     * The keydown that just opened the list from the trigger. It goes on up to the select's own
+     * key handler, which found the list open and the selection active: Enter chose it again and
+     * closed the list, and ArrowDown moved one past it. That key is spent.
+     */
+    private _openedBy: KeyboardEvent | null = null;
     private _boundHandleSearchInput = (e: Event): void => {
         this._filterOptions((e.target as HTMLInputElement).value.toLowerCase());
     };
@@ -156,7 +182,8 @@ export class AparteSelect extends HTMLElement {
     disconnectedCallback(): void {
         this.removeEventListener('click', this._boundHandleOptionClick);
         document.removeEventListener('click', this._boundHandleDocumentClick);
-        document.removeEventListener('keydown', this._boundHandleKeydown);
+        this.removeEventListener('keydown', this._boundHandleKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown, true);
         this._observer?.disconnect();
     }
 
@@ -209,11 +236,13 @@ export class AparteSelect extends HTMLElement {
 
     set value(val: string) {
         if (val === this._value) return;
-        const previousValue = this._value;
         this._value = val;
         this.setAttribute('value', val);
         this._updateTriggerLabel();
-        this._emitChange(previousValue);
+        // No `aparte-select-change`: a value set by code is not a choice, as on a native select,
+        // and the attribute already set it silently. Announced from the property only, a value a
+        // framework wrote (Vue, Svelte 5 write the property; React's element and Angular's
+        // directive the attribute) echoed back in two of four, and saved a choice nobody made.
     }
 
     get open(): boolean {
@@ -490,8 +519,15 @@ export class AparteSelect extends HTMLElement {
         // Close on outside click
         document.addEventListener('click', this._boundHandleDocumentClick);
 
-        // Keyboard navigation
-        document.addEventListener('keydown', this._boundHandleKeydown);
+        // Keyboard navigation: the keys typed IN the select. On the document, an open select took
+        // Enter, the arrows and Escape typed anywhere on the page (Enter in the composer sent the
+        // message and switched the model), and its Escape came after every listener on the way
+        // up: a launcher closed the chat on the Escape meant for the list.
+        this.removeEventListener('keydown', this._boundHandleKeydown);
+        this.addEventListener('keydown', this._boundHandleKeydown);
+        document.removeEventListener('keydown', this._boundHandleStrayKeydown, true);
+        // Captured: the list's before any listener on the page, a drawer's Escape among them.
+        document.addEventListener('keydown', this._boundHandleStrayKeydown, true);
     }
 
     private _handleOptionClick(e: Event): void {
@@ -513,6 +549,17 @@ export class AparteSelect extends HTMLElement {
 
     private _handleKeydown(e: KeyboardEvent): void {
         if (!this._isOpen) return;
+        if (e === this._openedBy) {
+            this._openedBy = null;
+            return;
+        }
+        // A key that confirms a word being composed (IME) in the filter field is the field's.
+        if (e.isComposing || e.keyCode === 229) return;
+        // Tab leaves the select: the list goes with it, and the focus moves on as Tab says.
+        if (e.key === 'Tab') {
+            this._closeDropdown();
+            return;
+        }
 
         // Home/End move the caret when typing in the search box; only hijack
         // them for option navigation when focus is not in the search field.

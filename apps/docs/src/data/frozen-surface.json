@@ -150,6 +150,7 @@
       "attributes": [
         "active-id",
         "data-no-match",
+        "drop-key",
         "flat",
         "loading",
         "manage",
@@ -397,6 +398,7 @@
     ],
     "@aparte/core": [
       "APARTE_CONFIG_CHANGE",
+      "APARTE_CONVERSATION_DRAG_TYPE",
       "APARTE_CONVERSATION_SCHEMA_VERSION",
       "APARTE_DEFAULT_BUBBLE_ACTIONS",
       "APARTE_DEFAULT_HOST_HANDLERS",
@@ -509,6 +511,7 @@
       "segmentDuration",
       "segmentTiming",
       "setupSuggestionBlocks",
+      "showToast",
       "startSubAgent",
       "subscribeConfigChange",
       "toToolCallView",
@@ -931,6 +934,7 @@
     "deleteConversation",
     "deleteConversationConfirm",
     "direction",
+    "dismissNotification",
     "download",
     "edit",
     "editCancel",
@@ -981,6 +985,7 @@
     "newChat",
     "nextResponse",
     "nextVersion",
+    "notifications",
     "openArtifact",
     "opensInNewTab",
     "pinConversation",
@@ -2029,6 +2034,7 @@
         "inputs": [
           "activeId",
           "conversations",
+          "dropKey",
           "flat",
           "loading",
           "manage",

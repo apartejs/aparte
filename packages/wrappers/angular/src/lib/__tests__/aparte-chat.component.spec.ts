@@ -286,6 +286,21 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(fixture.nativeElement.querySelector('aparte-elicitation')).toBeNull();
     });
 
+    // An unset binding (a field of an options object that is not always set) keeps the default,
+    // as in React, Vue and Svelte. `booleanAttribute(undefined)` is false: [elicitation] left no
+    // presenter, so every call needing approval aborted with nothing to click, and
+    // [submitOnEnter] wrote "false", so Enter inserted a newline instead of sending.
+    it('an unset [elicitation] and [submitOnEnter] keep their default: ON', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('elicitation', undefined);
+        (fixture.componentRef as any).setInput('submitOnEnter', undefined);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('aparte-elicitation')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('aparte-composer')?.getAttribute('submit-on-enter')).not.toBe('false');
+    });
+
     it('mounts the picker and the chips strip with attachments', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         (fixture.componentRef as any).setInput('messages', []);

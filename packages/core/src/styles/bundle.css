@@ -27,6 +27,7 @@
 @import './display/shimmer.css';
 @import './display/divider.css';
 @import './display/alert.css';
+@import './display/toast.css';
 @import './display/card.css';
 @import './display/kbd.css';
 @import './display/mark.css';

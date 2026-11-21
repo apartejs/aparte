@@ -39,7 +39,7 @@
     const created = document.createElement(tag);
     const listener = (e: Event) => onelementEvent?.(e as CustomEvent);
     for (const ev of names) created.addEventListener(ev, listener);
-    untrack(() => applyElementProps(created, props));
+    untrack(() => applyElementProps(created, props, undefined, { replace: true }));
     hostEl.appendChild(created);
     el = created;
     return () => {
@@ -52,7 +52,7 @@
   $effect(() => {
     const current = el;
     const next = props;
-    if (current) applyElementProps(current, next);
+    if (current) applyElementProps(current, next, undefined, { replace: true });
   });
 
   /** The mounted element — the same contract as `AparteUiHandle` on all four wrappers. */

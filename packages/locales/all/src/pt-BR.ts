@@ -175,6 +175,8 @@ export const ptBR: AparteLocale = {
     moveConversation: "Mover para…",
     moveConversationTo: "Mover “{title}” para",
     removeFromGroup: "Remover de “{group}”",
+    notifications: "Notificações",
+    dismissNotification: "Fechar",
     deleteConversationConfirm: "Excluir “{title}”?",
     cancel: "Cancelar",
     conversationGroupPinned: "Fixadas",

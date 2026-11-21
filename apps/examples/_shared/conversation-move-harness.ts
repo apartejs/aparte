@@ -50,3 +50,46 @@ export function mountConversationMoveHarness(): void {
         list.conversations = items;
     });
 }
+
+/**
+ * `?harness=conversation-lists`: one `flat` list per project, each under a heading the app draws,
+ * each with the key of its project in `drop-key`. A row dragged from one list onto the other is
+ * moved there by the app, which assigns both lists again.
+ */
+export function mountConversationListsHarness(): void {
+    if (new URLSearchParams(location.search).get('harness') !== 'conversation-lists') return;
+    const projects = [{ ...LAUNCH, id: 'list-launch' }, { ...DOCS, id: 'list-docs' }];
+    const rows: Record<string, AparteConversationListItem[]> = {
+        'p-launch': [{ id: 'plan', title: 'Launch plan' }, { id: 'pricing', title: 'Pricing page' }],
+        'p-docs': [{ id: 'api', title: 'API reference' }],
+    };
+    const panel = document.createElement('aside');
+    panel.className = 'site-move-harness';
+    panel.setAttribute('aria-label', 'Projects');
+    panel.style.cssText = 'position:fixed;inset-block-start:16px;inset-inline-end:16px;inline-size:280px;max-block-size:80vh;overflow:auto;padding:8px;z-index:50;background:var(--aparte-surface-1);border:1px solid var(--aparte-border);border-radius:12px';
+    const lists = new Map<string, MoveList>();
+    for (const project of projects) {
+        const heading = document.createElement('h3');
+        heading.textContent = project.label;
+        heading.style.cssText = 'margin:8px 4px 4px;font-size:13px';
+        const list = document.createElement('aparte-conversation-list') as MoveList & { dropKey: string | null };
+        list.id = project.id;
+        list.setAttribute('flat', '');
+        list.dropKey = project.key;
+        list.moveTargets = projects.filter((p) => p.key !== project.key).map(({ key, label }) => ({ key, label }));
+        list.conversations = rows[project.key]!;
+        lists.set(project.key, list);
+        panel.append(heading, list);
+    }
+    document.body.append(panel);
+    panel.addEventListener('aparte-conversation-move', (e) => {
+        const { id, from, to } = (e as CustomEvent<AparteConversationMoveDetail>).detail;
+        if (!from || !to) return;
+        const moved = rows[from]!.find((c) => c.id === id);
+        if (!moved) return;
+        rows[from] = rows[from]!.filter((c) => c.id !== id);
+        rows[to] = [...rows[to]!, moved];
+        lists.get(from)!.conversations = rows[from]!;
+        lists.get(to)!.conversations = rows[to]!;
+    });
+}

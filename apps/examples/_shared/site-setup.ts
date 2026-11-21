@@ -313,12 +313,14 @@ async function run(): Promise<SiteSetup> {
     //       each line's Open button shows that sub-agent's conversation in a pane beside the chat.
     //       `?subagent-transcript`: each line holds its sub-agent's conversation, closed under
     //       it, so the sub-agent's own calls are tool rows inside the line's row.
+    //       Both at once: a line holds its conversation AND opens it in the pane, the shape where
+    //       the line's disclosure is wrapped beside its Open button.
     const subagentParams = new URLSearchParams(location.search);
-    if (subagentParams.has('subagent-view')) {
-        setupSubagents({ open: 'event' });
-        mountSubagentPane();
-    } else if (subagentParams.has('subagent-transcript')) {
-        setupSubagents({ details: 'transcript' });
+    const subagentView = subagentParams.has('subagent-view');
+    const subagentTranscript = subagentParams.has('subagent-transcript');
+    if (subagentView || subagentTranscript) {
+        setupSubagents({ ...(subagentView ? { open: 'event' as const } : {}), ...(subagentTranscript ? { details: 'transcript' as const } : {}) });
+        if (subagentView) mountSubagentPane();
     } else {
         setupSubagents();
     }

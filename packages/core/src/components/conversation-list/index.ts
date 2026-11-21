@@ -1,5 +1,6 @@
 export {
     AparteConversationList,
+    APARTE_CONVERSATION_DRAG_TYPE,
     type AparteConversationListItem,
     type AparteConversationMetaRenderer,
     type AparteConversationSelectDetail,

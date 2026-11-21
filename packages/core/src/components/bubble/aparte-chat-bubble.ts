@@ -42,7 +42,7 @@ function innerRendererThatDrew(segment: AparteSegment, el: Element): AparteToolR
   if (segment.type === 'activity') return activityRendererThatDrew(el);
   return null;
 }
-import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { writeStreamedMarkdown, replaceHighlighted, drawAppend, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
 import { relabelCitations, renderSourceList } from '../../renderers/citations.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
@@ -1059,7 +1059,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (segment && 'content' in segment) {
       (segment as { content: string }).content += content;
       if (segment.isStreaming !== false) this._written.add(segmentId);
-      this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content });
+      const row = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
+      drawAppend(row, () => this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content }));
       this._syncCopyAction();
     }
   }
@@ -2924,7 +2925,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Enter (via the primitive's standalone submit event) saves; Esc cancels.
     input.addEventListener('aparte-composer-submit', () => this._exitEditMode(true));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !e.isComposing) {
+      // An Escape that cancels a word being composed (IME) is the composition's: Safari sends it
+      // after the composition ends, with keyCode 229 and no `isComposing`.
+      if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         this._exitEditMode(false);
       }

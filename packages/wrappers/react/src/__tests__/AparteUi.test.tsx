@@ -49,6 +49,16 @@ describe('AparteUi', () => {
         expect(el.hasAttribute('disabled')).toBe(false);
     });
 
+    // A key that leaves the bag (`{ ...(busy && { disabled: true }) }` once busy ends) is cleared:
+    // the wrapper hands the WHOLE bag (`replace`). Written key by key, the attribute stayed.
+    it('clears a key that leaves the props bag', () => {
+        const { container, rerender } = render(<AparteUi name="aparte-composer" props={{ disabled: true }} />);
+        const el = container.querySelector('aparte-composer') as HTMLElement;
+        expect(el.hasAttribute('disabled')).toBe(true);
+        rerender(<AparteUi name="aparte-composer" props={{}} />);
+        expect(el.hasAttribute('disabled')).toBe(false);
+    });
+
     it('hands objects over as properties (an attribute cannot carry them)', () => {
         const payload = { a: 1 };
         const { container } = render(<AparteUi name="aparte-chat-bubble" props={{ someData: payload }} />);

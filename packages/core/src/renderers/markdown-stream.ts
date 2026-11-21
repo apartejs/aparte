@@ -92,6 +92,46 @@ function hasOneShotMarkdownProvider(): boolean {
     return contextConfig().renderMarkdown(ONE_SHOT_PROBE) !== escapeHtml(ONE_SHOT_PROBE);
 }
 
+/** The segment element a chunk is being appended to, while the bubble draws it. */
+let appendingTo: Element | null = null;
+
+/**
+ * Draw a chunk appended to a segment (`appendToSegment`): text that grows by a chunk is still
+ * being written, whatever else the bubble says. A framework chat drops the bubble's `streaming`
+ * attribute as soon as a reply driven by hand has a segment, while its chunks keep coming.
+ */
+export function drawAppend(el: Element | null, draw: () => void): void {
+    const outer = appendingTo;
+    appendingTo = el;
+    try {
+        draw();
+    } finally {
+        appendingTo = outer;
+    }
+}
+
+/**
+ * Whether a text or reasoning segment drawn in `el` is still being written. A flag the producer
+ * set wins. Then a stream: an append (see `drawAppend`), or a stream already open on this
+ * element, which goes on until a flag ends it. A framework's re-sync hands the same text back
+ * once a frame with no flag; read as finished, it closed the stream and drew the whole text
+ * again, and the next chunk opened a new one: every chunk drawn whole. With neither (a restored
+ * segment, an app editing a finished reply in place), the bubble says: one that streams is still
+ * writing it, one that does not is done with it, `streaming="false"` included, as the bubble
+ * itself reads it. Read as "still writing", an edit of a finished reply went through the
+ * incremental parser, which held back its tail, and nothing ended it. Outside a bubble (a
+ * sub-agent's pane) the missing flag reads as it did: still writing.
+ */
+export function isStillWriting(el: Element, flag: boolean | undefined): boolean {
+    if (flag !== undefined) return flag;
+    if (appendingTo && (appendingTo === el || appendingTo.contains(el))) return true;
+    if ((el as AparteMarkdownStreamHost)._aparteSmd !== undefined) return true;
+    const bubble = el.closest('aparte-chat-bubble');
+    if (!bubble) return true;
+    const streaming = bubble.getAttribute('streaming');
+    return streaming !== null && streaming !== 'false';
+}
+
 /**
  * Render `content` into `contentEl`, incrementally while streaming, then draw the code
  * languages a renderer is registered for — maths, a diagram — on every path out, so a
@@ -169,6 +209,8 @@ function writeMarkdown(
         }
         // Otherwise fall through: the one-shot provider re-renders for full fidelity.
     } else {
+        // A stream written one-shot (no incremental provider) is over too: nothing stays open.
+        if (host._aparteSmd === null) host._aparteSmd = undefined;
         const last = settled.get(contentEl);
         if (last?.content === content) {
             // Settled already, on this very content. What the parser wrote is still the

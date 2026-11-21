@@ -521,6 +521,20 @@ describe('<aparte-launcher>: the focus and the keys', () => {
         expect(el.open).toBe(false);
     });
 
+    // A field inside a component's own shadow root, in that dialog: `closest()` from where the key
+    // began stops at the root, found no dialog, and the launcher closed the card on its Escape.
+    it('leaves to the dialog an Escape typed in a component\'s field inside it', () => {
+        const el = mount('', '<div id="chat"><div id="composer" role="textbox" tabindex="0"></div><dialog id="dlg" open></dialog></div>');
+        el.show();
+        const host = document.createElement('div');
+        document.getElementById('dlg')!.append(host);
+        const field = host.attachShadow({ mode: 'open' }).appendChild(document.createElement('input'));
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true });
+        field.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(el.open).toBe(true);
+    });
+
     it('ignores Escape while closed, and Escape outside', () => {
         const el = mount();
         expect(key(buttonOf(el), 'Escape').defaultPrevented).toBe(false);

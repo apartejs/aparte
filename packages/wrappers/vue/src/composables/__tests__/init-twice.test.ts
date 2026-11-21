@@ -39,3 +39,33 @@ describe('useConversationManager().init, called twice', () => {
         wrapper.unmount();
     });
 });
+
+function slowAdapter(): { adapter: AparteStorageAdapter; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    return { adapter: { async loadAll() { await gate; return []; }, async save() {}, async delete() {} }, release };
+}
+
+describe('useConversationManager().init, overtaken by a newer one', () => {
+    // A slow store answers the first init after the second: its manager was registered on the
+    // config last, so the chat persisted into the store of the account the person had left.
+    it('registers nothing when it resolves after the newer init', async () => {
+        const Probe = defineComponent({ setup(_, { expose }) { const cm = useConversationManager(); expose({ cm }); return () => null; } });
+        const wrapper = mount(Probe);
+        const cm = (wrapper.vm as unknown as { cm: ReturnType<typeof useConversationManager> }).cm;
+        const config = new AparteConfig();
+        const slow = slowAdapter();
+        const first = cm.init(slow.adapter, config);
+        await cm.init(memoryAdapter(), config);
+        const newer = cm.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await newer!.createNew('fresh');
+        slow.release();
+        await first;
+        expect(config.getConversationManager()).toBe(newer);
+        expect(cm.manager).toBe(newer);
+        expect(cm.activeId.value).not.toBeNull();
+        expect(cm.activeId.value).toBe(newer!.activeId);
+        wrapper.unmount();
+    });
+});

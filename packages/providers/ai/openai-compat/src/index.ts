@@ -617,7 +617,8 @@ export function parseOpenAICompatStream(
      * A Map, not an object: the key comes off the wire, and on a plain `{}` a chunk
      * whose `index` is `"__proto__"` writes into Object.prototype for the whole page.
      */
-    const toolCalls = new Map<string, { id: string; name: string; args: string }>();
+    // `vendorId`: the id the VENDOR sent for the call, when it sent one (`id` may be minted).
+    const toolCalls = new Map<string, { id: string; vendorId?: string; name: string; args: string }>();
     /** The call the last delta touched — what a bare argument fragment continues. */
     let lastToolKey: string | null = null;
     /**
@@ -715,7 +716,19 @@ export function parseOpenAICompatStream(
             indexKey = `i${idx}`;
         }
         const idKey = tc.id ? `d${tc.id}` : undefined;
-        const known = (idKey ? toolCallAliases.get(idKey) : undefined) ?? (indexKey ? toolCallAliases.get(indexKey) : undefined);
+        const viaId = idKey ? toolCallAliases.get(idKey) : undefined;
+        let viaIndex = indexKey ? toolCallAliases.get(indexKey) : undefined;
+        // An index another call holds under a vendor id of its own, reached by a NAMED delta
+        // with a new id: a server numbering `index` per chunk (every call at index 0), and
+        // this is the next call, not the rest of that one. Taken by the index alias, the two
+        // became one call that ran on the second's name with both argument strings glued
+        // together. A slot whose id was minted is still the same call: that vendor opened it
+        // by index and names it again with its real id.
+        if (viaId === undefined && viaIndex !== undefined && tc.id && tc.function?.name) {
+            const held = toolCalls.get(viaIndex)?.vendorId;
+            if (held !== undefined && held !== tc.id) viaIndex = undefined;
+        }
+        const known = viaId ?? viaIndex;
         // No key of this delta is known yet. A nameless delta never OPENS a call, so it
         // continues the call before it — which is what keeps ONE call together when the
         // vendor opens it with one address and continues it with the other, neither
@@ -822,7 +835,10 @@ export function parseOpenAICompatStream(
                                             toolCalls.set(key, entry);
                                         }
                                         lastToolKey = key;
-                                        if (tc.id) entry.id = tc.id;
+                                        if (tc.id) {
+                                            entry.id = tc.id;
+                                            entry.vendorId = tc.id;
+                                        }
                                         if (tc.function?.name) entry.name = tc.function.name;
                                         if (tc.function?.arguments) entry.args += tc.function.arguments;
                                     }

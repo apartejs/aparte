@@ -105,14 +105,13 @@ describe('populateBubbleFromMessage', () => {
             expect(bubble.updateSegment).toHaveBeenCalledWith('s1', { content: 'a-live' });
         });
 
-        it('skips updateSegment for segments without a `content` field', () => {
+        it('patches a segment without a `content` field with what it changed, and only that', () => {
             const existing = [{ id: 's1', type: 'image', url: 'old.png' } as unknown as AparteSegment];
             const bubble = makeBubble(existing);
             const next = [{ id: 's1', type: 'image', url: 'new.png' } as unknown as AparteSegment];
             populateBubbleFromMessage(bubble, makeMsg({ segments: next }));
-            // No content field → no per-segment patch (would need full rebuild
-            // for non-content updates, which the count-equal branch can't do).
-            expect(bubble.updateSegment).not.toHaveBeenCalled();
+            // No content field: the fields that changed, and none of what stayed.
+            expect(bubble.updateSegment).toHaveBeenCalledWith('s1', { url: 'new.png' });
         });
 
         it('full rebuild when bubble had no segments and the message provides some', () => {
@@ -186,5 +185,65 @@ describe('populateBubbleFromMessage', () => {
                 }), { id: 'm1', count: 2, index: 0 }),
             ).not.toThrow();
         });
+    });
+});
+
+describe('a re-sync that keeps the number of segments', () => {
+    // A wrapper in controlled mode hands the whole message again on every change. With as many
+    // segments as the bubble holds, only segments carrying `content` were patched: a tool call the
+    // parent marked resolved kept spinning "Running", a card's new data never showed, and a segment
+    // the parent replaced under another id was ignored.
+    const call = (status: string, extra: object = {}): AparteSegment =>
+        ({ id: 'tool-c1', type: 'tool_call', toolCall: { id: 'c1', name: 'search', input: { q: 'x' } }, status, ...extra }) as AparteSegment;
+    const text = { id: 's1', type: 'text', content: 'Looking.' } as AparteSegment;
+
+    it("patches a tool call's status and result", () => {
+        const bubble = makeBubble([text, call('pending')]);
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [text, call('resolved', { result: 'found' })] }));
+        expect(bubble.updateSegment).toHaveBeenCalledWith('tool-c1', expect.objectContaining({ status: 'resolved', result: 'found' }));
+    });
+
+    it('leaves alone a segment that did not change, whatever object carries it', () => {
+        const bubble = makeBubble([text, call('resolved', { result: 'found' })]);
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [{ ...text }, call('resolved', { result: 'found' })] }));
+        const touchedCall = (bubble.updateSegment as ReturnType<typeof vi.fn>).mock.calls.filter(([id]) => id === 'tool-c1');
+        expect(touchedCall).toEqual([]);
+    });
+
+    it('draws the segments again when one was replaced under another id', () => {
+        const bubble = makeBubble([text, call('pending')]);
+        const other = { ...call('resolved'), id: 'tool-c2', toolCall: { id: 'c2', name: 'search', input: {} } } as AparteSegment;
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [text, other] }));
+        expect(bubble.setSegments).toHaveBeenCalled();
+        expect(bubble.getSegments!().map((s) => s.id)).toEqual(['s1', 'tool-c2']);
+    });
+});
+
+describe('a re-sync of a segment that has text', () => {
+    // Only `content` (and sources) was patched for a segment that has one: an error's details, a
+    // reasoning block's label, a code block's language never reached the bubble.
+    it.each([
+        ['an error\'s details', { id: 'e1', type: 'error', content: 'Failed' }, { details: 'HTTP 429' }],
+        ['a reasoning block\'s label', { id: 't1', type: 'thinking', content: 'Thinking.', label: 'Reasoning' }, { label: 'Read 3 files' }],
+        ['a code block\'s language', { id: 'k1', type: 'code', content: 'x = 1', language: 'text' }, { language: 'python' }],
+    ])('patches %s', (_name, before, change) => {
+        const bubble = makeBubble([before as AparteSegment]);
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [{ ...before, ...change } as AparteSegment] }));
+        expect(bubble.updateSegment).toHaveBeenCalledWith(before.id, expect.objectContaining(change));
+    });
+});
+
+describe('a segment the parent changed in place', () => {
+    // A Svelte or Vue app writes `seg.status = 'resolved'` on the segment it handed over and hands
+    // the message again. The bubble holds that very object, so comparing the two found nothing to
+    // patch: the call kept reading as running.
+    it('is patched with what changed since it was last handed over', () => {
+        const seg = { id: 'tool-c1', type: 'tool_call', status: 'pending', toolCall: { id: 'c1', name: 'search', input: {} } } as AparteSegment & { status: string; result?: string };
+        const bubble = makeBubble();
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [seg] }));
+        seg.status = 'resolved';
+        seg.result = 'found';
+        populateBubbleFromMessage(bubble, makeMsg({ segments: [seg] }));
+        expect(bubble.updateSegment).toHaveBeenCalledWith('tool-c1', expect.objectContaining({ status: 'resolved', result: 'found' }));
     });
 });

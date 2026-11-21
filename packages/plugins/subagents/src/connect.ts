@@ -8,7 +8,7 @@
  * clears the mark and gives the focus back. An app with its own layout reads this file and
  * writes its own.
  */
-import type { AparteSubagentView } from './aparte-subagent-view.js';
+import { setViewCall, type AparteSubagentView } from './aparte-subagent-view.js';
 import { markRow, openButtonOf, setShown, unmarkAll } from './open.js';
 import type { AparteSubagentOpenEventDetail } from './types.js';
 
@@ -81,8 +81,13 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         const row = event.target instanceof HTMLElement ? event.target : null;
         opener = row;
         opened = detail;
-        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId });
+        // The line pressed: its call, or, for a line of its own, that line. Two sub-agents of one
+        // reply can share an id, with or without a call.
+        const ownLine = detail.toolCallId ? undefined : row?.closest('[data-segment-id^="subagent-"]')?.getAttribute('data-segment-id');
+        const line = detail.toolCallId ?? (ownLine ? `own:${ownLine}` : undefined);
+        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId, ...(line ? { toolCallId: line } : {}) });
         mark(row);
+        setViewCall(view, line);
         view.setAttribute('message-id', detail.messageId);
         view.setAttribute('agent-id', detail.agentId);
         if (split) {
@@ -135,6 +140,7 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         if (isOpen || opened) close(false);
         view.removeAttribute('message-id');
         view.removeAttribute('agent-id');
+        setViewCall(view, undefined);
     };
 
     chat.addEventListener('aparte-subagent-open', onOpen);
@@ -157,6 +163,8 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.removeEventListener(name, onLoaded);
         setShown(owner, null);
         mark(null);
+        // The view is the app's again: it shows what it is named, on any call.
+        setViewCall(view, undefined);
         if (!wasClosable) view.removeAttribute('closable');
     };
 }

@@ -75,6 +75,9 @@ export function useConversationManager(): UseConversationManager {
             setActiveId(m.activeId);
         });
         await m.init();
+        // Overtaken by a newer init while its store loaded: that one is the manager now, and this
+        // one registered last on the config, so the chat persisted into the store just left.
+        if (managerRef.current !== m) return;
         setActiveId(m.activeId);
         config.setConversationManager(m);
     }, []);

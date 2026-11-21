@@ -140,6 +140,10 @@ export type AparteLocale = {
     moveConversationTo?: string;
     /** The item that takes a row out of its group (default: "Remove from “{group}”"). `{group}` is the group's label. */
     removeFromGroup?: string;
+    /** The name of the corner where `showToast` messages appear, for assistive technology (default: "Notifications"). */
+    notifications?: string;
+    /** The button that closes a `showToast` message (default: "Dismiss"). */
+    dismissNotification?: string;
     /**
      * The question asked before a delete (default: "Delete “{title}”?"). `{title}` is
      * replaced with the row's title; a delete is the one action of the menu that asks
@@ -822,6 +826,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     moveConversation: "Move to…",
     moveConversationTo: "Move “{title}” to",
     removeFromGroup: "Remove from “{group}”",
+    notifications: "Notifications",
+    dismissNotification: "Dismiss",
     deleteConversationConfirm: "Delete “{title}”?",
     cancel: "Cancel",
     conversationGroupPinned: "Pinned",

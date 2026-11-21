@@ -358,6 +358,28 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
     }
 
+    /*
+     * A call id must be unique WITHIN the reply: the transcript keys a row on it (`tool-${id}`,
+     * and `updateSegment` takes the first match) and the history files a `tool` message under
+     * it. A vendor that omits `id` used to give every call of a turn the same one; and one that
+     * has ids minted per stream (openai-compat for a server that sends none) starts again at the
+     * same id on the next model call. Either way the second call's result was written onto the
+     * first call's row, the second row stayed pending, and the next request filed both answers
+     * under one id. So the ids are the reply's: every call of this run, and the calls the request
+     * already carries after the person's last message (a resume's, made before the pause). An
+     * earlier reply's ids are left alone: its rows are in another message. A repeat is renamed
+     * rather than refused — the model asked for both.
+     */
+    const lastPerson = messages.map((m) => m.role).lastIndexOf('user');
+    const idsThisReply = new Set<string>(messages.slice(lastPerson + 1).flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => c.id) : [])));
+    const uniqueCallId = (raw: string): string => {
+        let id = raw;
+        // `_`, not `#`: the id goes back to the vendor, and Anthropic takes only `[a-zA-Z0-9_-]`.
+        for (let n = 2; idsThisReply.has(id); n++) id = `${raw}_${n}`;
+        idsThisReply.add(id);
+        return id;
+    };
+
     // ── outer (turn) loop — one iteration = one transport call ────────────────
     while (continueLoop) {
         // Abort at the top of a turn: no stream open yet, so no cancel needed. The
@@ -526,21 +548,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
          */
         const syncEnvelopeText = (): void => {
             if (envelope) envelope.content = precedingText.trim();
-        };
-        /*
-         * A call id must be unique WITHIN the turn: the transcript keys a row on it
-         * (`tool-${id}`, and `updateSegment` takes the first match) and the history
-         * files a `tool` message under it. A vendor that omits `id` used to give every
-         * call of a turn the same one, so the second call's result was written onto the
-         * first call's row and the pair could not be matched at all on the next turn.
-         * A repeat is renamed rather than refused — the model asked for both.
-         */
-        const idsThisTurn = new Set<string>();
-        const uniqueCallId = (raw: string): string => {
-            let id = raw;
-            for (let n = 2; idsThisTurn.has(id); n++) id = `${raw}#${n}`;
-            idsThisTurn.add(id);
-            return id;
         };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
@@ -731,15 +738,19 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 if (settled.stopRun) continueLoop = false;
             }
 
-            // Turn boundary: finalize the parser (flush residual text). Mirrors
-            // `_streamLoop`'s `textParser.finalize()` call — runs on normal
-            // end AND abort-break, but NOT after a thrown `error` (which escapes
-            // this try before reaching here, exactly like `_streamLoop`).
+            // Turn boundary: finalize the parser (flush residual text), on a normal end and on
+            // an abort-break. A thrown error leaves through the catch below, which flushes too.
             emitter({ type: 'text-flush' });
             // Everything this turn streamed belongs to the turn, including what came
             // after the call that opened the envelope.
             syncEnvelopeText();
 
+        } catch (error) {
+            // A call that fails ends its text too: what the parser holds (the end of an open
+            // fence, a lone backtick) is the reply's last words, shown beside the error that
+            // cut them. Left unflushed, a reply cut by a mid-stream error lost them.
+            emitter({ type: 'text-flush' });
+            throw error;
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator,
             // however it fails on the way out (see `bailOnAbort`). Not awaited while a read

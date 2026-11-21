@@ -773,3 +773,26 @@ describe('aparte-scroll-rail holds still', () => {
     });
 });
 
+
+describe('a jump scrolls the transcript, and only the transcript', () => {
+    // `scrollIntoView` aligns the bubble in EVERY scrolling ancestor, the page included: a chat
+    // embedded in a page that scrolls (a panel in a dashboard, a docs page) moved the whole page
+    // on every tick clicked, its own header pushed out of view. The transcript's surface is
+    // scrolled by the distance to the message instead.
+    it('scrolls the surface by the distance to the message, and asks no ancestor to move', () => {
+        const turns = THREE_TURNS();
+        const { rail, viewport } = mount(turns);
+        viewport.getBoundingClientRect = () => ({ top: 100 }) as DOMRect;
+        Object.defineProperty(viewport, 'scrollTop', { configurable: true, get: () => 50, set: () => {} });
+        turns[2]!.getBoundingClientRect = () => ({ top: 400 }) as DOMRect;
+        const surfaceScrolled = vi.fn();
+        (viewport as HTMLElement & { scrollTo: unknown }).scrollTo = surfaceScrolled;
+        const everyAncestor = vi.fn();
+        turns[2]!.scrollIntoView = everyAncestor;
+
+        ticks(rail)[1]!.click();
+
+        expect(surfaceScrolled).toHaveBeenCalledWith({ top: 350, behavior: 'smooth' });
+        expect(everyAncestor).not.toHaveBeenCalled();
+    });
+});

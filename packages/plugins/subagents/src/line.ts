@@ -23,7 +23,7 @@ import {
     type AparteToolLine,
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
-import { dispatchOpen, isShown } from './open.js';
+import { dispatchOpen, isShown, lineKeyOf } from './open.js';
 import { currentStep } from './steps.js';
 import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
@@ -187,7 +187,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
             const shownName = name || word(config, 'subagentsUnnamed');
             line.open = {
                 label: word(config, 'subagentsOpen').replace('{name}', () => shownName),
-                current: isShown(segment.messageId, sub.id),
+                current: isShown(segment.messageId, sub.id, lineKeyOf(segment, standIn)),
                 onOpen: (row) => dispatchOpen(row, segment, sub, standIn),
             };
         }

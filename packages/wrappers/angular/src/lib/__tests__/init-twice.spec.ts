@@ -29,3 +29,29 @@ describe('ConversationManagerService.init, called twice', () => {
         service.ngOnDestroy();
     });
 });
+
+function slowAdapter(): { adapter: AparteStorageAdapter; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    return { adapter: { async loadAll() { await gate; return []; }, async save() {}, async delete() {} }, release };
+}
+
+describe('ConversationManagerService.init, overtaken by a newer one', () => {
+    it('registers nothing when it resolves after the newer init', async () => {
+        const service = new ConversationManagerService();
+        const config = new AparteConfig();
+        const slow = slowAdapter();
+        const first = service.init(slow.adapter, config);
+        await service.init(memoryAdapter(), config);
+        const newer = service.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await newer!.createNew('fresh');
+        slow.release();
+        await first;
+        expect(config.getConversationManager()).toBe(newer);
+        expect(service.manager).toBe(newer);
+        expect(service.activeId()).not.toBeNull();
+        expect(service.activeId()).toBe(newer!.activeId);
+        service.ngOnDestroy();
+    });
+});

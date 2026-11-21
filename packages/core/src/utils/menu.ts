@@ -47,6 +47,8 @@ type Anchor = Pick<DOMRect, 'top' | 'bottom' | 'left' | 'right'>;
 const ITEM = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
 /** How long a pause ends a word typed to reach an item. */
 const TYPE_AHEAD_MS = 500;
+/** How long a touch press waits for its click before it ends anyway (a tap that scrolled). */
+const TOUCH_CLICK_MS = 600;
 
 /** The menu open on the page, if any: one at a time, like the browser's own. */
 let openMenu: Session | null = null;
@@ -150,7 +152,30 @@ function menuSession(
         if (pressInside) return;
         session.close(false);
     };
-    const onRelease = (): void => { pressInside = false; };
+    /**
+     * A press ends at `pointerup`, except a finger's: a tap's click comes after the finger is
+     * lifted, in a later task, and on iOS so does the compatibility `mousedown`, which blurs the
+     * focused item to nowhere (WebKit focuses no button on a press). Ended at `pointerup`, that
+     * blur closed the menu and the click reached an item no longer shown: Rename, Pin, Delete in
+     * a row's menu did nothing on a phone. A touch press lasts until its click, or a moment.
+     */
+    let endTouch: (() => void) | null = null;
+    const onRelease = (e: Event): void => {
+        endTouch?.();
+        if (e.type === 'pointerup' && pressInside && (e as PointerEvent).pointerType === 'touch') {
+            const end = (): void => { endTouch?.(); };
+            const timer = setTimeout(end, TOUCH_CLICK_MS);
+            endTouch = (): void => {
+                clearTimeout(timer);
+                document.removeEventListener('click', end, true);
+                endTouch = null;
+                pressInside = false;
+            };
+            document.addEventListener('click', end, true);
+            return;
+        }
+        pressInside = false;
+    };
     const onScroll = (e: Event): void => {
         const target = eventOrigin(e);
         // Its own list scrolling is not the page moving under it.
@@ -283,6 +308,7 @@ function menuSession(
             if (!open) return;
             open = false;
             if (openMenu === session) openMenu = null;
+            endTouch?.();
             pressInside = false;
             document.removeEventListener('pointerdown', onPress, true);
             document.removeEventListener('pointerup', onRelease, true);

@@ -61,16 +61,19 @@ describe('a sub-agent\'s events, with no observer', () => {
 
         emit({ type: 'run-start' });
         emit({ type: 'turn-start' });
-        emit({ type: 'text-delta', delta: 'Hello ' });
+        // A step reads the reply on while the call runs: the parent writes around the
+        // sub-agent's events, its own call announced before (text written before a call is
+        // handed over at the call, so the sentence is all after it here).
         emit({ type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} });
+        emit({ type: 'text-delta', delta: 'Hello ' });
         for (const e of childEvents('a1')) emit(e);
-        emit({ type: 'tool-resolved', toolCallId: 'c1', result: 'Child speaks.' });
         emit({ type: 'text-delta', delta: 'world' });
+        emit({ type: 'tool-resolved', toolCallId: 'c1', result: 'Child speaks.' });
         emit({ type: 'text-flush' });
         emit({ type: 'run-done' });
 
-        // The parent's text and its call, nothing else.
-        expect(t.added.map((s) => s.type)).toEqual(['text', 'tool_call']);
+        // The parent's call and its text, nothing else.
+        expect(t.added.map((s) => s.type)).toEqual(['tool_call', 'text']);
         expect(t.added.find((s) => s.type === 'tool_call')?.id).toBe('tool-c1');
         const touched = new Set(t.updates.map(([id]) => id));
         for (const id of ['tool-c2', 'tool-c3', 'tool-c4']) expect(touched.has(id)).toBe(false);
