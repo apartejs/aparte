@@ -169,6 +169,7 @@ export const zhCN: AparteLocale = {
     conversationActions: "对话操作",
     conversationRunning: "正在回答",
     conversationWaiting: "等待你回复",
+    conversationQueued: "排队中",
     renameConversation: "重命名",
     conversationTitle: "对话标题",
     pinConversation: "置顶",

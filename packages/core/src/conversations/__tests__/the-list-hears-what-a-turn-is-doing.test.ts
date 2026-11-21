@@ -61,6 +61,20 @@ describe('the list hears what a turn is doing', () => {
 
     const fire = (name: string, detail: object = {}) => host.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
 
+    // The host knows its turn waits behind another conversation's; the controller does not. Its
+    // `running` at the turn's start took the host's `queued` back: the row said "Answering".
+    it('keeps a queued the host told, until the host says it runs', async () => {
+        const ctrl = new AparteConversationController(binding(host), { manager });
+        ctrl.bind();
+        await ctrl.setConversationId('a');
+        window.dispatchEvent(new CustomEvent('aparte-conversation-status', { detail: { id: 'a', status: 'queued' } }));
+        fire('aparte-message-start');
+        expect(heard.at(-1)).toEqual({ id: 'a', status: 'queued' });
+        window.dispatchEvent(new CustomEvent('aparte-conversation-status', { detail: { id: 'a', status: 'running' } }));
+        fire('aparte-message-done');
+        expect(heard.at(-1)).toEqual({ id: 'a', status: null });
+    });
+
     it('running when a turn starts, nothing once it is done', async () => {
         const ctrl = new AparteConversationController(binding(host), { manager });
         ctrl.bind();

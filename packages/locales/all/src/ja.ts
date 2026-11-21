@@ -169,6 +169,7 @@ export const ja: AparteLocale = {
     conversationActions: "会話の操作",
     conversationRunning: "回答中",
     conversationWaiting: "あなたの返答待ち",
+    conversationQueued: "順番待ち",
     renameConversation: "名前を変更",
     conversationTitle: "会話のタイトル",
     pinConversation: "ピン留め",

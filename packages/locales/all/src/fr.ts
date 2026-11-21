@@ -169,6 +169,7 @@ export const fr: AparteLocale = {
     conversationActions: "Actions de la conversation",
     conversationRunning: "Réponse en cours",
     conversationWaiting: "Attend votre réponse",
+    conversationQueued: "En file d’attente",
     renameConversation: "Renommer",
     conversationTitle: "Titre de la conversation",
     pinConversation: "Épingler",

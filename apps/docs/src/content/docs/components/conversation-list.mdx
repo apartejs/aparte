@@ -38,8 +38,10 @@ inside the menu, because it is the one action you cannot undo.
 
 A row says what its conversation is doing. `running`: an AI is answering in it, and its title
 [shimmers](/components/shimmer/). `waiting`: its turn waits for the person, a server run paused
-on a question or an approval, and a mark sits beside the title. A screen reader hears the state
-with the title ("Answering", "Waiting for you", in the reader's language).
+on a question or an approval, and a mark sits beside the title. `queued`: its turn is sent but waits
+behind another conversation's (a local engine that serves one turn at a time, a backend's queue): a
+muted mark, and no shimmer, since nothing is being written yet. A screen reader hears the state with
+the title ("Answering", "Waiting for you", "Queued", in the reader's language).
 
 With a [conversation controller](/guides/conversation-persistence/) you write nothing: it sends
 `aparte-conversation-status` on `window` as each turn starts (`running`), pauses on the page
@@ -51,6 +53,16 @@ same events:
 const list = document.querySelector('aparte-conversation-list');
 list.setConversationStatus('c1', 'running');
 list.setConversationStatus('c1', null);   // neither
+```
+
+Only your app knows a turn is queued: say `queued` when your backend puts it in line, and
+`running` when it is served. A turn that starts while its conversation is `queued` stays so: the
+controller's `running` at the start does not take it back, and its end (or a pause) still clears
+it.
+
+```js
+list.setConversationStatus('c2', 'queued');   // sent, waiting behind c1
+list.setConversationStatus('c2', 'running');  // served: the reply starts
 ```
 
 `running` is always the conversation on screen: opening another one stops the turn. `waiting` is

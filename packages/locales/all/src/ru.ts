@@ -169,6 +169,7 @@ export const ru: AparteLocale = {
     conversationActions: "Действия с беседой",
     conversationRunning: "Отвечает",
     conversationWaiting: "Ждёт вас",
+    conversationQueued: "В очереди",
     renameConversation: "Переименовать",
     conversationTitle: "Название беседы",
     pinConversation: "Закрепить",

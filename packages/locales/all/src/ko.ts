@@ -169,6 +169,7 @@ export const ko: AparteLocale = {
     conversationActions: "대화 작업",
     conversationRunning: "답변 중",
     conversationWaiting: "내 답변 대기 중",
+    conversationQueued: "대기열에 있음",
     renameConversation: "이름 바꾸기",
     conversationTitle: "대화 제목",
     pinConversation: "고정",

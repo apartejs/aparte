@@ -14,9 +14,17 @@
 /**
  * What a conversation is doing, as its row says it: `running` while an AI answers in it,
  * `waiting` while its turn waits on the page — a run paused on a question, an approval or a
- * browser tool, the one state a conversation keeps after the person has gone elsewhere.
+ * browser tool, the one state a conversation keeps after the person has gone elsewhere —
+ * and `queued` while its turn is sent but waits behind another (a local engine that serves
+ * one turn at a time, a backend's queue). Only the host knows a turn is queued: it says so,
+ * and says `running` once the turn is served.
  */
-export type AparteConversationStatus = 'running' | 'waiting';
+export type AparteConversationStatus = 'running' | 'waiting' | 'queued';
+
+/** A status from anyone's event: one of the three, anything else none. */
+export function conversationStatusFrom(value: unknown): AparteConversationStatus | null {
+    return value === 'running' || value === 'waiting' || value === 'queued' ? value : null;
+}
 
 const known = new Map<string, AparteConversationStatus>();
 

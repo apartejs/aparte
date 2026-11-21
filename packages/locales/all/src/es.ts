@@ -169,6 +169,7 @@ export const es: AparteLocale = {
     conversationActions: "Acciones de la conversación",
     conversationRunning: "Respondiendo",
     conversationWaiting: "Espera tu respuesta",
+    conversationQueued: "En cola",
     renameConversation: "Cambiar nombre",
     conversationTitle: "Título de la conversación",
     pinConversation: "Fijar",

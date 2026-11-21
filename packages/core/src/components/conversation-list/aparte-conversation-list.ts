@@ -9,6 +9,7 @@ import { placeFloating } from '../../utils/place-floating.js';
 import { enhanceContextMenu, enhanceMenu, type AparteMenuSelectDetail } from '../../utils/menu.js';
 import { foldText, filterConversationRows } from '../../utils/fold-text.js';
 import {
+    conversationStatusFrom,
     conversationStatusOf,
     rememberConversationStatus,
     tellConversationStatus,
@@ -109,9 +110,8 @@ export interface AparteConversationStatusDetail {
     status: AparteConversationStatus | null;
 }
 
-/** A status that is one of the two, from anyone's event: anything else is none. */
-const statusOf = (value: unknown): AparteConversationStatus | null =>
-    value === 'running' || value === 'waiting' ? value : null;
+/** A status from anyone's event: one of the three, anything else none. */
+const statusOf = conversationStatusFrom;
 
 /** A date group: its heading (null for the undated tail) and its rows, in host order. */
 interface ConversationGroup {
@@ -129,7 +129,7 @@ type ListLocaleKey =
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
     | 'conversationGroupWeek' | 'conversationGroupMonth' | 'conversationSearchEmpty'
-    | 'conversationRunning' | 'conversationWaiting'
+    | 'conversationRunning' | 'conversationWaiting' | 'conversationQueued'
     | 'moveConversation' | 'moveConversationTo' | 'removeFromGroup';
 
 /** A selector for the row button carrying `id` on `attr`. */
@@ -431,7 +431,9 @@ export class AparteConversationList extends HTMLElement {
 
     /**
      * Say what a conversation is doing: `running` while an AI answers in it, `waiting`
-     * while its turn waits for the person, `null` for neither. The row carries it as
+     * while its turn waits for the person, `queued` while its turn waits behind another's (only
+     * the host knows: the controller's `running` at the turn's start leaves it, and the host
+     * says `running` once the turn is served), `null` for neither. The row carries it as
      * `data-status`, a running title wears `aparte-shimmer`, a waiting row shows its mark
      * (`.aparte-conv-item__status`, an empty slot otherwise), and a screen reader hears
      * the state with the title. The look is CSS on `data-status`: a site that wants a dot
@@ -466,6 +468,7 @@ export class AparteConversationList extends HTMLElement {
     private _statusWords(status: AparteConversationStatus | null): string {
         if (status === 'running') return this._t('conversationRunning');
         if (status === 'waiting') return this._t('conversationWaiting');
+        if (status === 'queued') return this._t('conversationQueued');
         return '';
     }
 

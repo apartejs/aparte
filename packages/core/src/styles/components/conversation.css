@@ -142,6 +142,12 @@
 .aparte-conv-item[data-status="waiting"] .aparte-conv-item__status {
   display: block;
 }
+/* Queued behind another conversation's turn: the mark, muted, and no shimmer (nothing is being
+   written yet). The muted ink is the one the row's meta reads in. */
+.aparte-conv-item[data-status="queued"] .aparte-conv-item__status {
+  display: block;
+  background: var(--aparte-text-muted);
+}
 /* A running title on a LIFTED row — active, hovered, focused: the shimmer's base is the
    muted ink, 4.23:1 on that ground (the AA failure the hover rule above exists to avoid),
    and the running conversation is almost always the active one. Its base moves toward

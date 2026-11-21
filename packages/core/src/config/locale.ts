@@ -125,6 +125,8 @@ export type AparteLocale = {
     conversationRunning?: string;
     /** What a screen reader hears with a row whose turn waits for the person (default: "Waiting for you") */
     conversationWaiting?: string;
+    /** A conversation row's state, heard with its title, while its turn waits behind another conversation's (default: "Queued"). */
+    conversationQueued?: string;
     /** The "Rename" item of a row's menu (default: "Rename") */
     renameConversation?: string;
     /** Accessible name of the inline input a rename opens (default: "Conversation title") */
@@ -822,6 +824,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationActions: "Conversation actions",
     conversationRunning: "Answering",
     conversationWaiting: "Waiting for you",
+    conversationQueued: "Queued",
     renameConversation: "Rename",
     conversationTitle: "Conversation title",
     pinConversation: "Pin",

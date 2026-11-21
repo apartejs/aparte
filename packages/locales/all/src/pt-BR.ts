@@ -169,6 +169,7 @@ export const ptBR: AparteLocale = {
     conversationActions: "Ações da conversa",
     conversationRunning: "Respondendo",
     conversationWaiting: "Aguardando você",
+    conversationQueued: "Na fila",
     renameConversation: "Renomear",
     conversationTitle: "Título da conversa",
     pinConversation: "Fixar",
