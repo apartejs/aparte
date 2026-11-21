@@ -59,6 +59,21 @@ describe('AparteUiComponent', () => {
         expect(el.hasAttribute('disabled')).toBe(false);
     });
 
+    // A key that leaves the bag (`{ ...(busy && { disabled: true }) }` once busy ends) is cleared:
+    // the wrapper hands the WHOLE bag (`replace`). Written key by key, the attribute stayed.
+    it('clears a key that leaves the props bag', async () => {
+        const fixture = TestBed.createComponent(AparteUiComponent);
+        (fixture.componentRef as any).setInput('name', 'aparte-composer');
+        (fixture.componentRef as any).setInput('props', { disabled: true });
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const el = fixture.nativeElement.querySelector('aparte-composer') as HTMLElement;
+        expect(el.hasAttribute('disabled')).toBe(true);
+        (fixture.componentRef as any).setInput('props', {});
+        fixture.detectChanges();
+        expect(el.hasAttribute('disabled')).toBe(false);
+    });
+
     // A prop bag handed again — a new object with the same values. The element hears an attribute
     // only when its value changes, and gets the object again every time (it may have been
     // mutated in place), so its setter can keep its state.

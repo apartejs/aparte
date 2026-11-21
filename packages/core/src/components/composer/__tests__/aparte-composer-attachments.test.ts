@@ -281,6 +281,15 @@ describe('the focus, when a file is removed from the keyboard', () => {
         expect(input.contains(document.activeElement)).toBe(true);
     });
 
+    // With two files, the button left after a removal is the only one: any index clamps to it, and
+    // an off-by-one that skipped the file sliding into the removed one's place passed.
+    it('with three files, moves to the file that slid into the removed one\'s place', () => {
+        const { strip } = mount([pdf('one.pdf'), pdf('two.pdf'), pdf('three.pdf')]);
+        removeButtons(strip)[0]!.focus();
+        removeButtons(strip)[0]!.click();
+        expect(document.activeElement?.getAttribute('aria-label')).toContain('two.pdf');
+    });
+
     it('a file added while a remove button has the focus keeps it on that file', () => {
         const { composer, strip } = mount([pdf('one.pdf')]);
         removeButtons(strip)[0]!.focus();
