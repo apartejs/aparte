@@ -49,9 +49,13 @@ describe('createConversationManager().init, overtaken by a newer one', () => {
         const first = cm.init(slow.adapter, config);
         await cm.init(memoryAdapter(), config);
         const newer = cm.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await newer!.createNew('fresh');
         slow.release();
         await first;
         expect(config.getConversationManager()).toBe(newer);
         expect(cm.manager).toBe(newer);
+        expect(get(cm.activeId)).not.toBeNull();
+        expect(get(cm.activeId)).toBe(newer!.activeId);
     });
 });

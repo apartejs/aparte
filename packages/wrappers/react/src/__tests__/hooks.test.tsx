@@ -234,8 +234,12 @@ describe('useConversationManager().init, overtaken by a newer one', () => {
         await act(async () => { first = result.current.init(slow, config); });
         await act(async () => { await result.current.init(new MemoryAdapter(), config); });
         const newer = result.current.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await act(async () => { await newer!.createNew('fresh'); });
         await act(async () => { release(); await first; });
         expect(config.getConversationManager()).toBe(newer);
         expect(result.current.manager).toBe(newer);
+        expect(result.current.activeId).not.toBeNull();
+        expect(result.current.activeId).toBe(newer!.activeId);
     });
 });

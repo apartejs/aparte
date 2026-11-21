@@ -44,10 +44,14 @@ describe('ConversationManagerService.init, overtaken by a newer one', () => {
         const first = service.init(slow.adapter, config);
         await service.init(memoryAdapter(), config);
         const newer = service.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await newer!.createNew('fresh');
         slow.release();
         await first;
         expect(config.getConversationManager()).toBe(newer);
         expect(service.manager).toBe(newer);
+        expect(service.activeId()).not.toBeNull();
+        expect(service.activeId()).toBe(newer!.activeId);
         service.ngOnDestroy();
     });
 });
