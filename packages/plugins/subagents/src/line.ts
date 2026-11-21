@@ -161,12 +161,14 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
 
         // The state, only where the row's own badge would say another: the row is the CALL's,
         // and a call can be over while the sub-agent it opened failed or was stopped — or
-        // still running after one of its sub-agents is done. A stand-in's row always agrees.
+        // still running after one of its sub-agents is done. A stand-in's row agrees, but for
+        // a sub-agent cut short: no badge says that, so its row reads as answered and this
+        // says the rest.
         const note: string[] = [];
         // The model it runs on, quietly, when the app asks for it.
         const model = options.model === true ? sub.model?.trim() : undefined;
         if (model) note.push(model);
-        if (!standIn && statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
+        if (statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
 
         if (options.activity !== false) {
             // The second line, from its start to its end: what it is on, then what it did (in

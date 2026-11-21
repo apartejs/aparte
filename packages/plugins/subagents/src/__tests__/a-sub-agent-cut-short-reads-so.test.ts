@@ -35,6 +35,30 @@ describe('a sub-agent cut short', () => {
         expect(`${shown(row, 'note') ?? ''} ${shown(row, 'activity') ?? ''}`).toContain('Cut short');
     });
 
+    // In the background, detached, or the second of a call: the sub-agent has a line of its
+    // own, drawn as a stand-in row, and that row's badge read Stopped.
+    it('reads Cut short on a line of its own, never Stopped', async () => {
+        stop = setupSubagents();
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'Reader' },
+            ...as('a1',
+                { type: 'turn-start' },
+                { type: 'tool-start', toolCallId: 'x1', name: 'read', input: {} },
+                { type: 'tool-resolved', toolCallId: 'x1', result: 'ok' },
+                { type: 'text-delta', delta: 'Half.' },
+            ),
+            { type: 'agent-end', agentId: 'a1', status: 'partial', reason: 'turn-limit', result: 'Half.' },
+            { type: 'run-done' },
+        );
+        await frame();
+        const row = c.row('subagent-a1');
+        const reads = `${shown(row, 'state') ?? ''} ${shown(row, 'note') ?? ''} ${shown(row, 'activity') ?? ''}`;
+        expect(reads).toContain('Cut short');
+        expect(reads).not.toContain('Stopped');
+    });
+
     it('is counted as cut short in a fold', () => {
         aparteGlobalConfig.setTurnSummary({ label: subagentsTurnLabel });
         stop = setupSubagents();
