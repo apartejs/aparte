@@ -8,7 +8,7 @@
  * conversation goes. Which sub-agent is shown is kept here, by whoever shows it, so a line
  * drawn again — a reload, a row rebuilt — still says it is the one open.
  */
-import { chatIdOf, type AparteToolCallSegment } from '@aparte/core';
+import { chatIdOf, type AparteSegment, type AparteToolCallSegment } from '@aparte/core';
 import type { AparteSubagent, AparteSubagentOpenEventDetail } from './types.js';
 
 /** The sub-agent each view shows now, by the view's wiring. */
@@ -80,6 +80,15 @@ function targetIdOf(row: Element): string | undefined {
     const view = row.closest('aparte-subagent-view:not([data-inline])') as (Element & { chat?: { id?: unknown } | null }) | null;
     const viewed = view ? view.getAttribute('for') || (typeof view.chat?.id === 'string' ? view.chat.id : '') : '';
     return viewed || chatIdOf(row) || undefined;
+}
+
+/**
+ * The line a sub-agent is shown from, as the plugin keys it: the call's id for a call's row, and
+ * `own:` its segment's id for a line of its own. Two sub-agents with no call under one id (a
+ * backend minting ids per run) have two lines and no call to tell them apart by.
+ */
+export function lineKeyOf(segment: AparteSegment, standIn: boolean): string | undefined {
+    return standIn ? `own:${segment.id}` : (segment as AparteToolCallSegment).toolCall?.id;
 }
 
 /** Dispatch `aparte-subagent-open` from the row of `sub`, drawn for `segment`. */

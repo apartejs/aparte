@@ -81,10 +81,13 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         const row = event.target instanceof HTMLElement ? event.target : null;
         opener = row;
         opened = detail;
-        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId, ...(detail.toolCallId ? { toolCallId: detail.toolCallId } : {}) });
+        // The line pressed: its call, or, for a line of its own, that line. Two sub-agents of one
+        // reply can share an id, with or without a call.
+        const ownLine = detail.toolCallId ? undefined : row?.closest('[data-segment-id^="subagent-"]')?.getAttribute('data-segment-id');
+        const line = detail.toolCallId ?? (ownLine ? `own:${ownLine}` : undefined);
+        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId, ...(line ? { toolCallId: line } : {}) });
         mark(row);
-        // The line pressed names its call: two sub-agents of one reply can share an id.
-        setViewCall(view, detail.toolCallId);
+        setViewCall(view, line);
         view.setAttribute('message-id', detail.messageId);
         view.setAttribute('agent-id', detail.agentId);
         if (split) {

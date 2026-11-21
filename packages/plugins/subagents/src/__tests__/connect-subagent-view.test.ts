@@ -268,3 +268,37 @@ describe('connectSubagentView', () => {
         expect(c.row('tool-c1')!.hasAttribute('data-current')).toBe(false);
     });
 });
+
+describe('two sub-agents with no call under one id', () => {
+    // A backend minting ids per run names a second sub-agent like the first: each gets a line of
+    // its own. The view filtered on the call of the line pressed, and these lines have none:
+    // Open on the second showed the first, and both lines read as the one shown.
+    it('the view opens the line pressed, and only that line reads as shown', async () => {
+        stop = setupSubagents({ open: 'event' });
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'First' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'one' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'agent-start', agentId: 'a1', name: 'Second' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'two' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'run-done' },
+        );
+        await frame();
+        const view = document.createElement('aparte-subagent-view') as AparteSubagentView;
+        document.body.append(view);
+        disconnect = connectSubagentView({ chat: c.host, view });
+        const second = c.host.querySelector<HTMLElement>('[data-segment-id="subagent-a1-2"]');
+        expect(second, 'the second line').not.toBeNull();
+        second!.querySelector<HTMLButtonElement>('.aparte-tool-open')!.click();
+        await frame();
+        expect(view.textContent).toContain('two');
+        expect(view.textContent).not.toContain('one');
+        const current = [...c.host.querySelectorAll('[data-segment-id^="subagent-a1"]')]
+            .filter((line) => line.querySelector('[data-current], [aria-current]'))
+            .map((line) => line.getAttribute('data-segment-id'));
+        expect(current).toEqual(['subagent-a1-2']);
+    });
+});

@@ -77,8 +77,10 @@ export function laneOf(anchor: AparteSegment): { segments: readonly AparteSegmen
  */
 export function findSubagent(segments: readonly AparteSegment[], agentId: string, depth = 0, toolCallId?: string): AparteSegment | undefined {
     if (toolCallId !== undefined) {
-        const onCall = findSubagentWhere(segments, (s, sub) => sub.id === agentId && s.id === `tool-${toolCallId}`, depth);
-        if (onCall) return onCall;
+        // A call's id, or `own:` the id of a line of its own (see `lineKeyOf`).
+        const anchorId = toolCallId.startsWith('own:') ? toolCallId.slice(4) : `tool-${toolCallId}`;
+        const onLine = findSubagentWhere(segments, (s, sub) => sub.id === agentId && s.id === anchorId, depth);
+        if (onLine) return onLine;
     }
     return findSubagentWhere(segments, (_s, sub) => sub.id === agentId, depth);
 }
@@ -353,8 +355,11 @@ export class AparteSubagentView extends ElementBase {
      * (a backend minting ids per run) writes too, and was drawn over the one opened.
      */
     private _onItsCall(anchor: AparteSegment): boolean {
-        const call = viewCalls.get(this);
-        return call === undefined || anchor.type !== 'tool_call' || anchor.id === `tool-${call}`;
+        const line = viewCalls.get(this);
+        if (line === undefined) return true;
+        // A line of its own, named as such (`own:` its id): that line only.
+        if (line.startsWith('own:')) return anchor.id === line.slice(4);
+        return anchor.type !== 'tool_call' || anchor.id === `tool-${line}`;
     }
 
     /** A write from this view's chat: the run's target is the chat, inside it, or named by its id. */
