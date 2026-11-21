@@ -168,3 +168,44 @@ describe('the client honours the policy', () => {
         expect(patches.map(p => p['result'])).toContain('installed mid-turn');
     });
 });
+
+describe('a policy that rules asynchronously', () => {
+    // A ruling that needs a lookup (the page a browser tool acts on, a rules file, a policy
+    // service). A promise was taken for a ruling with no verdict: the gate opened, and every call
+    // ran unasked, a flagged one included.
+    const later = <T>(value: T): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), 5));
+
+    it('`deny` refuses, with its reason, and nothing runs', async () => {
+        const { cfg, el, patches, ran } = harness([{ id: 'c1', name: 'read_file' }]);
+        cfg.setApprovalPolicy(() => later({ verdict: 'deny' as const, reason: 'Not on this site.' }));
+        await run(cfg, el);
+        expect(ran).toEqual([]);
+        expect(patches.map((p) => p['result']).filter(Boolean)).toContain('Not on this site.');
+    });
+
+    it('`allow` runs a flagged tool, and nobody is asked', async () => {
+        const { cfg, el, patches, ran } = harness([{ id: 'c1', name: 'write_file' }]);
+        cfg.setApprovalPolicy(() => later({ verdict: 'allow' as const }));
+        await run(cfg, el);
+        expect(ran).toEqual(['c1']);
+        expect(patches.map((p) => p['status'])).not.toContain('awaiting-approval');
+    });
+
+    it('is ruled by ruleOnToolCallAsync; ruleOnToolCall, synchronous, asks rather than guess', async () => {
+        const cfg = new AparteConfig();
+        cfg.registerTool(tool('read_file'), (async () => 'ok') as never);
+        cfg.setApprovalPolicy(() => later({ verdict: 'deny' as const, reason: 'no' }));
+        await expect(cfg.ruleOnToolCallAsync({ id: 'c', name: 'read_file', input: {} })).resolves.toEqual({ verdict: 'deny', reason: 'no' });
+        expect(cfg.ruleOnToolCall({ id: 'c', name: 'read_file', input: {} }).verdict).toBe('ask');
+    });
+
+    it('a ruling that fails asks a person rather than letting the call run', async () => {
+        const cfg = new AparteConfig();
+        cfg.registerTool(tool('read_file'), (async () => 'ok') as never);
+        cfg.setApprovalPolicy(() => Promise.reject(new Error('policy service down')));
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await expect(cfg.ruleOnToolCallAsync({ id: 'c', name: 'read_file', input: {} })).resolves.toEqual({ verdict: 'ask' });
+        expect(error).toHaveBeenCalled();
+        error.mockRestore();
+    });
+});

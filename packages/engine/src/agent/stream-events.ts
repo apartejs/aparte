@@ -275,8 +275,12 @@ export interface StreamToolConfig {
      * `tool-awaiting-approval` — and `'deny'` means the decision is already made: the
      * resolver is still consulted (it is the one channel that carries the refusal
      * sentence back), but nothing is announced, since nobody is being asked.
+     *
+     * The predicate may answer with a promise, for a ruling that needs a lookup: while it
+     * rules, the calls made after this one wait, as they wait for a person's answer, and a
+     * ruling that fails asks a person rather than letting the call run.
      */
-    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny');
+    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny' | PromiseLike<boolean | 'ask' | 'deny'>);
     /**
      * Known to the model, executed elsewhere — a browser tool behind a server loop.
      * The loop never looks up a handler for it: with `deferral` the call waits for its

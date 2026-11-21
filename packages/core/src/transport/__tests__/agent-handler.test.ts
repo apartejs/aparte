@@ -570,3 +570,20 @@ describe('a tool with a time limit of its own, on the server', () => {
         expect(seen).toEqual(['tool-resolved']);
     });
 });
+
+describe('a server policy that rules asynchronously', () => {
+    // On the server a promise was ignored: the tool's own flag decided, and a `deny` on a tool with
+    // no flag let the call run.
+    it('refuses with its reason, and the tool does not run', async () => {
+        ran.length = 0;
+        const quiet = { ...deleteTool, tool: { ...deleteTool.tool, needsApproval: false } };
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [quiet],
+            approvalPolicy: () => new Promise((resolve) => setTimeout(() => resolve({ verdict: 'deny', reason: 'Not on this server.' }), 5)),
+        })(post(firstBody()));
+        const all = await lines(res);
+        expect(ran).toEqual([]);
+        expect(all.find((l) => l.type === 'tool-rejected' || (l.type === 'tool-resolved' && String(l['result']).includes('Not on this server.')))).toBeTruthy();
+    });
+});

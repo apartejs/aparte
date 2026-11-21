@@ -319,6 +319,25 @@ each call before anyone is asked: `allow` runs it, `ask` asks the person as
 know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
 [`@aparte/plugin-approval`](/components/approval-mode/).
 
+A policy may rule asynchronously, for a ruling that needs a lookup: the page a browser tool acts on,
+a rules file, a policy service. While it rules, the calls the model made after this one wait, as
+they wait for a person's answer, so nothing overtakes it. A promise that rejects asks the person
+(the reason goes to the console): a call is never run because its ruling could not be made. The
+server handler's `approvalPolicy` takes the same. `config.ruleOnToolCall(call)` stays synchronous
+and answers `ask` for a policy still ruling; `config.ruleOnToolCallAsync(call)` waits for it.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare function siteOf(tabId: string): Promise<string>;   // yours: the page the browser tool acts on
+
+aparteGlobalConfig.setApprovalPolicy(async (call) => {
+  if (call.name !== 'browser_click') return undefined;
+  const site = await siteOf(String(call.input['tab']));
+  return site.endsWith('.bank.example') ? { verdict: 'ask' } : { verdict: 'allow' };
+});
+```
+
 To answer with no panel at all — from a command line, a webhook, a team channel — give the client
 an `approvalResolver`. It answers every call of a `needsApproval` tool, and a policy set with
 `setApprovalPolicy`, the approval modes included, is then not consulted: rule on the call in the

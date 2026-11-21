@@ -2,7 +2,7 @@ import { runStreamAgent, unansweredTail } from '@aparte/engine';
 import type { StreamChatRequest, StreamDeferredOutcome, StreamRunEvent } from '@aparte/engine';
 import type { AparteChatRequest, AparteStreamEvent } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteApprovalPolicy, AparteTool, AparteToolCall, AparteToolHandler, AparteTurnContext } from '../types/tools.js';
+import type { AparteApprovalPolicy, AparteApprovalRuling, AparteTool, AparteToolCall, AparteToolHandler, AparteTurnContext } from '../types/tools.js';
 import type { AparteTransport } from './types.js';
 import { AparteDirectTransport } from './direct-transport.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
@@ -347,17 +347,24 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                             ...(t.tool.parallel !== undefined ? { parallel: t.tool.parallel } : {}),
                             ...(t.tool.timeoutMs !== undefined ? { timeoutMs: t.tool.timeoutMs } : {}),
                             needsApproval: (call) => {
+                                const gate = (ruling: AparteApprovalRuling | undefined) => {
+                                    if (ruling?.verdict === 'allow') return false;
+                                    if (ruling?.verdict) return ruling.verdict;
+                                    return Boolean(t.tool.needsApproval);
+                                };
                                 const ruling = rule(call as AparteToolCall);
-                                if (ruling?.verdict === 'allow') return false;
-                                if (ruling?.verdict) return ruling.verdict;
-                                return Boolean(t.tool.needsApproval);
+                                // A policy that rules asynchronously: the loop waits for it, holding the
+                                // calls after this one. One that fails asks the page, never runs the call.
+                                return typeof (ruling as { then?: unknown } | undefined)?.then === 'function'
+                                    ? Promise.resolve(ruling).then(gate, () => 'ask' as const)
+                                    : gate(ruling as AparteApprovalRuling | undefined);
                             },
                         };
                     },
                     // Reached only for a server `deny`: an `ask` is deferred to the page.
                     approvalResolver: async (call) => ({
                         approved: false,
-                        reason: rule(call as AparteToolCall)?.reason?.trim() || 'Tool execution was refused by the server policy.',
+                        reason: (await Promise.resolve(rule(call as AparteToolCall)).catch(() => undefined))?.reason?.trim() || 'Tool execution was refused by the server policy.',
                         by: 'policy',
                     }),
                     deferral: { outcomes },

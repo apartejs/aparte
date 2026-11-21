@@ -858,6 +858,11 @@ export function unansweredTail(messages: readonly StreamAgentMessage[]): StreamT
     return [];
 }
 
+/** A promise, or anything that answers like one. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+    return typeof (value as { then?: unknown } | null)?.then === 'function';
+}
+
 /** Why a call after the pause point waits: what the client must answer, or nothing. */
 function queuedReason(call: StreamToolCall, lookup: StreamRunOptions['toolConfigLookup']): StreamDeferredReason {
     const cfg = lookup?.(call.name);
@@ -865,6 +870,12 @@ function queuedReason(call: StreamToolCall, lookup: StreamRunOptions['toolConfig
     const gated = typeof cfg?.needsApproval === 'function'
         ? cfg.needsApproval({ id: call.id, name: call.name, input: call.input as Record<string, unknown> })
         : cfg?.needsApproval;
+    // A ruling still on its way cannot be read here: the call is put to a person, never run
+    // unasked. Its outcome is not needed, and must not reject unheard.
+    if (isThenable(gated)) {
+        Promise.resolve(gated).catch(() => {});
+        return 'approval';
+    }
     return gated && gated !== 'deny' ? 'approval' : 'queued';
 }
 
@@ -1013,9 +1024,25 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     let effectiveInput = call.input;
 
     // ── HITL approval gate ────────────────────────────────────────
-    const gated = typeof cfg?.needsApproval === 'function'
+    let gated = typeof cfg?.needsApproval === 'function'
         ? cfg.needsApproval({ id: call.id, name: call.name, input })
         : cfg?.needsApproval;
+    if (isThenable(gated)) {
+        // A ruling that needs a lookup. While it rules, the calls made after this one wait, as
+        // they wait for a person's answer: said in the tick the call started, before the step
+        // looks at the next call. A ruling that fails asks a person, never runs the call unasked.
+        ctx.asking?.(true);
+        try {
+            gated = await gated;
+        } catch {
+            gated = 'ask';
+        }
+        if (signal.aborted) {
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
+            return told(ctx, 'stop-run');
+        }
+        if (!gated) ctx.asking?.(false);
+    }
     if (gated) {
         // A decision a resumed run was handed answers the gate: nobody is asked again.
         // Never a `'deny'`: that one is decided here, and an answer that came back with

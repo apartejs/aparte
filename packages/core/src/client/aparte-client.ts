@@ -2103,8 +2103,11 @@ export class AparteClient {
                 needsApproval: hostOwnsDecision
                     ? tool.needsApproval
                     : (call: AparteToolCall) => {
-                        const verdict = this._config.ruleOnToolCall(call, turn).verdict;
-                        return verdict === 'allow' ? false : verdict;
+                        // A policy that rules asynchronously hands a promise on: the loop waits for it,
+                        // holding the calls after this one. A synchronous one stays synchronous.
+                        const ruling = this._config.ruleOnToolCallNow(call, turn);
+                        const gate = (r: AparteApprovalRuling) => (r.verdict === 'allow' ? false : r.verdict);
+                        return ruling instanceof Promise ? ruling.then(gate) : gate(ruling);
                     },
             };
         };
@@ -2187,8 +2190,8 @@ export class AparteClient {
         if (host) return (call, sig) => host(call, sig, turn);
         return (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
                 const ruling: AparteApprovalRuling = gatedElsewhere
-                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn) ?? { verdict: 'ask' })
-                    : this._config.ruleOnToolCall(call, turn);
+                    ? ((await Promise.resolve(this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn)).catch(() => undefined)) ?? { verdict: 'ask' })
+                    : await this._config.ruleOnToolCallAsync(call, turn);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
@@ -2315,7 +2318,7 @@ export class AparteClient {
     ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
         const ruling = this.options.approvalResolver
             ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
-            : this._config.ruleOnToolCall(call, turn).verdict;
+            : (await this._config.ruleOnToolCallAsync(call, turn)).verdict;
         if (ruling === 'allow') return null;
         // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
