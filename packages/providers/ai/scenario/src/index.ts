@@ -528,6 +528,12 @@ type Outcome = Awaited<ReturnType<typeof runSubAgent>>;
 
 const reportOf = (agent: ScenarioSubagent, outcome: Outcome, alone: boolean): string => {
     if (outcome.status === 'done' && outcome.text) return alone ? outcome.text : `${agent.name}: ${outcome.text}`;
+    // Its own run stopped before it answered: what it found is still what the parent reads.
+    if (outcome.status === 'partial') {
+        const found = outcome.text.trim() || '(it wrote nothing)';
+        const what = `was cut short (${outcome.reason ?? 'its run stopped'}) before it finished. What it found: ${found}`;
+        return alone ? `${agent.name} ${what}` : `${agent.name}: ${what}`;
+    }
     const what = outcome.status === 'failed' ? `failed (${outcome.error ?? 'no reason given'})`
         : outcome.status === 'done' ? 'finished without an answer'
             : 'was stopped before it answered';

@@ -16,6 +16,26 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
+describe('a scripted sub-agent cut short', () => {
+    // Its call has no handler in the page, so its run stops there: the parent reads that it was
+    // cut short, and what it had found, as the line under it says.
+    it('is reported cut short, with what it found, not stopped', async () => {
+        const provider = createScenarioProvider({
+            pacing: 'instant',
+            turns: [
+                [{ subagents: [{ name: 'Researcher', task: 'Read the parser', turns: [[{ text: 'Read half the parser.' }, { tool: 'missing_tool', id: 'm1' }]] }], id: 'd1' }],
+                'Partly done.',
+            ],
+        });
+        const p = page(provider, [scenarioSubagentTool(provider)]);
+        await p.send('Read the parser.');
+        const result = String((p.events.find((e) => e.type === 'tool-resolved' && e.toolCallId === 'd1') as { result?: string } | undefined)?.result);
+        expect(result).not.toContain('stopped before it answered');
+        expect(result).toContain('cut short');
+        expect(result).toContain('Read half the parser.');
+    });
+});
+
 describe('a scripted sub-agent that calls a tool', () => {
     it('runs the registered handler, and its next turn reads the result', async () => {
         const reads: AparteToolCall[] = [];
