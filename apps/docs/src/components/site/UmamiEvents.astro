@@ -1,0 +1,81 @@
+---
+/*
+ * What a reader DID, beside the page view Umami already counts. Every event carries the page
+ * it came from (`page`), and some one more field:
+ *
+ *   copy-code       a docs code block's copy button (`data-copy-code`, src/lib/markdown.mjs);
+ *                   `language`, the block's own (`data-language`: bash, ts…)
+ *   copy-install    the landing's install line (`data-copy`, src/pages/index.astro)
+ *   github-click    a link leaving for github.com
+ *   npm-click       a link leaving for npmjs.com
+ *   outbound-click  a link leaving for any other site; `host`, where to
+ *   framework-tab   a framework tab chosen in one of the docs' `syncKey="framework"` groups;
+ *                   `framework`, the tab's label. Only a change: clicking the tab already shown
+ *                   says nothing about a preference
+ *   search          the docs search used: sent at the first keystroke after the dialog opens
+ *                   (src/components/site/SiteSearch.astro), once per opening, and WITHOUT what
+ *                   was typed — a query is the reader's words, not ours to keep
+ *   not-found       the 404 page shown; its `page` is the address that does not exist, which is
+ *                   how a broken link is found. Crawlers ask for missing addresses too, so read
+ *                   it by `page`, not by count
+ *
+ * Delegated listeners on the document, so no button, tab or link has to know about analytics:
+ * the copy buttons are drawn by the Markdown pipeline and by the landing, the tabs by
+ * Starlight, the links by every page and the footer. Clicks are heard in the capture phase, so
+ * a link is seen before the browser leaves the page (the tracker sends with a keepalive fetch,
+ * which outlives it) and a tab before Starlight marks it selected. `window.umami` is absent
+ * until the tracker has loaded, and absent for good where it is blocked: an event then records
+ * nothing and does nothing else.
+ *
+ * Used by the two heads that carry the tracker (src/components/Head.astro and
+ * src/layouts/Landing.astro), right after its tag; built sites only, like the tracker itself.
+ */
+interface Props {
+  /** This page is the 404 page. */
+  notFound?: boolean;
+}
+const { notFound = false } = Astro.props;
+---
+
+{
+  import.meta.env.PROD && (
+    <script is:inline define:vars={{ notFound }}>
+      const track = (name, data) => window.umami?.track(name, { page: location.pathname, ...data });
+
+      document.addEventListener(
+        'click',
+        (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          if (!target) return;
+          const copy = target.closest('[data-copy-code]');
+          if (copy) return track('copy-code', { language: copy.closest('[data-language]')?.dataset.language });
+          if (target.closest('[data-copy]')) return track('copy-install');
+          const tab = target.closest('starlight-tabs[data-sync-key="framework"] [role="tab"]');
+          if (tab) return tab.getAttribute('aria-selected') === 'true' || track('framework-tab', { framework: tab.textContent.trim() });
+          const link = target.closest('a[href]');
+          if (!link || !/^https?:$/.test(link.protocol) || link.hostname === location.hostname) return;
+          if (link.hostname === 'github.com') track('github-click');
+          else if (link.hostname === 'www.npmjs.com' || link.hostname === 'npmjs.com') track('npm-click');
+          else track('outbound-click', { host: link.hostname });
+        },
+        { capture: true },
+      );
+
+      // `close` does not bubble, but a capturing listener on the document still hears it.
+      let searched = false;
+      document.addEventListener('input', (event) => {
+        if (searched || !(event.target instanceof Element) || !event.target.matches('[data-site-search-input]')) return;
+        searched = true;
+        track('search');
+      });
+      document.addEventListener('close', (event) => { if (event.target.id === 'site-search') searched = false; }, { capture: true });
+
+      // The tracker's tag sits just before this one, deferred: on the 404 page, wait for it.
+      if (notFound) {
+        const tracker = document.querySelector('script[data-website-id]');
+        if (window.umami) track('not-found');
+        else tracker?.addEventListener('load', () => track('not-found'), { once: true });
+      }
+    </script>
+  )
+}
