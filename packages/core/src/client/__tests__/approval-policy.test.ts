@@ -191,6 +191,18 @@ describe('a policy that rules asynchronously', () => {
         expect(patches.map((p) => p['status'])).not.toContain('awaiting-approval');
     });
 
+    // The gate rules, then the channel answers: one ruling for both. A lookup asked twice can
+    // answer twice differently (the page navigated, a cache expired), and the second answer
+    // decided: a call the first one refused ran.
+    it('is asked once per call, and its first answer holds', async () => {
+        const { cfg, el, ran } = harness([{ id: 'c1', name: 'read_file' }]);
+        let asked = 0;
+        cfg.setApprovalPolicy(() => (++asked === 1 ? later({ verdict: 'deny' as const, reason: 'Not on this site.' }) : later({ verdict: 'allow' as const })));
+        await run(cfg, el);
+        expect(ran).toEqual([]);
+        expect(asked).toBe(1);
+    });
+
     it('is ruled by ruleOnToolCallAsync; ruleOnToolCall, synchronous, asks rather than guess', async () => {
         const cfg = new AparteConfig();
         cfg.registerTool(tool('read_file'), (async () => 'ok') as never);

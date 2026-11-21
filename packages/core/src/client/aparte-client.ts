@@ -98,6 +98,23 @@ export type AparteToolApprovalResolver = (
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
 
+/**
+ * A ruling on its way, awaited until a Stop. A policy gets no signal, so a lookup that hangs
+ * would hold the answer past it: on a Stop this rejects as an abort, which every caller here
+ * reads as "nobody answered", and the ruling's late outcome goes unheard.
+ */
+function ruledUntil<T>(ruling: T | Promise<T>, signal: AbortSignal): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const onStop = (): void => reject(new DOMException('The turn was stopped.', 'AbortError'));
+        if (signal.aborted) onStop();
+        else signal.addEventListener('abort', onStop, { once: true });
+        Promise.resolve(ruling).then(
+            (value) => { signal.removeEventListener('abort', onStop); resolve(value); },
+            (error: unknown) => { signal.removeEventListener('abort', onStop); reject(error); },
+        );
+    });
+}
+
 /** A call as an approval remembers it: the call itself, not its id alone, which a later call may reuse. */
 const approvalKey = (call: { id: string; name: string; input: unknown }): string =>
     JSON.stringify([call.id, call.name, call.input]);
@@ -2093,6 +2110,11 @@ export class AparteClient {
         // A host that injected its own resolver owns the whole decision, so the policy
         // must not decide the gate either — an `allow` would skip that resolver.
         const hostOwnsDecision = Boolean(this.options.approvalResolver);
+        // The gate rules once per call, and the channel answers with that same ruling: a lookup
+        // asked twice can answer twice differently (the page navigated, a cache expired), and
+        // the second answer used to decide, so a call the first one refused could run. Kept
+        // with the call's input, the very object the channel is handed for that call.
+        const ruled = new Map<string, { input: unknown; ruling: AparteApprovalRuling | Promise<AparteApprovalRuling> }>();
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
             if (!tool) return undefined;
@@ -2106,6 +2128,7 @@ export class AparteClient {
                         // A policy that rules asynchronously hands a promise on: the loop waits for it,
                         // holding the calls after this one. A synchronous one stays synchronous.
                         const ruling = this._config.ruleOnToolCallNow(call, turn);
+                        ruled.set(call.id, { input: call.input, ruling });
                         const gate = (r: AparteApprovalRuling) => (r.verdict === 'allow' ? false : r.verdict);
                         return ruling instanceof Promise ? ruling.then(gate) : gate(ruling);
                     },
@@ -2119,7 +2142,7 @@ export class AparteClient {
         // A host's own resolver decides everything and sees no policy: it already
         // chose to own the decision. The default channel consults the policy first — a
         // `deny` refuses with the policy's own reason, never "the user rejected this".
-        const approvalResolver = this._approvalResolverFor(targetElement, turn);
+        const approvalResolver = this._approvalResolverFor(targetElement, turn, false, ruled);
 
         /*
          * A handler's crash ends the run on the handler's own error. Classified like a
@@ -2184,14 +2207,23 @@ export class AparteClient {
      * the tool's `needsApproval` — reads a tool the page does not have, and said
      * "allow": the page approved, silently, what the server wanted a person to decide.
      */
-    private _approvalResolverFor(targetElement: AparteChatTargetElement, turn: AparteTurnContext, gatedElsewhere = false): StreamApprovalResolver {
+    private _approvalResolverFor(
+        targetElement: AparteChatTargetElement,
+        turn: AparteTurnContext,
+        gatedElsewhere = false,
+        ruled?: Map<string, { input: unknown; ruling: AparteApprovalRuling | Promise<AparteApprovalRuling> }>,
+    ): StreamApprovalResolver {
         // The host's own resolver is told the turn; the loop that calls it knows none.
         const host = this.options.approvalResolver;
         if (host) return (call, sig) => host(call, sig, turn);
         return (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
+                // The gate's own ruling of this call, when it made one: never a second lookup.
+                const known = ruled?.get(call.id);
+                const gateRuled = known !== undefined && known.input === call.input;
+                if (gateRuled) ruled!.delete(call.id);
                 const ruling: AparteApprovalRuling = gatedElsewhere
-                    ? ((await Promise.resolve(this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn)).catch(() => undefined)) ?? { verdict: 'ask' })
-                    : await this._config.ruleOnToolCallAsync(call, turn);
+                    ? ((await ruledUntil(Promise.resolve(this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn)).catch(() => undefined), sig)) ?? { verdict: 'ask' })
+                    : await ruledUntil(gateRuled ? known.ruling : this._config.ruleOnToolCallNow(call, turn), sig);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
@@ -2316,9 +2348,11 @@ export class AparteClient {
         turn: AparteTurnContext,
         rowEvents?: AparteStreamRunEmitter,
     ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
-        const ruling = this.options.approvalResolver
-            ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
-            : (await this._config.ruleOnToolCallAsync(call, turn)).verdict;
+        // Ruled once: the channel below answers with this ruling, never a second lookup.
+        const ruled = this.options.approvalResolver ? undefined : await ruledUntil(this._config.ruleOnToolCallNow(call, turn), signal);
+        const ruling = ruled
+            ? ruled.verdict
+            : (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow');
         if (ruling === 'allow') return null;
         // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
@@ -2329,7 +2363,8 @@ export class AparteClient {
                 ...(call.agent ? { agentId: call.agent.id } : {}),
             });
         }
-        const decision = (await this._approvalResolverFor(targetElement, turn)(call, signal)) ?? undefined;
+        const known = ruled ? new Map([[call.id, { input: call.input as unknown, ruling: ruled }]]) : undefined;
+        const decision = (await this._approvalResolverFor(targetElement, turn, false, known)(call, signal)) ?? undefined;
         // Back to running, and still PAUSED: the resume hands this call back open for its
         // result to answer. The reply's own call not through `rowEvents` — that adapter never
         // saw the call start, so it takes any settle for the end of the pause and drops
