@@ -269,6 +269,30 @@ describe('a key that leaves the props bag', () => {
     });
 });
 
+describe('a property given undefined or null', () => {
+    // `[moveTargets]="canMove ? groups : undefined"` in Angular, or `renderMeta: show ? fn :
+    // undefined` kept in an <AparteUi> bag: the key is there, with no value. Only the attribute was
+    // removed; the element kept the old array or function, and went on drawing with it.
+    it.each([
+        ['undefined', undefined],
+        ['null', null],
+    ])('clears a property it had been given, when given %s', (_name, nothing) => {
+        const el = document.createElement('div') as HTMLElement & { items?: unknown };
+        applyElementProps(el, { items: [1] });
+        expect(el.items).toEqual([1]);
+        applyElementProps(el, { items: nothing });
+        expect(el.items ?? undefined).toBeUndefined();
+    });
+
+    it('clears it in a whole bag that keeps the key with no value', () => {
+        const el = document.createElement('div') as HTMLElement & { render?: unknown };
+        const fn = (): string => 'x';
+        applyElementProps(el, { render: fn }, undefined, { replace: true });
+        applyElementProps(el, { render: undefined }, undefined, { replace: true });
+        expect(el.render).toBeUndefined();
+    });
+});
+
 describe('a bag of only what changed (a generated component)', () => {
     it('leaves alone a key it does not name', () => {
         const el = document.createElement('div');

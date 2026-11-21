@@ -255,6 +255,9 @@ function applyOne(el: HTMLElement, key: string, value: unknown, transformValue: 
             writeOnce(el, key, 'false', () => el.setAttribute(key, 'false'));
         } else if (value === null || value === undefined || value === false) {
             writeOnce(el, key, null, () => el.removeAttribute(key));
+            // A key given an object or a function before is a property: cleared as one. Removing
+            // the attribute alone left the element drawing with the old array or function.
+            if (value !== false && assignedProps.get(el)?.has(key)) assignProperty(el, key, value);
         } else if (typeof value === 'number' && Number.isNaN(value)) {
             /*
              * `NaN` removes the attribute rather than writing the string "NaN".
