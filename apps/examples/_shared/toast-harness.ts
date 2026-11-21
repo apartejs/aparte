@@ -17,6 +17,7 @@ export function mountToastHarness(): void {
             <div class="aparte-dialog__body"><p>Change something, then save.</p></div>
             <div class="aparte-dialog__footer">
                 <button id="harness-save" type="button" class="aparte-btn aparte-btn--primary">Save</button>
+                <button id="harness-save-close" type="button" class="aparte-btn" data-aparte-dialog-close>Save and close</button>
                 <button id="harness-close" type="button" class="aparte-btn" data-aparte-dialog-close>Close</button>
             </div>
         </dialog>`;
@@ -24,5 +25,25 @@ export function mountToastHarness(): void {
     document.body.append(panel);
     panel.querySelector('#harness-save')!.addEventListener('click', () => {
         showToast('Settings saved.', { tone: 'success', timeout: 0 });
+    });
+    // The commonest Save: the button that closes the dialog shows the toast in the same click.
+    panel.querySelector('#harness-save-close')!.addEventListener('click', () => {
+        showToast('Saved, and closed.', { tone: 'success', timeout: 0 });
+    });
+
+    // A modal dialog a component draws in its shadow root, its Save slotted from the page.
+    const host = document.createElement('div');
+    host.id = 'harness-shadow-host';
+    host.attachShadow({ mode: 'open' }).innerHTML = '<dialog id="harness-shadow-dialog" aria-label="Shadow settings"><slot></slot></dialog>';
+    host.innerHTML = '<button id="harness-shadow-save" type="button" class="aparte-btn aparte-btn--primary">Save in the shadow</button>';
+    const opener = document.createElement('button');
+    opener.id = 'harness-shadow-open';
+    opener.type = 'button';
+    opener.className = 'aparte-btn';
+    opener.textContent = 'Shadow settings';
+    opener.addEventListener('click', () => host.shadowRoot!.querySelector('dialog')!.showModal());
+    panel.append(opener, host);
+    host.querySelector('#harness-shadow-save')!.addEventListener('click', () => {
+        showToast('Saved in the shadow.', { tone: 'success', timeout: 0 });
     });
 }

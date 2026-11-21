@@ -73,11 +73,29 @@ const settling = new WeakMap<Element, Array<() => void>>();
 function homeOf(target: Element | undefined): Element | ShadowRoot {
     const root = target?.getRootNode();
     const base: Element | ShadowRoot = root instanceof ShadowRoot ? root : document.body;
-    const focusedIn = activeElementIn(base instanceof ShadowRoot ? base : document.body)?.closest('dialog');
-    if (focusedIn && isModal(focusedIn)) return focusedIn;
+    const focusedIn = modalAroundFocus();
+    if (focusedIn) return focusedIn;
     let top: Element | null = null;
     for (const dialog of base.querySelectorAll('dialog[open]')) if (isModal(dialog)) top = dialog;
     return top ?? base;
+}
+
+/**
+ * The modal dialog the focus is drawn in, across shadow roots: a dialog a component draws in
+ * its shadow root, with a button slotted from the page, holds a focus whose own tree has no
+ * dialog. From the deepest focused element, up through the slot it is assigned to, its parent,
+ * or the host of its shadow root.
+ */
+function modalAroundFocus(): HTMLDialogElement | null {
+    let focused: Element | null = document.activeElement;
+    while (focused?.shadowRoot?.activeElement) focused = focused.shadowRoot.activeElement;
+    for (let at: Node | null = focused; at; ) {
+        if (at instanceof HTMLDialogElement && isModal(at)) return at;
+        const slot: Node | null | undefined = (at as Partial<Element>).assignedSlot;
+        const host: Node | null = at.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? (at as ShadowRoot).host ?? null : null;
+        at = slot ?? at.parentNode ?? host;
+    }
+    return null;
 }
 
 /** The corner the toasts stack in, in `home`: one per place, made the first time one is shown. */
@@ -191,14 +209,21 @@ export function showToast(text: string, options: AparteToastOptions = {}): Apart
     });
     dismiss.addEventListener('click', close);
 
-    const stack = stackIn(homeOf(options.target));
+    // Its place is found when it is shown, not when it was asked for: a toast waits for its
+    // region to settle, and the dialog it was meant for may close meanwhile (the Save that
+    // closes its dialog shows its toast in the same click). Its corner then went with the
+    // dialog, and the toast was put in a corner no longer on the page.
     const show = (): void => {
         if (closed) return;
+        const stack = stackIn(homeOf(options.target));
+        const waiting = settling.get(stack);
+        if (waiting) {
+            waiting.push(show);
+            return;
+        }
         stack.append(toast);
         start();
     };
-    const waiting = settling.get(stack);
-    if (waiting) waiting.push(show);
-    else show();
+    show();
     return { element: toast, close };
 }

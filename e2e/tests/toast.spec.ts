@@ -52,3 +52,34 @@ test('a toast still shown when its dialog closes goes back to the page', async (
     await expect(toast).toBeVisible();
     expect(await toast.evaluate((el) => el.parentElement?.parentElement === document.body)).toBe(true);
 });
+
+// The commonest Save closes its dialog in the same click. The toast waited for its region to
+// settle inside the dialog, the dialog closed meanwhile, and it was put in a corner no longer
+// on the page: never seen, never heard.
+test('a toast shown by the button that closes its dialog is shown on the page', async ({ page }) => {
+    await page.goto('/?harness=toast-in-dialog');
+    await page.locator('#harness-open').click();
+    await page.locator('#harness-save-close').click();
+    await expect(page.locator('#harness-dialog')).toBeHidden();
+    const toast = page.locator('.aparte-toasts > .aparte-alert', { hasText: 'Saved, and closed.' });
+    await expect(toast).toBeVisible();
+    expect(await toast.evaluate((el) => el.isConnected && el.parentElement?.parentElement === document.body)).toBe(true);
+});
+
+// A dialog in a component's shadow root, its button slotted from the page: the focus is in the
+// page's tree, so the dialog around it was not found, and the toast went under its backdrop.
+test('a toast shown from a modal dialog in a shadow root is inside that dialog, above its backdrop', async ({ page }) => {
+    await page.goto('/?harness=toast-in-dialog');
+    await page.locator('#harness-shadow-open').click();
+    await page.locator('#harness-shadow-save').click();
+    const toast = page.locator('.aparte-toasts > .aparte-alert', { hasText: 'Saved in the shadow.' });
+    await expect(toast).toBeVisible();
+    expect(await toast.evaluate((el) => el.closest('dialog')?.id)).toBe('harness-shadow-dialog');
+    const dismiss = toast.locator('.aparte-alert__dismiss');
+    const hit = await dismiss.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const at = (el.getRootNode() as ShadowRoot).elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return at === el || el.contains(at);
+    });
+    expect(hit, 'the dismiss button is what lies under the pointer, not the backdrop').toBe(true);
+});
