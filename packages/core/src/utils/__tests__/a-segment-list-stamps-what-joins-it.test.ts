@@ -28,6 +28,16 @@ describe('a segment list stamps what joins it', () => {
         expect(list.segments.map((s) => [s.id, s.index, s.messageId])).toEqual([['a', 0, 'm1'], ['b', 1, 'm1']]);
     });
 
+    // `index` is a place: a removal closes its gap, as a reply's removeSegment does, or the next
+    // segment took the number of the one after the gap and two segments saved one index.
+    it('closes the gap a removal leaves', () => {
+        const list = createSegmentList({ messageId: 'm1' });
+        for (const id of ['a', 'b', 'c']) list.addSegment!(text(id));
+        list.removeSegment!('b');
+        list.addSegment!(text('d'));
+        expect(list.segments.map((s) => [s.id, s.index])).toEqual([['a', 0], ['c', 1], ['d', 2]]);
+    });
+
     it('starts a segment when it joins, moves its end while content arrives, and freezes it once settled', () => {
         vi.useFakeTimers();
         vi.setSystemTime(1_000);

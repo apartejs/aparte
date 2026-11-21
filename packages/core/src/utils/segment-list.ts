@@ -15,7 +15,7 @@
 import type { AparteConfig } from '../config/aparte-config.js';
 import type { StreamAdapterTarget } from '../client/stream-adapter.js';
 import type { AparteSegment } from '../types/index.js';
-import { adoptSegment, mergeSegmentUpdate, stampSegmentOnInsert, stampSegmentOnUpdate } from './segments.js';
+import { adoptSegment, mergeSegmentUpdate, renumberSegments, stampSegmentOnInsert, stampSegmentOnUpdate } from './segments.js';
 
 /**
  * A segment list a stream adapter writes into (`createStreamAdapter({ target: list, … })`):
@@ -100,7 +100,10 @@ export function createSegmentList(opts: {
         },
         removeSegment(segmentId) {
             if (!segments.some((s) => s.id === segmentId)) return;
-            segments = segments.filter((s) => s.id !== segmentId);
+            const next = segments.filter((s) => s.id !== segmentId);
+            // `index` is a place: the gap the removal left is closed, as a reply's removeSegment does.
+            renumberSegments(next);
+            segments = next;
             changed();
         },
         updateMessage() { /* no message here */ },
