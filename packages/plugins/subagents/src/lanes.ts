@@ -570,7 +570,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
          * sub-agent that ended, so its id announced again is a new one. Only one left waiting
          * or running goes on.
          */
-        const over = known !== undefined && (known.status === 'done' || known.status === 'failed' || known.status === 'stopped');
+        const over = known !== undefined && (known.status === 'done' || known.status === 'failed' || known.status === 'stopped' || known.status === 'partial');
         // Heard before it named its call (an AG-UI agent's tagged event ahead of SUBAGENT_STARTED):
         // a line of its own, still at work, now announced on a call of its host. The same sub-agent:
         // it moves onto that call, rather than being taken for another under the same id, which

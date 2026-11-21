@@ -40,6 +40,7 @@ import type {
     StreamToolRun,
     StreamAgentHandle,
     StreamAgentStatus,
+    StreamAgentCutReason,
 } from './stream-events.js';
 import { chainTurns, createTurnstile, gateOf, inTurn, type Turnstile } from './approval-turn.js';
 
@@ -1587,7 +1588,7 @@ function openAgent(
     toolCallId: string | undefined,
     info: { name?: string; description?: string },
     callSignal: AbortSignal,
-    onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string }) => void,
+    onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string; reason?: StreamAgentCutReason }) => void,
 ): StreamAgentHandle {
     // A call already stopped opens nothing: its `tool-aborted` may be out already.
     let open = !callSignal.aborted;
@@ -1609,6 +1610,7 @@ function openAgent(
             type: 'agent-end', agentId, status,
             ...(detail?.result !== undefined ? { result: detail.result } : {}),
             ...(detail?.error !== undefined ? { error: detail.error } : {}),
+            ...(detail?.reason !== undefined ? { reason: detail.reason } : {}),
         });
         onEnd?.(status, detail);
     };
@@ -1647,7 +1649,7 @@ interface BackgroundAgent {
     name?: string;
     description?: string;
     stop: AbortController;
-    ended?: { status: StreamAgentStatus; result?: string; error?: string };
+    ended?: { status: StreamAgentStatus; result?: string; error?: string; reason?: StreamAgentCutReason };
     told: boolean;
 }
 
@@ -1711,6 +1713,8 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
                 const ended = a.ended!;
                 if (ended.status === 'done') return `${who} is done:\n${ended.result?.trim() || '(it wrote nothing)'}`;
                 if (ended.status === 'failed') return `${who} failed: ${ended.error ?? 'no reason given'}`;
+                if (ended.status === 'partial') return `${who} was cut short (${ended.reason ?? 'its run stopped'}) before it finished. What it found:
+${ended.result?.trim() || '(it wrote nothing)'}`;
                 return `${who} was stopped before it answered.`;
             });
             return `${back.length === 1 ? 'A sub-agent you started is back.' : 'The sub-agents you started are back.'}\n\n${lines.join('\n\n')}`;

@@ -119,6 +119,7 @@ function stateWord(config: AparteConfig, status: AparteSubagentStatus): string {
         case 'waiting': return config.t('approvalWaiting');
         case 'done': return config.t('toolCompleted');
         case 'failed': return config.t('toolFailed');
+        case 'partial': return word(config, 'subagentsCutShort');
         default: return config.t('toolStopped');
     }
 }

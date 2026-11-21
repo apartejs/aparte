@@ -5,7 +5,7 @@
 import type { AparteSegment, AparteToolCallSegment } from '@aparte/core';
 import { SUBAGENT_SEGMENT_TYPE, type AparteSubagent, type AparteSubagentStatus } from './types.js';
 
-const STATUSES = new Set<AparteSubagentStatus>(['running', 'waiting', 'done', 'failed', 'stopped']);
+const STATUSES = new Set<AparteSubagentStatus>(['running', 'waiting', 'done', 'failed', 'stopped', 'partial']);
 
 /**
  * The sub-agent a segment stands for: the one kept on a `tool_call` segment (the call that

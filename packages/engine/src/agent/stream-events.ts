@@ -488,7 +488,7 @@ export type StreamRunEvent =
      */
     | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string }
     /** A sub-agent ends, once: `result` is what it answered, `error` why it failed. */
-    | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; parentAgentId?: string }
+    | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; reason?: StreamAgentCutReason; parentAgentId?: string }
     /**
      * A named step of the work begins ("Searching the repository"), announced by the model's
      * stream, a runner or a sub-agent; the loop only forwards it. Steps may nest and overlap
@@ -523,9 +523,18 @@ export type StreamRunEmitter = (event: StreamRunEvent) => void;
 
 /**
  * How a sub-agent ended. `waiting` is one paused for a decision (a runner that relays an
- * agent elsewhere reports it); `stopped` one cut short by a Stop or its call's timeout.
+ * agent elsewhere reports it); `stopped` one cut short by a Stop or its call's timeout;
+ * `partial` one whose own run stopped before it answered (its turn limit, a call it could not
+ * make), which hands over what it wrote as its `result`, with why in `reason`.
  */
-export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped';
+export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped' | 'partial';
+
+/**
+ * Why a sub-agent ended `partial`: its turn limit, a call its run abandoned (its time limit,
+ * no handler for it, a decision nobody could take), or its context nearly full, which a host
+ * running its own loop can tell.
+ */
+export type StreamAgentCutReason = 'turn-limit' | 'timeout' | 'no-handler' | 'no-resolver' | 'context';
 
 /**
  * The run a tool call belongs to, handed to its handler as the third argument. What a tool
@@ -597,5 +606,5 @@ export interface StreamAgentHandle {
      */
     emit(event: StreamRunEvent): void;
     /** Emit `agent-end`, once; later calls, and later events, are ignored. */
-    end(status: StreamAgentStatus, detail?: { result?: string; error?: string }): void;
+    end(status: StreamAgentStatus, detail?: { result?: string; error?: string; reason?: StreamAgentCutReason }): void;
 }

@@ -12,6 +12,7 @@ const STATES: ReadonlyArray<[AparteSubagentStatus, WordKey]> = [
     ['running', 'subagentsRunning'],
     ['waiting', 'subagentsWaiting'],
     ['failed', 'subagentsFailed'],
+    ['partial', 'subagentsCutShortCount'],
     ['stopped', 'subagentsStopped'],
 ];
 

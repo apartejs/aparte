@@ -83,6 +83,17 @@ export const WORDS = {
         it: 'one:{n} non riuscito|other:{n} non riusciti', ja: 'other:失敗 {n}', ko: 'other:실패 {n}', pt: 'one:{n} com falha|other:{n} com falha',
         ru: 'other:{n} с ошибкой', zh: 'other:{n} 个失败',
     },
+    /** The state of a sub-agent whose run stopped before it answered (`partial`), on its line. */
+    subagentsCutShort: {
+        en: 'Cut short', fr: 'Interrompu', de: 'Abgebrochen', es: 'Interrumpido', it: 'Interrotto',
+        ja: '途中で終了', ko: '중간에 종료됨', pt: 'Interrompido', ru: 'Прерван', zh: '已中断',
+    },
+    /** How many were cut short, in a fold's line. */
+    subagentsCutShortCount: {
+        en: 'other:{n} cut short', fr: 'one:{n} interrompu|other:{n} interrompus', de: 'other:{n} abgebrochen', es: 'one:{n} interrumpido|other:{n} interrumpidos',
+        it: 'one:{n} interrotto|other:{n} interrotti', ja: 'other:途中で終了 {n}', ko: 'other:중간에 종료됨 {n}', pt: 'one:{n} interrompido|other:{n} interrompidos',
+        ru: 'other:{n} прервано', zh: 'other:{n} 个已中断',
+    },
     /** How many were stopped. */
     subagentsStopped: {
         en: 'other:{n} stopped', fr: 'one:{n} arrêté|other:{n} arrêtés', de: 'other:{n} gestoppt', es: 'one:{n} detenido|other:{n} detenidos',

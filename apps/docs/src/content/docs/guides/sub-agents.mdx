@@ -157,7 +157,9 @@ new AparteClient().start();
 `name` is the line's name and `description` its task. `request` is the sub-agent's whole
 conversation — the parent's is not handed on — and `request.tools` is what its model may call, run
 by the handlers registered on the config. `runSubAgent` resolves `{ status, text }`: `'done'`,
-`'failed'` with an `error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
+`'partial'` with a `reason` when its own run stopped before it answered (its turn limit, a call it
+could not make: `text` is then what it found, and the line reads **Cut short**), `'failed'` with an
+`error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
 rejects for a sub-agent that failed, so the tool decides what the model reads: what the handler
 returns as `content`, as for any tool. The model never reads the sub-agent's conversation. A
 sub-agent ends with its tool: a handler that returns while one it opened still runs (a `runSubAgent`
@@ -277,7 +279,9 @@ call that opened it:
 {"type":"run-done"}
 ```
 
-`agent-end`'s `status` is `done`, `failed` (with `error`), `waiting` or `stopped`. The four run
+`agent-end`'s `status` is `done`, `partial` (with `result` and a `reason`, a `StreamAgentCutReason`:
+`turn-limit`, `timeout`, `no-handler`, `no-resolver`, or `context` for a host that cuts a sub-agent
+whose context is nearly full), `failed` (with `error`), `waiting` or `stopped`. The four run
 lines — `run-start`, `run-done`, `run-aborted`, `run-suspended` — belong to the run and never carry
 an `agentId`: a sub-agent never starts or ends it, and the runner drops such a line with a warning.
 A sub-agent of a sub-agent names its parent in `parentAgentId`. An `agentId` names one sub-agent for

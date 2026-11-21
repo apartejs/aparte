@@ -6,7 +6,11 @@
 import type { AparteSegment, AparteSegmentBase, AparteToolDetails } from '@aparte/core';
 
 /** Where a sub-agent is: working, waiting for a person, or over — and how. */
-export type AparteSubagentStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped';
+/**
+ * Where a sub-agent stands. `partial`: its own run stopped before it answered (its turn limit, a
+ * call it could not make); what it wrote is its `result`, and the line reads "Cut short".
+ */
+export type AparteSubagentStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped' | 'partial';
 
 /**
  * A sub-agent, as it is saved with the conversation: on the call that opened it (the
