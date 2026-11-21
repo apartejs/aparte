@@ -20,25 +20,29 @@ afterEach(() => {
     aparteGlobalConfig.reset();
 });
 
-function installProviders(): { written: string[]; oneShot: string[]; opened: string[]; ended: string[] } {
+function installProviders(): { written: string[]; oneShot: string[]; opened: Set<number>; ended: string[] } {
     const written: string[] = [];
     const oneShot: string[] = [];
-    const opened: string[] = [];
+    // The streams that were written to: the empty message content's own stream opens and ends
+    // with nothing in it, and is no stream of the segment's.
+    const opened = new Set<number>();
     const ended: string[] = [];
+    let streams = 0;
     aparteGlobalConfig.setMarkdownProvider((markdown: string) => {
         oneShot.push(markdown);
         return `<p>${markdown}</p>`;
     });
     aparteGlobalConfig.setStreamingMarkdownProvider((target: HTMLElement) => {
         let buffer = '';
-        opened.push('');
+        const id = streams++;
         return {
             write: (chunk: string): void => {
                 buffer += chunk;
+                if (chunk) opened.add(id);
                 written.push(buffer);
                 target.textContent = buffer;
             },
-            end: (): void => { ended.push(buffer); target.textContent = buffer; },
+            end: (): void => { if (buffer) ended.push(buffer); target.textContent = buffer; },
         };
     });
     return { written, oneShot, opened, ended };
@@ -56,17 +60,18 @@ describe('a reply streamed by hand through <AparteChat>', () => {
             ref.current!.addSegment({ id: 's1', type, content: '' } as never);
         });
         await frame();
-        expect(container.querySelector('aparte-chat-bubble[message-id="r"]')!.hasAttribute('streaming')).toBe(false);
+        // Written by hand, it streams until its status or its flag ends it, as without a framework.
+        expect(container.querySelector('aparte-chat-bubble[message-id="r"]')!.hasAttribute('streaming')).toBe(true);
 
         oneShot.length = 0;
-        opened.length = 0;
+        opened.clear();
         // Three chunks, each followed by the frame in which the wrapper re-syncs its list.
         for (const chunk of ['a **b', ' c**', ' d.']) {
             await act(async () => { ref.current!.appendToSegment('s1', chunk); });
             await frame();
         }
         // One stream, fed each chunk once, never redrawn whole while it is written.
-        expect(opened).toHaveLength(1);
+        expect(opened.size).toBe(1);
         expect(written.at(-1)).toBe('a **b c** d.');
         expect(oneShot.filter((m) => m.startsWith('a **b'))).toEqual([]);
         expect(ended).toEqual([]);
@@ -76,12 +81,42 @@ describe('a reply streamed by hand through <AparteChat>', () => {
         expect(ended).toEqual(['a **b c** d.']);
     });
 
+    // The usual case, with a real wait before the first token: the empty shell is painted first,
+    // streaming. Its first segment took the attribute away, and the bubble read it as the reply's
+    // end: the segment was settled, and every chunk after it drawn whole.
+    it.each(['text', 'thinking'] as const)('writes a %s segment incrementally when the shell was painted before it', async (type) => {
+        const { written, oneShot, opened, ended } = installProviders();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const { container } = render(<AparteChat ref={ref} />);
+        await act(async () => { ref.current!.appendMessage({ id: 'r', role: 'assistant', content: '', timestamp: 1 }); });
+        await frame();
+        expect(container.querySelector('aparte-chat-bubble[message-id="r"]')!.hasAttribute('streaming')).toBe(true);
+        oneShot.length = 0;
+        opened.clear();
+        await act(async () => { ref.current!.addSegment({ id: 's1', type, content: '' } as never); });
+        await frame();
+        for (const chunk of ['a **b', ' c**', ' d.']) {
+            await act(async () => { ref.current!.appendToSegment('s1', chunk); });
+            await frame();
+        }
+        expect(opened.size).toBe(1);
+        expect(written.at(-1)).toBe('a **b c** d.');
+        expect(oneShot.filter((m) => m.startsWith('a **b'))).toEqual([]);
+        expect(ended).toEqual([]);
+        // The reply's status ends it, as without a framework.
+        await act(async () => { ref.current!.updateMessage('r', { status: 'completed' }); });
+        await frame();
+        expect(ended).toEqual(['a **b c** d.']);
+    });
+
     it.each(['text', 'thinking'] as const)('writes the first chunk of a %s segment incrementally', async (type) => {
         const { written, oneShot } = installProviders();
         const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(<AparteChat ref={ref} />);
+        // A reply that already has words (not an empty shell): written into by hand, it is not
+        // marked streaming, so the wrapper draws no attribute, and an append must still stream.
         await act(async () => {
-            ref.current!.appendMessage({ id: 'r', role: 'assistant', content: '', timestamp: 1 });
+            ref.current!.appendMessage({ id: 'r', role: 'assistant', content: 'Earlier words.', timestamp: 1 });
             ref.current!.addSegment({ id: 's1', type, content: '' } as never);
         });
         await act(async () => { await new Promise((r) => setTimeout(r, 10)); });

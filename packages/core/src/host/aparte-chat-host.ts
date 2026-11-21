@@ -701,10 +701,16 @@ export class AparteChatHost {
                 resolveConfig(this.binding.host).getSegmentDefaults(segment.type),
             )
             : segment;
+        // The empty shell a reply is written into by hand (no status): its first segment ends its
+        // wait, not its stream. A wrapper draws `streaming` from `isAwaitingReply`, which a segment
+        // turns false, and the bubble read that as the reply's end, settling the segment it was
+        // writing: every chunk after it was drawn whole. It streams until its status ends it, as
+        // a viewport without a framework keeps it.
+        const writing = last && last.status === undefined && isAwaitingReply(last) ? { status: 'streaming' as const } : {};
         this._streamBubble(last?.id)?.addSegment?.(stamped);
         if (!target || !last) return;
         const segments = [...(last.segments || []), stamped];
-        const next = withMessageAt(msgs, target.index, { ...last, segments });
+        const next = withMessageAt(msgs, target.index, { ...last, ...writing, segments });
         this.binding.setMessages(next);
         this._report(next);
     }

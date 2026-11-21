@@ -124,3 +124,36 @@ describe('the step reaches the live bubble', () => {
         teardown();
     });
 });
+
+describe('a reply written by hand through a wrapper\'s host', () => {
+    // A wrapper draws a bubble's `streaming` from `isAwaitingReply`, which the first segment turns
+    // false: the bubble took that for the reply's end and settled the segment it was writing. The
+    // host keeps the empty shell streaming until its status ends it, as a viewport alone does.
+    it('streams from its first segment until its status ends it', async () => {
+        const root = document.createElement('div');
+        root.setAttribute('data-aparte-chat', '');
+        root.id = 'h3';
+        const viewport = document.createElement('aparte-chat-viewport');
+        viewport.setAttribute('framework-managed', '');
+        root.appendChild(viewport);
+        document.body.appendChild(root);
+        await vi.waitFor(() => expect(typeof (viewport as unknown as { addMessage?: unknown }).addMessage).toBe('function'));
+        let messages: AparteMessage[] = [];
+        const host = new AparteChatHost({
+            hostId: 'h3', host: root, viewport,
+            getMessages: () => messages, setMessages: (m) => { messages = m; }, afterRender: (cb) => cb(),
+        }, {});
+        const teardown = host.bind();
+        host.appendMessage({ id: 'r', role: 'assistant', content: '', timestamp: 1 });
+        host.addSegment({ id: 's1', type: 'text', content: '' } as never);
+        expect(messages.at(-1)?.status).toBe('streaming');
+        host.updateMessage('r', { status: 'completed' });
+        expect(messages.at(-1)?.status).toBe('completed');
+        // A reply that already had words is not taken for a shell: its status is the app's.
+        host.appendMessage({ id: 'q', role: 'assistant', content: 'Earlier words.', timestamp: 2 });
+        host.addSegment({ id: 's2', type: 'text', content: '' } as never);
+        expect(messages.at(-1)?.status).toBeUndefined();
+        teardown();
+    });
+});
+
