@@ -210,3 +210,29 @@ describe('a sub-agent with no call, under an id a finished one had', () => {
         expect(lines.map((s) => [s!.name, textOfAll(s!.segments)])).toEqual([['first', 'First.'], ['second', 'Second.']]);
     });
 });
+
+describe('a sub-agent heard before it names its call', () => {
+    // An AG-UI agent's first tagged event can reach the runner before SUBAGENT_STARTED: the runner
+    // announces the sub-agent with no call, and it gets a line of its own. Announced again with
+    // its call, it was taken for another sub-agent under the same id: the first line read
+    // Stopped, and what it said was split across two lines.
+    it('moves onto its call: one line, all it said, nothing stopped', () => {
+        stop = setupSubagents();
+        const c = chat();
+        const ends: string[] = [];
+        c.host.addEventListener('aparte-subagent-end', (e) => ends.push((e as CustomEvent<{ status: string }>).detail.status));
+        c.run(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 's1' },
+            ...as('s1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Hi' }),
+            { type: 'agent-start', agentId: 's1', name: 'Writer', toolCallId: 'c1' },
+            ...as('s1', { type: 'text-delta', delta: ' there' }),
+            { type: 'agent-end', agentId: 's1', status: 'done' },
+            { type: 'run-done' },
+        );
+        expect(c.segments().filter((s) => s.id.startsWith('subagent-s1'))).toEqual([]);
+        expect(textOfAll(subagentOf(callIn(c.segments(), 'c1')!)!.segments)).toBe('Hi there');
+        expect(ends).not.toContain('stopped');
+    });
+});

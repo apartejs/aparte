@@ -127,7 +127,8 @@ interface Lane {
     description?: string;
     readonly parentId?: string;
     /** The call that opened it, as its `agent-start` named it: a re-announce on another call is another sub-agent. */
-    readonly toolCallId?: string;
+    /** Set again when a lane heard before its call moves onto it (`moveOntoCall`), as its anchor is. */
+    toolCallId?: string;
     status: AparteSubagentStatus;
     result?: string;
     error?: string;
@@ -136,8 +137,8 @@ interface Lane {
     readonly emit: AparteStreamRunEmitter;
     /** Where its anchor lives: the reply, or its parent's lane. */
     readonly host: Lane | null;
-    readonly anchorId: string;
-    readonly anchorKind: 'call' | 'own';
+    anchorId: string;
+    anchorKind: 'call' | 'own';
     /** The anchor exists: its call's row was added. */
     ready: boolean;
     /** Its own anchor streams while it works. */
@@ -517,6 +518,27 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         return parentId;
     };
 
+    /**
+     * A lane on a line of its own, moved onto a call of its host: its line taken out, the call's
+     * row its anchor from now on. Only when the row is there and no other sub-agent holds it;
+     * otherwise nothing moves and the caller treats the announcement as it would have.
+     */
+    const moveOntoCall = (run: Run, lane: Lane, toolCallId: string): boolean => {
+        const segments = hostSegments(run, lane.host);
+        const callId = `tool-${toolCallId}`;
+        const key = hostKey(lane.host, toolCallId);
+        const row = segments?.find((s) => s.id === callId);
+        if (!row || run.callAgents.has(key) || (subagentOf(row) && subagentOf(row)!.id !== lane.id)) return false;
+        const target = (lane.host ? lane.host.list : run.target) as { removeSegment?: (id: string) => void };
+        if (!target.removeSegment) return false;
+        target.removeSegment(lane.anchorId);
+        lane.anchorKind = 'call';
+        lane.anchorId = callId;
+        lane.toolCallId = toolCallId;
+        run.callAgents.set(key, lane.id);
+        return true;
+    };
+
     /** A saved sub-agent a resume can take up: one that was waiting or working when it was saved. */
     const goesOn = (anchor: AparteSegment): boolean => {
         const status = subagentStatus(anchor);
@@ -549,6 +571,14 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
          * or running goes on.
          */
         const over = known !== undefined && (known.status === 'done' || known.status === 'failed' || known.status === 'stopped');
+        // Heard before it named its call (an AG-UI agent's tagged event ahead of SUBAGENT_STARTED):
+        // a line of its own, still at work, now announced on a call of its host. The same sub-agent:
+        // it moves onto that call, rather than being taken for another under the same id, which
+        // read the first line Stopped and split what it said across two lines. Moved, it carries
+        // that call, and goes on below as any lane announced again; not moved, it is retired.
+        if (known && !over && known.toolCallId === undefined && known.anchorKind === 'own' && e.toolCallId !== undefined) {
+            moveOntoCall(run, known, e.toolCallId);
+        }
         const reused = known !== undefined && (e.toolCallId !== undefined ? e.toolCallId !== known.toolCallId : over);
         if (known && reused) retire(run, known);
         if (known && !reused) {

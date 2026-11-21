@@ -24,8 +24,10 @@ import { adoptSegment, mergeSegmentUpdate, stampSegmentOnInsert, stampSegmentOnU
 export interface AparteSegmentList extends StreamAdapterTarget {
     /** The segments, in order. A new array after every change; never mutate it. */
     readonly segments: readonly AparteSegment[];
-    /** Called after each segment added or updated. Returns the function that stops it. */
+    /** Called after each segment added, updated or removed. Returns the function that stops it. */
     onChange(fn: () => void): () => void;
+    /** Take a segment out of the list, as a reply's `removeSegment` does. An unknown id does nothing. */
+    removeSegment(segmentId: string): void;
 }
 
 /**
@@ -94,6 +96,11 @@ export function createSegmentList(opts: {
             const next = segments.slice();
             next[at] = mergeSegmentUpdate(current, stampSegmentOnUpdate(current, updates));
             segments = next;
+            changed();
+        },
+        removeSegment(segmentId) {
+            if (!segments.some((s) => s.id === segmentId)) return;
+            segments = segments.filter((s) => s.id !== segmentId);
             changed();
         },
         updateMessage() { /* no message here */ },
