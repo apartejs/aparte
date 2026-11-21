@@ -127,6 +127,13 @@ interface Fed {
 }
 const fed = new WeakMap<object, Fed>();
 
+/** The view of its own a line's detail sits in, at any depth, or `null` when it sits in the chat. */
+function standingViewAround(view: Element): Element | null {
+    let up = view.parentElement?.closest('aparte-subagent-view') ?? null;
+    while (up && fed.has(up)) up = up.parentElement?.closest('aparte-subagent-view') ?? null;
+    return up;
+}
+
 /** Importable where there is no DOM: the class then extends nothing and is never defined. */
 const ElementBase = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement) as typeof HTMLElement;
 
@@ -428,9 +435,10 @@ export class AparteSubagentView extends ElementBase {
 
     private _onConfigChange(): void {
         this.refresh();
-        if (this._config) {
-            this._drawing?.relabel(this._config);
-            this._relabelHead(this._config);
+        const config = this._config;
+        if (config) {
+            this._onSurface(() => this._drawing?.relabel(config));
+            this._relabelHead(config);
         }
     }
 
@@ -514,19 +522,29 @@ export class AparteSubagentView extends ElementBase {
         this._task!.hidden = !task;
         this._relabelHead(config);
         const lane = anchor ? laneOf(anchor) : { segments: [], live: false };
-        // A view of its own (not under a line) is the surface its rows are drawn on: see `currentSurface`.
-        const outer = drawingSurface;
-        drawingSurface = fed.has(this) ? outer : this.ownSurface();
-        try {
-            runWithConfig(config, () => drawing.sync(lane.segments, config, lane.live));
-        } finally {
-            drawingSurface = outer;
-        }
+        this._onSurface(() => runWithConfig(config, () => drawing.sync(lane.segments, config, lane.live)));
     }
 
     /** This view, as the surface its rows are drawn on (see `currentSurface`). */
     private ownSurface(): Element {
         return this;
+    }
+
+    /**
+     * Run `fn` with this view's surface as the one its rows are drawn on (see `currentSurface`):
+     * every pass over its rows, a draw or a relabel. A view of its own is its surface. A line's
+     * detail is drawn on its line's surface: the one being drawn, or, when it is redrawn on its own,
+     * the view of its own it sits in, else the chat. A relabel run outside the draw had no
+     * surface: a nested row asked for the chat's element of a transcript, and moved it here.
+     */
+    private _onSurface(fn: () => void): void {
+        const outer = drawingSurface;
+        drawingSurface = !fed.has(this) ? this.ownSurface() : outer ?? standingViewAround(this);
+        try {
+            fn();
+        } finally {
+            drawingSurface = outer;
+        }
     }
 
     /** Out of the page for good: every row's renderer cleans up, and the drawing goes. */

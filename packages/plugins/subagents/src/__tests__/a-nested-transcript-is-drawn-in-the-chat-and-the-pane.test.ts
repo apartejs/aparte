@@ -60,5 +60,16 @@ describe('a nested sub-agent drawn in the chat and in a view of its parent', () 
         await frame();
         expect(inChat()?.textContent, 'in the chat, as it goes on').toContain('Grandchild speaks. Twice.');
         expect(inPane()?.textContent, 'in the view, as it goes on').toContain('Grandchild speaks. Twice.');
+
+        // A config that changes (a language, an icon set, a tool registered) relabels every row.
+        // The view relabelled outside its drawing, with no surface: the nested row asked for the
+        // chat's element, and moved it into the view, leaving the chat's row empty.
+        aparteGlobalConfig.setLocale('fr');
+        await frame();
+        expect(inChat(), 'still in the chat').not.toBeNull();
+        expect(inPane(), 'still in the view').not.toBeNull();
+        expect(inChat()).not.toBe(inPane());
+        expect(inChat()?.textContent).toContain('Grandchild speaks. Twice.');
+        expect(inPane()?.textContent).toContain('Grandchild speaks. Twice.');
     });
 });
