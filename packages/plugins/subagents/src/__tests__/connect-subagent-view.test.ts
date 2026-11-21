@@ -99,6 +99,23 @@ describe('connectSubagentView', () => {
         expect(c.row('tool-c2')!.hasAttribute('data-current')).toBe(true);
     });
 
+    // The line pressed names its call, and the view keeps to that call. Disconnected, the view kept
+    // the filter: a sub-agent named on it afterwards, by its id, on another call, was never drawn
+    // live.
+    it('forgets the line it was opened on once disconnected', async () => {
+        const { c, view } = await setUp();
+        openButton(c.row('tool-c1'))!.click();
+        await frame();
+        disconnect!();
+        disconnect = undefined;
+        view.setAttribute('agent-id', 'a2');
+        c.run(...as('a2', { type: 'text-delta', delta: ' one' }));
+        await frame();
+        c.run(...as('a2', { type: 'text-delta', delta: ' two' }));
+        await frame();
+        expect(view.textContent).toContain('Running one two');
+    });
+
     it('follows the sub-agent live while it works', async () => {
         const { c, view } = await setUp();
         openButton(c.row('tool-c2'))!.click();

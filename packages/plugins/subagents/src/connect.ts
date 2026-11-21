@@ -137,6 +137,7 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         if (isOpen || opened) close(false);
         view.removeAttribute('message-id');
         view.removeAttribute('agent-id');
+        setViewCall(view, undefined);
     };
 
     chat.addEventListener('aparte-subagent-open', onOpen);
@@ -159,6 +160,8 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.removeEventListener(name, onLoaded);
         setShown(owner, null);
         mark(null);
+        // The view is the app's again: it shows what it is named, on any call.
+        setViewCall(view, undefined);
         if (!wasClosable) view.removeAttribute('closable');
     };
 }
