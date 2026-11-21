@@ -486,7 +486,7 @@ export type StreamRunEvent =
      * A sub-agent begins. `toolCallId` is the call that opened it, when one did;
      * `parentAgentId` the sub-agent that opened it, when it is not the run's own.
      */
-    | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string }
+    | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string; /** The model it runs on, when its producer says. */ model?: string }
     /** A sub-agent ends, once: `result` is what it answered, `error` why it failed. */
     | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; reason?: StreamAgentCutReason; parentAgentId?: string }
     /**
@@ -563,7 +563,7 @@ export interface StreamToolRun {
      * and the run waits for it before it ends — then tells the model how it ended. What
      * `startSubAgent` opens; only where `canBackground` says so.
      */
-    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean }): StreamAgentHandle;
+    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean; model?: string }): StreamAgentHandle;
     readonly transportCall: StreamRunOptions['transportCall'];
     readonly toolLookup: StreamRunOptions['toolLookup'];
     readonly toolConfigLookup?: StreamRunOptions['toolConfigLookup'];

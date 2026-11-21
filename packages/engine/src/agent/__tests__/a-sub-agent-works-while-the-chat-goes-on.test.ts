@@ -66,7 +66,7 @@ describe('a sub-agent in the background', () => {
             toolLookup: () => delegate, emitter, signal: new AbortController().signal,
         });
         expect(events.find((e) => e.type === 'agent-start')).toEqual({
-            type: 'agent-start', agentId: expect.any(String), name: 'scout', description: 'Look it up',
+            type: 'agent-start', agentId: expect.any(String), name: 'scout', description: 'Look it up', model: 'child',
         });
     });
 

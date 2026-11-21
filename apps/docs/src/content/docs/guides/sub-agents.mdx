@@ -306,10 +306,13 @@ setupSubagents({
   counts: true,            // "3 tools · 12s", once it is over
   details: 'transcript',   // its conversation under the line; false (the default) for nothing
   open: 'event',           // an Open button that shows it beside the chat; see below
+  model: false,            // true: the model it runs on, quietly on its line
 });
 ```
 
-These are `SubagentsOptions`; `open` is explained in
+These are `SubagentsOptions`. `model` draws the model each sub-agent runs on, for an app whose
+sub-agents run on other models than the conversation: `agent-start` carries it as `model`, and
+`runSubAgent` names its request's `modelId` (or the `model` you give it, a friendlier name). `open` is explained in
 [Open a sub-agent beside the chat](#open-a-sub-agent-beside-the-chat). `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
 conversation under it — the task it was given, its text, its reasoning, its own tool rows and its
 own sub-agents as lines, drawn by the reply's renderers and kept up to date while it works — closed

@@ -1586,7 +1586,7 @@ function openAgent(
     emitter: StreamRunEmitter,
     agentId: string,
     toolCallId: string | undefined,
-    info: { name?: string; description?: string },
+    info: { name?: string; description?: string; model?: string },
     callSignal: AbortSignal,
     onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string; reason?: StreamAgentCutReason }) => void,
 ): StreamAgentHandle {
@@ -1621,6 +1621,7 @@ function openAgent(
             ...(info.name !== undefined ? { name: info.name } : {}),
             ...(info.description !== undefined ? { description: info.description } : {}),
             ...(toolCallId !== undefined ? { toolCallId } : {}),
+            ...(info.model !== undefined ? { model: info.model } : {}),
         });
         callSignal.addEventListener('abort', onAbort, { once: true });
     }
@@ -1656,7 +1657,7 @@ interface BackgroundAgent {
 /** The run's sub-agents in the background: opened by its tools, waited for and stopped by it. */
 interface Background {
     /** `boundMs`: the time limit of the call that opened it, which bounds it as it bounds the call. */
-    open(info: { name?: string; description?: string }, boundMs?: number): StreamAgentHandle;
+    open(info: { name?: string; description?: string; model?: string }, boundMs?: number): StreamAgentHandle;
     /** Stop every one at work, and refuse any opened afterwards: the run is over. */
     close(): void;
     /** Whether one is still at work, or is back and the model has not been told. */

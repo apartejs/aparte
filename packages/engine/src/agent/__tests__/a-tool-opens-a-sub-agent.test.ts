@@ -32,7 +32,7 @@ describe('a tool opens a sub-agent', () => {
 
         const start = events.find((e) => e.type === 'agent-start');
         expect(start).toEqual({
-            type: 'agent-start', agentId: expect.any(String), name: 'researcher', description: 'Looks things up', toolCallId: 'c1',
+            type: 'agent-start', agentId: expect.any(String), name: 'researcher', description: 'Looks things up', toolCallId: 'c1', model: 'child',
         });
         const agentId = agentIdOf(start!)!;
         const from = events.indexOf(start!);

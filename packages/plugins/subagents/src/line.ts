@@ -163,6 +163,9 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
         // and a call can be over while the sub-agent it opened failed or was stopped — or
         // still running after one of its sub-agents is done. A stand-in's row always agrees.
         const note: string[] = [];
+        // The model it runs on, quietly, when the app asks for it.
+        const model = options.model === true ? sub.model?.trim() : undefined;
+        if (model) note.push(model);
         if (!standIn && statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
 
         if (options.activity !== false) {

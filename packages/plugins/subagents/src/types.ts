@@ -26,6 +26,8 @@ export interface AparteSubagent {
     name?: string;
     /** What it was asked to do, shown after the name. */
     description?: string;
+    /** The model it runs on, when its producer says (`agent-start`'s `model`). Drawn with `setupSubagents({ model: true })`. */
+    model?: string;
     /** As stored. Read it through `subagentStatus`, which knows a saved run is over. */
     status: AparteSubagentStatus;
     /** What it answered, when it is done. */
@@ -59,6 +61,12 @@ declare module '@aparte/core' {
 
 /** What `setupSubagents` shows on a sub-agent's line. */
 export interface SubagentsOptions {
+    /**
+     * The model each sub-agent runs on, quietly on its line, when its producer names one
+     * (`agent-start`'s `model`; `runSubAgent` names its request's). For a host whose sub-agents
+     * run on other models than the conversation. Default `false`.
+     */
+    model?: boolean;
     /** What it is doing now — its latest running tool call — while it works. Default `true`. */
     activity?: boolean;
     /** "3 tools · 12 s" after the line: its tool calls and how long it worked. Default `true`. */

@@ -125,6 +125,7 @@ interface Lane {
     readonly id: string;
     name?: string;
     description?: string;
+    model?: string;
     readonly parentId?: string;
     /** The call that opened it, as its `agent-start` named it: a re-announce on another call is another sub-agent. */
     /** Set again when a lane heard before its call moves onto it (`moveOntoCall`), as its anchor is. */
@@ -227,6 +228,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         id: lane.id,
         ...(lane.name !== undefined ? { name: lane.name } : {}),
         ...(lane.description !== undefined ? { description: lane.description } : {}),
+        ...(lane.model !== undefined ? { model: lane.model } : {}),
         status: lane.status === 'running' && isWaiting(run, lane) ? 'waiting' : lane.status,
         ...(lane.result !== undefined ? { result: lane.result } : {}),
         ...(lane.error !== undefined ? { error: lane.error } : {}),
@@ -587,6 +589,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             delete known.error;
             if (e.name !== undefined) known.name = e.name;
             if (e.description !== undefined) known.description = e.description;
+            if (e.model !== undefined) known.model = e.model;
             known.streaming = true;
             announce(run, known, e.toolCallId);
             markDirty(run, known, true);
@@ -628,6 +631,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             id: e.agentId,
             ...(e.name !== undefined ? { name: e.name } : previous?.name !== undefined ? { name: previous.name } : {}),
             ...(e.description !== undefined ? { description: e.description } : previous?.description !== undefined ? { description: previous.description } : {}),
+            ...(e.model !== undefined ? { model: e.model } : previous?.model !== undefined ? { model: previous.model } : {}),
             ...(e.parentAgentId !== undefined ? { parentId: e.parentAgentId } : {}),
             ...(toolCallId !== undefined ? { toolCallId } : {}),
             status: 'running',

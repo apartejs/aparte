@@ -46,7 +46,7 @@ import type {
  */
 export async function runSubAgent(
     run: StreamToolRun,
-    opts: { name?: string; description?: string; detached?: boolean; request: StreamChatRequest }
+    opts: { name?: string; description?: string; detached?: boolean; model?: string; request: StreamChatRequest }
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
     signal: AbortSignal,
 ): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string; reason?: StreamAgentCutReason }> {
@@ -60,7 +60,8 @@ export async function runSubAgent(
     }
     if (signal.aborted) return { status: 'stopped', text: '' };
 
-    const agent = run.startAgent({ name: opts.name, description: opts.description, detached: opts.detached });
+    // The model it runs on: the name the tool gives it, else the one its request asks.
+    const agent = run.startAgent({ name: opts.name, description: opts.description, detached: opts.detached, model: opts.model ?? opts.request.modelId });
     // The handle already ends with its call; this covers a signal of the tool's own.
     const onAbort = (): void => agent.end('stopped');
     signal.addEventListener('abort', onAbort, { once: true });
@@ -89,7 +90,7 @@ export async function runSubAgent(
  */
 export function startSubAgent(
     run: StreamToolRun,
-    opts: { name?: string; description?: string; request: StreamChatRequest }
+    opts: { name?: string; description?: string; model?: string; request: StreamChatRequest }
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
 ): { agentId: string; signal: AbortSignal } {
     if (!run || typeof run.startAgent !== 'function') {
@@ -104,7 +105,7 @@ export function startSubAgent(
             + 'the run would end at the pause without what it answered. Use runSubAgent() there, which holds the call until it is back.',
         );
     }
-    const agent = run.startAgent({ name: opts.name, description: opts.description, background: true });
+    const agent = run.startAgent({ name: opts.name, description: opts.description, background: true, model: opts.model ?? opts.request.modelId });
     // Its first model call after this returns: a caller reads `signal` before the work starts.
     void Promise.resolve().then(() => drive(agent, run, opts, agent.signal));
     return { agentId: agent.agentId, signal: agent.signal };
