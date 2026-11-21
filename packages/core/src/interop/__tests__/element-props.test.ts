@@ -276,12 +276,14 @@ describe('a property given undefined or null', () => {
     it.each([
         ['undefined', undefined],
         ['null', null],
+        // `moveTargets: canMove && groups`: the key stays, with false.
+        ['false', false],
     ])('clears a property it had been given, when given %s', (_name, nothing) => {
         const el = document.createElement('div') as HTMLElement & { items?: unknown };
         applyElementProps(el, { items: [1] });
         expect(el.items).toEqual([1]);
         applyElementProps(el, { items: nothing });
-        expect(el.items ?? undefined).toBeUndefined();
+        expect(el.items || undefined).toBeUndefined();
     });
 
     it('clears it in a whole bag that keeps the key with no value', () => {
