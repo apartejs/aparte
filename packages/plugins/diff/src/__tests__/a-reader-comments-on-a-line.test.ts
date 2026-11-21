@@ -255,3 +255,23 @@ describe('without commentable', () => {
         expect(el.querySelectorAll('button.aparte-diff-line__gutter')).toHaveLength(0);
     });
 });
+
+describe('a comment written with an input method (IME)', () => {
+    // Escape cancels a conversion candidate. The field took it as its own Escape and let go: the
+    // form and the words being written went with it. Firefox and Chromium say so with
+    // `isComposing`; Safari sends the composition's key after it ends, with keyCode 229.
+    it.each([
+        ['isComposing', { isComposing: true }],
+        ['keyCode 229', { keyCode: 229 }],
+    ])('keeps the form and its text on an Escape that is the composition\'s (%s)', (_name, init) => {
+        const el = mount(EDIT, { commentable: '' });
+        click(gutter(el, 'add', 2));
+        const f = form(el)!;
+        type(f.input, 'かいぎ');
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init });
+        f.input.dispatchEvent(escape);
+        expect(f.node.isConnected).toBe(true);
+        expect(f.input.value).toBe('かいぎ');
+        expect(escape.defaultPrevented).toBe(false);
+    });
+});

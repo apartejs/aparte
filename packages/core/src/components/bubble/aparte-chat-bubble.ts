@@ -2925,7 +2925,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Enter (via the primitive's standalone submit event) saves; Esc cancels.
     input.addEventListener('aparte-composer-submit', () => this._exitEditMode(true));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !e.isComposing) {
+      // An Escape that cancels a word being composed (IME) is the composition's: Safari sends it
+      // after the composition ends, with keyCode 229 and no `isComposing`.
+      if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         this._exitEditMode(false);
       }
