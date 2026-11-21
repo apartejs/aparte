@@ -331,8 +331,8 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         } catch { /* a target that cannot dispatch hears nothing */ }
     };
 
-    const dispatchEnd = (run: Run, lane: Lane, status: AparteSubagentStatus): void =>
-        dispatchLifecycleEvent(run, 'aparte-subagent-end', { messageId: run.messageId, agentId: lane.id, status });
+    const dispatchEnd = (run: Run, lane: Lane, status: AparteSubagentStatus, reason?: string): void =>
+        dispatchLifecycleEvent(run, 'aparte-subagent-end', { messageId: run.messageId, agentId: lane.id, status, ...(reason !== undefined ? { reason } : {}) });
 
     /** The lane's open segments, settled: its text streams no more, and at the run's end its open calls stop. */
     const settleLane = (lane: Lane, calls: boolean): void => {
@@ -704,6 +704,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             ...(lane.description !== undefined ? { description: lane.description } : {}),
             ...(toolCallId !== undefined ? { toolCallId } : {}),
             ...(lane.parentId !== undefined ? { parentId: lane.parentId } : {}),
+            ...(lane.model !== undefined ? { model: lane.model } : {}),
         });
 
     const endAgent = (run: Run, e: Extract<AparteStreamRunEvent, { type: 'agent-end' }>): void => {
@@ -718,7 +719,7 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             settleLane(lane, false);
             lane.streaming = false;
         }
-        dispatchEnd(run, lane, e.status);
+        dispatchEnd(run, lane, e.status, e.reason);
         markDirty(run, lane, true);
     };
 

@@ -216,10 +216,12 @@ and a line's `details` share the line.
 The chat dispatches two events, both bubbling:
 
 - `aparte-subagent-start` (`AparteSubagentStartEventDetail`) when a sub-agent starts, or starts
-  again after a pause: `messageId`, `agentId`, `name`, `description` (its task), and `toolCallId`
-  or `parentId` for the call or the sub-agent that opened it.
+  again after a pause: `messageId`, `agentId`, `name`, `description` (its task), `model` when its
+  producer names the model it runs on, and `toolCallId` or `parentId` for the call or the sub-agent
+  that opened it.
 - `aparte-subagent-end` (`AparteSubagentEndEventDetail`) when it ends, or the run ends without it:
-  `messageId`, `agentId` and `status` — `done`, `failed`, `waiting` or `stopped`.
+  `messageId`, `agentId` and `status` — `done`, `failed`, `waiting`, `stopped`, or `partial` when it
+  was cut short, with `reason` (its turn limit, a call its run could not make).
 
 Both carry the chat's `id` as `targetId`, so a page with several chats can tell them apart. Together they
 are enough to keep a list of a reply's sub-agents and open the one a person picks:

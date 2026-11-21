@@ -77,7 +77,7 @@ conversation where you place it — a pane of `<aparte-split>`, a canvas, a dial
 **Reading it back.** The sub-agent (`AparteSubagent`: `id`, `name`, `description`, `status`, `result`,
 `error`, `parentId`, `segments`) is saved on the segment that stands for it. `subagentOf(segment)` returns
 it; `subagentStatus(segment)` returns its state (`AparteSubagentStatus`: `running`, `waiting`, `done`,
-`failed`, `stopped`), and reads `stopped` for a sub-agent a reload or a Stop left unfinished.
+`failed`, `stopped`, `partial` for one cut short), and reads `stopped` for a sub-agent a reload or a Stop left unfinished.
 
 **Events.** The chat element hears `aparte-subagent-start` (`AparteSubagentStartEventDetail`: `messageId`,
 `agentId`, `name`, `description`, `toolCallId`, `parentId`) and `aparte-subagent-end`

@@ -59,6 +59,24 @@ describe('a sub-agent cut short', () => {
         expect(reads).not.toContain('Stopped');
     });
 
+    // An app that keeps its own list from the two DOM events: the model it runs on and why it
+    // was cut short were the plugin's, never handed on.
+    it('tells an app its model when it starts, and why it was cut short when it ends', () => {
+        stop = setupSubagents();
+        const c = chat();
+        const starts: unknown[] = [];
+        const ends: unknown[] = [];
+        c.host.addEventListener('aparte-subagent-start', (e) => starts.push((e as CustomEvent).detail));
+        c.host.addEventListener('aparte-subagent-end', (e) => ends.push((e as CustomEvent).detail));
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'Reader', model: 'qwen3:8b' },
+            { type: 'agent-end', agentId: 'a1', status: 'partial', reason: 'turn-limit', result: 'Half.' },
+        );
+        expect(starts[0]).toMatchObject({ agentId: 'a1', model: 'qwen3:8b' });
+        expect(ends[0]).toMatchObject({ agentId: 'a1', status: 'partial', reason: 'turn-limit' });
+    });
+
     it('is counted as cut short in a fold', () => {
         aparteGlobalConfig.setTurnSummary({ label: subagentsTurnLabel });
         stop = setupSubagents();

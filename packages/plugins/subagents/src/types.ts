@@ -3,7 +3,7 @@
  * stands for it, the plugin's own segment for a sub-agent no call opened, the options, and
  * the two events an app hears.
  */
-import type { AparteSegment, AparteSegmentBase, AparteToolDetails } from '@aparte/core';
+import type { AparteSegment, AparteSegmentBase, AparteStreamRunEvent, AparteToolDetails } from '@aparte/core';
 
 /** Where a sub-agent is: working, waiting for a person, or over — and how. */
 /**
@@ -108,11 +108,14 @@ export interface AparteSubagentStartEventDetail {
     toolCallId?: string;
     /** The sub-agent that opened it, when one did. */
     parentId?: string;
+    /** The model it runs on, when its producer says (`agent-start`'s `model`). */
+    model?: string;
 }
 
 /**
  * A sub-agent ended, or the run ended without it: `status` says how (`done`, `failed`,
- * `waiting` for a person, `stopped`). Bubbles out of the chat.
+ * `waiting` for a person, `stopped`, or `partial`: cut short, its own run stopped before it
+ * answered, with `reason`). Bubbles out of the chat.
  *
  * @event aparte-subagent-end
  */
@@ -122,6 +125,8 @@ export interface AparteSubagentEndEventDetail {
     messageId: string;
     agentId: string;
     status: AparteSubagentStatus;
+    /** Why it was cut short (`partial`): `agent-end`'s `reason`, when its producer says. */
+    reason?: NonNullable<Extract<AparteStreamRunEvent, { type: 'agent-end' }>['reason']>;
 }
 
 /**
