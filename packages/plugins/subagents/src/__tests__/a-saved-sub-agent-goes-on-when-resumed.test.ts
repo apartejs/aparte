@@ -13,7 +13,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig, type AparteMessage, type AparteSegment, type AparteStreamRunEvent } from '@aparte/core';
 import { setupSubagents, subagentOf } from '../index.js';
-import { as, callIn, chat } from './harness.js';
+import { as, callIn, chat, frame } from './harness.js';
 
 let stop: (() => void) | undefined;
 afterEach(() => {
@@ -135,5 +135,58 @@ describe('a sub-agent saved while it waited under another, resumed after a reloa
         const lead = subagentOf(callIn(c.segments(), 'c1')!)!;
         const writer = subagentOf(callIn(lead.segments, 'c2')!)!;
         expect(callIn(writer.segments, 'w1')!.status).toBe('resolved');
+    });
+});
+
+describe('the call that opened a saved sub-agent, after a reload', () => {
+    // While its sub-agent asks, the plugin marks the call that opened it as waiting, and gives
+    // it back its dots once the question is answered. After a reload the new lane did not know
+    // the call was marked by it: the call read "awaiting approval" while the sub-agent worked.
+    it('goes back to working once the sub-agent works again', async () => {
+        const c = resume(pausedReply(), [
+            { type: 'run-start' },
+            ...as('sub1', { type: 'tool-approved', toolCallId: 'w1' }, { type: 'tool-resolved', toolCallId: 'w1', result: 'written' }, { type: 'turn-start' }, { type: 'text-delta', delta: 'More.' }),
+        ]);
+        await frame();
+        expect(callIn(c.segments(), 'c1')!.status).toBe('pending');
+    });
+});
+
+/** Page one, with the sub-agent still working when the reply paused on another call of the reply. */
+function pausedWhileWorking(): AparteMessage {
+    stop = setupSubagents();
+    const c = chat();
+    let saved: AparteSegment[] | undefined;
+    c.host.addEventListener('aparte-message-paused', () => { saved = JSON.parse(JSON.stringify(c.segments())) as AparteSegment[]; });
+    c.run(
+        { type: 'run-start' },
+        { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+        { type: 'agent-start', agentId: 'sub1', name: 'Reader', toolCallId: 'c1' },
+        ...as('sub1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Reading.' }, { type: 'text-flush' }),
+        { type: 'tool-start', toolCallId: 'g1', name: 'deploy', input: {} },
+        { type: 'tool-awaiting-approval', toolCallId: 'g1', name: 'deploy', input: {} },
+        { type: 'run-suspended', pending: [{ toolCallId: 'g1', name: 'deploy', input: {}, reason: 'approval' }] },
+    );
+    expect(saved, 'saved on the pause').toBeDefined();
+    c.host.remove();
+    stop();
+    return {
+        id: 'a1', role: 'assistant', status: 'completed', content: '', timestamp: 1,
+        deferredCalls: [{ toolCallId: 'g1', name: 'deploy', input: {}, reason: 'approval' }],
+        segments: saved!,
+    } as AparteMessage;
+}
+
+describe('a sub-agent saved while it was still working, resumed after a reload', () => {
+    // Taken up like one that waited: a resume goes on with what it was doing.
+    it('goes on on its line, and no second one', () => {
+        const c = resume(pausedWhileWorking(), [
+            { type: 'run-start' },
+            ...as('sub1', { type: 'text-delta', delta: ' Done reading.' }),
+            { type: 'agent-end', agentId: 'sub1', status: 'done', result: 'Read.' },
+            { type: 'run-done' },
+        ]);
+        expect(c.segments().filter((s) => s.id.startsWith('subagent-sub1'))).toEqual([]);
+        expect(JSON.stringify(subagentOf(callIn(c.segments(), 'c1')!)!.segments)).toContain('Done reading.');
     });
 });

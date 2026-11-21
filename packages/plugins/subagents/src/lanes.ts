@@ -610,7 +610,10 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
             ready: true,
             streaming: true,
             asking: new Set(),
-            holding: false,
+            // A saved call that opened a sub-agent and reads "waiting" was marked so by this plugin,
+            // while its sub-agent asked: taken up after a reload, it is the lane's to give back,
+            // or it read "awaiting approval" while the sub-agent worked again.
+            holding: saved?.type === 'tool_call' && (saved as AparteToolCallSegment).status === 'awaiting-approval',
             depth: host ? host.depth + 1 : 0,
         };
         run.lanes.set(lane.id, lane);
