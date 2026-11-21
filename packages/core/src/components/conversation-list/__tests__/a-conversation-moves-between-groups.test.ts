@@ -12,7 +12,7 @@
  * The drag here is synthetic (jsdom has no drag and drop): what a browser does with it is
  * `e2e/tests/conversation-move.spec.ts`.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../aparte-conversation-list.js';
 import type { AparteConversationGroup, AparteConversationListItem, AparteConversationMoveDetail } from '../aparte-conversation-list.js';
 
@@ -292,6 +292,29 @@ describe('a tap on a row while the app updates the list', () => {
         row.querySelector<HTMLElement>('.aparte-conv-item__select')!.click();
         expect(picked).toEqual(['c2']);
     });
+
+    // A tap whose click never comes: the render it held runs after a moment, not never.
+    it('draws the held render after a moment when no click comes', () => {
+        vi.useFakeTimers();
+        try {
+            const el = mount(ITEMS);
+            const row = rowOf(el, 'c2');
+            const finger = (type: string) => {
+                const event = new Event(type, { bubbles: true });
+                Object.defineProperty(event, 'pointerType', { value: 'touch' });
+                row.dispatchEvent(event);
+            };
+            finger('pointerdown');
+            el.conversations = [...ITEMS, { id: 'c9', title: 'New one' }];
+            finger('pointerup');
+            vi.advanceTimersByTime(100);
+            expect(rowOf(el, 'c9'), 'held while the click may still come').toBeNull();
+            vi.advanceTimersByTime(600);
+            expect(rowOf(el, 'c9'), 'drawn once the moment has passed').not.toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
 
 describe('a list that stands for a group of its own (dropKey), and a row from another list', () => {
@@ -353,7 +376,18 @@ describe('a list that stands for a group of its own (dropKey), and a row from an
     // render after it.
     it.each([
         ['dropped on', (b: Element) => drag(b, 'drop')],
-        ['left', (b: Element) => drag(b, 'dragleave')],
+        // Left for the page outside: jsdom has no hit-testing, so the point lands on nothing.
+        ['left', (b: Element) => {
+            const doc = document as Document & { elementFromPoint?: (x: number, y: number) => Element | null };
+            const had = doc.elementFromPoint;
+            doc.elementFromPoint = () => null;
+            try {
+                drag(b, 'dragleave');
+            } finally {
+                if (had) doc.elementFromPoint = had;
+                else delete doc.elementFromPoint;
+            }
+        }],
     ])('an empty list it was %s keeps no mark after the drag', (_name, end) => {
         const a = keyed('p-a', [{ id: 'a1', title: 'One' }], [B]);
         const b = keyed('p-b', []);

@@ -45,8 +45,9 @@ describe('a tap on a menu item', () => {
         trigger.click();
         expect(menu.hidden).toBe(false);
         const [rename] = items;
-        let renamed = 0;
-        rename!.addEventListener('click', () => { renamed++; });
+        // Read when the click arrives: jsdom clicks a hidden item too, so a count would pass anyway.
+        let shownAtClick: boolean | null = null;
+        rename!.addEventListener('click', () => { shownAtClick = !menu.hidden; });
 
         touch(rename!, 'pointerdown');
         touch(rename!, 'pointerup');
@@ -55,7 +56,25 @@ describe('a tap on a menu item', () => {
         (document.activeElement as HTMLElement | null)?.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
         expect(menu.hidden, 'still open for the click to come').toBe(false);
         rename!.click();
-        expect(renamed).toBe(1);
+        expect(shownAtClick, 'the click reached an item still shown').toBe(true);
+    });
+
+    // A tap whose click never comes (a scroll, a long press): the press ends after a moment, and
+    // the menu closes on the next blur to nowhere, as it does after a mouse press.
+    it('ends the press after a moment when no click comes', () => {
+        vi.useFakeTimers();
+        const { trigger, menu, items } = mount();
+        trigger.click();
+        const [rename] = items;
+        touch(rename!, 'pointerdown');
+        touch(rename!, 'pointerup');
+        const blur = () => (document.activeElement as HTMLElement | null)?.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+        vi.advanceTimersByTime(500);
+        blur();
+        expect(menu.hidden, 'still waiting for its click').toBe(false);
+        vi.advanceTimersByTime(200);
+        blur();
+        expect(menu.hidden, 'the press is over').toBe(true);
     });
 
     it('a mouse press still ends at pointerup, as before', () => {
