@@ -233,3 +233,77 @@ test('a tool row\'s detail and a reasoning block put their indent beside their r
         expect(right, `${part}: the indent is on the side of the rule`).toBeGreaterThan(left);
     }
 });
+
+test('a tool row\'s detail is set off its rule by a margin on the rule\'s side', async ({ page }) => {
+    // The detail's offset from the row is a margin, changed with the padding and never measured:
+    // a margin turned back into `margin-left` passed the test above.
+    await rightToLeft(page);
+    await page.goto('/');
+    await expect(page.locator('aparte-chat-viewport')).toBeVisible();
+    const margin = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.setAttribute('dir', 'rtl');
+        host.innerHTML = '<div class="aparte-tool-detail">x</div>';
+        document.body.appendChild(host);
+        const style = getComputedStyle(host.firstElementChild!);
+        return { right: parseFloat(style.marginRight), left: parseFloat(style.marginLeft) };
+    });
+    expect(margin.right).toBeGreaterThan(margin.left);
+});
+
+test('a reasoning block written in English in a right-to-left chat keeps its indent beside the rail', async ({ page }) => {
+    // The panel reads its own direction (`dir="auto"`): English reasoning (common with R1 and Qwen
+    // models) resolves it to left-to-right, and its logical indent went to the LEFT, while the
+    // rail, on the block, follows the chat: on the RIGHT, with the text flush against it.
+    await rightToLeft(page);
+    await page.goto('/');
+    await expect(page.locator('aparte-chat-viewport')).toBeVisible();
+    const sides = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.setAttribute('dir', 'rtl');
+        document.body.appendChild(host);
+        const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & { setSegments(s: unknown[]): void };
+        bubble.setAttribute('message-id', 'rtl-thinking');
+        bubble.setAttribute('data-role', 'assistant');
+        host.appendChild(bubble);
+        bubble.setSegments([{ id: 't1', type: 'thinking', content: 'The user asks about the weather.', collapsed: false }]);
+        const block = bubble.querySelector('.aparte-segment-thinking')!;
+        const panel = block.querySelector('.aparte-thinking-content')!;
+        const rail = getComputedStyle(block);
+        const indent = getComputedStyle(panel);
+        return {
+            railRight: parseFloat(rail.borderRightWidth),
+            railLeft: parseFloat(rail.borderLeftWidth),
+            right: parseFloat(indent.paddingRight),
+            left: parseFloat(indent.paddingLeft),
+            dir: getComputedStyle(panel).direction,
+            blockDir: rail.direction,
+            bubbleDir: getComputedStyle(bubble).direction,
+        };
+    });
+    expect(sides.dir, 'the panel reads its English text left to right').toBe('ltr');
+    // The rail is the block's `border-inline-start` (zero wide by default; a theme draws it): the block's side.
+    expect(sides.blockDir, 'the block follows the chat').toBe('rtl');
+    expect(sides.right, 'the indent is beside the rail').toBeGreaterThan(sides.left);
+});
+
+test('a compact weather card clears its accent bar on the bar\'s side', async ({ page }) => {
+    // The 4px bar is at `inset-inline-start` (the right, here), and the extra 4px clearing it was
+    // a physical `padding-left`: the gap sat on the far side.
+    await rightToLeft(page);
+    await page.goto('/?scenario&plugin-card');
+    const chat = new ChatPage(page);
+    await chat.send('what is the weather?');
+    await page.locator('.aparte-elic-panel.aparte-approval-panel').locator('.aparte-approval-option--affirm').click();
+    // A weather card drawn: its stylesheet is on the page.
+    await expect(page.locator('.aparte-weather__location').first()).toBeVisible({ timeout: 15000 });
+    const pad = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.setAttribute('dir', 'rtl');
+        host.innerHTML = '<div class="aparte-weather__compact">x</div>';
+        document.body.appendChild(host);
+        const style = getComputedStyle(host.firstElementChild!);
+        return { right: parseFloat(style.paddingRight), left: parseFloat(style.paddingLeft) };
+    });
+    expect(pad.right).toBeGreaterThan(pad.left);
+});

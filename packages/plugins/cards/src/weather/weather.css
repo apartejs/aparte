@@ -364,7 +364,9 @@
   display: flex;
   align-items: center;
   gap: var(--aparte-space-5);
-  padding: var(--aparte-space-4) var(--aparte-space-6) var(--aparte-space-4) calc(var(--aparte-space-6) + 4px);
+  /* Logical: the extra 4px clears the accent bar, which sits at `inset-inline-start`. */
+  padding-block: var(--aparte-space-4);
+  padding-inline: calc(var(--aparte-space-6) + 4px) var(--aparte-space-6);
 }
 
 .aparte-weather__compact .aparte-weather__icon {
