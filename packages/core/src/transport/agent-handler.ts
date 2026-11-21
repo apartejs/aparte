@@ -274,6 +274,9 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
         const key = await options.resolveKey?.(providerId);
         const external = new Set(clientTools.map((t) => t.name));
         const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool, turn);
+        // The gate's ruling of each call, by id, with the input it was handed (the very object
+        // the refusal is handed): the reason a refusal gives comes from the ruling that refused.
+        const ruled = new Map<string, { input: unknown; ruling: ReturnType<typeof rule> }>();
 
         const run = new AbortController();
         if (req.signal.aborted) run.abort();
@@ -353,6 +356,8 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                                     return Boolean(t.tool.needsApproval);
                                 };
                                 const ruling = rule(call as AparteToolCall);
+                                // Kept for the refusal's reason: the policy is asked once per call.
+                                ruled.set(call.id, { input: call.input, ruling });
                                 // A policy that rules asynchronously: the loop waits for it, holding the
                                 // calls after this one. One that fails asks the page, never runs the call.
                                 return typeof (ruling as { then?: unknown } | undefined)?.then === 'function'
@@ -362,11 +367,16 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                         };
                     },
                     // Reached only for a server `deny`: an `ask` is deferred to the page.
-                    approvalResolver: async (call) => ({
-                        approved: false,
-                        reason: (await Promise.resolve(rule(call as AparteToolCall)).catch(() => undefined))?.reason?.trim() || 'Tool execution was refused by the server policy.',
-                        by: 'policy',
-                    }),
+                    approvalResolver: async (call) => {
+                        const known = ruled.get(call.id);
+                        const ruling = known !== undefined && known.input === call.input ? known.ruling : rule(call as AparteToolCall);
+                        ruled.delete(call.id);
+                        return {
+                            approved: false,
+                            reason: (await Promise.resolve(ruling).catch(() => undefined))?.reason?.trim() || 'Tool execution was refused by the server policy.',
+                            by: 'policy',
+                        };
+                    },
                     deferral: { outcomes },
                     emitter,
                     signal: run.signal,

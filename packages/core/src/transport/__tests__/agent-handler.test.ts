@@ -584,6 +584,33 @@ describe('a server policy that rules asynchronously', () => {
         })(post(firstBody()));
         const all = await lines(res);
         expect(ran).toEqual([]);
-        expect(all.find((l) => l.type === 'tool-rejected' || (l.type === 'tool-resolved' && String(l['result']).includes('Not on this server.')))).toBeTruthy();
+        expect(all.find((l) => l.type === 'tool-rejected')).toMatchObject({ toolCallId: 'c1', reason: 'Not on this server.', by: 'policy' });
+    });
+
+    it('is asked once per call: the ruling that refused is the one that gives the reason', async () => {
+        ran.length = 0;
+        let rulings = 0;
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [deleteTool],
+            approvalPolicy: () => { rulings += 1; return Promise.resolve({ verdict: 'deny' as const, reason: 'Not on this server.' }); },
+        })(post(firstBody()));
+        await lines(res);
+        expect(rulings).toBe(1);
+    });
+
+    // A ruling that could not be made is put to the page, never run: even for a tool with no
+    // flag of its own, which the flag alone would have let through.
+    it('that fails defers the call to the page, and the tool does not run', async () => {
+        ran.length = 0;
+        const quiet = { ...deleteTool, tool: { ...deleteTool.tool, needsApproval: false } };
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [quiet],
+            approvalPolicy: () => Promise.reject(new Error('policy service down')),
+        })(post(firstBody()));
+        const all = await lines(res);
+        expect(ran).toEqual([]);
+        expect(all.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'c1', reason: 'approval' }] });
     });
 });
