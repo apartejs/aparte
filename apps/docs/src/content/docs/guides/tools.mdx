@@ -52,7 +52,9 @@ the line the page draws for it.
 
 A tool's `systemPrompt` tells the model when to use it, and its `maxTurns` is the last turn of a
 reply in which it may still run. On the client, `toolTimeoutMs` is the time a handler may take,
-five minutes by default: a call past its turns or its time is stopped, and the reply ends with it.
+five minutes by default, and a tool's own `timeoutMs` replaces it for that tool (`Infinity` is no
+limit): a tool that runs a sub-agent on a slow local model sets a longer one, and the others keep
+the shared bound. A call past its turns or its time is stopped, and the reply ends with it.
 The client's `maxTurns` caps the model's turns in one reply, ten by default, and a reply that
 reaches it ends on an error message. A model whose declared `capabilities` leave out
 `function_calling` gets no tools; a model that declares nothing gets them.

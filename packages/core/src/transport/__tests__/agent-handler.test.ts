@@ -552,3 +552,21 @@ describe('createAparteAgentHandler', () => {
         expect(ran).toEqual(['echo']);
     });
 });
+
+describe('a tool with a time limit of its own, on the server', () => {
+    // The handler hands each tool's own settings to the loop: a tool that runs long (a whole
+    // sub-agent, a command with its own limit) says so, and the run's bound keeps the others.
+    it('runs past the run\'s bound when its own is longer', async () => {
+        const slow = {
+            tool: { name: 'run_subagent', description: 'A long job.', inputSchema: { type: 'object' }, timeoutMs: 1000 },
+            handler: async (call: { id: string }) => {
+                await new Promise((r) => setTimeout(r, 40));
+                return { toolCallId: call.id, content: 'found' };
+            },
+        };
+        const { provider } = scriptedProvider([{ type: 'tool_use', id: 's1', name: 'run_subagent', input: {} }, { type: 'done' }]);
+        const res = await handlerWith(provider, { tools: [slow], toolTimeoutMs: 10 })(post(firstBody()));
+        const seen = (await lines(res)).filter((l) => l.type === 'tool-resolved' || l.type === 'tool-aborted').map((l) => l.type);
+        expect(seen).toEqual(['tool-resolved']);
+    });
+});

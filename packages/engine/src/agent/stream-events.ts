@@ -297,6 +297,14 @@ export interface StreamToolConfig {
      * @default false
      */
     parallel?: boolean;
+    /**
+     * How long one call of this tool may run, in ms, instead of the run's `toolTimeoutMs`: a tool
+     * that runs a whole sub-agent, or a command with a limit of its own, sets a longer one, and
+     * the run's bound keeps protecting the others. `Infinity` means no limit. A sub-agent the
+     * call opens in the background is bounded by it too. When it fires, the call is abandoned
+     * and the run stops, as with the run's bound.
+     */
+    timeoutMs?: number;
 }
 
 /**

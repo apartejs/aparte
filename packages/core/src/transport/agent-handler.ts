@@ -72,7 +72,12 @@ export interface AparteAgentHandlerOptions {
     prepareRequest?: (request: AparteChatRequest, req: Request, turn: AparteTurnContext) => AparteChatRequest | Promise<AparteChatRequest>;
     /** How many model turns one run may take before it stops. @default 10 */
     maxTurns?: number;
-    /** How long one tool call may run, in milliseconds, before it is abandoned. @default 300000 (5 minutes) */
+    /**
+     * How long one tool call may run, in milliseconds, unless its tool sets its own (`tool.timeoutMs`).
+     * When it fires, the call is abandoned and the run stops: the model reads nothing for that
+     * call, since a handler that ignores its signal may still be running. `Infinity` means no limit.
+     * @default 300000 (5 minutes)
+     */
     toolTimeoutMs?: number;
     /**
      * Run together the calls of one reply whose tools say `parallel: true` (`tool.parallel`).
@@ -340,6 +345,7 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                         return {
                             ...(t.tool.maxTurns !== undefined ? { maxTurns: t.tool.maxTurns } : {}),
                             ...(t.tool.parallel !== undefined ? { parallel: t.tool.parallel } : {}),
+                            ...(t.tool.timeoutMs !== undefined ? { timeoutMs: t.tool.timeoutMs } : {}),
                             needsApproval: (call) => {
                                 const ruling = rule(call as AparteToolCall);
                                 if (ruling?.verdict === 'allow') return false;

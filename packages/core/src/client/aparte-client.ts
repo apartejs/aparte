@@ -2099,6 +2099,7 @@ export class AparteClient {
             return {
                 maxTurns: tool.maxTurns,
                 parallel: tool.parallel,
+                timeoutMs: tool.timeoutMs,
                 needsApproval: hostOwnsDecision
                     ? tool.needsApproval
                     : (call: AparteToolCall) => {

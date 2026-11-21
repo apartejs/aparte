@@ -55,6 +55,14 @@ export interface AparteTool {
      * @default false
      */
     parallel?: boolean;
+    /**
+     * How long one call of this tool may run, in milliseconds, instead of the client's (or the
+     * server handler's) `toolTimeoutMs`: a tool that runs a whole sub-agent, or a command with a
+     * limit of its own, sets a longer one, and the shared bound keeps protecting the other tools.
+     * `Infinity` means no limit. When it fires, the call is abandoned and the reply ends, as with
+     * the shared bound: a handler that ignores its signal may still be running.
+     */
+    timeoutMs?: number;
 }
 
 /**

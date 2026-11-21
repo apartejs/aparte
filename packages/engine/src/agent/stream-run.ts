@@ -72,7 +72,14 @@ export interface StreamRunOptions {
     signal: AbortSignal;
     /** Global turn cap. @default 10 */
     maxTurns?: number;
-    /** Per-tool-call handler timeout in ms. @default 300000 */
+    /**
+     * How long one tool call may run, in ms, unless its tool sets its own (`StreamToolConfig.timeoutMs`).
+     * When it fires, the call is abandoned (`tool-aborted`, cause `timeout`) and the RUN stops:
+     * a handler that ignores its signal is still running, and the model told "it failed" would
+     * call it again beside it. `Infinity` (or any delay a timer cannot hold, above 2^31-1 ms)
+     * means no limit.
+     * @default 300000
+     */
     toolTimeoutMs?: number;
     /**
      * Run together the calls of one model step whose tools say `parallel: true`
@@ -422,7 +429,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continue;
             }
 
-            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs, runBase);
+            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolConfigLookup?.(tc.name)?.timeoutMs ?? toolTimeoutMs, runBase);
             if (outcome.status === 'aborted') {
                 emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: syntheticId });
                 continueLoop = false;
@@ -1151,7 +1158,8 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         handler,
         { id: call.id, name: call.name, input: effectiveInput },
         signal,
-        ctx.toolTimeoutMs,
+        // The tool's own limit, else the run's.
+        cfg?.timeoutMs ?? ctx.toolTimeoutMs,
         ctx.runBase,
     );
     if (outcome.status === 'aborted') {
@@ -1411,6 +1419,17 @@ function createStep(turn: CallContext) {
     };
 }
 
+/** The longest delay a timer holds: `setTimeout` reads anything above it as zero. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * Call `fn` after `ms`, or never when `ms` is no bound: `Infinity`, or a delay a timer cannot hold,
+ * which `setTimeout` would have fired at once.
+ */
+function afterBound(fn: () => void, ms: number): ReturnType<typeof setTimeout> | undefined {
+    return Number.isFinite(ms) && ms <= MAX_TIMER_MS ? setTimeout(fn, ms) : undefined;
+}
+
 async function invokeToolHandler(
     handler: StreamToolHandler,
     call: StreamToolCall,
@@ -1466,7 +1485,7 @@ async function invokeToolHandler(
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let expired = false;
     const timedOut = new Promise<{ status: 'aborted'; cause: 'timeout' }>((resolve) => {
-        timeout = setTimeout(() => {
+        timeout = afterBound(() => {
             expired = true;
             controller.abort();
             resolve({ status: 'aborted', cause: 'timeout' });
@@ -1475,7 +1494,7 @@ async function invokeToolHandler(
 
     // The call's own signal, not the run's: a sub-agent the handler opens ends with the
     // call, on a Stop and on this timeout alike.
-    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal);
+    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal, toolTimeoutMs);
     // What the handler threw, when it crashed: the sub-agents it left open end `failed` with it.
     let crash: { error: unknown } | undefined;
 
@@ -1532,7 +1551,7 @@ const isRunLevel = (event: StreamRunEvent): event is RunLevelEvent => RUN_LEVEL.
  * `closeOpen`, which ends the sub-agents the call opened that are still open, the latest first
  * (ending one that is closed already does nothing).
  */
-function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal): {
+function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal, boundMs?: number): {
     run: StreamToolRun;
     closeOpen: StreamAgentHandle['end'];
 } {
@@ -1543,7 +1562,7 @@ function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortS
             ...parts,
             startAgent: (info) => {
                 // Not this call's: it outlives it, and the run ends it.
-                if (info.background) return background.open(info);
+                if (info.background) return background.open(info, boundMs);
                 const handle = openAgent(emitter, base.idGen('agent'), info.detached ? undefined : toolCallId, info, callSignal);
                 opened.push(handle);
                 return handle;
@@ -1634,7 +1653,8 @@ interface BackgroundAgent {
 
 /** The run's sub-agents in the background: opened by its tools, waited for and stopped by it. */
 interface Background {
-    open(info: { name?: string; description?: string }): StreamAgentHandle;
+    /** `boundMs`: the time limit of the call that opened it, which bounds it as it bounds the call. */
+    open(info: { name?: string; description?: string }, boundMs?: number): StreamAgentHandle;
     /** Stop every one at work, and refuse any opened afterwards: the run is over. */
     close(): void;
     /** Whether one is still at work, or is back and the model has not been told. */
@@ -1653,7 +1673,7 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
     let closed = false;
     const atWork = (): boolean => agents.some((a) => !a.ended);
     return {
-        open(info) {
+        open(info, boundMs) {
             const stop = new AbortController();
             // A run that is over, or stopped, starts nothing: a handle closed from the start,
             // with nothing to wait for and nothing to tell (no event, no model call).
@@ -1665,7 +1685,7 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
             // time limit, which bounds a sub-agent held by its call the same way.
             const onRunAbort = (): void => stop.abort();
             runSignal.addEventListener('abort', onRunAbort, { once: true });
-            const timer = setTimeout(() => stop.abort(), timeoutMs);
+            const timer = afterBound(() => stop.abort(), boundMs ?? timeoutMs);
             const agent: BackgroundAgent = { handle: undefined as unknown as StreamAgentHandle, name: info.name, description: info.description, stop, told: false };
             agent.handle = openAgent(emitter, idGen('agent'), undefined, info, stop.signal, (status, detail) => {
                 clearTimeout(timer);
