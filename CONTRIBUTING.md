@@ -314,7 +314,10 @@ The flow:
    - a tag missing: `tag-release --packages`, the package tags pushed first and the umbrella
      tag last;
    - no Release: `scripts/create-release.mjs`, the script `release-notes.yml` runs (a tag
-     pushed with a workflow's token triggers no workflow).
+     pushed with a workflow's token triggers no workflow); then a refresh of the docs on
+     Context7 (`/apartejs/aparte`), with the optional secret **`CONTEXT7_API_KEY`** (a key from
+     the Context7 dashboard). Without the secret the step says so; a refusal is a warning,
+     never a failed release. A release made by hand refreshes nothing: use the library page.
 
    A failed release is finished by re-running that ci run's failed jobs — an expired token
    too, once the secret is updated. Only the push that changed the version publishes it: a

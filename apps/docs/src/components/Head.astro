@@ -19,6 +19,7 @@ import { ogSlug } from '../lib/og-slug';
 import { CHANGELOG_COMPARE } from '../lib/changelog-compare.mjs';
 import { UMAMI_DOMAINS, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import FontPreload from './site/FontPreload.astro';
+import UmamiEvents from './site/UmamiEvents.astro';
 
 const { entry } = Astro.locals.starlightRoute as StarlightRouteData;
 
@@ -95,3 +96,4 @@ const imageAlt = card ? `The ${entry.data.title.toLowerCase()} of @aparte/plugin
 {import.meta.env.PROD && (
   <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID} data-domains={UMAMI_DOMAINS}></script>
 )}
+<UmamiEvents notFound={entry.id === '404'} />

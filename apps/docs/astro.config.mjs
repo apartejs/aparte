@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
@@ -12,6 +13,7 @@ import { guideGroups } from './scripts/lib/guides.mjs';
 import { CHANGELOG_COMPARE } from './src/lib/changelog-compare.mjs';
 import { aparteCodeBlock, rehypeAparteAsides } from './src/lib/markdown.mjs';
 import { LLMS_SETS } from './src/data/llms-sets.mjs';
+import { llmsPageIndex } from './scripts/lib/llms-pages.mjs';
 
 /** Page path → the day its source last changed, kept by scripts/gen-lastmod.mjs and the pre-commit hook. */
 const LASTMOD = JSON.parse(readFileSync(new URL('./src/data/lastmod.json', import.meta.url), 'utf8'));
@@ -342,6 +344,9 @@ export default defineConfig({
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '
             + 'turn — is documented at /guides/bring-your-own-loop/. Plain `content` and '
             + '`segments` are mutually exclusive on a message.',
+            // Then every docs page, one line each, linking to its markdown twin
+            // (`<page>/index.md`): what an agent follows from here (scripts/lib/llms-pages.mjs).
+            llmsPageIndex('https://apartejs.dev'),
           ].join('\n\n'),
           customSets: LLMS_SETS,
           // The generated references are exhaustive by construction (471 variables, every
@@ -394,21 +399,24 @@ export default defineConfig({
       ],
     }),
   ],
-  // Dev only: resolve @aparte/core (and its /styles.css) to TS/CSS source instead of
-  // the built dist, so editing packages/core/src hot-reloads in the docs with NO
-  // rebuild and NO server restart. Mirrors tsconfig.base.json's customConditions, so
-  // Vite and the TS/IDE resolver agree. Only @aparte/core defines this export condition
-  // — every other dependency resolves normally. SSR is left untouched: its condition set
-  // has no `@aparte-workspace/source`, so it keeps resolving the Node-safe build via the
-  // `node` condition (the browser entry touches HTMLElement). Production build (npm
-  // lifecycle != "dev") omits this entirely and consumes the published dist as before.
-  ...(isDev
-    ? {
-        vite: {
-          resolve: {
-            conditions: ['@aparte-workspace/source', 'module', 'browser', 'development|production'],
-          },
-        },
-      }
-    : {}),
+  vite: {
+    resolve: {
+      // starlight-llms-txt's page converter, which the package does not export, for the
+      // markdown twin of each page (src/pages/[...slug]/index.md.ts): the twins say exactly
+      // what llms-full.txt says. Its own routes import the same file, so the plugin's
+      // options reach it. Renamed by an update, it stops the build here.
+      alias: {
+        '@llms-txt/entry-to-markdown': fileURLToPath(new URL('./node_modules/starlight-llms-txt/entryToSimpleMarkdown.ts', import.meta.url)),
+      },
+      // Dev only: resolve @aparte/core (and its /styles.css) to TS/CSS source instead of
+      // the built dist, so editing packages/core/src hot-reloads in the docs with NO
+      // rebuild and NO server restart. Mirrors tsconfig.base.json's customConditions, so
+      // Vite and the TS/IDE resolver agree. Only @aparte/core defines this export condition
+      // — every other dependency resolves normally. SSR is left untouched: its condition set
+      // has no `@aparte-workspace/source`, so it keeps resolving the Node-safe build via the
+      // `node` condition (the browser entry touches HTMLElement). Production build (npm
+      // lifecycle != "dev") omits this entirely and consumes the published dist as before.
+      ...(isDev ? { conditions: ['@aparte-workspace/source', 'module', 'browser', 'development|production'] } : {}),
+    },
+  },
 });

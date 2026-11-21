@@ -12,7 +12,7 @@
  * behaviour, so it never pays for one; before the upgrade, the narrow drawer stays hidden
  * (site-frame.css) rather than flashing open as a column.
  */
-import { SECTIONS } from './sections';
+import { SECTIONS, splitWordmark } from './sections';
 
 interface Props {
     section?: string | undefined;
@@ -28,11 +28,22 @@ const { section, label, hasTree } = Astro.props;
 <aparte-sidebar class="aparte-sidebar site-nav" id="site-nav" data-has-tree={hasTree ? '' : undefined} data-pagefind-ignore>
     <nav class="site-nav__sections" aria-label="Sections">
         {
-            SECTIONS.map((s) => (
-                <a class="site-nav__section" href={s.href} aria-current={s.id === section ? 'true' : undefined}>
-                    {s.label}
-                </a>
-            ))
+            SECTIONS.map((s) => {
+                const current = s.id === section ? 'true' : undefined;
+                if (!s.apart) {
+                    return (
+                        <a class="site-nav__section" href={s.href} aria-current={current}>
+                            {s.label}
+                        </a>
+                    );
+                }
+                const [lead, word] = splitWordmark(s.label);
+                return (
+                    <a class="site-made site-nav__made" href={s.href} aria-current={current}>
+                        {lead}<span class="site-made__word">{word}</span>
+                    </a>
+                );
+            })
         }
     </nav>
     {

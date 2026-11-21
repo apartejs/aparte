@@ -21,13 +21,10 @@
             }
         },
         "test": {
-            "executor": "@nx/vite:test",
-            "outputs": [
-                "{options.reportsDirectory}"
-            ],
+            "executor": "nx:run-commands",
             "options": {
-                "reportsDirectory": "../../../coverage/packages/plugins/diff",
-                "cwd": "packages/plugins/diff"
+                "command": "vitest run",
+                "cwd": "{projectRoot}"
             }
         },
         "typecheck": {

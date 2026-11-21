@@ -1,0 +1,13 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="bonaparte">
+  <!-- bonaparte's mascot, at rest: aparté's ('.') in brass under a bicorne in the app's accent, whose
+       cockade is its light; dark tokens from the app's theme/tokens.css (the hat is its lightened accent). The bicorne and the braid are the app's own paths (viewBox 0 0 120 100). -->
+  <title>bonaparte</title>
+  <rect width="128" height="128" rx="28" fill="#17141c"/>
+  <g transform="translate(19 14) scale(0.75)">
+    <path d="M6 48C22 44 30 13 60 12C90 13 98 44 114 48C96 51 80 55 60 55C40 55 24 51 6 48Z" fill="#6BB2C8"/>
+    <path d="M15 46C29 41 36 19 60 18C84 19 91 41 105 46" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+    <circle cx="60" cy="30" r="7" fill="#D9A24B"/>
+    <circle cx="60" cy="30" r="3" fill="#FFF4DC"/>
+  </g>
+  <text x="64" y="96" font-family="Georgia, 'Times New Roman', serif" font-size="34" text-anchor="middle" fill="#D9A24B">(<tspan fill="#E7C588">'.'</tspan>)</text>
+</svg>

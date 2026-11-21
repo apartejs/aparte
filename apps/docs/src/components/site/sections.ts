@@ -14,6 +14,12 @@ export interface Section {
     href: string;
     /** The URL prefixes whose pages belong here. */
     prefixes: string[];
+    /**
+     * Drawn apart from the others, as a brass pill whose last word is the wordmark: what is
+     * made with the library is not a part of its documentation. The header shows it only where
+     * the row has room for it (site-frame.css); the drawer and the footer always do.
+     */
+    apart?: boolean;
 }
 
 export const SECTIONS: Section[] = [
@@ -28,7 +34,15 @@ export const SECTIONS: Section[] = [
     // No sidebar: where the library is going, one page.
     { id: 'roadmap', label: 'Roadmap', href: '/roadmap/', prefixes: ['/roadmap/'] },
     { id: 'reference', label: 'Reference', href: '/reference/', prefixes: ['/reference/', '/changelog/'] },
+    // No sidebar: what is made with the library, one page. Last, and apart.
+    { id: 'products', label: 'Made with aparté', href: '/products/', prefixes: ['/products/'], apart: true },
 ];
+
+/** A label whose last word is the wordmark, split so the wordmark can wear its own face. */
+export function splitWordmark(label: string): [lead: string, word: string] {
+    const at = label.lastIndexOf(' ');
+    return [label.slice(0, at + 1), label.slice(at + 1)];
+}
 
 /**
  * Starlight names a sidebar group it builds from a folder after the folder, and takes no other
