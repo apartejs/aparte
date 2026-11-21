@@ -1153,9 +1153,10 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    */
   setStep(name: string | null, detail?: Record<string, unknown>): void {
     const next = typeof name === 'string' && name.trim() ? name.trim() : null;
-    // A new `detail` for the same step is new words: its label is asked again.
+    // A `detail` is asked again every time, the same object included: a producer may change it in
+    // place. Only a bare step already shown is nothing new.
     const about = next ? detail : undefined;
-    if (next === this._step && about === this._stepDetail) return;
+    if (next === this._step && about === undefined && this._stepDetail === undefined) return;
     this._step = next;
     this._stepDetail = about;
     this._updateWaiting();

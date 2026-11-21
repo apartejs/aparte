@@ -311,7 +311,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let shownStep: { name: string; detail?: Record<string, unknown> } | null = null;
     const showStep = (): void => {
         const next = steps.at(-1) ?? null;
-        if (next?.name === shownStep?.name && next?.detail === shownStep?.detail) return;
+        // The entry, not its detail: an update makes a new one, so a detail changed in place
+        // (the same object handed again) is drawn again too.
+        if (next === shownStep) return;
         shownStep = next;
         if (next?.detail) target.setStep?.(messageId, next.name, next.detail);
         else target.setStep?.(messageId, next?.name ?? null);

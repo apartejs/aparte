@@ -54,6 +54,44 @@ describe('a step with data', () => {
         expect(t.steps.at(-1)?.[1]).toBeNull();
     });
 
+    // A producer that keeps one detail object and changes it in place, as a loop in the page may:
+    // the update carried the same reference, and nothing was drawn again.
+    it('an update with the same object, changed in place, is drawn again', () => {
+        const t = target();
+        const emit = createStreamAdapter({ target: t, config: new AparteConfig(), messageId: 'm1' });
+        const detail: Record<string, unknown> = { holder: 'Login refactor' };
+        emit({ type: 'step-start', name: 'slot-wait', detail } as AparteStreamRunEvent);
+        detail['holder'] = 'Docs pass';
+        emit({ type: 'step-update', name: 'slot-wait', detail } as AparteStreamRunEvent);
+        expect(t.steps).toHaveLength(2);
+    });
+
+    // Two open steps of one name nest: an update speaks for the latest, the one shown, and the
+    // outer one is shown again as it was once the inner one ends.
+    it('an update of nested steps of one name changes the inner one, and the outer one comes back as it was', () => {
+        const t = target();
+        const emit = createStreamAdapter({ target: t, config: new AparteConfig(), messageId: 'm1' });
+        emit({ type: 'step-start', name: 'search', detail: { q: 'a' } } as AparteStreamRunEvent);
+        emit({ type: 'step-start', name: 'search', detail: { q: 'b' } } as AparteStreamRunEvent);
+        emit({ type: 'step-update', name: 'search', detail: { q: 'c' } } as AparteStreamRunEvent);
+        expect(t.steps.at(-1)).toEqual(['m1', 'search', { q: 'c' }]);
+        emit({ type: 'step-end', name: 'search' });
+        expect(t.steps.at(-1)).toEqual(['m1', 'search', { q: 'a' }]);
+    });
+
+    it('the bubble draws a detail changed in place again', () => {
+        aparteGlobalConfig.registerStepLabel('slot-wait', (ctx) => `Waiting: ${String(ctx.detail?.['holder'])}`);
+        const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & { setStep(name: string | null, detail?: Record<string, unknown>): void };
+        bubble.setAttribute('data-role', 'assistant');
+        bubble.setAttribute('streaming', '');
+        document.body.appendChild(bubble);
+        const detail: Record<string, unknown> = { holder: 'Login refactor' };
+        bubble.setStep('slot-wait', detail);
+        detail['holder'] = 'Docs pass';
+        bubble.setStep('slot-wait', detail);
+        expect(bubble.querySelector('.aparte-waiting-step')?.textContent).toBe('Waiting: Docs pass');
+    });
+
     it('is drawn with a label that reads the detail and the reply\'s id, and drawn again when it changes', () => {
         const told: AparteStepLabelContext[] = [];
         aparteGlobalConfig.registerStepLabel('slot-wait', (ctx) => {
