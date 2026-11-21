@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { runStreamAgent } from '../stream-run';
-import { runSubAgent } from '../sub-agent';
+import { runSubAgent, startSubAgent } from '../sub-agent';
 import type { StreamRunEvent, StreamToolHandler } from '../stream-events';
 import { ask, done, scripted, text, toolUse } from './sub-agent-script';
 
@@ -50,6 +50,25 @@ describe('a sub-agent cut short', () => {
         const { returned, end } = await delegate([[text('Looking.'), toolUse('x1', 'missing_tool')]]);
         expect(returned).toMatchObject({ status: 'partial', reason: 'no-handler' });
         expect(end).toMatchObject({ status: 'partial', reason: 'no-handler' });
+    });
+
+    it('in the background tells the model it was cut short, why, and what it found', async () => {
+        const { transportCall, requests } = scripted({
+            parent: [[toolUse('d1', 'delegate'), done], [text('Waiting.'), done], [text('It was cut.'), done]],
+            child: [[text('Reading the parser.'), toolUse('r1', 'read')]],
+        });
+        const inBackground: StreamToolHandler = async (_call, _signal, run) => {
+            startSubAgent(run!, { name: 'Reader', request: ask('child'), maxTurns: 1 });
+            return { content: 'Started.' };
+        };
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: (name) => (name === 'delegate' ? inBackground : read),
+            emitter: () => {}, signal: new AbortController().signal,
+        });
+        const report = String(requests.filter((r) => r.modelId === 'parent')[2]!.messages.at(-1)!.content);
+        expect(report).toContain('Sub-agent "Reader" was cut short (turn-limit)');
+        expect(report).toContain('Reading the parser.');
     });
 
     it('that answered is done, as before', async () => {

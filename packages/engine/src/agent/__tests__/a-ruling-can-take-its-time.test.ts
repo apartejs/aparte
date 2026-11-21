@@ -70,4 +70,41 @@ describe('a ruling that takes its time', () => {
         expect(order.indexOf('read ran')).toBeGreaterThan(order.indexOf('write ruled'));
         expect(order).toContain('write ran');
     });
+
+    it.each([false, 'ask'] as const)('stopped while it rules (%s), the call neither runs nor asks, and the run stops', async (ruling) => {
+        const events: StreamRunEvent[] = [];
+        const ran: string[] = [];
+        const asked: string[] = [];
+        const controller = new AbortController();
+        const { transportCall } = scripted({ parent: [[toolUse('w1', 'write')], [done]] });
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: (name) => async () => { ran.push(name); return { content: 'ok' }; },
+            toolConfigLookup: () => ({ needsApproval: () => { controller.abort(); return later(ruling); } }),
+            approvalResolver: async (call) => { asked.push(call.id); return { approved: true }; },
+            emitter: (e) => { events.push(e); },
+            signal: controller.signal,
+        });
+        expect(ran).toEqual([]);
+        expect(asked).toEqual([]);
+        expect(events).not.toContainEqual(expect.objectContaining({ type: 'tool-awaiting-approval' }));
+        expect(events).toContainEqual({ type: 'tool-aborted', toolCallId: 'w1', cause: 'stopped' });
+    });
+
+    it('queued behind a pause, a call whose ruling is on its way waits for a person', async () => {
+        const events: StreamRunEvent[] = [];
+        const { transportCall } = scripted({ parent: [[toolUse('d1', 'delete'), toolUse('w1', 'write')]] });
+        await runStreamAgent({
+            messageId: 'm1', baseRequest: ask('parent'), transportCall,
+            toolLookup: () => async () => ({ content: 'ok' }),
+            // A ruling that would fail must not reject unheard: vitest fails the file on one.
+            toolConfigLookup: (name) => ({ needsApproval: name === 'delete' ? true : () => Promise.reject(new Error('policy service down')) }),
+            deferral: {},
+            emitter: (e) => { events.push(e); },
+            signal: new AbortController().signal,
+        });
+        const suspended = events.at(-1) as Extract<StreamRunEvent, { type: 'run-suspended' }>;
+        expect(suspended.type).toBe('run-suspended');
+        expect(suspended.pending.map((p) => [p.toolCallId, p.reason])).toEqual([['d1', 'approval'], ['w1', 'approval']]);
+    });
 });
