@@ -471,6 +471,52 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
                 : [...segments].reverse().find((s) => s.type === 'tool_call' && subagentOf(s)?.id === agentId && goesOn(s)));
     };
 
+    /**
+     * The saved line of a sub-agent anywhere in the reply, with the saved sub-agents it sits
+     * under, outermost first. One a sub-agent opened is saved in that one's transcript: looked
+     * for in the reply's own segments only, it was never found, and its resumed work went to a
+     * second, top-level line.
+     */
+    const savedDeep = (
+        segments: readonly AparteSegment[] | undefined,
+        agentId: string,
+        toolCallId?: string,
+        under: AparteSegment[] = [],
+    ): { anchor: AparteSegment; under: AparteSegment[] } | undefined => {
+        const here = savedAnchor(segments, agentId, toolCallId);
+        if (here) return { anchor: here, under };
+        for (const segment of segments ?? []) {
+            const inner = subagentOf(segment)?.segments;
+            if (!inner?.length) continue;
+            const found = savedDeep(inner, agentId, toolCallId, [...under, segment]);
+            if (found) return found;
+        }
+        return undefined;
+    };
+
+    /**
+     * Take up the saved sub-agents a nested one sits under, outermost first, so its line is found
+     * in its parent's transcript. Returns the id of the one it sits directly under.
+     */
+    const takeUpUnder = (run: Run, under: AparteSegment[], ctx: AparteRunEventContext): string | undefined => {
+        let parentId: string | undefined;
+        for (const anchor of under) {
+            const agent = subagentOf(anchor);
+            if (!agent) return parentId;
+            if (!run.lanes.has(agent.id)) {
+                const call = anchor.type === 'tool_call' ? (anchor as AparteToolCallSegment).toolCall?.id : undefined;
+                startAgent(run, {
+                    type: 'agent-start',
+                    agentId: agent.id,
+                    ...(parentId ? { parentAgentId: parentId } : {}),
+                    ...(call ? { toolCallId: call } : {}),
+                }, ctx);
+            }
+            parentId = agent.id;
+        }
+        return parentId;
+    };
+
     /** A saved sub-agent a resume can take up: one that was waiting or working when it was saved. */
     const goesOn = (anchor: AparteSegment): boolean => {
         const status = subagentStatus(anchor);
@@ -518,6 +564,20 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         }
         if (run.lanes.size >= MAX_LANES) return;
 
+        // Announced again with no parent (an AG-UI runner meeting a tagged event after a reload),
+        // while its saved line sits in a saved sub-agent's transcript: that one is taken up first,
+        // and this one goes on under it.
+        if (!e.parentAgentId && !known && !savedAnchor(hostSegments(run, null), e.agentId, e.toolCallId)) {
+            const deep = savedDeep(hostSegments(run, null), e.agentId, e.toolCallId);
+            if (deep && deep.under.length > 0 && goesOn(deep.anchor)) {
+                const parentAgentId = takeUpUnder(run, deep.under, ctx);
+                if (parentAgentId && run.lanes.has(parentAgentId)) {
+                    startAgent(run, { ...e, parentAgentId }, ctx);
+                    return;
+                }
+            }
+        }
+
         const host = e.parentAgentId ? (run.lanes.get(e.parentAgentId) ?? null) : null;
         const segments = hostSegments(run, host);
         // What the host holds under this id is the retired one's, never this one's to adopt.
@@ -532,7 +592,8 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         if (onCall) run.callAgents.set(callKey, e.agentId);
 
         const previous = saved ? subagentOf(saved) : undefined;
-        const list = createSegmentList({ messageId: run.messageId, ...(previous ? { segments: previous.segments } : {}), config: ctx.config });
+        // A saved line taken up is a pause resumed: its calls waiting for an approval stay open.
+        const list = createSegmentList({ messageId: run.messageId, ...(previous ? { segments: previous.segments, paused: true } : {}), config: ctx.config });
         const lane: Lane = {
             id: e.agentId,
             ...(e.name !== undefined ? { name: e.name } : previous?.name !== undefined ? { name: previous.name } : {}),
@@ -680,10 +741,17 @@ export function createLanes(): { observe: (event: AparteStreamRunEvent, ctx: Apa
         // answering its call through a ticket): its saved line takes it up, while it was waiting
         // or working. Held "until it is announced", its events were dropped at the run's end,
         // and the transcript kept a call that ran as waiting, then Stopped.
-        const saved = savedAnchor(hostSegments(run, null), agentId as string);
-        if (saved && goesOn(saved)) {
+        const deep = savedDeep(hostSegments(run, null), agentId as string);
+        if (deep && goesOn(deep.anchor)) {
+            const saved = deep.anchor;
             const call = saved.type === 'tool_call' ? (saved as AparteToolCallSegment).toolCall?.id : undefined;
-            startAgent(run, { type: 'agent-start', agentId: agentId as string, ...(call ? { toolCallId: call } : {}) }, ctx);
+            const parentAgentId = takeUpUnder(run, deep.under, ctx);
+            startAgent(run, {
+                type: 'agent-start',
+                agentId: agentId as string,
+                ...(parentAgentId ? { parentAgentId } : {}),
+                ...(call ? { toolCallId: call } : {}),
+            }, ctx);
             const resumed = run.lanes.get(agentId as string);
             if (resumed) {
                 feed(run, resumed, event);

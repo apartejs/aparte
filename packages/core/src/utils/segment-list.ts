@@ -48,11 +48,18 @@ export function createSegmentList(opts: {
     messageId: string;
     segments?: readonly AparteSegment[];
     config?: AparteConfig;
+    /**
+     * The saved list is a pause being resumed (a sub-agent saved while it waited): a call it
+     * holds waiting for an approval waits on that pause, and stays open, as in a paused reply.
+     * Adopted as finished history, the call that opened a nested sub-agent read Stopped, and
+     * the sub-agent could not be taken up on it.
+     */
+    paused?: boolean;
 }): AparteSegmentList {
     const { messageId, config } = opts;
     let segments: readonly AparteSegment[] = (opts.segments ?? []).reduce<AparteSegment[]>((acc, segment) => {
         // A list handed over is history: settled, numbered, and never given a time.
-        acc.push(adoptSegment(acc, segment, messageId));
+        acc.push(adoptSegment(acc, segment, messageId, false, opts.paused === true));
         return acc;
     }, []);
     const listeners = new Set<() => void>();
