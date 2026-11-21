@@ -69,3 +69,24 @@ describe('useConversationManager().init, overtaken by a newer one', () => {
         wrapper.unmount();
     });
 });
+
+/** Two saved conversations: `a` started first and changed last, `b` started last and changed first. */
+function twoConversations(): AparteStorageAdapter {
+    const rows = [
+        { id: 'a', title: 'A', createdAt: 1, updatedAt: 30, messages: [] },
+        { id: 'b', title: 'B', createdAt: 2, updatedAt: 10, messages: [] },
+    ] as unknown as AparteConversation[];
+    return { async loadAll() { return rows; }, async save() {}, async delete() {} };
+}
+
+describe('useConversationManager() with orderBy', () => {
+    // The helper sorted its own lists by the latest change again, whatever the manager was told.
+    it('lists in the order the manager was given', async () => {
+        const Probe = defineComponent({ setup(_, { expose }) { const cm = useConversationManager(); expose({ cm }); return () => null; } });
+        const wrapper = mount(Probe);
+        const cm = (wrapper.vm as unknown as { cm: ReturnType<typeof useConversationManager> }).cm;
+        await cm.init(twoConversations(), new AparteConfig(), { orderBy: 'created' });
+        expect(cm.activeConversations.value.map((c) => c.id)).toEqual(['b', 'a']);
+        wrapper.unmount();
+    });
+});

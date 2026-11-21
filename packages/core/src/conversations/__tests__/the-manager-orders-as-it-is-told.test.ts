@@ -49,4 +49,12 @@ describe('the order of the manager\'s lists', () => {
         await m.init();
         expect(ids(m.activeConversations)).toEqual(['a', 'b', 'c']);
     });
+
+    // What a framework helper sorts its own reactive list with.
+    it('is the same through compare, for a list sorted elsewhere', async () => {
+        const m = new AparteConversationManager(adapter(CONVS), { orderBy: 'created' });
+        await m.init();
+        const elsewhere = [...m.activeConversations].reverse().sort((a, b) => m.compare(a, b));
+        expect(ids(elsewhere)).toEqual(ids(m.activeConversations));
+    });
 });

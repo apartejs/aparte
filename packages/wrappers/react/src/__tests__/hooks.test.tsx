@@ -243,3 +243,21 @@ describe('useConversationManager().init, overtaken by a newer one', () => {
         expect(result.current.activeId).toBe(newer!.activeId);
     });
 });
+
+/** Two saved conversations: `a` started first and changed last, `b` started last and changed first. */
+function twoConversations(): AparteStorageAdapter {
+    const rows = [
+        { id: 'a', title: 'A', createdAt: 1, updatedAt: 30, messages: [] },
+        { id: 'b', title: 'B', createdAt: 2, updatedAt: 10, messages: [] },
+    ] as unknown as AparteConversation[];
+    return { async loadAll() { return rows; }, async save() {}, async delete() {} };
+}
+
+describe('useConversationManager() with orderBy', () => {
+    // The hook sorted its own lists by the latest change again, whatever the manager was told.
+    it('lists in the order the manager was given', async () => {
+        const { result } = renderHook(() => useConversationManager());
+        await act(async () => { await result.current.init(twoConversations(), new AparteConfig(), { orderBy: 'created' }); });
+        expect(result.current.activeConversations.map((c) => c.id)).toEqual(['b', 'a']);
+    });
+});

@@ -384,6 +384,14 @@ export class AparteConversationManager {
         return this._conversations.find(c => c.id === this._activeId) ?? null;
     }
 
+    /**
+     * The order its lists follow (`orderBy`), for a list of its conversations sorted elsewhere:
+     * a framework helper's, which keeps the list as its own reactive state.
+     */
+    compare(a: AparteConversation, b: AparteConversation): number {
+        return this._order(a, b);
+    }
+
     /** Active conversations (not archived), in `orderBy`'s order: newest change first by default. */
     get activeConversations(): AparteConversation[] {
         return this._conversations

@@ -74,3 +74,23 @@ describe('AparteConversations.init, overtaken by a newer one', () => {
         expect(conversations.activeId).toBe(newer!.activeId);
     });
 });
+
+/** Two saved conversations: `a` started first and changed last, `b` started last and changed first. */
+function twoConversations(): AparteStorageAdapter {
+    const rows = [
+        { id: 'a', title: 'A', createdAt: 1, updatedAt: 30, messages: [] },
+        { id: 'b', title: 'B', createdAt: 2, updatedAt: 10, messages: [] },
+    ] as unknown as AparteConversation[];
+    return { async loadAll() { return rows; }, async save() {}, async delete() {} };
+}
+
+describe('AparteConversations (Svelte 5) with orderBy', () => {
+    // Its lists sorted by the latest change again, whatever the manager was told.
+    it('lists in the order the manager was given', async () => {
+        const conversations = new AparteConversations();
+        await conversations.init(twoConversations(), new AparteConfig(), { orderBy: 'created' });
+        flushSync();
+        expect(conversations.activeConversations.map((c) => c.id)).toEqual(['b', 'a']);
+        conversations.dispose();
+    });
+});
