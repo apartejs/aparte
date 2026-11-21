@@ -95,4 +95,25 @@ describe('an element defined after its component mounts', () => {
         expect(seen).toEqual([rows]);
         expect(Object.prototype.hasOwnProperty.call(ref.current, 'data')).toBe(false);
     });
+
+    // Rendered again before the definition arrives: the element gets the latest value, never the
+    // first one it was handed.
+    it('hands the latest value, after renders before it is defined', async () => {
+        const seen: unknown[] = [];
+        const spec: AparteElementSpec<Record<never, never>, { data?: unknown }, Record<never, never>> = {
+            tag: 'fx-late-twice', attributes: [], properties: ['data'], events: [], initial: [],
+        };
+        const Late = createAparteElement(spec);
+        const first = [{ id: 1 }];
+        const latest = [{ id: 2 }];
+        const { rerender } = render(<Late data={first} />);
+        rerender(<Late data={latest} />);
+        class FxLateTwice extends HTMLElement {
+            set data(value: unknown) { seen.push(value); }
+            get data(): unknown { return seen.at(-1); }
+        }
+        customElements.define('fx-late-twice', FxLateTwice);
+        await act(async () => { await customElements.whenDefined('fx-late-twice'); await Promise.resolve(); });
+        expect(seen.at(-1)).toBe(latest);
+    });
 });
