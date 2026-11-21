@@ -41,6 +41,16 @@ import { AparteBubbleDirective } from './aparte-bubble.directive';
 import { AparteChatEvents } from '../generated/chat-events';
 
 /**
+ * A default-ON input: unset (`undefined`, `null`) keeps it ON, as React, Vue and Svelte do.
+ * `booleanAttribute(undefined)` is `false`, so a binding to a field that is not always set
+ * (`[elicitation]="opts.elicitation"`) turned the default off: no presenter, and every call
+ * needing approval aborted with nothing on screen to click.
+ */
+function onUnlessFalse(value: unknown): boolean {
+    return value === undefined || value === null ? true : booleanAttribute(value);
+}
+
+/**
  * AparteChatComponent — the Angular wrapper (19.2 to 21, zone or zoneless)
  *
  * Standalone component wrapping aparté Web Components with Angular Signals.
@@ -310,7 +320,7 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
     readonly disabled = input(false, { transform: booleanAttribute });
 
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
-    readonly submitOnEnter = input(true, { transform: booleanAttribute });
+    readonly submitOnEnter = input<boolean, unknown>(true, { transform: onUnlessFalse });
     /** Where a key goes when it is typed while no field has the caret: `chat` (the default) returns it to the input after a click or a selection in the chat, `page` from anywhere in the page, `off` never. */
     readonly typeToFocus = input<AparteTypeToFocus>('chat');
     /** A key that stops the reply being written while the focus is in the composer, as Stop does: `'Escape'`. None by default; a key that something inside took first (the `/` menu, a select, a question) stays theirs. */
@@ -398,7 +408,7 @@ export class AparteChatComponent extends AparteChatEvents implements AfterViewIn
      * when you mount a presenter of your own (`setElicitationPresenter`) or place the
      * element yourself.
      */
-    readonly elicitation = input(true, { transform: booleanAttribute });
+    readonly elicitation = input<boolean, unknown>(true, { transform: onUnlessFalse });
 
     /** Whether the assistant is currently typing/streaming. The host turns it off on the first token. */
     readonly isTypingInput = input(false, { alias: 'isTyping', transform: booleanAttribute });

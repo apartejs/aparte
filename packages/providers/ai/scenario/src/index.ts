@@ -291,16 +291,21 @@ function play(
     const steps = stepsOf(turn);
     const inputChars = request.messages.reduce((n, m) => n + textOf(m).length, 0);
     /*
-     * The id the loop gives each call of this model call. It renames a repeat within one
-     * model call (`id`, then `id#2`, …) so that each call has its own row and history slot,
-     * and the handler is handed the RENAMED id. Scripts are filed under that same name, by
-     * the same rule applied to the same sequence of calls, so two `subagents` steps that
-     * share an `id` in one turn still find their own scripts.
+     * The id the loop gives each call of this model call. It renames a repeat within the
+     * REPLY (`id`, then `id_2`, …): an id an earlier model call of the same reply holds, or one
+     * repeated in this one. Each call has its own row and history slot, and the handler is
+     * handed the RENAMED id. Scripts are filed under that same name, by the same rule applied
+     * to the same calls: seeded, as the loop's set is, with the calls in the history after the
+     * person's last message. Seeded per model call only, a reply's second `subagents` step
+     * under an id its first one used was filed under `id` and asked for under `id#2`.
      */
-    const idsThisCall = new Set<string>();
+    const lastPerson = request.messages.map((m) => m.role).lastIndexOf('user');
+    const idsThisCall = new Set<string>(
+        request.messages.slice(lastPerson + 1).flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => c.id) : [])),
+    );
     const loopIdOf = (raw: string): string => {
         let id = raw;
-        for (let n = 2; idsThisCall.has(id); n++) id = `${raw}#${n}`;
+        for (let n = 2; idsThisCall.has(id); n++) id = `${raw}_${n}`;
         idsThisCall.add(id);
         return id;
     };
@@ -523,6 +528,12 @@ type Outcome = Awaited<ReturnType<typeof runSubAgent>>;
 
 const reportOf = (agent: ScenarioSubagent, outcome: Outcome, alone: boolean): string => {
     if (outcome.status === 'done' && outcome.text) return alone ? outcome.text : `${agent.name}: ${outcome.text}`;
+    // Its own run stopped before it answered: what it found is still what the parent reads.
+    if (outcome.status === 'partial') {
+        const found = outcome.text.trim() || '(it wrote nothing)';
+        const what = `was cut short (${outcome.reason ?? 'its run stopped'}) before it finished. What it found: ${found}`;
+        return alone ? `${agent.name} ${what}` : `${agent.name}: ${what}`;
+    }
     const what = outcome.status === 'failed' ? `failed (${outcome.error ?? 'no reason given'})`
         : outcome.status === 'done' ? 'finished without an answer'
             : 'was stopped before it answered';

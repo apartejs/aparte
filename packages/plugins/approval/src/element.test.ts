@@ -81,6 +81,32 @@ describe('<aparte-approval-mode>', () => {
         expect(select(el)?.value).toBe('auto');
     });
 
+    // An app that keeps each conversation's mode sets it by code when the person switches
+    // conversations. Only the person's own pick is a change to send: a value set by code, on the
+    // controller or late on the select itself, came out as one, and the app saved a mode nobody
+    // chose for the conversation now shown (apartejs/aparte#295).
+    it('announces only a person\'s pick, never a mode or a select value set by code', async () => {
+        const approval = setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
+        const el = mount();
+        const announced = vi.fn();
+        el.addEventListener('aparte-approval-mode-change', (e) => announced((e as CustomEvent).detail));
+
+        approval.setMode('auto');
+        approval.setMode('plan');
+        // The previous conversation's mode, landing late on the select, by property and by attribute.
+        select(el)!.value = 'ask';
+        select(el)!.setAttribute('value', 'auto');
+        // An echo may come a task later: waited for.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(announced).not.toHaveBeenCalled();
+        expect(approval.getMode()).toBe('plan');
+
+        select(el)!.dispatchEvent(new CustomEvent('aparte-select-change', {
+            bubbles: true, detail: { value: 'ask', label: 'Ask', previousValue: 'auto' },
+        }));
+        expect(announced).toHaveBeenCalledTimes(1);
+    });
+
     it('a removed element stops listening — the controller does not retain it', () => {
         const approval = setupApproval({ classify, mode: 'ask' }, aparteGlobalConfig);
         const el = mount();

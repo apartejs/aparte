@@ -10,6 +10,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { createAparteAgentHandler, type AparteAgentHandlerOptions } from '../agent-handler.js';
+import { createAgentStreamRunner } from '../../client/agent-runner.js';
+import { runSubAgent } from '../../client/stream-adapter.js';
 import { readNdjson } from '../../utils/ndjson.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 
@@ -229,6 +231,49 @@ describe('createAparteAgentHandler', () => {
         expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
     });
 
+    // A server tool's SDK error can carry an HTTP status of its own (413 from an upload API): the
+    // run failed on the tool, not on the person's message, which must not read "too large" nor be
+    // dropped from the next request.
+    it("reads a crashing tool's own HTTP status as the tool's failure, not the model call's", async () => {
+        const upload = {
+            tool: { name: 'upload_report', description: 'Upload.', inputSchema: { type: 'object' } },
+            handler: async () => { throw Object.assign(new Error('Payload Too Large'), { status: 413 }); },
+        };
+        const { provider } = scriptedProvider([{ type: 'tool_use', id: 'u1', name: 'upload_report', input: {} }, { type: 'done' }]);
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(provider, { tools: [upload] })(post(firstBody())));
+        errorSpy.mockRestore();
+        expect(out.find((l) => l.type === 'tool-failed')).toMatchObject({ toolCallId: 'u1' });
+        expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
+    });
+
+    // A step's data over the wire, end to end: written by the handler, read back by the page's
+    // runner. It was tested past the engine only, where nothing crosses JSON.
+    it('carries a step\'s detail and its update to the page\'s runner', async () => {
+        const { provider } = scriptedProvider([
+            { type: 'step-start', name: 'search', detail: { q: 'parser' } },
+            { type: 'step-update', name: 'search', detail: { q: 'lexer' } },
+            { type: 'step-end', name: 'search' },
+            { type: 'text', delta: 'Found.' },
+            { type: 'done' },
+        ]);
+        const res = await handlerWith(provider)(post(firstBody()));
+        const heard: { type: string }[] = [];
+        await createAgentStreamRunner({ endpoint: '/api/agent', fetch: (async () => res) as unknown as typeof fetch })({
+            messageId: 'm1', providerId: 'fake',
+            baseRequest: { messages: [user], modelId: 'x', stream: true },
+            transportCall: async () => { throw new Error('never called'); },
+            toolLookup: () => undefined,
+            emitter: (e: { type: string }) => { heard.push(e); },
+            signal: new AbortController().signal,
+        } as never);
+        expect(heard.filter((e) => e.type.startsWith('step-'))).toEqual([
+            { type: 'step-start', name: 'search', detail: { q: 'parser' } },
+            { type: 'step-update', name: 'search', detail: { q: 'lexer' } },
+            { type: 'step-end', name: 'search' },
+        ]);
+    });
+
     it('stops the run when the client disconnects', async () => {
         const { provider } = scriptedProvider([{ type: 'hang' }]);
         const client = new AbortController();
@@ -342,6 +387,31 @@ describe('createAparteAgentHandler', () => {
         errorSpy.mockRestore();
         expect(JSON.stringify(out)).not.toContain('/srv/secrets');
         expect(out.find((l) => l.type === 'tool-failed')).toMatchObject({ toolCallId: 'r1', error: 'The tool failed.' });
+    });
+
+    // The same text, from a sub-agent's own tool: the sub-agent failed on it, and its end carried
+    // the raw message to the page, where its line drew it and the conversation saved it.
+    it("keeps a server sub-agent's error text on the server too", async () => {
+        const failingTool = {
+            tool: { name: 'read_file', description: 'Read.', inputSchema: { type: 'object' } },
+            handler: async () => { throw new Error('ENOENT: /srv/secrets/db.env'); },
+        };
+        const research = {
+            tool: { name: 'research', description: 'Research.', inputSchema: { type: 'object' } },
+            handler: async (call: { id: string }, signal: AbortSignal, ctx: { run?: unknown }) => {
+                await runSubAgent(ctx.run as never, { name: 'Researcher', request: { messages: [{ role: 'user', content: 'go' }] } as never }, signal);
+                return { toolCallId: call.id, content: 'done' };
+            },
+        };
+        const { provider } = scriptedProvider(
+            [{ type: 'tool_use', id: 'r1', name: 'research', input: {} }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'c1', name: 'read_file', input: {} }, { type: 'done' }],
+        );
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(provider, { tools: [research as never, failingTool] })(post(firstBody())));
+        errorSpy.mockRestore();
+        expect(out.find((l) => l.type === 'agent-end')).toMatchObject({ status: 'failed' });
+        expect(JSON.stringify(out)).not.toContain('/srv/secrets');
     });
 
     it('hands a server tool the request, so it can check who is calling', async () => {
@@ -550,5 +620,67 @@ describe('createAparteAgentHandler', () => {
             prepareRequest: (request) => ({ ...request, messages: [{ role: 'system', content: 'Be brief.' }, ...request.messages] }),
         })(post(firstBody())));
         expect(ran).toEqual(['echo']);
+    });
+});
+
+describe('a tool with a time limit of its own, on the server', () => {
+    // The handler hands each tool's own settings to the loop: a tool that runs long (a whole
+    // sub-agent, a command with its own limit) says so, and the run's bound keeps the others.
+    it('runs past the run\'s bound when its own is longer', async () => {
+        const slow = {
+            tool: { name: 'run_subagent', description: 'A long job.', inputSchema: { type: 'object' }, timeoutMs: 1000 },
+            handler: async (call: { id: string }) => {
+                await new Promise((r) => setTimeout(r, 40));
+                return { toolCallId: call.id, content: 'found' };
+            },
+        };
+        const { provider } = scriptedProvider([{ type: 'tool_use', id: 's1', name: 'run_subagent', input: {} }, { type: 'done' }]);
+        const res = await handlerWith(provider, { tools: [slow], toolTimeoutMs: 10 })(post(firstBody()));
+        const seen = (await lines(res)).filter((l) => l.type === 'tool-resolved' || l.type === 'tool-aborted').map((l) => l.type);
+        expect(seen).toEqual(['tool-resolved']);
+    });
+});
+
+describe('a server policy that rules asynchronously', () => {
+    // On the server a promise was ignored: the tool's own flag decided, and a `deny` on a tool with
+    // no flag let the call run.
+    it('refuses with its reason, and the tool does not run', async () => {
+        ran.length = 0;
+        const quiet = { ...deleteTool, tool: { ...deleteTool.tool, needsApproval: false } };
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [quiet],
+            approvalPolicy: () => new Promise((resolve) => setTimeout(() => resolve({ verdict: 'deny', reason: 'Not on this server.' }), 5)),
+        })(post(firstBody()));
+        const all = await lines(res);
+        expect(ran).toEqual([]);
+        expect(all.find((l) => l.type === 'tool-rejected')).toMatchObject({ toolCallId: 'c1', reason: 'Not on this server.', by: 'policy' });
+    });
+
+    it('is asked once per call: the ruling that refused is the one that gives the reason', async () => {
+        ran.length = 0;
+        let rulings = 0;
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [deleteTool],
+            approvalPolicy: () => { rulings += 1; return Promise.resolve({ verdict: 'deny' as const, reason: 'Not on this server.' }); },
+        })(post(firstBody()));
+        await lines(res);
+        expect(rulings).toBe(1);
+    });
+
+    // A ruling that could not be made is put to the page, never run: even for a tool with no
+    // flag of its own, which the flag alone would have let through.
+    it('that fails defers the call to the page, and the tool does not run', async () => {
+        ran.length = 0;
+        const quiet = { ...deleteTool, tool: { ...deleteTool.tool, needsApproval: false } };
+        const { provider } = scriptedProvider(turnCallingDelete);
+        const res = await handlerWith(provider, {
+            tools: [quiet],
+            approvalPolicy: () => Promise.reject(new Error('policy service down')),
+        })(post(firstBody()));
+        const all = await lines(res);
+        expect(ran).toEqual([]);
+        expect(all.at(-1)).toMatchObject({ type: 'run-suspended', pending: [{ toolCallId: 'c1', reason: 'approval' }] });
     });
 });

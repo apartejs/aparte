@@ -708,13 +708,26 @@ export class AparteLauncher extends HTMLElement {
      * leaves the key to the dialog, which is the answer that loses nothing.
      */
     private _inModalDialog(e: Event): boolean {
-        const dialog = (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
-        if (!dialog || !this.contains(dialog)) return false;
+        // Along the key's whole path: from a field inside a component's own shadow root,
+        // `closest()` stops at that root and finds no dialog around it.
+        const dialog = e.composedPath?.().find((node): node is HTMLDialogElement => node instanceof HTMLDialogElement && node.open)
+            ?? (eventOrigin(e) as Element | null)?.closest?.('dialog[open]');
+        // The card's own, across shadow roots: a design system's dialog element draws its
+        // `<dialog>` in its shadow root, where `contains()` does not reach.
+        if (!dialog || !this._holds(dialog)) return false;
         try {
             return dialog.matches(':modal');
         } catch {
             return true;
         }
+    }
+
+    /** Whether `node` is inside this launcher, through the hosts of the shadow roots it is in. */
+    private _holds(node: Node): boolean {
+        for (let at: Node | null = node; at; at = at.parentNode ?? (at instanceof ShadowRoot ? at.host : null)) {
+            if (at === this) return true;
+        }
+        return false;
     }
 
     /** A sidebar open as a drawer inside the card: Escape closes it before it closes the chat. */

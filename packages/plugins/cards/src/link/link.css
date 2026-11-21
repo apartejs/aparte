@@ -200,7 +200,9 @@
   align-items: center;
   gap: var(--aparte-space-1);
   margin-inline-start: auto;
-  padding: var(--aparte-space-1) var(--aparte-space-3) var(--aparte-space-1) var(--aparte-space-2);
+  /* Logical: the tighter side is the icon's, at the start, in a right-to-left chat too. */
+  padding-block: var(--aparte-space-1);
+  padding-inline: var(--aparte-space-2) var(--aparte-space-3);
   border-radius: var(--aparte-radius-full);
   background: color-mix(in oklab, var(--aparte-text) 6%, transparent);
   color: var(--aparte-text-muted);

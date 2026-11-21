@@ -854,7 +854,18 @@ export class AparteScrollRail extends HTMLElement {
 
     private _scrollTo(bubble: HTMLElement): void {
         const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-        bubble.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+        const behavior: ScrollBehavior = reduced ? 'auto' : 'smooth';
+        // The transcript only. `scrollIntoView` aligns the bubble in EVERY scrolling ancestor, the
+        // page included: a chat embedded in a page that scrolls moved the whole page on each tick,
+        // its own header pushed out of view. The surface is scrolled by the distance to the
+        // message, measured from where `_settle` aims: its top, below its scroll padding.
+        const surface = this._scrollSurface();
+        if (surface && typeof surface.scrollTo === 'function') {
+            const aim = surface.getBoundingClientRect().top + (parseFloat(getComputedStyle(surface).scrollPaddingTop) || 0);
+            surface.scrollTo({ top: surface.scrollTop + bubble.getBoundingClientRect().top - aim, behavior });
+            return;
+        }
+        bubble.scrollIntoView({ block: 'start', behavior });
     }
 
     /** Keep `id` as the mark until the scroll surface has been still for `SETTLE_MS`. */

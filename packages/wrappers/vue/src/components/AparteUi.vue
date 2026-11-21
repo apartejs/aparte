@@ -29,7 +29,7 @@ let cleanups: Array<() => void> = [];
 // Vue passes `toRaw` so objects are unwrapped from the reactive proxy before
 // reaching the plain custom element (a deep proxy breaks Maps/class internals).
 function applyProps() {
-  if (el) applyElementProps(el, p.props ?? {}, toRaw);
+  if (el) applyElementProps(el, p.props ?? {}, toRaw, { replace: true });
 }
 
 function create() {

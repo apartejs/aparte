@@ -52,7 +52,7 @@ the first signing and all verifying.
 | `clientTools` | whether the page's own tools are accepted: `true` (the default), `false`, or a list of names |
 | `prepareRequest(request, req, turn)` | rewrites the request before the run, on every request a resume included: a model, a temperature, a system prompt. A tool you remove from `request.tools` does not run, even if the model names it. `turn` is `{ messageId, conversationId }`, as the page sent them |
 | `allowedOrigins` | the origins of your pages, such as `['https://app.example.com']`: a request from any other `Origin` is refused with a 403, before `authorize` |
-| `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default; a tool's own `maxTurns` applies too |
+| `maxTurns`, `toolTimeoutMs` | the model's turns in one run, ten by default — a resume after a pause counts again — and a tool's time, five minutes by default. A tool's own `maxTurns` and `timeoutMs` apply instead; `Infinity` is no limit. When a call outlives its time it is abandoned and the run stops: the model reads nothing for it, since a handler that ignores its signal may still be running |
 | `parallelTools` | run together the calls of one reply whose tools say `parallel: true`, `true` by default; `false` runs every call one after another |
 | `ticketMaxAgeMs` | how long a paused run can wait, seven days by default |
 | `onTicket(id)` | a check on each resume; `false` refuses it with a 409 |
@@ -229,7 +229,7 @@ What it changes depends on the code of the turn's error, the one the reply's err
   the first token: the message that failed is kept, and the next request sends it joined to the
   new message, with a blank line between them. The failed reply itself is never sent.
 - **The same request would fail again** — `USAGE_CONTEXT_EXCEEDED`, `PROVIDER_POLICY`,
-  `USAGE_BAD_REQUEST`: the message is left out of every later request, with every message that went
+  `USAGE_BAD_REQUEST`, `USAGE_TOO_LARGE` (a 413): the message is left out of every later request, with every message that went
   out with it, or the conversation could not go on.
 - **The message carried files**: it is left out too. The history sends a message's text and never
   the files a send read, so the next request would ask about a file the model is not shown.
@@ -313,6 +313,13 @@ A sub-agent's call cannot ask a person here: the run on the server pauses rather
 sub-agent lives inside one tool call, which has to answer. Its call that needs a decision is
 stopped, with the cause `no-resolver`. Put `needsApproval` on the tool that opens the sub-agent
 instead: that one pauses the run like any other server tool.
+
+A host that lives as long as the conversation (an Electron main process, a desktop app's own
+server) can run the loop itself instead: [`runStreamAgent`](/guides/engine/) with no `deferral` and an
+`approvalResolver` that waits for the person's answer (over IPC, say). The run then waits rather
+than pauses, `run.canAsk` is true, and a sub-agent's calls ask like any other, the call that opened
+it holding until they are answered. A stateless server cannot do this: resuming a sub-agent there
+would mean keeping its whole conversation between two requests.
 
 ## Open a file in the page when a server tool runs
 

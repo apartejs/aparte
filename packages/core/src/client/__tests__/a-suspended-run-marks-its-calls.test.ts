@@ -12,6 +12,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { createStreamAdapter } from '../stream-adapter.js';
 import { aparteGlobalConfig } from '../../config/index.js';
 import { adoptSegment, adoptMessageSegments } from '../../utils/segments.js';
+import { wireTurns } from '../wire-history.js';
 import type { AparteSegment, AparteMessage } from '../../types/index.js';
 
 function target() {
@@ -95,5 +96,22 @@ describe('adoptSegment on reload', () => {
         expect(live.segments![0]).toMatchObject({ status: 'pending' });
         const saved = adoptMessageSegments({ id: 'm1', status: 'completed', segments: [call({ status: 'pending' })] });
         expect(saved.segments![0]).toMatchObject({ status: 'aborted' });
+    });
+
+    it("keeps the call that opened a paused sub-agent open, waiting or running, and the resume hands it back open", () => {
+        // A sub-agent paused on its own call: the reply carries `deferredCalls`, and the call
+        // that opened the sub-agent waits on the same pause. @aparte/plugin-subagents marks it
+        // `awaiting-approval` while the sub-agent's question is up; adopted as `aborted`, the
+        // resume told the model "The tool call was stopped before it ran." for a delegation
+        // whose sub-agent was about to go on.
+        const spawn = { ...call({ status: 'awaiting-approval' }), id: 'tool-spawn', toolCall: { id: 'spawn', name: 'delegate', input: {} } } as AparteSegment;
+        const paused = adoptMessageSegments({
+            id: 'm1', role: 'assistant', status: 'completed',
+            deferredCalls: [{ toolCallId: 'd1', name: 'delete_file', input: {}, reason: 'approval' }],
+            segments: [spawn],
+        } as AparteMessage);
+        expect(paused.segments![0]).toMatchObject({ status: 'awaiting-approval' });
+        const resumed = wireTurns(paused, () => '', { openDeferred: true });
+        expect(resumed.filter((m) => m.role === 'tool' && m.toolCallId === 'spawn')).toEqual([]);
     });
 });

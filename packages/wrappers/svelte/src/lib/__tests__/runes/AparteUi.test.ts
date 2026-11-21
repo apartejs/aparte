@@ -41,6 +41,21 @@ describe('<AparteUi> for Svelte 5, handed an equal prop bag', () => {
     });
 });
 
+describe('<AparteUi> for Svelte 5, handed a bag a key left', () => {
+    // A key that leaves the bag (`{ ...(busy && { disabled: true }) }` once busy ends) is cleared:
+    // the wrapper hands the WHOLE bag (`replace`). Written key by key, the attribute stayed.
+    it('clears that key', () => {
+        const { container, component } = render(PropsBagHost, { props: { initial: { mode: 'ask' } } });
+        flushSync();
+        const host = component as unknown as { hand(next: Record<string, unknown>): void };
+        const el = container.querySelector('fx-probe') as FxProbe;
+        expect(el.hasAttribute('mode')).toBe(true);
+        host.hand({});
+        flushSync();
+        expect(el.hasAttribute('mode')).toBe(false);
+    });
+});
+
 describe('<AparteUi> for Svelte 5', () => {
     it('mounts the tag, sets its props and forwards its events through the callback prop', () => {
         const onelementEvent = vi.fn();

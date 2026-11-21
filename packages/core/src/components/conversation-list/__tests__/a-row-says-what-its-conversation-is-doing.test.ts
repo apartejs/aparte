@@ -147,3 +147,18 @@ describe('a list that connects late', () => {
         el.setConversationStatus('c2', null);
     });
 });
+
+describe('a conversation whose turn is queued', () => {
+    // Sent, and waiting its turn behind another conversation's (a local engine that serves one turn
+    // at a time, a backend's queue). Read as running it shimmered and said "Answering", though
+    // nothing was being written.
+    it('says so: no shimmer, its mark shown, and its own words', async () => {
+        const el = await mount();
+        (el.setConversationStatus as (id: string, status: string | null) => void)('c1', 'queued');
+        expect(row(el, 'c1').getAttribute('data-status')).toBe('queued');
+        expect(title(el, 'c1').classList.contains('aparte-shimmer')).toBe(false);
+        expect(heard(el, 'c1')).toBe('Queued');
+        (el.setConversationStatus as (id: string, status: string | null) => void)('c1', 'running');
+        expect(title(el, 'c1').classList.contains('aparte-shimmer')).toBe(true);
+    });
+});

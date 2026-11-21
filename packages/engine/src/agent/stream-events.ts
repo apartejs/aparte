@@ -109,8 +109,10 @@ export type StreamChatEvent =
      * forwards it as the run event of the same name. Steps may nest and overlap; one is
      * identified by its name.
      */
-    | { type: 'step-start'; name: string }
+    | { type: 'step-start'; name: string; /** What the step is about, for its label ("who holds the engine"): data, never words. */ detail?: Record<string, unknown> }
     | { type: 'step-end'; name: string }
+    /** The latest open step of that name says something new (`detail`): its words change in place. */
+    | { type: 'step-update'; name: string; detail?: Record<string, unknown> }
     /**
      * Structured progress the agent reports ("3 of 5 sources read"): `id` names the activity,
      * `activityType` what kind it is, `content` its WHOLE current value — sent again, whole,
@@ -273,8 +275,12 @@ export interface StreamToolConfig {
      * `tool-awaiting-approval` — and `'deny'` means the decision is already made: the
      * resolver is still consulted (it is the one channel that carries the refusal
      * sentence back), but nothing is announced, since nobody is being asked.
+     *
+     * The predicate may answer with a promise, for a ruling that needs a lookup: while it
+     * rules, the calls made after this one wait, as they wait for a person's answer, and a
+     * ruling that fails asks a person rather than letting the call run.
      */
-    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny');
+    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny' | PromiseLike<boolean | 'ask' | 'deny'>);
     /**
      * Known to the model, executed elsewhere — a browser tool behind a server loop.
      * The loop never looks up a handler for it: with `deferral` the call waits for its
@@ -297,6 +303,14 @@ export interface StreamToolConfig {
      * @default false
      */
     parallel?: boolean;
+    /**
+     * How long one call of this tool may run, in ms, instead of the run's `toolTimeoutMs`: a tool
+     * that runs a whole sub-agent, or a command with a limit of its own, sets a longer one, and
+     * the run's bound keeps protecting the others. `Infinity` means no limit. A sub-agent the
+     * call opens in the background is bounded by it too. When it fires, the call is abandoned
+     * and the run stops, as with the run's bound.
+     */
+    timeoutMs?: number;
 }
 
 /**
@@ -478,18 +492,23 @@ export type StreamRunEvent =
      * A sub-agent begins. `toolCallId` is the call that opened it, when one did;
      * `parentAgentId` the sub-agent that opened it, when it is not the run's own.
      */
-    | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string }
+    | { type: 'agent-start'; agentId: string; name?: string; description?: string; parentAgentId?: string; toolCallId?: string; /** The model it runs on, when its producer says. */ model?: string }
     /** A sub-agent ends, once: `result` is what it answered, `error` why it failed. */
-    | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; parentAgentId?: string }
+    | { type: 'agent-end'; agentId: string; status: StreamAgentStatus; result?: string; error?: string; reason?: StreamAgentCutReason; parentAgentId?: string }
     /**
      * A named step of the work begins ("Searching the repository"), announced by the model's
      * stream, a runner or a sub-agent; the loop only forwards it. Steps may nest and overlap
      * (AG-UI allows both): one is identified by its `name` within its owner, the run or the
      * sub-agent `agentId` names. Live only — nothing of it is stored or sent to the model.
      */
-    | { type: 'step-start'; name: string; agentId?: string }
+    | { type: 'step-start'; name: string; agentId?: string; /** What the step is about, handed to its label. */ detail?: Record<string, unknown> }
     /** The step of that name ends: the latest one open under that name, for that owner. */
     | { type: 'step-end'; name: string; agentId?: string }
+    /**
+     * The latest open step of that name, for that owner, says something new: its `detail` is
+     * replaced and its words are asked again. A second `step-start` would open another step.
+     */
+    | { type: 'step-update'; name: string; agentId?: string; detail?: Record<string, unknown> }
     /**
      * Structured progress the agent reports, announced by the model's stream, a runner or a
      * sub-agent; the loop only forwards it. `id` names the activity within its owner,
@@ -515,9 +534,19 @@ export type StreamRunEmitter = (event: StreamRunEvent) => void;
 
 /**
  * How a sub-agent ended. `waiting` is one paused for a decision (a runner that relays an
- * agent elsewhere reports it); `stopped` one cut short by a Stop or its call's timeout.
+ * agent elsewhere reports it); `stopped` one cut short by a Stop or its call's timeout;
+ * `partial` one whose own run stopped before it answered (its turn limit, a call it could not
+ * make), which hands over what it wrote as its `result`, with why in `reason`.
  */
-export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped';
+export type StreamAgentStatus = 'done' | 'failed' | 'waiting' | 'stopped' | 'partial';
+
+/**
+ * Why a sub-agent ended `partial`: its turn limit, a call its run abandoned (its time limit,
+ * no handler for it, a decision nobody could take, or `aborted`: the call stopped itself, a tool
+ * that cancelled its own work, while nobody stopped the run), or its context nearly full, which
+ * a host running its own loop can tell.
+ */
+export type StreamAgentCutReason = 'turn-limit' | 'timeout' | 'no-handler' | 'no-resolver' | 'aborted' | 'context';
 
 /**
  * The run a tool call belongs to, handed to its handler as the third argument. What a tool
@@ -546,7 +575,7 @@ export interface StreamToolRun {
      * and the run waits for it before it ends — then tells the model how it ended. What
      * `startSubAgent` opens; only where `canBackground` says so.
      */
-    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean }): StreamAgentHandle;
+    startAgent(info: { name?: string; description?: string; detached?: boolean; background?: boolean; model?: string }): StreamAgentHandle;
     readonly transportCall: StreamRunOptions['transportCall'];
     readonly toolLookup: StreamRunOptions['toolLookup'];
     readonly toolConfigLookup?: StreamRunOptions['toolConfigLookup'];
@@ -589,5 +618,5 @@ export interface StreamAgentHandle {
      */
     emit(event: StreamRunEvent): void;
     /** Emit `agent-end`, once; later calls, and later events, are ignored. */
-    end(status: StreamAgentStatus, detail?: { result?: string; error?: string }): void;
+    end(status: StreamAgentStatus, detail?: { result?: string; error?: string; reason?: StreamAgentCutReason }): void;
 }

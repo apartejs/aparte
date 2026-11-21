@@ -38,8 +38,10 @@ inside the menu, because it is the one action you cannot undo.
 
 A row says what its conversation is doing. `running`: an AI is answering in it, and its title
 [shimmers](/components/shimmer/). `waiting`: its turn waits for the person, a server run paused
-on a question or an approval, and a mark sits beside the title. A screen reader hears the state
-with the title ("Answering", "Waiting for you", in the reader's language).
+on a question or an approval, and a mark sits beside the title. `queued`: its turn is sent but waits
+behind another conversation's (a local engine that serves one turn at a time, a backend's queue): a
+muted mark, and no shimmer, since nothing is being written yet. A screen reader hears the state with
+the title ("Answering", "Waiting for you", "Queued", in the reader's language).
 
 With a [conversation controller](/guides/conversation-persistence/) you write nothing: it sends
 `aparte-conversation-status` on `window` as each turn starts (`running`), pauses on the page
@@ -51,6 +53,16 @@ same events:
 const list = document.querySelector('aparte-conversation-list');
 list.setConversationStatus('c1', 'running');
 list.setConversationStatus('c1', null);   // neither
+```
+
+Only your app knows a turn is queued: say `queued` when your backend puts it in line, and
+`running` when it is served. A turn that starts while its conversation is `queued` stays so: the
+controller's `running` at the start does not take it back, and its end (or a pause) still clears
+it.
+
+```js
+list.setConversationStatus('c2', 'queued');   // sent, waiting behind c1
+list.setConversationStatus('c2', 'running');  // served: the reply starts
 ```
 
 `running` is always the conversation on screen: opening another one stops the turn. `waiting` is
@@ -182,6 +194,40 @@ A target no conversation is in yet has no heading to drop on: **Move to…** rea
 `moveTargets`, which is the default, the menu and the rows are what they were: nothing is draggable
 and no item is added. `manage` does not carry a move out, since a group is your data, not the
 conversation manager's.
+
+#### One list per group
+
+An app that draws its own heading over each project (one that folds, counts its rows, carries a
+"+") renders one `flat` list per project. Give each list the key of its project in `drop-key`:
+its rows with no `group` are in that project, a row dragged onto the list moves there, from
+another list of the page too, and a row dropped back on its own list moves nothing. The move is
+the same `aparte-conversation-move`, sent by the list the row lands on, with the key of the list it
+came from in `from`. A list with no rows still takes a drop.
+
+```html
+<aparte-conversation-list flat drop-key="p-launch"></aparte-conversation-list>
+<aparte-conversation-list flat drop-key="p-docs"></aparte-conversation-list>
+```
+
+Each list's `moveTargets` are the other projects, which is what **Move to…** offers on its rows. A
+row being dragged carries its conversation's id under `APARTE_CONVERSATION_DRAG_TYPE`, so an element
+of your own (a project's heading) can take it too:
+
+```ts
+import { APARTE_CONVERSATION_DRAG_TYPE } from '@aparte/core';
+
+// Your app writes the move, then assigns the lists' `conversations` again.
+function moveToProject(conversationId: string, projectKey: string): void { /* … */ }
+
+const heading = document.querySelector<HTMLElement>('[data-project="p-docs"]')!;
+heading.addEventListener('dragover', (e: DragEvent) => {
+    if (e.dataTransfer?.types.includes(APARTE_CONVERSATION_DRAG_TYPE)) e.preventDefault();
+});
+heading.addEventListener('drop', (e: DragEvent) => {
+    const id = e.dataTransfer?.getData(APARTE_CONVERSATION_DRAG_TYPE);
+    if (id) moveToProject(id, heading.dataset.project ?? '');
+});
+```
 
 ### Marks of your own on a row
 

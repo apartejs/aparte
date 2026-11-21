@@ -40,6 +40,7 @@ import type {
     StreamToolRun,
     StreamAgentHandle,
     StreamAgentStatus,
+    StreamAgentCutReason,
 } from './stream-events.js';
 import { chainTurns, createTurnstile, gateOf, inTurn, type Turnstile } from './approval-turn.js';
 
@@ -72,7 +73,14 @@ export interface StreamRunOptions {
     signal: AbortSignal;
     /** Global turn cap. @default 10 */
     maxTurns?: number;
-    /** Per-tool-call handler timeout in ms. @default 300000 */
+    /**
+     * How long one tool call may run, in ms, unless its tool sets its own (`StreamToolConfig.timeoutMs`).
+     * When it fires, the call is abandoned (`tool-aborted`, cause `timeout`) and the RUN stops:
+     * a handler that ignores its signal is still running, and the model told "it failed" would
+     * call it again beside it. `Infinity` (or any delay a timer cannot hold, above 2^31-1 ms)
+     * means no limit.
+     * @default 300000
+     */
     toolTimeoutMs?: number;
     /**
      * Run together the calls of one model step whose tools say `parallel: true`
@@ -358,6 +366,28 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
     }
 
+    /*
+     * A call id must be unique WITHIN the reply: the transcript keys a row on it (`tool-${id}`,
+     * and `updateSegment` takes the first match) and the history files a `tool` message under
+     * it. A vendor that omits `id` used to give every call of a turn the same one; and one that
+     * has ids minted per stream (openai-compat for a server that sends none) starts again at the
+     * same id on the next model call. Either way the second call's result was written onto the
+     * first call's row, the second row stayed pending, and the next request filed both answers
+     * under one id. So the ids are the reply's: every call of this run, and the calls the request
+     * already carries after the person's last message (a resume's, made before the pause). An
+     * earlier reply's ids are left alone: its rows are in another message. A repeat is renamed
+     * rather than refused — the model asked for both.
+     */
+    const lastPerson = messages.map((m) => m.role).lastIndexOf('user');
+    const idsThisReply = new Set<string>(messages.slice(lastPerson + 1).flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => c.id) : [])));
+    const uniqueCallId = (raw: string): string => {
+        let id = raw;
+        // `_`, not `#`: the id goes back to the vendor, and Anthropic takes only `[a-zA-Z0-9_-]`.
+        for (let n = 2; idsThisReply.has(id); n++) id = `${raw}_${n}`;
+        idsThisReply.add(id);
+        return id;
+    };
+
     // ── outer (turn) loop — one iteration = one transport call ────────────────
     while (continueLoop) {
         // Abort at the top of a turn: no stream open yet, so no cancel needed. The
@@ -400,7 +430,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continue;
             }
 
-            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolTimeoutMs, runBase);
+            const outcome = await invokeToolHandler(handler, { id: syntheticId, name: tc.name, input: tc.input }, signal, toolConfigLookup?.(tc.name)?.timeoutMs ?? toolTimeoutMs, runBase);
             if (outcome.status === 'aborted') {
                 emitter(outcome.cause ? { type: 'tool-aborted', toolCallId: syntheticId, cause: outcome.cause } : { type: 'tool-aborted', toolCallId: syntheticId });
                 continueLoop = false;
@@ -527,21 +557,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         const syncEnvelopeText = (): void => {
             if (envelope) envelope.content = precedingText.trim();
         };
-        /*
-         * A call id must be unique WITHIN the turn: the transcript keys a row on it
-         * (`tool-${id}`, and `updateSegment` takes the first match) and the history
-         * files a `tool` message under it. A vendor that omits `id` used to give every
-         * call of a turn the same one, so the second call's result was written onto the
-         * first call's row and the pair could not be matched at all on the next turn.
-         * A repeat is renamed rather than refused — the model asked for both.
-         */
-        const idsThisTurn = new Set<string>();
-        const uniqueCallId = (raw: string): string => {
-            let id = raw;
-            for (let n = 2; idsThisTurn.has(id); n++) id = `${raw}#${n}`;
-            idsThisTurn.add(id);
-            return id;
-        };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
         // Checked on BOTH sides of the read, and the second check is the one that
@@ -635,9 +650,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continue;
                 }
 
-                if (event.type === 'step-start' || event.type === 'step-end') {
+                if (event.type === 'step-start' || event.type === 'step-end' || event.type === 'step-update') {
                     // Not the loop's to read: passed on for whoever shows the run.
-                    emitter({ type: event.type, name: event.name });
+                    const detail = event.type === 'step-end' ? undefined : event.detail;
+                    emitter({ type: event.type, name: event.name, ...(detail ? { detail } : {}) } as StreamRunEvent);
                     continue;
                 }
 
@@ -731,15 +747,19 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 if (settled.stopRun) continueLoop = false;
             }
 
-            // Turn boundary: finalize the parser (flush residual text). Mirrors
-            // `_streamLoop`'s `textParser.finalize()` call — runs on normal
-            // end AND abort-break, but NOT after a thrown `error` (which escapes
-            // this try before reaching here, exactly like `_streamLoop`).
+            // Turn boundary: finalize the parser (flush residual text), on a normal end and on
+            // an abort-break. A thrown error leaves through the catch below, which flushes too.
             emitter({ type: 'text-flush' });
             // Everything this turn streamed belongs to the turn, including what came
             // after the call that opened the envelope.
             syncEnvelopeText();
 
+        } catch (error) {
+            // A call that fails ends its text too: what the parser holds (the end of an open
+            // fence, a lone backtick) is the reply's last words, shown beside the error that
+            // cut them. Left unflushed, a reply cut by a mid-stream error lost them.
+            emitter({ type: 'text-flush' });
+            throw error;
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator,
             // however it fails on the way out (see `bailOnAbort`). Not awaited while a read
@@ -838,6 +858,29 @@ export function unansweredTail(messages: readonly StreamAgentMessage[]): StreamT
     return [];
 }
 
+/** A promise, or anything that answers like one. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+    return typeof (value as { then?: unknown } | null)?.then === 'function';
+}
+
+/**
+ * A ruling on its way, awaited until a Stop. A ruling gets no signal (a policy is handed the
+ * call, the tool and the turn), so a lookup that hangs would hold the run past a Stop: the loop
+ * stops listening instead, and the ruling's late outcome goes unheard. One that fails is `'ask'`:
+ * a ruling that could not be made never runs the call.
+ */
+function ruledUnlessStopped(ruling: PromiseLike<unknown>, signal: AbortSignal): Promise<unknown> {
+    return new Promise((resolve) => {
+        const onStop = (): void => resolve(undefined);
+        if (signal.aborted) onStop();
+        else signal.addEventListener('abort', onStop, { once: true });
+        Promise.resolve(ruling).then(
+            (value) => { signal.removeEventListener('abort', onStop); resolve(value); },
+            () => { signal.removeEventListener('abort', onStop); resolve('ask'); },
+        );
+    });
+}
+
 /** Why a call after the pause point waits: what the client must answer, or nothing. */
 function queuedReason(call: StreamToolCall, lookup: StreamRunOptions['toolConfigLookup']): StreamDeferredReason {
     const cfg = lookup?.(call.name);
@@ -845,6 +888,12 @@ function queuedReason(call: StreamToolCall, lookup: StreamRunOptions['toolConfig
     const gated = typeof cfg?.needsApproval === 'function'
         ? cfg.needsApproval({ id: call.id, name: call.name, input: call.input as Record<string, unknown> })
         : cfg?.needsApproval;
+    // A ruling still on its way cannot be read here: the call is put to a person, never run
+    // unasked. Its outcome is not needed, and must not reject unheard.
+    if (isThenable(gated)) {
+        Promise.resolve(gated).catch(() => {});
+        return 'approval';
+    }
     return gated && gated !== 'deny' ? 'approval' : 'queued';
 }
 
@@ -993,9 +1042,21 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
     let effectiveInput = call.input;
 
     // ── HITL approval gate ────────────────────────────────────────
-    const gated = typeof cfg?.needsApproval === 'function'
+    let gated = typeof cfg?.needsApproval === 'function'
         ? cfg.needsApproval({ id: call.id, name: call.name, input })
         : cfg?.needsApproval;
+    if (isThenable(gated)) {
+        // A ruling that needs a lookup. While it rules, the calls made after this one wait, as
+        // they wait for a person's answer: said in the tick the call started, before the step
+        // looks at the next call. A ruling that fails asks a person, never runs the call unasked.
+        ctx.asking?.(true);
+        gated = (await ruledUnlessStopped(gated, signal)) as Awaited<typeof gated>;
+        if (signal.aborted) {
+            ctx.emitter({ type: 'tool-aborted', toolCallId: call.id, cause: 'stopped' });
+            return told(ctx, 'stop-run');
+        }
+        if (!gated) ctx.asking?.(false);
+    }
     if (gated) {
         // A decision a resumed run was handed answers the gate: nobody is asked again.
         // Never a `'deny'`: that one is decided here, and an answer that came back with
@@ -1140,7 +1201,8 @@ async function processCall(call: StreamToolCall, ctx: CallContext): Promise<Call
         handler,
         { id: call.id, name: call.name, input: effectiveInput },
         signal,
-        ctx.toolTimeoutMs,
+        // The tool's own limit, else the run's.
+        cfg?.timeoutMs ?? ctx.toolTimeoutMs,
         ctx.runBase,
     );
     if (outcome.status === 'aborted') {
@@ -1400,6 +1462,17 @@ function createStep(turn: CallContext) {
     };
 }
 
+/** The longest delay a timer holds: `setTimeout` reads anything above it as zero. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * Call `fn` after `ms`, or never when `ms` is no bound: `Infinity`, or a delay a timer cannot hold,
+ * which `setTimeout` would have fired at once.
+ */
+function afterBound(fn: () => void, ms: number): ReturnType<typeof setTimeout> | undefined {
+    return Number.isFinite(ms) && ms <= MAX_TIMER_MS ? setTimeout(fn, ms) : undefined;
+}
+
 async function invokeToolHandler(
     handler: StreamToolHandler,
     call: StreamToolCall,
@@ -1455,7 +1528,7 @@ async function invokeToolHandler(
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let expired = false;
     const timedOut = new Promise<{ status: 'aborted'; cause: 'timeout' }>((resolve) => {
-        timeout = setTimeout(() => {
+        timeout = afterBound(() => {
             expired = true;
             controller.abort();
             resolve({ status: 'aborted', cause: 'timeout' });
@@ -1464,7 +1537,7 @@ async function invokeToolHandler(
 
     // The call's own signal, not the run's: a sub-agent the handler opens ends with the
     // call, on a Stop and on this timeout alike.
-    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal);
+    const { run, closeOpen } = createToolRun(runBase, call.id, controller.signal, toolTimeoutMs);
     // What the handler threw, when it crashed: the sub-agents it left open end `failed` with it.
     let crash: { error: unknown } | undefined;
 
@@ -1521,7 +1594,7 @@ const isRunLevel = (event: StreamRunEvent): event is RunLevelEvent => RUN_LEVEL.
  * `closeOpen`, which ends the sub-agents the call opened that are still open, the latest first
  * (ending one that is closed already does nothing).
  */
-function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal): {
+function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortSignal, boundMs?: number): {
     run: StreamToolRun;
     closeOpen: StreamAgentHandle['end'];
 } {
@@ -1532,7 +1605,7 @@ function createToolRun(base: ToolRunBase, toolCallId: string, callSignal: AbortS
             ...parts,
             startAgent: (info) => {
                 // Not this call's: it outlives it, and the run ends it.
-                if (info.background) return background.open(info);
+                if (info.background) return background.open(info, boundMs);
                 const handle = openAgent(emitter, base.idGen('agent'), info.detached ? undefined : toolCallId, info, callSignal);
                 opened.push(handle);
                 return handle;
@@ -1555,9 +1628,9 @@ function openAgent(
     emitter: StreamRunEmitter,
     agentId: string,
     toolCallId: string | undefined,
-    info: { name?: string; description?: string },
+    info: { name?: string; description?: string; model?: string },
     callSignal: AbortSignal,
-    onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string }) => void,
+    onEnd?: (status: StreamAgentStatus, detail?: { result?: string; error?: string; reason?: StreamAgentCutReason }) => void,
 ): StreamAgentHandle {
     // A call already stopped opens nothing: its `tool-aborted` may be out already.
     let open = !callSignal.aborted;
@@ -1579,6 +1652,7 @@ function openAgent(
             type: 'agent-end', agentId, status,
             ...(detail?.result !== undefined ? { result: detail.result } : {}),
             ...(detail?.error !== undefined ? { error: detail.error } : {}),
+            ...(detail?.reason !== undefined ? { reason: detail.reason } : {}),
         });
         onEnd?.(status, detail);
     };
@@ -1589,6 +1663,7 @@ function openAgent(
             ...(info.name !== undefined ? { name: info.name } : {}),
             ...(info.description !== undefined ? { description: info.description } : {}),
             ...(toolCallId !== undefined ? { toolCallId } : {}),
+            ...(info.model !== undefined ? { model: info.model } : {}),
         });
         callSignal.addEventListener('abort', onAbort, { once: true });
     }
@@ -1617,13 +1692,14 @@ interface BackgroundAgent {
     name?: string;
     description?: string;
     stop: AbortController;
-    ended?: { status: StreamAgentStatus; result?: string; error?: string };
+    ended?: { status: StreamAgentStatus; result?: string; error?: string; reason?: StreamAgentCutReason };
     told: boolean;
 }
 
 /** The run's sub-agents in the background: opened by its tools, waited for and stopped by it. */
 interface Background {
-    open(info: { name?: string; description?: string }): StreamAgentHandle;
+    /** `boundMs`: the time limit of the call that opened it, which bounds it as it bounds the call. */
+    open(info: { name?: string; description?: string; model?: string }, boundMs?: number): StreamAgentHandle;
     /** Stop every one at work, and refuse any opened afterwards: the run is over. */
     close(): void;
     /** Whether one is still at work, or is back and the model has not been told. */
@@ -1642,7 +1718,7 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
     let closed = false;
     const atWork = (): boolean => agents.some((a) => !a.ended);
     return {
-        open(info) {
+        open(info, boundMs) {
             const stop = new AbortController();
             // A run that is over, or stopped, starts nothing: a handle closed from the start,
             // with nothing to wait for and nothing to tell (no event, no model call).
@@ -1654,7 +1730,7 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
             // time limit, which bounds a sub-agent held by its call the same way.
             const onRunAbort = (): void => stop.abort();
             runSignal.addEventListener('abort', onRunAbort, { once: true });
-            const timer = setTimeout(() => stop.abort(), timeoutMs);
+            const timer = afterBound(() => stop.abort(), boundMs ?? timeoutMs);
             const agent: BackgroundAgent = { handle: undefined as unknown as StreamAgentHandle, name: info.name, description: info.description, stop, told: false };
             agent.handle = openAgent(emitter, idGen('agent'), undefined, info, stop.signal, (status, detail) => {
                 clearTimeout(timer);
@@ -1680,6 +1756,8 @@ function createBackground(emitter: StreamRunEmitter, idGen: (prefix: string) => 
                 const ended = a.ended!;
                 if (ended.status === 'done') return `${who} is done:\n${ended.result?.trim() || '(it wrote nothing)'}`;
                 if (ended.status === 'failed') return `${who} failed: ${ended.error ?? 'no reason given'}`;
+                if (ended.status === 'partial') return `${who} was cut short (${ended.reason ?? 'its run stopped'}) before it finished. What it found:
+${ended.result?.trim() || '(it wrote nothing)'}`;
                 return `${who} was stopped before it answered.`;
             });
             return `${back.length === 1 ? 'A sub-agent you started is back.' : 'The sub-agents you started are back.'}\n\n${lines.join('\n\n')}`;

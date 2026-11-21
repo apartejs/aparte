@@ -158,3 +158,21 @@ test('a reply being written has one caret, after its own words, none in a sub-ag
     expect(carets).toEqual(['Checking the notes now']);
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
+
+test('a sub-agent line under a line, its disclosure wrapped beside its Open button, looks as it would on its own', async ({ page }) => {
+    // A line whose sub-agent opened sub-agents of its own: each nested line holds a conversation
+    // AND opens it elsewhere, so its disclosure is wrapped beside the Open button. The state rules
+    // have a branch for that shape (`> .aparte-tool-disclosure > …`); dropped to a descendant, a
+    // failed helper under a resolved lead was painted in the success ink, and nothing nested this
+    // shape to see it.
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/?harness=nested-rows&subagent-transcript&subagent-view&deep&caret');
+    await expect(chat.bubbles('assistant').last().locator('.aparte-segment-text')).not.toHaveCount(0);
+    const wrapped = await page.locator('[data-segment-id^="deep:"] > .aparte-tool-open-slot').count();
+    expect(wrapped, 'nested lines wrapped beside their Open button').toBeGreaterThan(0);
+    const result = await differences(page);
+    expect(result.read, 'calls read under the lines').toBeGreaterThan(196);
+    expect(result.differ, 'calls that look otherwise than on their own').toEqual([]);
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});

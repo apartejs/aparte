@@ -157,7 +157,9 @@ new AparteClient().start();
 `name` is the line's name and `description` its task. `request` is the sub-agent's whole
 conversation — the parent's is not handed on — and `request.tools` is what its model may call, run
 by the handlers registered on the config. `runSubAgent` resolves `{ status, text }`: `'done'`,
-`'failed'` with an `error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
+`'partial'` with a `reason` when its own run stopped before it answered (its turn limit, a call it
+could not make: `text` is then what it found, and the line reads **Cut short**), `'failed'` with an
+`error`, or `'stopped'`, and `text`, what the sub-agent wrote last. It never
 rejects for a sub-agent that failed, so the tool decides what the model reads: what the handler
 returns as `content`, as for any tool. The model never reads the sub-agent's conversation. A
 sub-agent ends with its tool: a handler that returns while one it opened still runs (a `runSubAgent`
@@ -277,7 +279,10 @@ call that opened it:
 {"type":"run-done"}
 ```
 
-`agent-end`'s `status` is `done`, `failed` (with `error`), `waiting` or `stopped`. The four run
+`agent-end`'s `status` is `done`, `partial` (with `result` and a `reason`, a `StreamAgentCutReason`:
+`turn-limit`, `timeout`, `no-handler`, `no-resolver`, `aborted` for a call that stopped itself while
+nobody stopped the run, or `context` for a host that cuts a sub-agent
+whose context is nearly full), `failed` (with `error`), `waiting` or `stopped`. The four run
 lines — `run-start`, `run-done`, `run-aborted`, `run-suspended` — belong to the run and never carry
 an `agentId`: a sub-agent never starts or ends it, and the runner drops such a line with a warning.
 A sub-agent of a sub-agent names its parent in `parentAgentId`. An `agentId` names one sub-agent for
@@ -302,10 +307,13 @@ setupSubagents({
   counts: true,            // "3 tools · 12s", once it is over
   details: 'transcript',   // its conversation under the line; false (the default) for nothing
   open: 'event',           // an Open button that shows it beside the chat; see below
+  model: false,            // true: the model it runs on, quietly on its line
 });
 ```
 
-These are `SubagentsOptions`; `open` is explained in
+These are `SubagentsOptions`. `model` draws the model each sub-agent runs on, for an app whose
+sub-agents run on other models than the conversation: `agent-start` carries it as `model`, and
+`runSubAgent` names its request's `modelId` (or the `model` you give it, a friendlier name). `open` is explained in
 [Open a sub-agent beside the chat](#open-a-sub-agent-beside-the-chat). `details` is `false` by default: the line opens on nothing. `'transcript'` puts the sub-agent's
 conversation under it — the task it was given, its text, its reasoning, its own tool rows and its
 own sub-agents as lines, drawn by the reply's renderers and kept up to date while it works — closed
@@ -543,6 +551,22 @@ It is configuration, not a component, so it reads the same under every framework
 `aparteGlobalConfig`, or on the config you give one chat (a framework's `config` prop), which then
 reads its own labels only. Only what is shown is labelled: `config.observeRunEvents` still hears
 `step-start` with `reread`, so a mark of the step that you keep holds the key, not the label.
+
+**What the step is about:** a step can carry data for its words, its `detail` — who holds the
+engine, which file is read — and `step-update` changes it while the step stays open. The label
+function is handed it, with the reply's `messageId` (two chats waiting, two answers), and asked
+again when it changes. The data is never shown as it is: the words stay the page's.
+
+```ts
+// The server: { "type": "step-start", "name": "slot-wait", "detail": { "holder": "Login refactor" } }
+//        then { "type": "step-update", "name": "slot-wait", "detail": { "holder": "Docs pass" } }
+aparteGlobalConfig.registerStepLabel('slot-wait', ({ detail }) =>
+  detail?.holder ? `Waiting for the engine: “${String(detail.holder)}” is running` : 'Waiting for the engine…');
+```
+
+A second `step-start` with the same name opens another step inside the first (AG-UI's rule), so
+update a step with `step-update`, not with a new start. Registering a label again also redraws an
+open step at once, for words that change for a reason of the page's own.
 
 **An AG-UI agent:** nothing to do. `STEP_STARTED` and `STEP_FINISHED` are shown as they arrive, a
 sub-agent's by its `subagentRunId`, and a step the agent leaves open closes when its run ends.
@@ -817,7 +841,8 @@ In the [server loop](/guides/server-loop/), a sub-agent's call cannot ask: the r
 instead of waiting, and a sub-agent lives inside one tool call, which must answer. A call of a
 sub-agent that needs a decision is stopped (`tool-aborted`, cause `no-resolver`). Give the tools a
 sub-agent calls on the server no `needsApproval`, and let the approval sit on the tool that opens
-the sub-agent.
+the sub-agent. Or, in a host that lives as long as the conversation, run the loop yourself with a
+resolver that waits: see [the server loop](/guides/server-loop/).
 
 An [AG-UI agent](/providers/agent/ag-ui/) can pause on a call its own sub-agent made (an interrupt
 raised inside the sub-agent). That pause survives a reload: the call has no row in the reply, so the

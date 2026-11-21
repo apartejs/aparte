@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import { AparteClient, aparteGlobalConfig, type AparteChatImperativeApi, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, AparteConfig, aparteGlobalConfig, type AparteChatImperativeApi, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { useAparteChat } from '../hooks/useAparteChat';
 import { useAparteClient } from '../hooks/useAparteClient';
 import { useConversationManager } from '../hooks/useConversationManager';
@@ -219,5 +219,45 @@ describe('useConversationManager', () => {
         // manager must not push state into an unmounted tree (React would warn).
         await act(async () => { await result.current.createNew('After unmount'); });
         expect(result.current.conversations).toHaveLength(before);
+    });
+});
+
+describe('useConversationManager().init, overtaken by a newer one', () => {
+    it('registers nothing when it resolves after the newer init', async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((r) => { release = r; });
+        const slow = new MemoryAdapter();
+        slow.loadAll = async () => { await gate; return []; };
+        const config = new AparteConfig();
+        const { result } = renderHook(() => useConversationManager());
+        let first!: Promise<void>;
+        await act(async () => { first = result.current.init(slow, config); });
+        await act(async () => { await result.current.init(new MemoryAdapter(), config); });
+        const newer = result.current.manager;
+        // An active conversation in the newer store: the stale init must not write its own over it.
+        await act(async () => { await newer!.createNew('fresh'); });
+        await act(async () => { release(); await first; });
+        expect(config.getConversationManager()).toBe(newer);
+        expect(result.current.manager).toBe(newer);
+        expect(result.current.activeId).not.toBeNull();
+        expect(result.current.activeId).toBe(newer!.activeId);
+    });
+});
+
+/** Two saved conversations: `a` started first and changed last, `b` started last and changed first. */
+function twoConversations(): AparteStorageAdapter {
+    const rows = [
+        { id: 'a', title: 'A', createdAt: 1, updatedAt: 30, messages: [] },
+        { id: 'b', title: 'B', createdAt: 2, updatedAt: 10, messages: [] },
+    ] as unknown as AparteConversation[];
+    return { async loadAll() { return rows; }, async save() {}, async delete() {} };
+}
+
+describe('useConversationManager() with orderBy', () => {
+    // The hook sorted its own lists by the latest change again, whatever the manager was told.
+    it('lists in the order the manager was given', async () => {
+        const { result } = renderHook(() => useConversationManager());
+        await act(async () => { await result.current.init(twoConversations(), new AparteConfig(), { orderBy: 'created' }); });
+        expect(result.current.activeConversations.map((c) => c.id)).toEqual(['b', 'a']);
     });
 });

@@ -15,7 +15,7 @@
 import type { AparteConfig } from '../config/aparte-config.js';
 import type { StreamAdapterTarget } from '../client/stream-adapter.js';
 import type { AparteSegment } from '../types/index.js';
-import { adoptSegment, mergeSegmentUpdate, stampSegmentOnInsert, stampSegmentOnUpdate } from './segments.js';
+import { adoptSegment, mergeSegmentUpdate, renumberSegments, stampSegmentOnInsert, stampSegmentOnUpdate } from './segments.js';
 
 /**
  * A segment list a stream adapter writes into (`createStreamAdapter({ target: list, … })`):
@@ -24,8 +24,10 @@ import { adoptSegment, mergeSegmentUpdate, stampSegmentOnInsert, stampSegmentOnU
 export interface AparteSegmentList extends StreamAdapterTarget {
     /** The segments, in order. A new array after every change; never mutate it. */
     readonly segments: readonly AparteSegment[];
-    /** Called after each segment added or updated. Returns the function that stops it. */
+    /** Called after each segment added, updated or removed. Returns the function that stops it. */
     onChange(fn: () => void): () => void;
+    /** Take a segment out of the list, as a reply's `removeSegment` does. An unknown id does nothing. */
+    removeSegment(segmentId: string): void;
 }
 
 /**
@@ -48,11 +50,18 @@ export function createSegmentList(opts: {
     messageId: string;
     segments?: readonly AparteSegment[];
     config?: AparteConfig;
+    /**
+     * The saved list is a pause being resumed (a sub-agent saved while it waited): a call it
+     * holds waiting for an approval waits on that pause, and stays open, as in a paused reply.
+     * Adopted as finished history, the call that opened a nested sub-agent read Stopped, and
+     * the sub-agent could not be taken up on it.
+     */
+    paused?: boolean;
 }): AparteSegmentList {
     const { messageId, config } = opts;
     let segments: readonly AparteSegment[] = (opts.segments ?? []).reduce<AparteSegment[]>((acc, segment) => {
         // A list handed over is history: settled, numbered, and never given a time.
-        acc.push(adoptSegment(acc, segment, messageId));
+        acc.push(adoptSegment(acc, segment, messageId, false, opts.paused === true));
         return acc;
     }, []);
     const listeners = new Set<() => void>();
@@ -86,6 +95,14 @@ export function createSegmentList(opts: {
             const current = segments[at]!;
             const next = segments.slice();
             next[at] = mergeSegmentUpdate(current, stampSegmentOnUpdate(current, updates));
+            segments = next;
+            changed();
+        },
+        removeSegment(segmentId) {
+            if (!segments.some((s) => s.id === segmentId)) return;
+            const next = segments.filter((s) => s.id !== segmentId);
+            // `index` is a place: the gap the removal left is closed, as a reply's removeSegment does.
+            renumberSegments(next);
             segments = next;
             changed();
         },

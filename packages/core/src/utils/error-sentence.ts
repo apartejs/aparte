@@ -32,6 +32,8 @@ export function errorSentence(code: string | undefined, t: (key: keyof AparteLoc
             return t('errorRateLimited');
         case AparteErrorCode.USAGE_CONTEXT_EXCEEDED:
             return t('errorTooLong');
+        case AparteErrorCode.USAGE_TOO_LARGE:
+            return t('errorTooLarge');
         case AparteErrorCode.PROVIDER_ERROR:
         case AparteErrorCode.PROVIDER_UNAVAILABLE:
             return t('errorFailed');

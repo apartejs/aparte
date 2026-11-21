@@ -28,6 +28,8 @@ interface Level {
 const NOTICE_MS = 4000;
 const HOVER_OPEN_MS = 120;
 const DEFAULT_DEBOUNCE_MS = 150;
+/** How long the declarations must stay put before a source handed anew is asked (see `triggers`). */
+const SETTLED_MS = 200;
 const COMPACT_WIDTH = '(max-width: 640px)';
 const BACK_ID = '__aparte-back';
 const RETRY_ID = '__aparte-retry';
@@ -60,6 +62,12 @@ export class AparteTriggers extends HTMLElement {
     private _dismissed: { start: number; char: string } | null = null;
     private _commands: readonly AparteTriggerItem[] = [];
     private _debounce: ReturnType<typeof setTimeout> | undefined;
+    /** A source handed anew for the same search, asked once the declarations settle. */
+    private _reask: ReturnType<typeof setTimeout> | undefined;
+    /** The root list's question on its way, by its signal: a re-ask waits for its answer. */
+    private _rootAsking: AbortSignal | null = null;
+    /** A re-ask that came while the root list's question was on its way: asked once it answers. */
+    private _reaskDue = false;
     private _hover: ReturnType<typeof setTimeout> | undefined;
     /** The row the pointer was last seen on: a move inside one row is not a new row. */
     private _hoverRow: HTMLElement | null = null;
@@ -83,11 +91,40 @@ export class AparteTriggers extends HTMLElement {
             this.close();
             return;
         }
+        const asking = typeof again.trigger.items === 'function' && typeof hit.trigger.items === 'function' && again.query === hit.query;
         this._hit = again;
         this._collectCommands(again);
+        // A list asked of a function, for the same search: its answer is on its way, or on screen.
+        // Asked again on every render, the request was aborted and the debounce armed anew each
+        // time, so a list never arrived while a reply streamed and the app re-rendered per token.
+        // A source handed anew (another function) may read another scope (a memoized declaration
+        // recomputed for another channel): it is asked once the declarations stay put, so the
+        // answer on its way still arrives while the app re-renders.
+        if (asking) {
+            if (again.trigger.items !== hit.trigger.items) {
+                clearTimeout(this._reask);
+                this._reask = setTimeout(() => {
+                    // Never over an answer on its way: an app that re-renders more slowly than this
+                    // settle time, with a source slower than its renders, aborted every answer and
+                    // the list never arrived. The newest source is asked once that one answers.
+                    if (this._rootAsking) this._reaskDue = true;
+                    else this._askAgain();
+                }, SETTLED_MS);
+            }
+            return;
+        }
         this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
         this._keepChildren = true;
         this._loadRoot(again);
+    }
+
+    /** Ask the root list again, of the source declared now, keeping the row and the lists open. */
+    private _askAgain(): void {
+        const now = this._hit;
+        if (!now || typeof now.trigger.items !== 'function') return;
+        this._keepActive = this._levels[0]?.rows[this._levels[0].active]?.item.id ?? null;
+        this._keepChildren = true;
+        this._loadRoot(now);
     }
 
     /** The row to stay on when the root list is drawn again for new triggers: its item's id. */
@@ -134,6 +171,9 @@ export class AparteTriggers extends HTMLElement {
     /** Close the menu. */
     close(): void {
         clearTimeout(this._debounce);
+        clearTimeout(this._reask);
+        this._reaskDue = false;
+        this._rootAsking = null;
         clearTimeout(this._hover);
         this._hoverRow = null;
         this._truncate(0);
@@ -239,6 +279,9 @@ export class AparteTriggers extends HTMLElement {
 
     private _loadRoot(hit: TriggerHit): void {
         clearTimeout(this._debounce);
+        clearTimeout(this._reask);
+        // Asked now, of the source declared now: nothing is due after the answer.
+        this._reaskDue = false;
         this._root().abort?.abort();
         const { trigger, query } = hit;
         const local = matchRows(this._commands, query, trigger);
@@ -258,7 +301,15 @@ export class AparteTriggers extends HTMLElement {
         const delay = query ? trigger.debounce ?? DEFAULT_DEBOUNCE_MS : 0;
         if (delay > 0) this._debounce = setTimeout(run, delay);
         else run();
-        if (this._root().rows.length === 0) this._show(0, local, local.length ? null : 'loading');
+        // Until the new list arrives, the rows on screen are the search before's: only those that
+        // still match what is typed stay. Left as they were, Enter chose one that did not ("@car"
+        // took Alice, the row active for "@").
+        const shown = this._root().rows;
+        if (shown.length === 0) this._show(0, local, local.length ? null : 'loading');
+        else {
+            const kept = matchRows(shown.map((row) => row.item), query, trigger);
+            this._show(0, kept, kept.length ? null : 'loading');
+        }
     }
 
     /** Ask a source. A reply or a failure that a newer question has overtaken is dropped. */
@@ -273,8 +324,19 @@ export class AparteTriggers extends HTMLElement {
         level.abort = new AbortController();
         // This question's own signal: `level.abort` will be the next one's.
         const { signal } = level.abort;
+        if (index === 0) this._rootAsking = signal;
+        // The root list's answer is in (or its question failed): a re-ask held for it goes now.
+        const settled = (): void => {
+            if (index !== 0 || this._rootAsking !== signal) return;
+            this._rootAsking = null;
+            if (this._reaskDue) {
+                this._reaskDue = false;
+                this._askAgain();
+            }
+        };
         const fail = (error: unknown): void => {
             if (signal.aborted) return;
+            settled();
             console.warn('[aparte-triggers] a list failed to load.', error);
             level.reload = () => this._ask(index, ask, finish);
             this._show(index, [], 'error');
@@ -290,6 +352,7 @@ export class AparteTriggers extends HTMLElement {
             if (signal.aborted) return;
             const rows = finish(items.map((item) => ({ item, path: [] })));
             this._show(index, rows, rows.length ? null : 'empty');
+            settled();
         }).catch(fail);
     }
 

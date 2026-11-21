@@ -3,10 +3,14 @@
  * stands for it, the plugin's own segment for a sub-agent no call opened, the options, and
  * the two events an app hears.
  */
-import type { AparteSegment, AparteSegmentBase, AparteToolDetails } from '@aparte/core';
+import type { AparteSegment, AparteSegmentBase, AparteStreamRunEvent, AparteToolDetails } from '@aparte/core';
 
 /** Where a sub-agent is: working, waiting for a person, or over — and how. */
-export type AparteSubagentStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped';
+/**
+ * Where a sub-agent stands. `partial`: its own run stopped before it answered (its turn limit, a
+ * call it could not make); what it wrote is its `result`, and the line reads "Cut short".
+ */
+export type AparteSubagentStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped' | 'partial';
 
 /**
  * A sub-agent, as it is saved with the conversation: on the call that opened it (the
@@ -22,6 +26,8 @@ export interface AparteSubagent {
     name?: string;
     /** What it was asked to do, shown after the name. */
     description?: string;
+    /** The model it runs on, when its producer says (`agent-start`'s `model`). Drawn with `setupSubagents({ model: true })`. */
+    model?: string;
     /** As stored. Read it through `subagentStatus`, which knows a saved run is over. */
     status: AparteSubagentStatus;
     /** What it answered, when it is done. */
@@ -55,6 +61,12 @@ declare module '@aparte/core' {
 
 /** What `setupSubagents` shows on a sub-agent's line. */
 export interface SubagentsOptions {
+    /**
+     * The model each sub-agent runs on, quietly on its line, when its producer names one
+     * (`agent-start`'s `model`; `runSubAgent` names its request's). For a host whose sub-agents
+     * run on other models than the conversation. Default `false`.
+     */
+    model?: boolean;
     /** What it is doing now — its latest running tool call — while it works. Default `true`. */
     activity?: boolean;
     /** "3 tools · 12 s" after the line: its tool calls and how long it worked. Default `true`. */
@@ -96,11 +108,14 @@ export interface AparteSubagentStartEventDetail {
     toolCallId?: string;
     /** The sub-agent that opened it, when one did. */
     parentId?: string;
+    /** The model it runs on, when its producer says (`agent-start`'s `model`). */
+    model?: string;
 }
 
 /**
  * A sub-agent ended, or the run ended without it: `status` says how (`done`, `failed`,
- * `waiting` for a person, `stopped`). Bubbles out of the chat.
+ * `waiting` for a person, `stopped`, or `partial`: cut short, its own run stopped before it
+ * answered, with `reason`). Bubbles out of the chat.
  *
  * @event aparte-subagent-end
  */
@@ -110,6 +125,8 @@ export interface AparteSubagentEndEventDetail {
     messageId: string;
     agentId: string;
     status: AparteSubagentStatus;
+    /** Why it was cut short (`partial`): `agent-end`'s `reason`, when its producer says. */
+    reason?: NonNullable<Extract<AparteStreamRunEvent, { type: 'agent-end' }>['reason']>;
 }
 
 /**

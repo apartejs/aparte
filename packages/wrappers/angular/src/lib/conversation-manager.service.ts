@@ -24,24 +24,26 @@ import type { AparteMessage } from '@aparte/core';
 export class ConversationManagerService implements OnDestroy {
     private _manager: AparteConversationManager | null = null;
     private _unsubscribe: (() => void) | null = null;
+    private readonly _byOrder = (a: AparteConversation, b: AparteConversation): number =>
+        this._manager?.compare(a, b) ?? b.updatedAt - a.updatedAt;
 
     // ─── Signals ─────────────────────────────────────────────────────────────
 
     /** All conversations (active + archived). */
     readonly conversations = signal<AparteConversation[]>([]);
 
-    /** Active conversations only, newest first. */
+    /** Active conversations only, in the manager's order (`orderBy`): newest change first by default. */
     readonly activeConversations = computed(() =>
         this.conversations()
             .filter(c => !c.archivedAt)
-            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .sort(this._byOrder)
     );
 
-    /** Archived conversations, newest first. */
+    /** Archived conversations, in the manager's order (`orderBy`): newest change first by default. */
     readonly archivedConversations = computed(() =>
         this.conversations()
             .filter(c => !!c.archivedAt)
-            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .sort(this._byOrder)
     );
 
     /** Currently active conversation id. */

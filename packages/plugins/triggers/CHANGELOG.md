@@ -1,5 +1,21 @@
 # @aparte/plugin-triggers
 
+## 1.17.0
+
+### Patch Changes
+
+- 6d54761: A mention list asked of a function now loads while the app re-renders, instead of never arriving during a streaming reply.
+
+  A wrapper writes `triggers` on every render, with a new array, and a chat re-renders on every token. Each write aborted the request and armed the debounce again. The same search, asked of a function, is no longer asked again.
+
+- 5ca9066: A trigger source handed anew while its list is open (a memoized declaration recomputed for another channel) is asked again, once the declarations stop changing.
+
+  Since the fix that keeps a list arriving while the app re-renders on every token, a new function for the same search was never asked: the first channel's members stayed listed, and Enter inserted one of them. The answer on its way still arrives while the app re-renders, however slowly it re-renders and however slow the source is: a re-ask never aborts it, and the newest source is asked once that answer is in.
+
+- 6d54761: Enter while a new search is loading now chooses a row that matches what is typed, never one left from the search before.
+
+  With a list asked of a function, the rows on screen stayed the previous search's until the new answer arrived: "@car" and Enter took Alice, the row active for "@". Until the answer arrives, only the rows that still match stay.
+
 ## 1.16.0
 
 ## 1.15.1

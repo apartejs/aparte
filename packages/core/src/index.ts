@@ -30,6 +30,7 @@ import './styles/display/skeleton.css';
 import './styles/display/shimmer.css';
 import './styles/display/divider.css';
 import './styles/display/alert.css';
+import './styles/display/toast.css';
 import './styles/display/card.css';
 import './styles/display/kbd.css';
 import './styles/display/mark.css';
@@ -294,7 +295,7 @@ export { AparteLauncher } from './components/index.js';
 export type { AparteLauncherToggleDetail } from './components/index.js';
 
 // Export conversation list primitive
-export { AparteConversationList } from './components/index.js';
+export { AparteConversationList, APARTE_CONVERSATION_DRAG_TYPE } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationMetaRenderer, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail, AparteConversationStatus, AparteConversationStatusDetail, AparteConversationGroup, AparteConversationMoveDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
@@ -387,6 +388,7 @@ export type { AparteFloatingOptions } from './utils/place-floating.js';
 // The keyboard of the kit's menu and tabs, written once (#198): functions over markup the
 // app already draws, so a wrapper, a template or a plain page calls them alike.
 export { enhanceMenu, enhanceContextMenu } from './utils/menu.js';
+export { showToast, type AparteToast, type AparteToastOptions, type AparteToastTone } from './utils/toast.js';
 export type { AparteMenuOptions, AparteContextMenuOptions, AparteMenuSelectDetail } from './utils/menu.js';
 export { enhanceTabs } from './utils/tabs.js';
 export type { AparteTabsOptions, AparteTabChangeDetail } from './utils/tabs.js';

@@ -20,6 +20,7 @@
  * a host that builds the page before importing core, and idempotent.
  */
 
+import { eventOrigin } from '../utils/event-target.js';
 import { inRenderedContent } from '../utils/rendered-content.js';
 
 const INSTALLED = Symbol.for('aparte.dialogTriggers');
@@ -39,19 +40,36 @@ let pressTarget: EventTarget | null = null;
 let releaseTarget: EventTarget | null = null;
 
 function onPointerDown(event: Event): void {
-    pressTarget = event.target;
+    pressTarget = eventOrigin(event);
     releaseTarget = null;
 }
 
 function onPointerUp(event: Event): void {
-    releaseTarget = event.target;
+    releaseTarget = eventOrigin(event);
+}
+
+/**
+ * The nearest element matching `selector` on the click's way up, across every shadow root it
+ * crossed. From inside an app's shadow root, `event.target` is the shadow HOST by the time it
+ * reaches the document, so an opener in there was never found; from where the click began,
+ * `closest()` stops at the root it began in, so a web-component button (its label, its icon,
+ * each in the component's own shadow root) was not found either. The composed path holds both.
+ */
+function closestOnPath(event: Event, selector: string): HTMLElement | null {
+    const path = event.composedPath?.() ?? [];
+    for (const node of path) {
+        if (node instanceof Element && node.matches(selector)) return node as HTMLElement;
+    }
+    // A path read after the dispatch is empty: the target, as the document saw it.
+    const target = event.target as Element | null;
+    return path.length === 0 && target?.closest ? target.closest<HTMLElement>(selector) : null;
 }
 
 function onClick(event: Event): void {
-    const target = event.target as HTMLElement | null;
-    if (!target?.closest) return;
+    const target = eventOrigin(event) as HTMLElement | null;
+    if (!target) return;
 
-    const opener = target.closest<HTMLElement>('[data-aparte-dialog-open]');
+    const opener = closestOnPath(event, '[data-aparte-dialog-open]');
     // An opener inside a reply is text the model wrote, not a control the app placed: its
     // markup may not carry the attribute, and if a custom sanitizer lets it through it
     // still opens nothing. The closer gets the same rule below: a chat can itself sit in
@@ -59,7 +77,9 @@ function onClick(event: Event): void {
     // wrote the control. The backdrop stays: it is the `<dialog>` element, never content.
     if (opener && !inRenderedContent(opener)) {
         const id = opener.getAttribute('data-aparte-dialog-open');
-        const dialog = id ? document.getElementById(id) : null;
+        // Looked up where the opener is: its shadow root, or the document.
+        const root = opener.getRootNode() as Document | ShadowRoot;
+        const dialog = id ? (typeof root.getElementById === 'function' ? root.getElementById(id) : document.getElementById(id)) : null;
         if (dialog instanceof HTMLDialogElement && !dialog.open) {
             event.preventDefault();
             dialog.showModal();
@@ -67,7 +87,7 @@ function onClick(event: Event): void {
         return;
     }
 
-    const closer = target.closest<HTMLElement>('[data-aparte-dialog-close]');
+    const closer = closestOnPath(event, '[data-aparte-dialog-close]');
     if (closer && !inRenderedContent(closer)) {
         const dialog = closer.closest('dialog');
         if (dialog instanceof HTMLDialogElement && dialog.open) {

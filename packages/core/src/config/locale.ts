@@ -59,6 +59,8 @@ export type AparteLocale = {
     errorRateLimited?: string;
     /** USAGE_CONTEXT_EXCEEDED, once the conversation no longer fits the model (default: "This conversation is too long for the model. Start a new one."). */
     errorTooLong?: string;
+    /** USAGE_TOO_LARGE, a 413: the message (its text, its files) is larger than the server takes (default: "This message is too large to send. Remove a file or send a shorter one."). */
+    errorTooLarge?: string;
     /** PROVIDER_ERROR and PROVIDER_UNAVAILABLE, a failing or busy provider (default: "The assistant couldn’t answer. Try again in a moment."). */
     errorFailed?: string;
     /** A request refused as malformed, a policy refusal, a provider set up so it cannot answer, a wrong model, a tool that crashed, an unknown error: a retry would not help (default: "The assistant couldn’t answer this request."). */
@@ -123,6 +125,8 @@ export type AparteLocale = {
     conversationRunning?: string;
     /** What a screen reader hears with a row whose turn waits for the person (default: "Waiting for you") */
     conversationWaiting?: string;
+    /** A conversation row's state, heard with its title, while its turn waits behind another conversation's (default: "Queued"). */
+    conversationQueued?: string;
     /** The "Rename" item of a row's menu (default: "Rename") */
     renameConversation?: string;
     /** Accessible name of the inline input a rename opens (default: "Conversation title") */
@@ -140,6 +144,10 @@ export type AparteLocale = {
     moveConversationTo?: string;
     /** The item that takes a row out of its group (default: "Remove from “{group}”"). `{group}` is the group's label. */
     removeFromGroup?: string;
+    /** The name of the corner where `showToast` messages appear, for assistive technology (default: "Notifications"). */
+    notifications?: string;
+    /** The button that closes a `showToast` message (default: "Dismiss"). */
+    dismissNotification?: string;
     /**
      * The question asked before a delete (default: "Delete “{title}”?"). `{title}` is
      * replaced with the row's title; a delete is the one action of the menu that asks
@@ -782,6 +790,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     errorRefused: "The assistant isn’t allowed to answer right now.",
     errorRateLimited: "Too many requests right now. Try again in a moment.",
     errorTooLong: "This conversation is too long for the model. Start a new one.",
+    errorTooLarge: "This message is too large to send. Remove a file or send a shorter one.",
     errorFailed: "The assistant couldn’t answer. Try again in a moment.",
     errorNoAnswer: "The assistant couldn’t answer this request.",
     running: "Running...",
@@ -815,6 +824,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationActions: "Conversation actions",
     conversationRunning: "Answering",
     conversationWaiting: "Waiting for you",
+    conversationQueued: "Queued",
     renameConversation: "Rename",
     conversationTitle: "Conversation title",
     pinConversation: "Pin",
@@ -822,6 +832,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     moveConversation: "Move to…",
     moveConversationTo: "Move “{title}” to",
     removeFromGroup: "Remove from “{group}”",
+    notifications: "Notifications",
+    dismissNotification: "Dismiss",
     deleteConversationConfirm: "Delete “{title}”?",
     cancel: "Cancel",
     conversationGroupPinned: "Pinned",

@@ -87,8 +87,8 @@ turns are back to `'auto'`.
 | `tool-awaiting-approval`, `tool-approved`, `tool-rejected` | a call waits for a decision, and gets it; a rejection carries `reason` (the sentence the model reads), `by` and the person's `instruction` |
 | `tool-resolved`, `tool-failed`, `tool-aborted` | a call's result, its error, or its end without either; an abort carries a `cause` |
 | `turn-limit-exceeded` | a cap was reached: `{ scope: 'global' \| 'tool', limit }` |
-| `agent-start` | a sub-agent begins: `{ agentId, name, description, toolCallId, parentAgentId }`, the call that opened it and the sub-agent it runs under, when there is one |
-| `agent-end` | a sub-agent ends, once: `{ agentId, status, result, error }`, `status` being `'done'`, `'failed'`, `'waiting'` or `'stopped'` |
+| `agent-start` | a sub-agent begins: `{ agentId, name, description, toolCallId, parentAgentId, model }`, the call that opened it and the sub-agent it runs under, when there is one, and the model it runs on |
+| `agent-end` | a sub-agent ends, once: `{ agentId, status, result, error, reason }`, `status` being `'done'`, `'failed'`, `'waiting'`, `'stopped'` or `'partial'` (cut short, with a `reason`) |
 | `step-start`, `step-end` | a named step of the work begins and ends: `{ name, agentId }`. The loop passes on what the model's stream, a runner or a sub-agent announces; steps may nest and overlap, and one ends the latest open step of its name. The page shows a name as the label you registered for it, or as it is: [a key in the person's language](/guides/sub-agents/#steps) |
 | `activity` | structured progress the agent reports: `{ id, activityType, content, agentId }`, the content whole each time. The loop passes it on; a later one with the same `id` updates it in place, drawn by the [renderer of its type](/guides/activity/) and never sent to the model |
 | `run-aborted` | the run was stopped; `run-done` follows |

@@ -187,6 +187,36 @@ describe('a vendor that addresses one call by index in one delta and by id in th
         expect(calls.map(c => c.input)).toEqual([{ q: 'x' }, { q: 'y' }]);
     });
 
+    it('opens a second call when a named delta with a new id repeats an index in use (each call at index 0)', async () => {
+        // A server that numbers `index` per chunk rather than per response sends every call at
+        // index 0 (Ollama's /v1 has been seen to). The index alias took the second call for the
+        // rest of the first: one call, the second's id and name, both argument strings glued
+        // together, which no longer parse, so it ran on `{}` and the first call was lost.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_a', function: { name: 'get_weather', arguments: '{"city":"Lille"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_b', function: { name: 'get_time', arguments: '{"tz":"UTC"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        const calls = toolUses(events);
+        expect(calls.map(c => [c.id, c.name])).toEqual([['call_a', 'get_weather'], ['call_b', 'get_time']]);
+        expect(calls.map(c => c.input)).toEqual([{ city: 'Lille' }, { tz: 'UTC' }]);
+    });
+
+    it('still keeps one call when a vendor opens it by index and names it again with its id', async () => {
+        // The other side of the rule above: the slot's id was minted (the vendor sent none
+        // yet), so a later delta carrying the real id, even named, is the same call.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'search', arguments: '{"q":' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'search', arguments: '"x"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        const calls = toolUses(events);
+        expect(calls.map(c => [c.id, c.name])).toEqual([['c1', 'search']]);
+        expect(calls[0]!.input).toEqual({ q: 'x' });
+    });
+
     it('a minted id cannot collide with an id the vendor issues in the same turn', async () => {
         // The mint used to read `call_1`, which is exactly what an OpenAI-shaped
         // server calls its own first call: a turn with one id-less call and one real

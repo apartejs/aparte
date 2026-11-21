@@ -264,6 +264,20 @@ describe('<aparte-artifact-panel>', () => {
         document.body.removeEventListener('aparte-artifact-panel-close', closed);
     });
 
+    // An IME's Escape is the field's: the panel does not close on it.
+    it('does not close on an Escape that ends a composition', () => {
+        chat([reply('a1', doc('doc_1', 'one'))]);
+        const panel = panelFor();
+        const closed = vi.fn();
+        document.body.addEventListener('aparte-artifact-panel-close', closed);
+        part(panel, 'title').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, isComposing: true }));
+        const legacy = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+        Object.defineProperty(legacy, 'keyCode', { value: 229 });
+        part(panel, 'title').dispatchEvent(legacy);
+        expect(closed).not.toHaveBeenCalled();
+        document.body.removeEventListener('aparte-artifact-panel-close', closed);
+    });
+
     it("leaves the app's own buttons where the app wrote them", () => {
         chat([reply('a1', doc('doc_1', 'one'))]);
         const panel = document.createElement('aparte-artifact-panel');

@@ -18,6 +18,7 @@
 import { runStreamAgent, type StreamRunOptions } from './stream-run.js';
 import { relayApprovalResolver } from './approval-turn.js';
 import type {
+    StreamAgentCutReason,
     StreamAgentHandle,
     StreamAgentStatus,
     StreamChatRequest,
@@ -37,16 +38,18 @@ import type {
  * `no-resolver`. It never pauses itself.
  *
  * Resolves `{ status, text }`, `text` being what the sub-agent wrote last: `'done'`, or
- * `'failed'` with `error` (the model or a tool of its own failed), or `'stopped'`. Never
+ * `'partial'` with `reason` when its own run stopped before it answered (its turn limit, a call
+ * it could not make: what it wrote is what it found), or `'failed'` with `error` (the model or a
+ * tool of its own failed), or `'stopped'`. Never
  * rejects for a sub-agent that failed; rejects with a `TypeError` when `run` is missing (a
  * handler called outside the loop has nothing to open a sub-agent from).
  */
 export async function runSubAgent(
     run: StreamToolRun,
-    opts: { name?: string; description?: string; detached?: boolean; request: StreamChatRequest }
+    opts: { name?: string; description?: string; detached?: boolean; model?: string; request: StreamChatRequest }
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
     signal: AbortSignal,
-): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string }> {
+): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string; reason?: StreamAgentCutReason }> {
     // A handler called outside a loop — a browser tool answering a paused server run — has
     // no run, and reading `startAgent` off `undefined` named nothing a reader could act on.
     if (!run || typeof run.startAgent !== 'function') {
@@ -57,7 +60,8 @@ export async function runSubAgent(
     }
     if (signal.aborted) return { status: 'stopped', text: '' };
 
-    const agent = run.startAgent({ name: opts.name, description: opts.description, detached: opts.detached });
+    // The model it runs on: the name the tool gives it, else the one its request asks.
+    const agent = run.startAgent({ name: opts.name, description: opts.description, detached: opts.detached, model: opts.model ?? opts.request.modelId });
     // The handle already ends with its call; this covers a signal of the tool's own.
     const onAbort = (): void => agent.end('stopped');
     signal.addEventListener('abort', onAbort, { once: true });
@@ -86,7 +90,7 @@ export async function runSubAgent(
  */
 export function startSubAgent(
     run: StreamToolRun,
-    opts: { name?: string; description?: string; request: StreamChatRequest }
+    opts: { name?: string; description?: string; model?: string; request: StreamChatRequest }
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
 ): { agentId: string; signal: AbortSignal } {
     if (!run || typeof run.startAgent !== 'function') {
@@ -101,7 +105,7 @@ export function startSubAgent(
             + 'the run would end at the pause without what it answered. Use runSubAgent() there, which holds the call until it is back.',
         );
     }
-    const agent = run.startAgent({ name: opts.name, description: opts.description, background: true });
+    const agent = run.startAgent({ name: opts.name, description: opts.description, background: true, model: opts.model ?? opts.request.modelId });
     // Its first model call after this returns: a caller reads `signal` before the work starts.
     void Promise.resolve().then(() => drive(agent, run, opts, agent.signal));
     return { agentId: agent.agentId, signal: agent.signal };
@@ -114,15 +118,26 @@ async function drive(
     opts: { name?: string; request: StreamChatRequest }
         & Partial<Pick<StreamRunOptions, 'transportCall' | 'toolLookup' | 'toolConfigLookup' | 'maxTurns'>>,
     signal: AbortSignal,
-): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string }> {
+): Promise<{ status: StreamAgentStatus; text: string; usage?: StreamUsage; error?: string; reason?: StreamAgentCutReason }> {
 
     // The text of the sub-agent's latest model call: its own events only, never those of a
     // sub-agent of its own, which arrive here already carrying their `agentId`.
     let text = '';
+    /*
+     * Why its own run stopped before it answered, when it did: its turn limit, or a call the run
+     * abandoned and stopped on. Its loop then returns as after an answer, and the sub-agent was
+     * reported `done` with its last text, often empty after a round of tool calls only.
+     */
+    let cut: StreamAgentCutReason | undefined;
     const emitter = (event: StreamRunEvent): void => {
         if ((event as { agentId?: string }).agentId === undefined) {
             if (event.type === 'turn-start') text = '';
             else if (event.type === 'text-delta') text += event.delta;
+            else if (event.type === 'turn-limit-exceeded') cut = 'turn-limit';
+            // Every call the run abandons stops it. One stopped by nobody's Stop (a tool that
+            // cancelled its own work, a channel that gave up) is a cut too: a Stop of this
+            // sub-agent's own is read from its signal once the loop returns.
+            else if (event.type === 'tool-aborted') cut = event.cause === 'timeout' || event.cause === 'no-handler' || event.cause === 'no-resolver' ? event.cause : 'aborted';
         }
         agent.emit(event);
     };
@@ -155,6 +170,10 @@ async function drive(
         if (signal.aborted) {
             agent.end('stopped');
             return { status: 'stopped', text };
+        }
+        if (cut) {
+            agent.end('partial', { result: text, reason: cut });
+            return { status: 'partial', text, reason: cut, ...(usage ? { usage } : {}) };
         }
         agent.end('done', { result: text });
         return { status: 'done', text, ...(usage ? { usage } : {}) };

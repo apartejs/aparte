@@ -55,6 +55,16 @@ export interface AparteTool {
      * @default false
      */
     parallel?: boolean;
+    /**
+     * How long one call of this tool may run, in milliseconds, instead of the client's (or the
+     * server handler's) `toolTimeoutMs`: a tool that runs a whole sub-agent, or a command with a
+     * limit of its own, sets a longer one, and the shared bound keeps protecting the other tools.
+     * `Infinity` means no limit. When it fires, the call is abandoned and the reply ends, as with
+     * the shared bound: a handler that ignores its signal may still be running. A browser tool a
+     * paused server run asks the page for is bounded the same way, by the client's `toolTimeoutMs`
+     * (5 minutes by default) when the tool declares no limit.
+     */
+    timeoutMs?: number;
 }
 
 /**
@@ -126,8 +136,11 @@ export interface AparteApprovalRuling {
  * default approval channel consults it before asking. Return `undefined` to have no
  * opinion, in which case the tool's `needsApproval` decides as before.
  *
- * Pure and synchronous: it is evaluated once to decide whether the call pauses at all
- * (so an allowed call never flashes "awaiting approval") and once to answer.
+ * Asked once per call, before it runs: that ruling decides whether the call pauses at all (so an
+ * allowed call never flashes "awaiting approval") and is the answer. It may answer with a promise, for a ruling that
+ * needs a lookup (the page a browser tool acts on, a rules file, a policy service): while it
+ * rules, the calls the model made after this one wait, as they wait for a person's answer.
+ * A promise that rejects asks a person: a ruling that could not be made never runs the call.
  *
  * The third argument is the turn — `{ conversationId, messageId, targetId }` — for a rule
  * that depends on the conversation (a workspace that allows writes in one project only).
@@ -140,7 +153,7 @@ export type AparteApprovalPolicy = (
      * call is ruled outside a turn (`config.ruleOnToolCall(call)` called by hand).
      */
     turn?: AparteTurnContext,
-) => AparteApprovalRuling | undefined;
+) => AparteApprovalRuling | undefined | Promise<AparteApprovalRuling | undefined>;
 
 /** Result returned after a tool handler resolves */
 export interface AparteToolResult {

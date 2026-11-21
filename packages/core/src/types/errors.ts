@@ -10,6 +10,8 @@ export enum AparteErrorCode {
     USAGE_RATE_LIMIT = 'USAGE_RATE_LIMIT',       // HTTP 429
     USAGE_CONTEXT_EXCEEDED = 'USAGE_CONTEXT_EXCEEDED', // HTTP 400
     USAGE_BAD_REQUEST = 'USAGE_BAD_REQUEST',     // HTTP 400
+    /** A request refused for its size (HTTP 413): the same message is refused again. */
+    USAGE_TOO_LARGE = 'USAGE_TOO_LARGE',         // HTTP 413
 
     // Network & Infrastructure
     NET_OFFLINE = 'NET_OFFLINE',
@@ -59,6 +61,7 @@ export class AparteError extends Error {
             case 401:
             case 403: return AparteErrorCode.CONFIG_INVALID_KEY;
             case 408: return AparteErrorCode.NET_TIMEOUT;
+            case 413: return AparteErrorCode.USAGE_TOO_LARGE;
             case 429: return AparteErrorCode.USAGE_RATE_LIMIT;
             case 503: return AparteErrorCode.PROVIDER_UNAVAILABLE;
             default: return status !== undefined && status >= 500 ? AparteErrorCode.PROVIDER_ERROR : undefined;

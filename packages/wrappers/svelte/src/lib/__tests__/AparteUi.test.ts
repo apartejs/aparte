@@ -45,6 +45,20 @@ describe('<AparteUi> handed an equal prop bag', () => {
     });
 });
 
+describe('<AparteUi> handed a bag a key left', () => {
+    // A key that leaves the bag (`{ ...(busy && { disabled: true }) }` once busy ends) is cleared:
+    // the wrapper hands the WHOLE bag (`replace`). Written key by key, the attribute stayed.
+    it('clears that key', async () => {
+        const { container, component } = render(AparteUi, { props: { name: 'fx-probe', props: { mode: 'ask' } } });
+        await tick();
+        const el = container.querySelector('fx-probe') as FxProbe;
+        expect(el.hasAttribute('mode')).toBe(true);
+        (component as any).$set({ props: {} });
+        await tick();
+        expect(el.hasAttribute('mode')).toBe(false);
+    });
+});
+
 describe("<AparteUi> on <aparte-launcher>", () => {
     it('turns the header OFF with the string on false, and passes the rest of its props', async () => {
         // `header` is ON by default: removing it on `false` would have drawn the header.

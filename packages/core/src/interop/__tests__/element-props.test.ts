@@ -211,3 +211,95 @@ describe('applyElementProps — a value written before is not written again', ()
         expect(b.getAttribute('mode')).toBe('ask');
     });
 });
+
+describe('a property given before the element is defined', () => {
+    // A tag mounted before its definition upgrades once the definition arrives, which is what
+    // makes lazy-loading a plugin work, and what <AparteUi>'s docs promise. A property assigned
+    // before then became the element's OWN property, which shadows the setter the definition
+    // brings, for good: the element never saw `diff`, `comments`, `chat` or `conversations`.
+    it('reaches the setter once the element is defined', async () => {
+        const tag = 'aparte-props-lazy-test';
+        const el = document.createElement(tag);
+        document.body.appendChild(el);
+        const value = { lines: 3 };
+        applyElementProps(el, { data: value });
+
+        const seen: unknown[] = [];
+        customElements.define(tag, class extends HTMLElement {
+            private _data: unknown = null;
+            get data(): unknown { return this._data; }
+            set data(next: unknown) { this._data = next; seen.push(next); }
+        });
+        await customElements.whenDefined(tag);
+        await Promise.resolve();
+
+        expect(seen).toEqual([value]);
+        expect(Object.prototype.hasOwnProperty.call(el, 'data'), 'no own property shadowing the setter').toBe(false);
+        expect((el as HTMLElement & { data: unknown }).data).toBe(value);
+        el.remove();
+    });
+});
+
+describe('a key that leaves the props bag', () => {
+    // `props={{ conversations, ...(fetching && { loading: true }) }}`: once fetching ends, the
+    // next bag has no `loading` key. Only the keys present were written, so the attribute stayed
+    // and the skeleton rows never went away; a CSS variable dropped from the bag stayed too. The
+    // generated React elements clear a prop that goes away; <AparteUi> in all four wrappers
+    // hands its bag here.
+    it('is cleared: an attribute removed, a CSS variable removed, a property set to undefined', () => {
+        const el = document.createElement('div');
+        const list = { rows: 1 };
+        applyElementProps(el, { loading: true, '--x': '1px', items: list }, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(true);
+        expect(el.style.getPropertyValue('--x')).toBe('1px');
+        expect((el as HTMLElement & { items?: unknown }).items).toBe(list);
+
+        applyElementProps(el, {}, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(false);
+        expect(el.style.getPropertyValue('--x')).toBe('');
+        expect((el as HTMLElement & { items?: unknown }).items).toBeUndefined();
+    });
+
+    it('and set again when it comes back', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { loading: true }, undefined, { replace: true });
+        applyElementProps(el, {}, undefined, { replace: true });
+        applyElementProps(el, { loading: true }, undefined, { replace: true });
+        expect(el.hasAttribute('loading')).toBe(true);
+    });
+});
+
+describe('a property given undefined or null', () => {
+    // `[moveTargets]="canMove ? groups : undefined"` in Angular, or `renderMeta: show ? fn :
+    // undefined` kept in an <AparteUi> bag: the key is there, with no value. Only the attribute was
+    // removed; the element kept the old array or function, and went on drawing with it.
+    it.each([
+        ['undefined', undefined],
+        ['null', null],
+        // `moveTargets: canMove && groups`: the key stays, with false.
+        ['false', false],
+    ])('clears a property it had been given, when given %s', (_name, nothing) => {
+        const el = document.createElement('div') as HTMLElement & { items?: unknown };
+        applyElementProps(el, { items: [1] });
+        expect(el.items).toEqual([1]);
+        applyElementProps(el, { items: nothing });
+        expect(el.items || undefined).toBeUndefined();
+    });
+
+    it('clears it in a whole bag that keeps the key with no value', () => {
+        const el = document.createElement('div') as HTMLElement & { render?: unknown };
+        const fn = (): string => 'x';
+        applyElementProps(el, { render: fn }, undefined, { replace: true });
+        applyElementProps(el, { render: undefined }, undefined, { replace: true });
+        expect(el.render).toBeUndefined();
+    });
+});
+
+describe('a bag of only what changed (a generated component)', () => {
+    it('leaves alone a key it does not name', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { loading: true });
+        applyElementProps(el, { label: 'x' });
+        expect(el.hasAttribute('loading')).toBe(true);
+    });
+});

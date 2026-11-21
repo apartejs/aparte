@@ -13,6 +13,7 @@ import { AparteChatHost, type AparteChatHostBinding } from '../aparte-chat-host.
 import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/bubble/aparte-chat-bubble.js';
 import type { AparteMessage } from '../../types/index.js';
+import { aparteGlobalConfig } from '../../config/index.js';
 
 type Viewport = HTMLElement & {
     appendMessage(m: AparteMessage): void;
@@ -40,6 +41,43 @@ describe('the step reaches the live bubble', () => {
         expect(JSON.stringify(viewport.getMessage('a1'))).not.toContain('Reading the parser');
         viewport.setStep('a1', null);
         expect(stepOf(viewport, 'a1')).toBe('');
+    });
+
+    // A step's detail is what its label reads: lost on the way, every label lost its words.
+    it("with its detail, through the viewport and through a wrapper's host", async () => {
+        aparteGlobalConfig.registerStepLabel('slot-wait', (ctx) => `Waiting for ${String(ctx.detail?.['holder'])}`);
+        const viewport = document.createElement('aparte-chat-viewport') as Viewport;
+        document.body.appendChild(viewport);
+        await vi.waitFor(() => expect(typeof viewport.appendMessage).toBe('function'));
+        viewport.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: 1, status: 'streaming' });
+        (viewport as unknown as { setStep(id: string, name: string, detail: Record<string, unknown>): void }).setStep('a1', 'slot-wait', { holder: 'the docs pass' });
+        expect(stepOf(viewport, 'a1')).toBe('Waiting for the docs pass');
+
+        const root = document.createElement('div');
+        root.setAttribute('data-aparte-chat', '');
+        root.id = 'h2';
+        const framed = document.createElement('aparte-chat-viewport');
+        framed.setAttribute('framework-managed', '');
+        root.appendChild(framed);
+        document.body.appendChild(root);
+        await vi.waitFor(() => expect(typeof (framed as unknown as { addMessage?: unknown }).addMessage).toBe('function'));
+        let messages: AparteMessage[] = [];
+        const host = new AparteChatHost({
+            hostId: 'h2', host: root, viewport: framed,
+            getMessages: () => messages, setMessages: (m) => { messages = m; }, afterRender: (cb) => cb(),
+        }, {});
+        const teardown = host.bind();
+        host.appendMessage({ id: 'b1', role: 'assistant', content: '', timestamp: 1, status: 'streaming' });
+        (root as unknown as { setStep(id: string, name: string, detail: Record<string, unknown>): void }).setStep('b1', 'slot-wait', { holder: 'the login refactor' });
+        const bubble = document.createElement('aparte-chat-bubble');
+        bubble.setAttribute('message-id', 'b1');
+        bubble.setAttribute('data-role', 'assistant');
+        bubble.setAttribute('streaming', '');
+        framed.appendChild(bubble);
+        host.syncBubbles();
+        expect(stepOf(framed, 'b1')).toBe('Waiting for the login refactor');
+        teardown();
+        aparteGlobalConfig.reset();
     });
 
     it('through a wrapper\'s host, given to the bubble once the framework paints it', async () => {
@@ -86,3 +124,36 @@ describe('the step reaches the live bubble', () => {
         teardown();
     });
 });
+
+describe('a reply written by hand through a wrapper\'s host', () => {
+    // A wrapper draws a bubble's `streaming` from `isAwaitingReply`, which the first segment turns
+    // false: the bubble took that for the reply's end and settled the segment it was writing. The
+    // host keeps the empty shell streaming until its status ends it, as a viewport alone does.
+    it('streams from its first segment until its status ends it', async () => {
+        const root = document.createElement('div');
+        root.setAttribute('data-aparte-chat', '');
+        root.id = 'h3';
+        const viewport = document.createElement('aparte-chat-viewport');
+        viewport.setAttribute('framework-managed', '');
+        root.appendChild(viewport);
+        document.body.appendChild(root);
+        await vi.waitFor(() => expect(typeof (viewport as unknown as { addMessage?: unknown }).addMessage).toBe('function'));
+        let messages: AparteMessage[] = [];
+        const host = new AparteChatHost({
+            hostId: 'h3', host: root, viewport,
+            getMessages: () => messages, setMessages: (m) => { messages = m; }, afterRender: (cb) => cb(),
+        }, {});
+        const teardown = host.bind();
+        host.appendMessage({ id: 'r', role: 'assistant', content: '', timestamp: 1 });
+        host.addSegment({ id: 's1', type: 'text', content: '' } as never);
+        expect(messages.at(-1)?.status).toBe('streaming');
+        host.updateMessage('r', { status: 'completed' });
+        expect(messages.at(-1)?.status).toBe('completed');
+        // A reply that already had words is not taken for a shell: its status is the app's.
+        host.appendMessage({ id: 'q', role: 'assistant', content: 'Earlier words.', timestamp: 2 });
+        host.addSegment({ id: 's2', type: 'text', content: '' } as never);
+        expect(messages.at(-1)?.status).toBeUndefined();
+        teardown();
+    });
+});
+

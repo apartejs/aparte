@@ -52,7 +52,9 @@ the line the page draws for it.
 
 A tool's `systemPrompt` tells the model when to use it, and its `maxTurns` is the last turn of a
 reply in which it may still run. On the client, `toolTimeoutMs` is the time a handler may take,
-five minutes by default: a call past its turns or its time is stopped, and the reply ends with it.
+five minutes by default, and a tool's own `timeoutMs` replaces it for that tool (`Infinity` is no
+limit): a tool that runs a sub-agent on a slow local model sets a longer one, and the others keep
+the shared bound. A call past its turns or its time is stopped, and the reply ends with it.
 The client's `maxTurns` caps the model's turns in one reply, ten by default, and a reply that
 reaches it ends on an error message. A model whose declared `capabilities` leave out
 `function_calling` gets no tools; a model that declares nothing gets them.
@@ -316,6 +318,25 @@ each call before anyone is asked: `allow` runs it, `ask` asks the person as
 `Refused by policy`; the person does not read the reason, the model does. The modes people
 know from agent apps — plan, ask, auto-edit, auto — with a switch in the composer's toolbar, are
 [`@aparte/plugin-approval`](/components/approval-mode/).
+
+A policy may rule asynchronously, for a ruling that needs a lookup: the page a browser tool acts on,
+a rules file, a policy service. While it rules, the calls the model made after this one wait, as
+they wait for a person's answer, so nothing overtakes it. A promise that rejects asks the person
+(the reason goes to the console): a call is never run because its ruling could not be made. The
+server handler's `approvalPolicy` takes the same. `config.ruleOnToolCall(call)` stays synchronous
+and answers `ask` for a policy still ruling; `config.ruleOnToolCallAsync(call)` waits for it.
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+declare function siteOf(tabId: string): Promise<string>;   // yours: the page the browser tool acts on
+
+aparteGlobalConfig.setApprovalPolicy(async (call) => {
+  if (call.name !== 'browser_click') return undefined;
+  const site = await siteOf(String(call.input['tab']));
+  return site.endsWith('.bank.example') ? { verdict: 'ask' } : { verdict: 'allow' };
+});
+```
 
 To answer with no panel at all — from a command line, a webhook, a team channel — give the client
 an `approvalResolver`. It answers every call of a `needsApproval` tool, and a policy set with

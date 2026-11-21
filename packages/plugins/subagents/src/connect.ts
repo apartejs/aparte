@@ -8,8 +8,8 @@
  * clears the mark and gives the focus back. An app with its own layout reads this file and
  * writes its own.
  */
-import type { AparteSubagentView } from './aparte-subagent-view.js';
-import { markRow, openButtonOf, setShown, unmarkAll } from './open.js';
+import { setViewCall, type AparteSubagentView } from './aparte-subagent-view.js';
+import { currentLine, markRow, openButtonOf, setShown, unmarkAll } from './open.js';
 import type { AparteSubagentOpenEventDetail } from './types.js';
 
 /** The part of `<aparte-split>` this needs: one pane or two, and which one. */
@@ -58,6 +58,8 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
     /** The line whose button opened the view, to mark and to give the focus back to, and what it said. */
     let opener: HTMLElement | null = null;
     let opened: AparteSubagentOpenEventDetail | null = null;
+    /** The line pressed, as the plugin keys it: its call's id, or `own:` the id of a line of its own. */
+    let openedLine: string | undefined;
     let isOpen = false;
 
     const roots = (): ParentNode[] => (chat.contains(view) ? [chat] : [chat, view]);
@@ -81,8 +83,14 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         const row = event.target instanceof HTMLElement ? event.target : null;
         opener = row;
         opened = detail;
-        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId });
+        // The line pressed: its call, or, for a line of its own, that line. Two sub-agents of one
+        // reply can share an id, with or without a call.
+        const ownLine = detail.toolCallId ? undefined : row?.closest('[data-segment-id^="subagent-"]')?.getAttribute('data-segment-id');
+        const line = detail.toolCallId ?? (ownLine ? `own:${ownLine}` : undefined);
+        openedLine = line;
+        setShown(owner, { messageId: detail.messageId, agentId: detail.agentId, ...(line ? { toolCallId: line } : {}) });
         mark(row);
+        setViewCall(view, line);
         view.setAttribute('message-id', detail.messageId);
         view.setAttribute('agent-id', detail.agentId);
         if (split) {
@@ -114,6 +122,7 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         }
         opener = null;
         opened = null;
+        openedLine = undefined;
     };
     /**
      * The line of the sub-agent shown, drawn again since it was pressed (a framework redraws a
@@ -121,7 +130,19 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
      */
     const lineOf = (detail: AparteSubagentOpenEventDetail | null): HTMLElement | null => {
         if (!detail) return null;
-        const id = detail.toolCallId ?? detail.agentId;
+        // The line pressed as it is keyed now: a line of its own by its segment (two can share a
+        // sub-agent's id, and a stand-in row carries that id), or the call it moved onto since.
+        const key = currentLine(detail.messageId, openedLine);
+        if (key?.startsWith('own:')) {
+            const id = key.slice(4);
+            for (const root of roots()) {
+                for (const line of root.querySelectorAll<HTMLElement>('[data-segment-id]')) {
+                    if (line.getAttribute('data-segment-id') === id && openButtonOf(line)) return line;
+                }
+            }
+            return null;
+        }
+        const id = key ?? detail.agentId;
         for (const root of roots()) {
             for (const row of root.querySelectorAll<HTMLElement>('.aparte-segment-tool-call[data-tool-call-id]')) {
                 if (row.getAttribute('data-tool-call-id') === id && openButtonOf(row)) return row;
@@ -135,6 +156,7 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         if (isOpen || opened) close(false);
         view.removeAttribute('message-id');
         view.removeAttribute('agent-id');
+        setViewCall(view, undefined);
     };
 
     chat.addEventListener('aparte-subagent-open', onOpen);
@@ -157,6 +179,8 @@ export function connectSubagentView(options: ConnectSubagentViewOptions): () => 
         for (const name of ['aparte-conversation-loaded', 'aparte-reset-done'] as const) chat.removeEventListener(name, onLoaded);
         setShown(owner, null);
         mark(null);
+        // The view is the app's again: it shows what it is named, on any call.
+        setViewCall(view, undefined);
         if (!wasClosable) view.removeAttribute('closable');
     };
 }

@@ -99,6 +99,23 @@ describe('connectSubagentView', () => {
         expect(c.row('tool-c2')!.hasAttribute('data-current')).toBe(true);
     });
 
+    // The line pressed names its call, and the view keeps to that call. Disconnected, the view kept
+    // the filter: a sub-agent named on it afterwards, by its id, on another call, was never drawn
+    // live.
+    it('forgets the line it was opened on once disconnected', async () => {
+        const { c, view } = await setUp();
+        openButton(c.row('tool-c1'))!.click();
+        await frame();
+        disconnect!();
+        disconnect = undefined;
+        view.setAttribute('agent-id', 'a2');
+        c.run(...as('a2', { type: 'text-delta', delta: ' one' }));
+        await frame();
+        c.run(...as('a2', { type: 'text-delta', delta: ' two' }));
+        await frame();
+        expect(view.textContent).toContain('Running one two');
+    });
+
     it('follows the sub-agent live while it works', async () => {
         const { c, view } = await setUp();
         openButton(c.row('tool-c2'))!.click();
@@ -170,6 +187,20 @@ describe('connectSubagentView', () => {
         openButton(c.row('tool-c1'))!.click();
         view.querySelector('.aparte-subagent-name')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
         expect(split!.single).toBe(true);
+    });
+
+    // An IME's Escape cancels a candidate in a field inside the view (a diff comment): it is the
+    // field's, and folded the pane mid-composition once the diff stopped taking it.
+    it.each([
+        ['isComposing', { isComposing: true }],
+        ['keyCode 229', {}],
+    ])('keeps the pane open on an Escape that ends a composition (%s)', async (name, init) => {
+        const { c, view, split } = await setUp();
+        openButton(c.row('tool-c1'))!.click();
+        const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init });
+        if (name === 'keyCode 229') Object.defineProperty(event, 'keyCode', { value: 229 });
+        view.querySelector('.aparte-subagent-name')!.dispatchEvent(event);
+        expect(split!.single).toBe(false);
     });
 
     it('on a phone, shows the view pane and then the chat again: the same two properties', async () => {
@@ -251,3 +282,101 @@ describe('connectSubagentView', () => {
         expect(c.row('tool-c1')!.hasAttribute('data-current')).toBe(false);
     });
 });
+
+describe('two sub-agents with no call under one id', () => {
+    // A backend minting ids per run names a second sub-agent like the first: each gets a line of
+    // its own. The view filtered on the call of the line pressed, and these lines have none:
+    // Open on the second showed the first, and both lines read as the one shown.
+    it('the view opens the line pressed, and only that line reads as shown', async () => {
+        stop = setupSubagents({ open: 'event' });
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'First' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'one' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'agent-start', agentId: 'a1', name: 'Second' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'two' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'run-done' },
+        );
+        await frame();
+        const view = document.createElement('aparte-subagent-view') as AparteSubagentView;
+        document.body.append(view);
+        disconnect = connectSubagentView({ chat: c.host, view });
+        const second = c.host.querySelector<HTMLElement>('[data-segment-id="subagent-a1-2"]');
+        expect(second, 'the second line').not.toBeNull();
+        second!.querySelector<HTMLButtonElement>('.aparte-tool-open')!.click();
+        await frame();
+        expect(view.textContent).toContain('two');
+        expect(view.textContent).not.toContain('one');
+        const current = [...c.host.querySelectorAll('[data-segment-id^="subagent-a1"]')]
+            .filter((line) => line.querySelector('[data-current], [aria-current]'))
+            .map((line) => line.getAttribute('data-segment-id'));
+        expect(current).toEqual(['subagent-a1-2']);
+    });
+});
+
+describe('connectSubagentView, on lines of their own', () => {
+    /** The view and the split beside a chat already holding what `events` drew. */
+    async function wire(c: ReturnType<typeof chat>) {
+        await frame();
+        const view = document.createElement('aparte-subagent-view') as AparteSubagentView;
+        const split = document.createElement('aparte-split') as SubagentViewSplit;
+        document.body.append(split);
+        split.append(c.host, view);
+        disconnect = connectSubagentView({ chat: c.host, view, split });
+        return view;
+    }
+
+    // Two sub-agents with no call under one id (a backend minting ids per run): the focus went
+    // back to the first one's line, whose row carries the same id, once a redraw had replaced the
+    // second one's button.
+    it('gives the focus back to the line pressed, drawn again, when two share an id', async () => {
+        stop = setupSubagents({ open: 'event' });
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'agent-start', agentId: 'a1', name: 'First' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'One.' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'agent-start', agentId: 'a1', name: 'Second' },
+            ...as('a1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Two.' }),
+            { type: 'agent-end', agentId: 'a1', status: 'done' },
+            { type: 'run-done' },
+        );
+        const view = await wire(c);
+        const second = c.row('subagent-a1-2')!;
+        openButton(second)!.click();
+        const again = second.cloneNode(true) as HTMLElement;
+        second.replaceWith(again);
+        view.querySelector<HTMLButtonElement>('.aparte-subagent-close')!.click();
+        expect(document.activeElement).toBe(openButton(again));
+    });
+
+    // Heard before it named its call (an AG-UI agent's tagged event ahead of SUBAGENT_STARTED):
+    // opened on its own line, the view froze once the sub-agent moved onto its call, and the line
+    // lost its Open mark.
+    it('follows the sub-agent opened on its own line once it moves onto its call', async () => {
+        stop = setupSubagents({ open: 'event' });
+        const c = chat();
+        c.run(
+            { type: 'run-start' },
+            { type: 'tool-start', toolCallId: 'c1', name: 'delegate', input: {} },
+            { type: 'agent-start', agentId: 's1' },
+            ...as('s1', { type: 'turn-start' }, { type: 'text-delta', delta: 'Hi' }),
+        );
+        const view = await wire(c);
+        openButton(c.row('subagent-s1'))!.click();
+        c.run(
+            { type: 'agent-start', agentId: 's1', name: 'Writer', toolCallId: 'c1' },
+            ...as('s1', { type: 'text-delta', delta: ' more' }),
+        );
+        await frame();
+        expect(view.textContent).toContain('Hi more');
+        expect(openButton(c.row('tool-c1'))?.getAttribute('aria-current')).toBe('true');
+        view.querySelector<HTMLButtonElement>('.aparte-subagent-close')!.click();
+        expect(document.activeElement).toBe(openButton(c.row('tool-c1')));
+    });
+});
+

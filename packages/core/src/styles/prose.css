@@ -198,7 +198,9 @@
 }
 
 .aparte-thinking-content {
-  padding: var(--aparte-space-2) 0 var(--aparte-space-1) var(--aparte-space-5);
+  /* Logical: under the rail, which is on the right in a right-to-left chat. */
+  padding-block: var(--aparte-space-2) var(--aparte-space-1);
+  padding-inline: var(--aparte-space-5) 0;
   font-size: var(--aparte-font-size-md);
   line-height: var(--aparte-thinking-content-line-height);
   color: var(--aparte-thinking-content);
@@ -210,6 +212,14 @@
   background: var(--aparte-thinking-content-bg);
   max-height: var(--aparte-thinking-content-max-height);
   overflow-y: auto;
+}
+
+/* The panel reads its own direction (`dir="auto"`): reasoning in English in a right-to-left chat,
+   or in Arabic in a left-to-right one. The rail follows the chat's, on the block. When the two
+   differ, the panel's start is the rail's far side: the indent goes on its end, beside the rail. */
+.aparte-segment-thinking:dir(rtl) > .aparte-thinking-content:dir(ltr),
+.aparte-segment-thinking:dir(ltr) > .aparte-thinking-content:dir(rtl) {
+  padding-inline: 0 var(--aparte-space-5);
 }
 
 /* A fenced block that came through MARKDOWN, not through the `code` segment.

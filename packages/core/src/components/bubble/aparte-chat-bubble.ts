@@ -42,7 +42,7 @@ function innerRendererThatDrew(segment: AparteSegment, el: Element): AparteToolR
   if (segment.type === 'activity') return activityRendererThatDrew(el);
   return null;
 }
-import { writeStreamedMarkdown, replaceHighlighted, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
+import { writeStreamedMarkdown, replaceHighlighted, drawAppend, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { relabelCodeLanguages } from '../../renderers/code-languages.js';
 import { relabelCitations, renderSourceList } from '../../renderers/citations.js';
 import { AparteConfig, aparteGlobalConfig, onRenderersChange, renderingVersionOf } from '../../config/aparte-config.js';
@@ -1059,7 +1059,8 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     if (segment && 'content' in segment) {
       (segment as { content: string }).content += content;
       if (segment.isStreaming !== false) this._written.add(segmentId);
-      this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content });
+      const row = this._segmentsEl ? rowOf(this._segmentsEl, segmentId) : null;
+      drawAppend(row, () => this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content }));
       this._syncCopyAction();
     }
   }
@@ -1150,12 +1151,19 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
    * are never one of the message's segments, never saved and never sent to the model, and
    * they go with the reply's end even when nobody closed the step.
    */
-  setStep(name: string | null): void {
+  setStep(name: string | null, detail?: Record<string, unknown>): void {
     const next = typeof name === 'string' && name.trim() ? name.trim() : null;
-    if (next === this._step) return;
+    // A `detail` is asked again every time, the same object included: a producer may change it in
+    // place. Only a bare step already shown is nothing new.
+    const about = next ? detail : undefined;
+    if (next === this._step && about === undefined && this._stepDetail === undefined) return;
     this._step = next;
+    this._stepDetail = about;
     this._updateWaiting();
   }
+
+  /** What the current step is about (`setStep`'s `detail`), for its label. */
+  private _stepDetail: Record<string, unknown> | undefined;
 
   /**
    * Say why the model stopped writing this reply (assistant only).
@@ -1974,7 +1982,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // the label the chat's config holds for the step's name (`registerStepLabel`), else the
     // name itself: `_step` keeps the name the run announced, and is read here at every draw,
     // so a label or a language switch changes what an open step says.
-    const step = waiting && this._step ? this._cfg.getStepLabel(this._step) ?? this._step : null;
+    const step = waiting && this._step
+      ? this._cfg.getStepLabel(this._step, { ...(this._stepDetail ? { detail: this._stepDetail } : {}), ...(this.getAttribute('message-id') ? { messageId: this.getAttribute('message-id')! } : {}) }) ?? this._step
+      : null;
     let words = el.querySelector<HTMLElement>('.aparte-waiting-step');
     if (!words && step) {
       // A shell of the app's own may not have it: added where the default shell has it.
@@ -2924,7 +2934,9 @@ export class AparteChatBubble extends HTMLElement implements AparteConfigAware {
     // Enter (via the primitive's standalone submit event) saves; Esc cancels.
     input.addEventListener('aparte-composer-submit', () => this._exitEditMode(true));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !e.isComposing) {
+      // An Escape that cancels a word being composed (IME) is the composition's: Safari sends it
+      // after the composition ends, with keyCode 229 and no `isComposing`.
+      if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         this._exitEditMode(false);
       }

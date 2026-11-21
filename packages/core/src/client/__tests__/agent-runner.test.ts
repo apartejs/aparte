@@ -112,6 +112,13 @@ describe('createAgentStreamRunner', () => {
         await expect(createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts)).rejects.toThrow('Invalid or expired continuation ticket.');
     });
 
+    // nginx answers a body over its `client_max_body_size` with a 413 and an HTML page.
+    it('rejects a body refused for its size with the code that says so, not a failing provider', async () => {
+        const { fetch } = fakeFetch(() => new Response('<html><body>413 Request Entity Too Large</body></html>', { status: 413 }));
+        const { opts } = options();
+        await expect(createAgentStreamRunner({ endpoint: '/api/agent', fetch })(opts)).rejects.toMatchObject({ code: 'USAGE_TOO_LARGE' });
+    });
+
     it('throws a code of ours as the error code itself, so the client can act on an overflow', async () => {
         const { fetch } = fakeFetch(() => new Response(ndjson({ type: 'run-error', message: 'The agent run failed.', code: 'USAGE_CONTEXT_EXCEEDED' })));
         const { opts } = options();

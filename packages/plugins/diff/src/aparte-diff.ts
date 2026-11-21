@@ -694,6 +694,9 @@ export class AparteDiff extends ElementBase {
         const target = event.target as Element | null;
         if (!target || !this.commentable) return;
         if (this._form?.node.contains(target)) {
+            // A key that confirms or cancels a word being composed (IME) is the composition's:
+            // Firefox and Chromium say so with `isComposing`, Safari with keyCode 229 after it ends.
+            if (event.isComposing || event.keyCode === 229) return;
             if (event.key === 'Escape') {
                 // The field's own Escape: a pane around the diff that closes on Escape stays open.
                 event.preventDefault();

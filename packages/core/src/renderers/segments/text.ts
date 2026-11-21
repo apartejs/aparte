@@ -7,7 +7,7 @@
  */
 import { escapeHtml } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
-import { writeStreamedMarkdown, highlightMarkdownFences, type AparteMarkdownStreamHost } from '../markdown-stream.js';
+import { isStillWriting, writeStreamedMarkdown, highlightMarkdownFences, type AparteMarkdownStreamHost } from '../markdown-stream.js';
 import { renderCodeLanguages } from '../code-languages.js';
 import { renderCitations } from '../citations.js';
 import type {
@@ -51,13 +51,9 @@ export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
     update: (el, segment) => {
         const contentEl = el.querySelector('.aparte-segment-content');
         if (!contentEl) return;
-        writeStreamedMarkdown(
-            el as AparteMarkdownStreamHost,
-            contentEl,
-            segment.content,
-            segment.isStreaming !== false,
-        );
-        if (segment.isStreaming === false) highlightMarkdownFences(contentEl);
+        const streaming = isStillWriting(el, segment.isStreaming);
+        writeStreamedMarkdown(el as AparteMarkdownStreamHost, contentEl, segment.content, streaming);
+        if (!streaming) highlightMarkdownFences(contentEl);
         // Every write: the text a chip sat in may have been written anew.
         renderCitations(contentEl as HTMLElement, segment);
     },

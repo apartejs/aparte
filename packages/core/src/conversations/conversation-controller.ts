@@ -11,7 +11,13 @@ import { aparteGlobalConfig } from '../config/aparte-config.js';
 import type { AparteConfig } from '../config/aparte-config.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
-import { tellConversationStatus, type AparteConversationStatus } from './conversation-status.js';
+import {
+    conversationStatusFrom,
+    conversationStatusOf,
+    rememberConversationStatus,
+    tellConversationStatus,
+    type AparteConversationStatus,
+} from './conversation-status.js';
 import { offerOpenConversation } from './open-conversation.js';
 
 /**
@@ -144,6 +150,7 @@ export class AparteConversationController {
 
     private _onSendCapture: ((e: Event) => void) | null = null;
     private _onPathChanged: ((e: Event) => void) | null = null;
+    private _onStatusTold: ((e: Event) => void) | null = null;
     private _onMessageStart: ((e: Event) => void) | null = null;
     private _onMessageDone: ((e: Event) => void) | null = null;
     private _onMessageError: ((e: Event) => void) | null = null;
@@ -339,7 +346,7 @@ export class AparteConversationController {
      * conversation the turn started in: the person may have opened another since. A turn
      * that starts before its conversation exists (a first message) is told once it does.
      */
-    private _setTurn(status: AparteConversationStatus | null): void {
+    private _setTurn(status: AparteConversationStatus | null, starting = false): void {
         if (!status) {
             if (this._turn) tellConversationStatus(this._turn.id, null);
             this._turn = null;
@@ -351,6 +358,12 @@ export class AparteConversationController {
         // switch must not mark the conversation the person went to.
         const id = this._turn?.id ?? (status === 'running' ? this._openId() : null);
         if (!id) return;
+        // A turn that starts while the host says it waits its turn behind another conversation's:
+        // only the host knows when it is served, and says `running` then.
+        if (starting && conversationStatusOf(id) === 'queued') {
+            this._turn = { id, status: 'queued' };
+            return;
+        }
         this._turn = { id, status };
         tellConversationStatus(id, status);
     }
@@ -437,7 +450,7 @@ export class AparteConversationController {
         this._onMessageStart = (e: Event) => {
             this._isStreaming = true;
             this._turnMessage = (e as CustomEvent<{ messageId?: string } | undefined>).detail?.messageId ?? null;
-            this._setTurn('running');
+            this._setTurn('running', true);
         };
         const ended = (e: Event): void => {
             if (!this._ofThisTurn(e)) return;
@@ -471,6 +484,12 @@ export class AparteConversationController {
         this._onMessageResumed = (e: Event) => {
             if (this._ofThisTurn(e)) this._setTurn('running');
         };
+        // What a host says of a conversation (`queued`, say), so a turn's start does not take it back.
+        this._onStatusTold = (e: Event) => {
+            const detail = (e as CustomEvent<{ id?: unknown; status?: unknown }>).detail;
+            if (typeof detail?.id === 'string') rememberConversationStatus(detail.id, conversationStatusFrom(detail.status));
+        };
+        if (typeof window !== 'undefined') window.addEventListener('aparte-conversation-status', this._onStatusTold);
         host.addEventListener('aparte-message-start', this._onMessageStart);
         host.addEventListener('aparte-message-done', this._onMessageDone);
         host.addEventListener('aparte-message-error', this._onMessageError);
@@ -554,9 +573,10 @@ export class AparteConversationController {
         this._persistActive();
         // A turn still running when the chat goes (a route change, a remount) ends here as
         // far as the lists know: its end event will come after these listeners are gone,
-        // and a sidebar that outlives the chat would shimmer "Answering" for good. A pause
-        // is saved, so its conversation keeps waiting.
-        if (this._turn?.status === 'running') this._setTurn(null);
+        // and a sidebar that outlives the chat would shimmer "Answering" for good. One the host
+        // queued goes the same way, served since or not. A pause is saved, so its conversation
+        // keeps waiting.
+        if (this._turn && this._turn.status !== 'waiting') this._setTurn(null);
         this._turn = null;
         this._turnMessage = null;
         this._stopHydrationRetry?.();
@@ -576,6 +596,10 @@ export class AparteConversationController {
         if (this._onTranscriptChange) {
             host.removeEventListener('aparte-transcript-change', this._onTranscriptChange);
             this._onTranscriptChange = null;
+        }
+        if (this._onStatusTold) {
+            if (typeof window !== 'undefined') window.removeEventListener('aparte-conversation-status', this._onStatusTold);
+            this._onStatusTold = null;
         }
         if (this._onMessageStart) {
             host.removeEventListener('aparte-message-start', this._onMessageStart);

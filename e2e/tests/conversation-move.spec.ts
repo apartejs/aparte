@@ -142,3 +142,20 @@ test.describe('with the keyboard', () => {
         expect(errors, 'no uncaught page errors').toEqual([]);
     });
 });
+
+test.describe('between two lists, one per project (drop-key)', () => {
+    test('a row dragged onto the other project\'s list moves there, and the list it left keeps the rest', async ({ page }) => {
+        const errors = collectPageErrors(page);
+        await page.goto('/?harness=conversation-lists');
+        const launch = new ConversationListPage(page, 'list-launch');
+        const docs = new ConversationListPage(page, 'list-docs');
+        await expect(launch.row('plan')).toBeVisible();
+        await dragOver(page, launch.row('plan'), docs.row('api'));
+        await expect(page.locator('#list-docs .aparte-conv-group--drop')).toHaveCount(1);
+        await page.mouse.up();
+        await expect(docs.row('plan')).toBeVisible();
+        await expect(launch.row('plan')).toHaveCount(0);
+        await expect(launch.row('pricing')).toBeVisible();
+        expect(errors, 'no uncaught page errors').toEqual([]);
+    });
+});

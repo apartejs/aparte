@@ -68,7 +68,7 @@ export const AparteUi = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardRef
         // The props effect below compares `props` by identity, so a memoized prop bag
         // never re-applies on a `name`/`events` change. Apply through a ref here — the
         // same shape Vue/Svelte/Angular use inside their own create().
-        applyElementProps(el, propsRef.current);
+        applyElementProps(el, propsRef.current, undefined, { replace: true });
         const cleanups: Array<() => void> = [];
         for (const ev of evtsKey.split('|').filter(Boolean)) {
             const listener = (e: Event) => cbRef.current?.(e as CustomEvent);
@@ -85,7 +85,7 @@ export const AparteUi = /* @__PURE__ */ Object.assign(/* @__PURE__ */ forwardRef
 
     // Apply props whenever they change.
     useEffect(() => {
-        if (elRef.current) applyElementProps(elRef.current, props);
+        if (elRef.current) applyElementProps(elRef.current, props, undefined, { replace: true });
     }, [props]);
 
     useImperativeHandle(ref, (): AparteUiHandle => ({

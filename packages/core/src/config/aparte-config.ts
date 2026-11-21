@@ -349,6 +349,11 @@ function namesOf(provider: object | undefined): string[] {
  * after they are set, so set them before the chat renders; the transport, the keys and the
  * system prompt apply from the next request.
  */
+/** A promise, or anything that answers like one. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+    return typeof (value as { then?: unknown } | null)?.then === 'function';
+}
+
 export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
@@ -1437,10 +1442,41 @@ export class AparteConfig {
      * policy as its third argument; the client passes the turn the call belongs to.
      */
     ruleOnToolCall(call: AparteToolCall, turn?: AparteTurnContext): AparteApprovalRuling {
+        const ruling = this.ruleOnToolCallNow(call, turn);
+        // A policy that rules asynchronously cannot answer here: a person is asked rather than
+        // the call run unruled. `ruleOnToolCallAsync` waits for it.
+        return isThenable(ruling) ? { verdict: 'ask' } : ruling;
+    }
+
+    /**
+     * `ruleOnToolCall`, for a policy that may rule asynchronously: the ruling once it is made.
+     * A ruling that fails asks a person (and says why on the console): a call is never run
+     * because its ruling could not be made.
+     */
+    async ruleOnToolCallAsync(call: AparteToolCall, turn?: AparteTurnContext): Promise<AparteApprovalRuling> {
+        return this.ruleOnToolCallNow(call, turn);
+    }
+
+    /**
+     * The ruling as soon as it is known: at once for a synchronous policy, a promise for one
+     * that rules asynchronously. Internal: the gate keeps a synchronous ruling synchronous, so a
+     * call nobody needed to ask about never waits a tick.
+     * @internal
+     */
+    ruleOnToolCallNow(call: AparteToolCall, turn?: AparteTurnContext): AparteApprovalRuling | Promise<AparteApprovalRuling> {
         const tool = this._tools.get(call.name)?.tool;
+        const fallback = (): AparteApprovalRuling => ({ verdict: tool?.needsApproval ? 'ask' : 'allow' });
         const ruling = this._approvalPolicy?.(call, tool, turn);
-        if (ruling) return ruling;
-        return { verdict: tool?.needsApproval ? 'ask' : 'allow' };
+        if (isThenable(ruling)) {
+            return Promise.resolve(ruling).then(
+                (r) => r ?? fallback(),
+                (error: unknown) => {
+                    console.error(`[aparte] The approval policy failed to rule on "${call.name}": a person is asked instead.`, error);
+                    return { verdict: 'ask' as const };
+                },
+            );
+        }
+        return ruling ?? fallback();
     }
 
     /**
@@ -2282,11 +2318,13 @@ export class AparteConfig {
      * say nothing, or the function that gives them throws — then the name itself is shown. A
      * function label is asked here, with the locale as it is now.
      */
-    getStepLabel(name: string): string | undefined {
+    getStepLabel(name: string, about: { detail?: Record<string, unknown>; messageId?: string } = {}): string | undefined {
         const entry = this._stepLabels.get(name);
         if (!entry) return undefined;
         try {
-            const text = typeof entry.label === 'function' ? entry.label({ name, locale: this._locale }) : entry.label;
+            const text = typeof entry.label === 'function'
+                ? entry.label({ name, locale: this._locale, ...(about.detail ? { detail: about.detail } : {}), ...(about.messageId ? { messageId: about.messageId } : {}) })
+                : entry.label;
             return typeof text === 'string' && text.trim() ? text.trim() : undefined;
         } catch {
             return undefined;

@@ -9,7 +9,6 @@ import {
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
-const byRecency = (a: AparteConversation, b: AparteConversation) => b.updatedAt - a.updatedAt;
 
 /**
  * Saved conversations as reactive state, for Svelte 5: read `conversations`,
@@ -26,10 +25,14 @@ export class AparteConversations {
     conversations = $state.raw<AparteConversation[]>([]);
     /** The active conversation's id, or null. */
     activeId = $state<string | null>(null);
-    /** The ones not archived, most recent first. */
-    readonly activeConversations = $derived(this.conversations.filter((c) => !c.archivedAt).sort(byRecency));
-    /** The archived ones, most recent first. */
-    readonly archivedConversations = $derived(this.conversations.filter((c) => !!c.archivedAt).sort(byRecency));
+    // In the manager's own order (`orderBy`), most recent change first without one. Read when
+    // the lists are, so the manager it names is the current one.
+    #byOrder = (a: AparteConversation, b: AparteConversation): number =>
+        this.#manager?.compare(a, b) ?? b.updatedAt - a.updatedAt;
+    /** The ones not archived, in the manager's order (`orderBy`): most recent change first by default. */
+    readonly activeConversations = $derived(this.conversations.filter((c) => !c.archivedAt).sort(this.#byOrder));
+    /** The archived ones, in the manager's order (`orderBy`): most recent change first by default. */
+    readonly archivedConversations = $derived(this.conversations.filter((c) => !!c.archivedAt).sort(this.#byOrder));
     /** The active conversation, or null. */
     readonly activeConversation = $derived(this.activeId ? this.conversations.find((c) => c.id === this.activeId) ?? null : null);
 
@@ -48,6 +51,9 @@ export class AparteConversations {
             this.activeId = manager.activeId;
         });
         await manager.init();
+        // Overtaken by a newer init while its store loaded: that one is the manager now, and this
+        // one registered last on the config, so the chat persisted into the store just left.
+        if (this.#manager !== manager) return;
         this.activeId = manager.activeId;
         config.setConversationManager(manager);
     }

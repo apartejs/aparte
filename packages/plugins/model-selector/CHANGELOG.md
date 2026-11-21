@@ -1,5 +1,7 @@
 # @aparte/plugin-model-selector
 
+## 1.17.0
+
 ## 1.16.0
 
 ### Patch Changes

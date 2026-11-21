@@ -101,6 +101,39 @@ export interface AparteElementSpec {
  * Call it with `/* @__PURE__ *\/` and keep its result a module-level constant: it is what lets a
  * bundler drop the components an app does not import.
  */
+/** Properties given to an element not defined yet, the latest of each, kept for its setters. */
+const heldProps = new WeakMap<Element, Map<string, unknown>>();
+
+/**
+ * Assign a property, or keep it for the element's setter while its tag is not defined yet: a
+ * plugin's spec defines nothing, so its component can mount before the element's module has
+ * loaded. Assigned then, the value became the element's OWN property, which shadows the setter
+ * the definition brings, for good. Core's `applyElementProps` holds a property the same way; this
+ * is that rule for the properties a generated component assigns itself.
+ */
+function assignWhenDefined(el: Element, name: string, value: unknown): void {
+    const tag = el.localName;
+    if (!tag.includes('-') || typeof customElements === 'undefined' || customElements.get(tag)) {
+        (el as unknown as Record<string, unknown>)[name] = value;
+        return;
+    }
+    let held = heldProps.get(el);
+    if (!held) {
+        heldProps.set(el, (held = new Map()));
+        void customElements.whenDefined(tag).then(() => {
+            const props = heldProps.get(el);
+            heldProps.delete(el);
+            if (!props) return;
+            customElements.upgrade?.(el);
+            for (const [key, v] of props) {
+                delete (el as unknown as Record<string, unknown>)[key];
+                (el as unknown as Record<string, unknown>)[key] = v;
+            }
+        });
+    }
+    held.set(name, value);
+}
+
 export function createAparteElement<El extends HTMLElement, P extends object>(
     tag: string,
     displayName: string,
@@ -180,7 +213,7 @@ export function createAparteElement<El extends HTMLElement, P extends object>(
                 next[name] = props[name];
                 // A prop nobody passed is `undefined` on both sides, so nothing is written; one
                 // that goes away after it was set differs, and is assigned `undefined`.
-                if (!Object.is(props[name], was[name])) (el as unknown as Record<string, unknown>)[name] = props[name];
+                if (!Object.is(props[name], was[name])) assignWhenDefined(el, name, props[name]);
             }
             applied.current = next;
         });

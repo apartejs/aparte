@@ -294,6 +294,7 @@ const FAILS_AGAIN: ReadonlySet<string> = new Set([
     AparteErrorCode.USAGE_CONTEXT_EXCEEDED,
     AparteErrorCode.PROVIDER_POLICY,
     AparteErrorCode.USAGE_BAD_REQUEST,
+    AparteErrorCode.USAGE_TOO_LARGE,
 ]);
 
 /**

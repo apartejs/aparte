@@ -64,7 +64,7 @@ registerAllComponents();
     `,
 })
 class Host {
-    multiple = true;
+    multiple: boolean | undefined = true;
     placeholder: string | undefined = 'Pick a model';
     searchable = false;
     disabled = false;
@@ -187,6 +187,16 @@ describe('the element directives', () => {
         // And the element itself agrees — the assertion that would have caught it.
         expect(picker.hasAttribute('multiple')).toBe(true);
         expect(picker.getAttribute('multiple') !== 'false').toBe(false);
+    });
+
+    it('leaves an unset three-state boolean unset: the element keeps its default, ON', () => {
+        // A binding to a field not always set. Through `booleanAttribute`, `undefined` was false and
+        // wrote 'false': the picker went single-file, as Enter-to-send and the launcher header did.
+        host.multiple = undefined;
+        fixture.detectChanges();
+        const picker = el('aparte-composer-add-attachment');
+        expect(picker.hasAttribute('multiple')).toBe(false);
+        expect(!picker.hasAttribute('multiple') || picker.getAttribute('multiple') !== 'false', 'read as ON').toBe(true);
     });
 
     it('turns a three-state boolean back ON with the presence value', () => {

@@ -202,7 +202,8 @@ describe('open written after mount, and at mount', () => {
      */
     it('a re-connect of an open select is not a new transition', () => {
         const el = mountSelect({ placeholder: 'Pick', open: '' });
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+        // Typed in the select: it answers the keys typed in it, not the page's.
+        el.querySelector('.aparte-select-trigger')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
         const wasActive = el.querySelector('aparte-option[data-active]');
         expect(wasActive?.getAttribute('value'), 'the arrow moved off the first option').toBe('b');
 

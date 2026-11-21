@@ -23,7 +23,7 @@ import type { AparteConversation } from '../types.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 import type { AparteStreamRunOptions } from '../../client/stream-adapter.js';
 import type { AparteConversationStatusDetail } from '../../components/conversation-list/aparte-conversation-list.js';
-import { forgetConversationStatuses } from '../conversation-status.js';
+import { forgetConversationStatuses, type AparteConversationStatus } from '../conversation-status.js';
 
 function chatHost() {
     const host = document.createElement('div');
@@ -96,7 +96,6 @@ function listen(): { heard: (AparteConversationStatus | null)[]; stop: () => voi
     window.addEventListener('aparte-conversation-status', on);
     return { heard, stop: () => window.removeEventListener('aparte-conversation-status', on) };
 }
-type AparteConversationStatus = 'running' | 'waiting';
 
 describe('the list across a pause', () => {
     it('running, waiting at the pause, running again once answered, nothing at the end', async () => {

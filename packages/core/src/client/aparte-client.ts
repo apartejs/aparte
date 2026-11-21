@@ -98,6 +98,51 @@ export type AparteToolApprovalResolver = (
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
 
+/** Above this a timer fires at once (a 32-bit delay): such a time limit, or `Infinity`, is none. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+/** A tool call's time limit when none is declared: the page's own loop's (`runStreamAgent`'s). */
+const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * A browser tool run for a paused server run, bounded as the page's own loop bounds one call: by
+ * the tool's `timeoutMs`, else the client's `toolTimeoutMs`. `'timeout'` once its time is up, its
+ * signal aborted (a handler that ignores it is left behind, as in the loop). No bound, or one past
+ * a timer's range: the turn's signal alone.
+ */
+async function withinToolBound<T>(run: (signal: AbortSignal) => Promise<T>, turn: AbortSignal, ms: number | undefined): Promise<{ value: T } | 'timeout'> {
+    if (ms === undefined || !(ms > 0) || ms > MAX_TIMER_MS) return { value: await run(turn) };
+    const call = new AbortController();
+    const onTurn = (): void => call.abort();
+    turn.addEventListener('abort', onTurn, { once: true });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<'timeout'>((resolve) => {
+        timer = setTimeout(() => { call.abort(); resolve('timeout'); }, ms);
+    });
+    try {
+        return await Promise.race([run(call.signal).then((value) => ({ value })), expired]);
+    } finally {
+        clearTimeout(timer);
+        turn.removeEventListener('abort', onTurn);
+    }
+}
+
+/**
+ * A ruling on its way, awaited until a Stop. A policy gets no signal, so a lookup that hangs
+ * would hold the answer past it: on a Stop this rejects as an abort, which every caller here
+ * reads as "nobody answered", and the ruling's late outcome goes unheard.
+ */
+function ruledUntil<T>(ruling: T | Promise<T>, signal: AbortSignal): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const onStop = (): void => reject(new DOMException('The turn was stopped.', 'AbortError'));
+        if (signal.aborted) onStop();
+        else signal.addEventListener('abort', onStop, { once: true });
+        Promise.resolve(ruling).then(
+            (value) => { signal.removeEventListener('abort', onStop); resolve(value); },
+            (error: unknown) => { signal.removeEventListener('abort', onStop); reject(error); },
+        );
+    });
+}
+
 /** A call as an approval remembers it: the call itself, not its id alone, which a later call may reuse. */
 const approvalKey = (call: { id: string; name: string; input: unknown }): string =>
     JSON.stringify([call.id, call.name, call.input]);
@@ -2093,17 +2138,27 @@ export class AparteClient {
         // A host that injected its own resolver owns the whole decision, so the policy
         // must not decide the gate either — an `allow` would skip that resolver.
         const hostOwnsDecision = Boolean(this.options.approvalResolver);
+        // The gate rules once per call, and the channel answers with that same ruling: a lookup
+        // asked twice can answer twice differently (the page navigated, a cache expired), and
+        // the second answer used to decide, so a call the first one refused could run. Kept
+        // with the call's input, the very object the channel is handed for that call.
+        const ruled = new Map<string, { input: unknown; ruling: AparteApprovalRuling | Promise<AparteApprovalRuling> }>();
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
             if (!tool) return undefined;
             return {
                 maxTurns: tool.maxTurns,
                 parallel: tool.parallel,
+                timeoutMs: tool.timeoutMs,
                 needsApproval: hostOwnsDecision
                     ? tool.needsApproval
                     : (call: AparteToolCall) => {
-                        const verdict = this._config.ruleOnToolCall(call, turn).verdict;
-                        return verdict === 'allow' ? false : verdict;
+                        // A policy that rules asynchronously hands a promise on: the loop waits for it,
+                        // holding the calls after this one. A synchronous one stays synchronous.
+                        const ruling = this._config.ruleOnToolCallNow(call, turn);
+                        ruled.set(call.id, { input: call.input, ruling });
+                        const gate = (r: AparteApprovalRuling) => (r.verdict === 'allow' ? false : r.verdict);
+                        return ruling instanceof Promise ? ruling.then(gate) : gate(ruling);
                     },
             };
         };
@@ -2115,7 +2170,7 @@ export class AparteClient {
         // A host's own resolver decides everything and sees no policy: it already
         // chose to own the decision. The default channel consults the policy first — a
         // `deny` refuses with the policy's own reason, never "the user rejected this".
-        const approvalResolver = this._approvalResolverFor(targetElement, turn);
+        const approvalResolver = this._approvalResolverFor(targetElement, turn, false, ruled);
 
         /*
          * A handler's crash ends the run on the handler's own error. Classified like a
@@ -2154,7 +2209,15 @@ export class AparteClient {
             // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
-        }).catch((error: unknown) => { throw asToolCrash(error); });
+        }).catch((error: unknown) => {
+            // A run that fails ends its text too: what the parser holds (the end of an open
+            // fence, a lone backtick) is handed over before the error is shown. The runner
+            // flushes on the way out of a call it finished, never past a thrown error, so a
+            // reply cut by a mid-stream error lost its last characters, or all of it when it
+            // ended on inline code.
+            adapter({ type: 'text-flush' });
+            throw asToolCrash(error);
+        });
         return {
             usage: usage ?? undefined,
             ...(finishReason ? { finishReason } : {}),
@@ -2172,14 +2235,23 @@ export class AparteClient {
      * the tool's `needsApproval` — reads a tool the page does not have, and said
      * "allow": the page approved, silently, what the server wanted a person to decide.
      */
-    private _approvalResolverFor(targetElement: AparteChatTargetElement, turn: AparteTurnContext, gatedElsewhere = false): StreamApprovalResolver {
+    private _approvalResolverFor(
+        targetElement: AparteChatTargetElement,
+        turn: AparteTurnContext,
+        gatedElsewhere = false,
+        ruled?: Map<string, { input: unknown; ruling: AparteApprovalRuling | Promise<AparteApprovalRuling> }>,
+    ): StreamApprovalResolver {
         // The host's own resolver is told the turn; the loop that calls it knows none.
         const host = this.options.approvalResolver;
         if (host) return (call, sig) => host(call, sig, turn);
         return (async (call: Parameters<StreamApprovalResolver>[0], sig: AbortSignal) => {
+                // The gate's own ruling of this call, when it made one: never a second lookup.
+                const known = ruled?.get(call.id);
+                const gateRuled = known !== undefined && known.input === call.input;
+                if (gateRuled) ruled!.delete(call.id);
                 const ruling: AparteApprovalRuling = gatedElsewhere
-                    ? (this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn) ?? { verdict: 'ask' })
-                    : this._config.ruleOnToolCall(call, turn);
+                    ? ((await ruledUntil(Promise.resolve(this._config.getApprovalPolicy()?.(call, this._config.getTools().find((t) => t.name === call.name), turn)).catch(() => undefined), sig)) ?? { verdict: 'ask' })
+                    : await ruledUntil(gateRuled ? known.ruling : this._config.ruleOnToolCallNow(call, turn), sig);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
                     // Truthiness, not `??`: an empty reason would otherwise be the whole
@@ -2271,11 +2343,18 @@ export class AparteClient {
                     // No `run`: the run that asked is the server's, and it is over. A handler
                     // that opens a sub-agent here gets `runSubAgent`'s clear error. The
                     // conversation, though, is this turn's, as for a tool the page's loop runs.
-                    const result = await handler(ran, signal, {
+                    // One call of the tool, bounded as the page's own loop bounds one: past its
+                    // time it is abandoned, and the turn ends (it does not resume on a failure
+                    // that would invite the model to try again).
+                    const bound = this._config.getTools().find((t) => t.name === p.name)?.timeoutMs
+                        ?? this.options.toolTimeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+                    const ranWithin = await withinToolBound((callSignal) => handler(ran, callSignal, {
                         target: targetElement as unknown as HTMLElement,
                         config: this._config,
                         ...(turn.conversationId ? { conversationId: turn.conversationId } : {}),
-                    });
+                    }), signal, bound);
+                    if (ranWithin === 'timeout') return undefined;
+                    const result = ranWithin.value;
                     outcomes[p.toolCallId] = {
                         kind: 'result',
                         content: result.content,
@@ -2304,9 +2383,11 @@ export class AparteClient {
         turn: AparteTurnContext,
         rowEvents?: AparteStreamRunEmitter,
     ): Promise<Awaited<ReturnType<StreamApprovalResolver>> | null | undefined> {
-        const ruling = this.options.approvalResolver
-            ? (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow')
-            : this._config.ruleOnToolCall(call, turn).verdict;
+        // Ruled once: the channel below answers with this ruling, never a second lookup.
+        const ruled = this.options.approvalResolver ? undefined : await ruledUntil(this._config.ruleOnToolCallNow(call, turn), signal);
+        const ruling = ruled
+            ? ruled.verdict
+            : (this._config.getTools().find((t) => t.name === call.name)?.needsApproval ? 'ask' : 'allow');
         if (ruling === 'allow') return null;
         // Someone is about to be asked: the row says so, and `aparte-tool-approval-request`
         // fires, as for a call gated in the page's own loop. A `deny` is decided already.
@@ -2317,7 +2398,8 @@ export class AparteClient {
                 ...(call.agent ? { agentId: call.agent.id } : {}),
             });
         }
-        const decision = (await this._approvalResolverFor(targetElement, turn)(call, signal)) ?? undefined;
+        const known = ruled ? new Map([[call.id, { input: call.input as unknown, ruling: ruled }]]) : undefined;
+        const decision = (await this._approvalResolverFor(targetElement, turn, false, known)(call, signal)) ?? undefined;
         // Back to running, and still PAUSED: the resume hands this call back open for its
         // result to answer. The reply's own call not through `rowEvents` — that adapter never
         // saw the call start, so it takes any settle for the end of the pause and drops

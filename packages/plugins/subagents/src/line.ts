@@ -23,8 +23,8 @@ import {
     type AparteToolLine,
 } from '@aparte/core';
 import { statusOfCall, subagentOf, subagentStatus } from './status.js';
-import { dispatchOpen, isShown } from './open.js';
-import { currentStep } from './steps.js';
+import { dispatchOpen, isShown, lineKeyOf } from './open.js';
+import { currentStep, type OpenStep } from './steps.js';
 import { subagentTranscript } from './transcript.js';
 import { toolCount, word } from './words.js';
 import type { AparteSubagent, AparteSubagentStatus, SubagentsOptions } from './types.js';
@@ -83,7 +83,7 @@ function callLine(call: AparteToolCallSegment, config: AparteConfig): string {
  * The caller asks only while the sub-agent runs or waits, so a finished call reads as the
  * step it is on until the next one starts (it is thinking or writing about that result).
  */
-function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | undefined): string {
+function activityOf(sub: AparteSubagent, config: AparteConfig, step: OpenStep | undefined, messageId?: string): string {
     let latest: AparteToolCallSegment | undefined;
     for (let i = sub.segments.length - 1; i >= 0; i -= 1) {
         const segment = sub.segments[i]!;
@@ -91,7 +91,7 @@ function activityOf(sub: AparteSubagent, config: AparteConfig, step: string | un
         if (isOpenCall(segment)) return callLine(segment, config);
         latest ??= segment as AparteToolCallSegment;
     }
-    if (step) return config.getStepLabel(step) ?? step;
+    if (step) return config.getStepLabel(step.name, { ...(step.detail ? { detail: step.detail } : {}), ...(messageId ? { messageId } : {}) }) ?? step.name;
     return latest ? callLine(latest, config) : '';
 }
 
@@ -119,6 +119,7 @@ function stateWord(config: AparteConfig, status: AparteSubagentStatus): string {
         case 'waiting': return config.t('approvalWaiting');
         case 'done': return config.t('toolCompleted');
         case 'failed': return config.t('toolFailed');
+        case 'partial': return word(config, 'subagentsCutShort');
         default: return config.t('toolStopped');
     }
 }
@@ -160,15 +161,20 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
 
         // The state, only where the row's own badge would say another: the row is the CALL's,
         // and a call can be over while the sub-agent it opened failed or was stopped — or
-        // still running after one of its sub-agents is done. A stand-in's row always agrees.
+        // still running after one of its sub-agents is done. A stand-in's row agrees, but for
+        // a sub-agent cut short: no badge says that, so its row reads as answered and this
+        // says the rest.
         const note: string[] = [];
-        if (!standIn && statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
+        // The model it runs on, quietly, when the app asks for it.
+        const model = options.model === true ? sub.model?.trim() : undefined;
+        if (model) note.push(model);
+        if (statusOfCall(segment.status) !== status) note.push(stateWord(config, status));
 
         if (options.activity !== false) {
             // The second line, from its start to its end: what it is on, then what it did (in
             // the state's word when there is no count to give, so the line is never empty).
             line.activity = live
-                ? activityOf(sub, config, currentStep(segment.messageId, sub.id)) || word(config, 'subagentsStarting')
+                ? activityOf(sub, config, currentStep(segment.messageId, sub.id), segment.messageId) || word(config, 'subagentsStarting')
                 : summary() || stateWord(config, status);
         } else if (!live) {
             // One line: what it did comes after the state, once, at its end.
@@ -187,7 +193,7 @@ export function createLineProvider(options: SubagentsOptions = {}): (segment: Ap
             const shownName = name || word(config, 'subagentsUnnamed');
             line.open = {
                 label: word(config, 'subagentsOpen').replace('{name}', () => shownName),
-                current: isShown(segment.messageId, sub.id),
+                current: isShown(segment.messageId, sub.id, lineKeyOf(segment, standIn)),
                 onOpen: (row) => dispatchOpen(row, segment, sub, standIn),
             };
         }

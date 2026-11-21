@@ -2,7 +2,7 @@ import { runStreamAgent, unansweredTail } from '@aparte/engine';
 import type { StreamChatRequest, StreamDeferredOutcome, StreamRunEvent } from '@aparte/engine';
 import type { AparteChatRequest, AparteStreamEvent } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteApprovalPolicy, AparteTool, AparteToolCall, AparteToolHandler, AparteTurnContext } from '../types/tools.js';
+import type { AparteApprovalPolicy, AparteApprovalRuling, AparteTool, AparteToolCall, AparteToolHandler, AparteTurnContext } from '../types/tools.js';
 import type { AparteTransport } from './types.js';
 import { AparteDirectTransport } from './direct-transport.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
@@ -72,7 +72,12 @@ export interface AparteAgentHandlerOptions {
     prepareRequest?: (request: AparteChatRequest, req: Request, turn: AparteTurnContext) => AparteChatRequest | Promise<AparteChatRequest>;
     /** How many model turns one run may take before it stops. @default 10 */
     maxTurns?: number;
-    /** How long one tool call may run, in milliseconds, before it is abandoned. @default 300000 (5 minutes) */
+    /**
+     * How long one tool call may run, in milliseconds, unless its tool sets its own (`tool.timeoutMs`).
+     * When it fires, the call is abandoned and the run stops: the model reads nothing for that
+     * call, since a handler that ignores its signal may still be running. `Infinity` means no limit.
+     * @default 300000 (5 minutes)
+     */
     toolTimeoutMs?: number;
     /**
      * Run together the calls of one reply whose tools say `parallel: true` (`tool.parallel`).
@@ -269,6 +274,9 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
         const key = await options.resolveKey?.(providerId);
         const external = new Set(clientTools.map((t) => t.name));
         const rule = (call: AparteToolCall) => options.approvalPolicy?.(call, tools.get(call.name)?.tool, turn);
+        // The gate's ruling of each call, by id, with the input it was handed (the very object
+        // the refusal is handed): the reason a refusal gives comes from the ruling that refused.
+        const ruled = new Map<string, { input: unknown; ruling: ReturnType<typeof rule> }>();
 
         const run = new AbortController();
         if (req.signal.aborted) run.abort();
@@ -290,12 +298,23 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     open = false;
                     try { controller.close(); } catch { /* already closed by a cancel */ }
                 };
+                // The error of the last server tool that crashed: the run ends on that very error,
+                // and its own HTTP status (an upload API's 413) is the tool's, not the model call's.
+                let toolCrash: string | undefined;
                 const emitter = (event: StreamRunEvent): void => {
                     if (event.type === 'tool-failed') {
+                        toolCrash = event.error;
                         // A server tool's error can name a path, a host, a connection
                         // string: the page hears that it failed, the log hears why.
                         console.error(`[aparte] tool call ${event.toolCallId} failed:`, event.error);
                         write({ ...event, error: 'The tool failed.' });
+                        return;
+                    }
+                    if (event.type === 'agent-end' && event.error !== undefined) {
+                        // A sub-agent that failed on a server tool's error, or its model's, carries
+                        // that error's words: the same path, host or key the line above keeps here.
+                        console.error(`[aparte] sub-agent ${event.agentId} failed:`, event.error);
+                        write({ ...event, error: 'The sub-agent failed.' });
                         return;
                     }
                     if (event.type !== 'run-suspended') {
@@ -340,20 +359,35 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                         return {
                             ...(t.tool.maxTurns !== undefined ? { maxTurns: t.tool.maxTurns } : {}),
                             ...(t.tool.parallel !== undefined ? { parallel: t.tool.parallel } : {}),
+                            ...(t.tool.timeoutMs !== undefined ? { timeoutMs: t.tool.timeoutMs } : {}),
                             needsApproval: (call) => {
+                                const gate = (ruling: AparteApprovalRuling | undefined) => {
+                                    if (ruling?.verdict === 'allow') return false;
+                                    if (ruling?.verdict) return ruling.verdict;
+                                    return Boolean(t.tool.needsApproval);
+                                };
                                 const ruling = rule(call as AparteToolCall);
-                                if (ruling?.verdict === 'allow') return false;
-                                if (ruling?.verdict) return ruling.verdict;
-                                return Boolean(t.tool.needsApproval);
+                                // Kept for the refusal's reason: the policy is asked once per call.
+                                ruled.set(call.id, { input: call.input, ruling });
+                                // A policy that rules asynchronously: the loop waits for it, holding the
+                                // calls after this one. One that fails asks the page, never runs the call.
+                                return typeof (ruling as { then?: unknown } | undefined)?.then === 'function'
+                                    ? Promise.resolve(ruling).then(gate, () => 'ask' as const)
+                                    : gate(ruling as AparteApprovalRuling | undefined);
                             },
                         };
                     },
                     // Reached only for a server `deny`: an `ask` is deferred to the page.
-                    approvalResolver: async (call) => ({
-                        approved: false,
-                        reason: rule(call as AparteToolCall)?.reason?.trim() || 'Tool execution was refused by the server policy.',
-                        by: 'policy',
-                    }),
+                    approvalResolver: async (call) => {
+                        const known = ruled.get(call.id);
+                        const ruling = known !== undefined && known.input === call.input ? known.ruling : rule(call as AparteToolCall);
+                        ruled.delete(call.id);
+                        return {
+                            approved: false,
+                            reason: (await Promise.resolve(ruling).catch(() => undefined))?.reason?.trim() || 'Tool execution was refused by the server policy.',
+                            by: 'policy',
+                        };
+                    },
                     deferral: { outcomes },
                     emitter,
                     signal: run.signal,
@@ -376,7 +410,10 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     // send again), so it travels. The engine throws a provider error streamed
                     // after a 200 as a plain Error that carries `code`, which `from` reads;
                     // a failure that says nothing about itself keeps the wire value it had.
-                    const named = AparteError.from(error).code;
+                    // A tool's crash is labelled for what it is, as the page labels one: the status it
+                    // carries says nothing of the person's message or of the model provider.
+                    const text = error instanceof Error ? (error.message || error.name) : String(error);
+                    const named = toolCrash !== undefined && text === toolCrash ? AparteErrorCode.UNKNOWN_ERROR : AparteError.from(error).code;
                     write({
                         type: 'run-error',
                         message: 'The agent run failed.',

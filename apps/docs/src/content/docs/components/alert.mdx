@@ -20,6 +20,40 @@ an optional `__dismiss` button. Its intent (info, success, warning, danger, neut
 secondary) colours it. The chat's [error](/components/error/) card wears this recipe, and so do
 this site's notes and warnings.
 
+## As a toast
+
+`showToast` shows a short message as an alert in a fixed corner of the page, and takes it away
+on its own. It is for what has nowhere else to be said: why an action did not happen, that
+something was saved. It never moves the layout under the pointer, it is announced to assistive
+technology (as a status, or as an alert in the `danger` tone), and it waits while it is hovered
+or holds the focus. Its button or Escape closes it.
+
+```ts
+import { showToast } from '@aparte/core';
+
+const toast = showToast('A reply is still running: move the conversation once it is done.', {
+    tone: 'warning', // info (the default), success, warning, danger, neutral
+    timeout: 5000,   // milliseconds; 0 keeps it until it is closed
+});
+toast.close(); // before its time
+```
+
+Its options are an `AparteToastOptions` (`tone`, an `AparteToastTone`, `timeout` and `target`), and it
+returns an `AparteToast`: its `element` and `close()`.
+
+The toasts stack in `.aparte-toasts`, at the bottom of the page's inline end. On a page with a
+composer or a footer there, move the corner: `.aparte-toasts { inset-block-end: 96px; }`. A toast
+is for telling, not asking: a choice the person must make belongs in a dialog.
+
+- **`target`:** the element the message is about, usually the chat (`showToast('Saved.', { target })`).
+  The toast goes in the same tree as that element (the shadow root it is in, where you loaded the
+  kit's stylesheet) and wears its theme, the `data-aparte-theme` of its nearest ancestor that has
+  one. Without it, the toast belongs to the page.
+- **From an open modal dialog:** everything outside the dialog is inert and drawn under its
+  backdrop, so the toast goes inside the dialog. Whatever is still shown when the dialog closes
+  goes back to the page's corner.
+- **Focus:** a toast closed while it holds the focus gives it back to where it came from.
+
 ## Customize
 
 <Vars />

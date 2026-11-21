@@ -13,6 +13,13 @@ export interface AparteStepLabelContext {
     name: string;
     /** The config's locale as it is now. The function is asked again when the locale changes. */
     locale: AparteLocale;
+    /**
+     * What the step is about, as the run said it (`step-start`'s `detail`, replaced by
+     * `step-update`): data for the words, never words. The function is asked again when it changes.
+     */
+    detail?: Record<string, unknown>;
+    /** The reply the step is in, when the label is drawn for one: two chats waiting, two answers. */
+    messageId?: string;
 }
 
 /**

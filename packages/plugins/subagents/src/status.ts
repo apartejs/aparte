@@ -5,7 +5,7 @@
 import type { AparteSegment, AparteToolCallSegment } from '@aparte/core';
 import { SUBAGENT_SEGMENT_TYPE, type AparteSubagent, type AparteSubagentStatus } from './types.js';
 
-const STATUSES = new Set<AparteSubagentStatus>(['running', 'waiting', 'done', 'failed', 'stopped']);
+const STATUSES = new Set<AparteSubagentStatus>(['running', 'waiting', 'done', 'failed', 'stopped', 'partial']);
 
 /**
  * The sub-agent a segment stands for: the one kept on a `tool_call` segment (the call that
@@ -65,6 +65,9 @@ export function callStatusOf(status: AparteSubagentStatus): AparteToolCallSegmen
         case 'running': return 'pending';
         case 'waiting': return 'awaiting-approval';
         case 'done': return 'resolved';
+        // Its own run stopped, nobody stopped it: the row's badge reads as a call that answered
+        // (what it found is its result), and the line's note says Cut short, as on a call's row.
+        case 'partial': return 'resolved';
         case 'failed': return 'failed';
         default: return 'aborted';
     }

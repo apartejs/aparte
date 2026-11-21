@@ -106,3 +106,17 @@ describe("a sub-agent's line labels its step", () => {
         expect(saved).not.toContain('Re-reading the conversation');
     });
 });
+
+describe("a sub-agent's step with data", () => {
+    // `step-start` carries what the step is about, and `step-update` changes it in place: the line
+    // asks its label again, with the detail, as the reply's waiting indicator does.
+    it('is labelled from its detail, and again when it is updated', () => {
+        stop = setupSubagents();
+        aparteGlobalConfig.registerStepLabel('read', ({ detail }) => `Reading ${String(detail?.['file'])}`);
+        const c = started();
+        c.run(...as('a1', { type: 'step-start', name: 'read', detail: { file: 'parser.ts' } }));
+        expect(shown(c.row('tool-c1'), 'activity')).toBe('Reading parser.ts');
+        c.run(...as('a1', { type: 'step-update', name: 'read', detail: { file: 'lexer.ts' } }));
+        expect(shown(c.row('tool-c1'), 'activity')).toBe('Reading lexer.ts');
+    });
+});

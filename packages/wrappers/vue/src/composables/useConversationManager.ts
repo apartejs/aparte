@@ -22,11 +22,14 @@ export function useConversationManager() {
     const conversations = ref<AparteConversation[]>([]) as Ref<AparteConversation[]>;
     const activeId = ref<string | null>(null);
 
+    // In the manager's own order (`orderBy`), most recent change first without one.
+    const byOrder = (a: AparteConversation, b: AparteConversation): number =>
+        manager?.compare(a, b) ?? b.updatedAt - a.updatedAt;
     const activeConversations = computed(() =>
-        conversations.value.filter((c) => !c.archivedAt).sort((a, b) => b.updatedAt - a.updatedAt),
+        conversations.value.filter((c) => !c.archivedAt).sort(byOrder),
     );
     const archivedConversations = computed(() =>
-        conversations.value.filter((c) => !!c.archivedAt).sort((a, b) => b.updatedAt - a.updatedAt),
+        conversations.value.filter((c) => !!c.archivedAt).sort(byOrder),
     );
     const activeConversation = computed(() =>
         activeId.value ? conversations.value.find((c) => c.id === activeId.value) ?? null : null,
@@ -58,6 +61,9 @@ export function useConversationManager() {
             activeId.value = m.activeId;
         });
         await m.init();
+        // Overtaken by a newer init while its store loaded: that one is the manager now, and this
+        // one registered last on the config, so the chat persisted into the store just left.
+        if (manager !== m) return;
         activeId.value = m.activeId;
         config.setConversationManager(m);
     };

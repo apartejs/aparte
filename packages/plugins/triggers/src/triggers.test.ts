@@ -241,6 +241,31 @@ describe('<aparte-triggers>', () => {
         vi.useRealTimers();
     });
 
+    it('removed from its composer, it no longer hears that composer\'s keys', () => {
+        // It listens on the composer in the capture phase, and a removal that does not name the
+        // phase removes nothing: the old composer kept driving a menu the element opened
+        // elsewhere, and Enter typed there was taken from it. No test removed one.
+        const { composer, element, key } = mount([{ ...AT, items: list('Paul', 'Peter') }]);
+        const other = document.createElement('aparte-composer') as AparteComposer;
+        other.innerHTML = '<aparte-composer-input></aparte-composer-input>';
+        document.body.appendChild(other);
+        other.prepend(element);
+        const otherEditor = other.querySelector('.aparte-ci-editor') as HTMLElement;
+        otherEditor.textContent = '@';
+        const range = document.createRange();
+        range.setStart(otherEditor.firstChild!, 1);
+        range.collapse(true);
+        document.getSelection()!.removeAllRanges();
+        document.getSelection()!.addRange(range);
+        otherEditor.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(element.isOpen, 'open in the composer it moved to').toBe(true);
+        expect(active(element)).toBe('Paul');
+        // An arrow typed in the composer it left moves nothing in the menu it opened elsewhere.
+        key('ArrowDown');
+        expect(active(element)).toBe('Paul');
+        expect(composer.contains(element)).toBe(false);
+    });
+
     it('draws nothing until a trigger is typed', () => {
         const { element, type } = mount([{ ...AT, items: list('Paul') }]);
         type('hello');
@@ -597,6 +622,134 @@ describe('<aparte-triggers>', () => {
             expect(labels(element)).toEqual(['fresh']);
             expect(warn).not.toHaveBeenCalled();
             warn.mockRestore();
+        });
+
+        it('Enter while a new search loads chooses a row that matches what is typed, never one left from the search before', async () => {
+            // '@' listed Alice, Bob, Carol; 'car' is typed and Enter pressed before its own list
+            // arrives (the debounce, then the request). The rows on screen were the first search's,
+            // and Enter took the one active: Alice, for "@car".
+            const replies: Array<(items: AparteTriggerItem[]) => void> = [];
+            const chosen: string[] = [];
+            const { element, type, key } = mount([{ ...AT, debounce: 0, items: () => new Promise((resolve) => { replies.push(resolve); }) }]);
+            element.addEventListener('aparte-trigger-select', (e) => chosen.push((e as CustomEvent<{ item: AparteTriggerItem }>).detail.item.id));
+            type('@');
+            await flush();
+            replies[0]!(list('Alice', 'Bob', 'Carol'));
+            await flush();
+            expect(active(element)).toBe('Alice');
+            type('@car');
+            await flush();
+            expect(labels(element)).toEqual(['Carol']);
+            key('Enter');
+            expect(chosen).toEqual(['Carol']);
+        });
+
+        it('a wrapper handing an equal declaration on every render does not restart the search on its way', async () => {
+            // React writes `triggers` on every render of the app around it (a new array each time),
+            // and a chat re-renders on every token of a reply. Each write aborted the request and
+            // armed the debounce again, so a mention list never arrived while a reply streamed.
+            vi.useFakeTimers();
+            const asked: string[] = [];
+            const source = (q: string) => { asked.push(q); return list(`${q}-result`); };
+            const { element, type } = mount([{ ...AT, debounce: 100, items: source }]);
+            type('@an');
+            // A reply streams: a render every 30 ms, for longer than the debounce, and still going.
+            for (let n = 0; n < 8; n++) {
+                await vi.advanceTimersByTimeAsync(30);
+                element.triggers = [{ ...AT, debounce: 100, items: source }];
+            }
+            await flush();
+            expect(asked).toEqual(['an']);
+            expect(labels(element)).toEqual(['an-result']);
+        });
+
+        it('asks a source handed anew once the declarations settle: another channel, another list', async () => {
+            // A memoized declaration recomputed on a dependency (`[channelId]`): a new function for the
+            // same search, reading another scope. It was never asked: the first channel's members
+            // stayed listed, and Enter inserted one of them.
+            vi.useFakeTimers();
+            const { element, type } = mount([{ ...AT, debounce: 0, items: () => list('A') }]);
+            type('@');
+            await vi.advanceTimersByTimeAsync(0);
+            await flush();
+            expect(labels(element)).toEqual(['A']);
+            element.triggers = [{ ...AT, debounce: 0, items: () => list('B') }];
+            await vi.advanceTimersByTimeAsync(500);
+            await flush();
+            expect(labels(element)).toEqual(['B']);
+        });
+
+        it('a wrapper handing a new function on every render still lets the first answer arrive, then asks once', async () => {
+            // An inline declaration (no memo) is a new function on every render. The answer on its way
+            // arrives while the app re-renders, and the newest source is asked once, after the renders.
+            vi.useFakeTimers();
+            const asked: string[] = [];
+            const declare = () => [{ ...AT, debounce: 100, items: (q: string) => { asked.push(q); return list(`${q}-result`); } }];
+            const { element, type } = mount(declare());
+            type('@an');
+            for (let n = 0; n < 8; n++) {
+                await vi.advanceTimersByTimeAsync(30);
+                element.triggers = declare();
+            }
+            await flush();
+            expect(asked, 'answered while the app re-rendered').toEqual(['an']);
+            expect(labels(element)).toEqual(['an-result']);
+            await vi.advanceTimersByTimeAsync(500);
+            await flush();
+            expect(asked, 'the newest source, asked once the renders stopped').toEqual(['an', 'an']);
+        });
+
+        // Renders further apart than the settle time, a source slower than they are: every render
+        // re-asked, the re-ask aborted the answer on its way, and the list never arrived.
+        it('a slow source, re-rendered more slowly than the settle time, still answers, and nothing on its way is aborted', async () => {
+            vi.useFakeTimers();
+            let asked = 0;
+            let cut = 0;
+            let declared = 0;
+            const from: number[] = [];
+            const declare = () => { const n = declared++; return [{
+                ...AT, debounce: 150,
+                items: (_q: string, { signal }: { signal: AbortSignal }) => {
+                    asked += 1;
+                    from.push(n);
+                    let answered = false;
+                    signal.addEventListener('abort', () => { if (!answered) cut += 1; });
+                    return new Promise<AparteTriggerItem[]>((resolve) => setTimeout(() => { answered = true; resolve(list('Ann')); }, 400));
+                },
+            }]; };
+            const { element, type } = mount(declare());
+            type('@an');
+            let arrived = false;
+            for (let n = 0; n < 10; n++) {
+                await vi.advanceTimersByTimeAsync(300);
+                element.triggers = declare();
+                if (labels(element).includes('Ann')) arrived = true;
+            }
+            expect(arrived, 'the list arrived while the app re-rendered').toBe(true);
+            expect(cut, 'no answer on its way was aborted').toBe(0);
+            expect(asked, 'one question at a time, not one per render').toBeLessThan(10);
+            // The renders stopped: the source declared last is asked, once the answer on its way is in.
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(from.at(-1)).toBe(declared - 1);
+        });
+
+        it('a source handed anew while the answer is on its way is asked once that answer is in', async () => {
+            vi.useFakeTimers();
+            const from: string[] = [];
+            const slow = (name: string) => [{
+                ...AT, debounce: 150,
+                items: () => { from.push(name); return new Promise<AparteTriggerItem[]>((resolve) => setTimeout(() => resolve(list(`an-${name}`)), 400)); },
+            }];
+            const { element, type } = mount(slow('first'));
+            type('@an');
+            await vi.advanceTimersByTimeAsync(200);
+            // The first question left at 150 ms and answers at 550: another channel's source comes now.
+            element.triggers = slow('second');
+            await vi.advanceTimersByTimeAsync(400);
+            expect(labels(element), 'the answer on its way arrived').toEqual(['an-first']);
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(from).toEqual(['first', 'second']);
+            expect(labels(element)).toEqual(['an-second']);
         });
 
         it('holds Enter while the list is on its way', async () => {

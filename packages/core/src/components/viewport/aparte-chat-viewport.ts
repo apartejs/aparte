@@ -17,6 +17,7 @@ import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble
 import { parseMarkdownToSegments } from '../../parsers/index.js';
 import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { activeElementIn } from '../../utils/event-target.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { isModelReply } from '../../utils/is-model-reply.js';
 import { presenceOn } from '../../utils/presence.js';
@@ -853,8 +854,8 @@ export class AparteChatViewport extends HTMLElement {
      * Say the step the agent is on ("Reading the parser") in the reply's waiting indicator,
      * or `null` for none. Live only: handed to the bubble, never written on the message.
      */
-    setStep(messageId: string, name: string | null): void {
-        this._notifyBubble(messageId, 'setStep', name);
+    setStep(messageId: string, name: string | null, detail?: Record<string, unknown>): void {
+        this._notifyBubble(messageId, 'setStep', { name, detail });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1485,7 +1486,7 @@ export class AparteChatViewport extends HTMLElement {
             updateSegment?: (segmentId: string, updates: Partial<AparteSegment>) => void;
             removeSegment?: (segmentId: string) => void;
             setUsage?: (usage: AparteUsage) => void;
-            setStep?: (name: string | null) => void;
+            setStep?: (name: string | null, detail?: Record<string, unknown>) => void;
             updateMessage?: (updates: Partial<AparteMessage>) => void;
         };
 
@@ -1512,9 +1513,11 @@ export class AparteChatViewport extends HTMLElement {
             case 'setUsage':
                 bubble.setUsage?.(payload as AparteUsage);
                 break;
-            case 'setStep':
-                bubble.setStep?.(payload as string | null);
+            case 'setStep': {
+                const step = payload as { name: string | null; detail?: Record<string, unknown> };
+                bubble.setStep?.(step.name, step.detail);
                 break;
+            }
             case 'update': {
                 // Atomic update: forward it when it carries anything the bubble
                 // renders. `content` and `attachments` used to be filtered out
@@ -1880,6 +1883,10 @@ export class AparteChatViewport extends HTMLElement {
         this._container?.addEventListener('pointerdown', this._holdPointer, { passive: true });
         document.addEventListener('pointerup', this._releasePointer, true);
         document.addEventListener('pointercancel', this._releasePointer, true);
+        // A drag ends the press too: a selection or a link dragged out of the transcript. WebKit
+        // sends no pointerup nor pointercancel after a native drag, so the press stayed held for
+        // the rest of the turn, and the engine's own settle read as the reader scrolling up.
+        document.addEventListener('dragstart', this._releasePointer, true);
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
         this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
@@ -2507,6 +2514,11 @@ export class AparteChatViewport extends HTMLElement {
         // once it had one, pushed the composer past the eighth Tab on the vanilla
         // example. A control nobody can see is not a control anybody can reach.
         if (hidden) {
+            // Pressed from the keyboard, it hides at the bottom with the focus on it: left there, a
+            // screen reader sat on a node gone from the tree and Space kept pressing nothing. The
+            // transcript is a named tab stop, where the reader just arrived.
+            const surface = this._container;
+            if (surface && activeElementIn(this) === btn) surface.focus({ preventScroll: true });
             btn.setAttribute('tabindex', '-1');
             btn.setAttribute('aria-hidden', 'true');
         } else {
@@ -2672,6 +2684,7 @@ export class AparteChatViewport extends HTMLElement {
         this._container?.removeEventListener('pointerdown', this._holdPointer);
         document.removeEventListener('pointerup', this._releasePointer, true);
         document.removeEventListener('pointercancel', this._releasePointer, true);
+        document.removeEventListener('dragstart', this._releasePointer, true);
         this._pointerHeld = false;
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);

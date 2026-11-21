@@ -1260,3 +1260,25 @@ describe('AparteChatBubble — the action bar is one tab stop with arrows', () =
         });
     });
 });
+
+describe('AparteChatBubble — an edit written with an input method (IME)', () => {
+    // Escape cancels a conversion candidate. Safari sends the composition's key after it ends,
+    // with keyCode 229 and `isComposing` false: the edit took it as its own Escape and closed,
+    // dropping what was being written.
+    afterEach(() => aparteGlobalConfig.reset());
+    it.each([
+        ['isComposing', { isComposing: true }],
+        ['keyCode 229', { keyCode: 229 }],
+    ])('stays open on an Escape that is the composition\'s (%s)', (_name, init) => {
+        aparteGlobalConfig.setBubbleActions({ user: ['edit'] });
+        const bubble = createBubble({ 'data-role': 'user', 'message-id': 'ime1', content: 'hi' });
+        bubble.querySelector<HTMLButtonElement>('[data-action="edit"]')!.click();
+        const editor = bubble.querySelector('aparte-composer-input')!;
+        expect(editor, 'the editor did not open').not.toBeNull();
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...init }));
+        expect(bubble.querySelector('aparte-composer-input'), 'the edit is still open').not.toBeNull();
+        // A plain Escape still cancels.
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        expect(bubble.querySelector('aparte-composer-input')).toBeNull();
+    });
+});

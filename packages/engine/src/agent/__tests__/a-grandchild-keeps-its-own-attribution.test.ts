@@ -36,9 +36,9 @@ describe('a grandchild keeps its own attribution', () => {
 
         const child = startOf(events, 'child');
         const grandchild = startOf(events, 'grandchild');
-        expect(child).toEqual({ type: 'agent-start', agentId: expect.any(String), name: 'child', toolCallId: 'c1' });
+        expect(child).toEqual({ type: 'agent-start', agentId: expect.any(String), name: 'child', toolCallId: 'c1', model: 'child' });
         expect(grandchild).toEqual({
-            type: 'agent-start', agentId: expect.any(String), name: 'grandchild', toolCallId: 'g1', parentAgentId: child.agentId,
+            type: 'agent-start', agentId: expect.any(String), name: 'grandchild', toolCallId: 'g1', parentAgentId: child.agentId, model: 'grandchild',
         });
         expect(grandchild.agentId).not.toBe(child.agentId);
 

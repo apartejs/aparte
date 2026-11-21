@@ -223,6 +223,130 @@ describe('the client resumes a paused server run', () => {
         expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'Plan mode: nothing is written.', by: 'policy' } });
     });
 
+    describe('with a policy that rules asynchronously', () => {
+        const later = <T>(value: T): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), 5));
+        const asks = () => vi.spyOn(AparteClient.prototype as unknown as { _askForApproval: () => Promise<unknown> }, '_askForApproval')
+            .mockResolvedValue({ approved: true });
+
+        it('refuses a browser tool a server asked for, with the policy\'s reason', async () => {
+            const { el } = chat();
+            const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+            const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' } }, handler);
+            cfg.setApprovalPolicy(() => later({ verdict: 'deny' as const, reason: 'R' }));
+            await send(c);
+            expect(handler).not.toHaveBeenCalled();
+            expect(r.calls[1]!.deferral!.outcomes).toEqual({ w1: { kind: 'decision', approved: false, reason: 'R', by: 'policy' } });
+        });
+
+        it('runs a browser tool it allows, and asks nobody', async () => {
+            const { el } = chat();
+            const asked = asks();
+            const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+            const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' }, needsApproval: true }, handler);
+            cfg.setApprovalPolicy(() => later({ verdict: 'allow' as const }));
+            await send(c);
+            expect(handler).toHaveBeenCalledOnce();
+            expect(asked).not.toHaveBeenCalled();
+            asked.mockRestore();
+        });
+
+        it('answers a call the server gated, when it allows', async () => {
+            const { el } = chat();
+            const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+            const { c, cfg } = client(el, r.run);
+            cfg.setApprovalPolicy(() => later({ verdict: 'allow' as const }));
+            await send(c);
+            expect(r.calls[1]!.deferral!.outcomes).toEqual({ c1: { kind: 'decision', approved: true } });
+        });
+
+        it('asks a person when its ruling fails, on a call the server gated', async () => {
+            const { el } = chat();
+            const asked = asks();
+            const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const r = runner(pauseOn({ id: 'c1', name: 'delete_file', reason: 'approval' }), finish);
+            const { c, cfg } = client(el, r.run);
+            cfg.setApprovalPolicy(() => Promise.reject(new Error('policy service down')));
+            await send(c);
+            expect(asked).toHaveBeenCalledOnce();
+            asked.mockRestore();
+            error.mockRestore();
+        });
+
+        it('rules a browser tool once: an ask is put to the person, whatever a second lookup would say', async () => {
+            const { el } = chat();
+            const asked = asks();
+            const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+            const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' } }, handler);
+            let rulings = 0;
+            cfg.setApprovalPolicy(() => later(++rulings === 1 ? { verdict: 'ask' as const } : { verdict: 'allow' as const }));
+            await send(c);
+            expect(rulings).toBe(1);
+            expect(asked).toHaveBeenCalledOnce();
+            asked.mockRestore();
+        });
+
+        it('lets a Stop end the turn while its ruling never comes', async () => {
+            const { el, events } = chat();
+            const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
+            const handler = vi.fn(async (call: { id: string }) => ({ toolCallId: call.id, content: 'written' }));
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool({ name: 'write_file', description: 'Write.', inputSchema: { type: 'object' } }, handler);
+            cfg.setApprovalPolicy(() => { setTimeout(() => c.abort(), 5); return new Promise<never>(() => {}); });
+            const ended = await Promise.race([send(c).then(() => 'ended'), later('still waiting').then(() => new Promise((res) => setTimeout(() => res('still waiting'), 300)))]);
+            expect(ended).toBe('ended');
+            expect(handler).not.toHaveBeenCalled();
+            expect(r.calls).toHaveLength(1);
+            expect(events).toContain('aparte-message-aborted');
+        });
+    });
+
+    // A browser tool a paused server run asked for is one call of that tool: its own time limit
+    // bounds it, as in the page's own loop. A handler that never settled (a file dialog left open)
+    // kept the turn spinning until a Stop.
+    it("bounds a browser tool by its own time limit, and ends the turn as the page's loop does", async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'pick_file', reason: 'external' }), finish);
+        let seen: AbortSignal | undefined;
+        const { c, cfg } = client(el, r.run);
+        cfg.registerTool(
+            { name: 'pick_file', description: 'Pick.', inputSchema: { type: 'object' }, timeoutMs: 20 },
+            (_call, signal) => { seen = signal; return new Promise(() => {}); },
+        );
+        const ended = await Promise.race([send(c).then(() => 'ended'), new Promise((res) => setTimeout(() => res('still waiting'), 400))]);
+        expect(ended).toBe('ended');
+        expect(seen?.aborted).toBe(true);
+        expect(r.calls, 'not resumed with an answer nobody gave').toHaveLength(1);
+    });
+
+    // No limit declared anywhere: the client's own default (5 minutes, as in the page's loop)
+    // bounds it. Only a declared limit did, so under the default options it spun until a Stop.
+    it("bounds a browser tool by the client's default time limit when none is declared", async () => {
+        vi.useFakeTimers();
+        try {
+            const { el } = chat();
+            const r = runner(pauseOn({ id: 'w1', name: 'pick_file', reason: 'external' }), finish);
+            let seen: AbortSignal | undefined;
+            const { c, cfg } = client(el, r.run);
+            cfg.registerTool(
+                { name: 'pick_file', description: 'Pick.', inputSchema: { type: 'object' } },
+                (_call, signal) => { seen = signal; return new Promise(() => {}); },
+            );
+            const sent = send(c);
+            await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 10);
+            await sent;
+            expect(seen?.aborted).toBe(true);
+            expect(r.calls).toHaveLength(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('paints the row as waiting while the page asks about a browser tool', async () => {
         const { el, messages } = chat();
         const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);

@@ -4,6 +4,7 @@ import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 import { deferHydrationOf } from '../../interop/defer-hydration.js';
 import { dispatchChatEvent } from '../../interop/chat-events.js';
+import { activeElementIn } from '../../utils/event-target.js';
 
 
 /**
@@ -141,7 +142,16 @@ export class AparteComposerAttachments extends HTMLElement {
         this._objectUrls = [];
     }
 
+    /** The files the strip shows now, tile by tile: what a focused remove button was for. */
+    private _drawn: File[] = [];
+
     private _render(files: File[]): void {
+        // Where the keyboard was, by the file its remove button removes: the strip is drawn again
+        // whole, and the focused button went with it, leaving the focus on <body>.
+        const focused = activeElementIn(this);
+        const at = focused ? [...this.querySelectorAll('.aparte-thumb__remove')].indexOf(focused) : -1;
+        const focusedFile = at >= 0 ? this._drawn[at] : undefined;
+        this._drawn = [...files];
         this.hidden = files.length === 0;
         // Free the previous render's preview URLs before minting new ones.
         this._revokeUrls();
@@ -188,6 +198,16 @@ export class AparteComposerAttachments extends HTMLElement {
                 if (root) root.removeAttachment(root.attachments[i]!);
             });
         });
+
+        // Back where the keyboard was: on the same file's button if it is still here (a file added
+        // beside it), else on the next file's (it was removed), else in the editor (none is left).
+        if (at >= 0) {
+            const buttons = this.querySelectorAll<HTMLElement>('.aparte-thumb__remove');
+            const still = focusedFile ? files.indexOf(focusedFile) : -1;
+            const next = still >= 0 ? buttons[still] : buttons[Math.min(at, buttons.length - 1)];
+            if (next) next.focus();
+            else this._getRoot()?.focus();
+        }
 
         // Image tiles ask for the full-size preview — only when the app declared it
         // opens one (same rule as the sent-message strip in the bubble).

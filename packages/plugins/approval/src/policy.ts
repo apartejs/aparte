@@ -84,7 +84,13 @@ export function rulingFor(mode: ApprovalMode, cls: ToolClass | undefined, call: 
 /**
  * A core `AparteApprovalPolicy` that reads the CURRENT mode on every call — so a
  * switch flipped mid-run applies to the next tool call, not the next conversation.
+ *
+ * It rules at once, and its type says so: a core policy may answer with a promise, this one
+ * never does, so code that calls it reads `.verdict` without an await.
  */
-export function createApprovalPolicy(getMode: () => ApprovalMode, classification: ApprovalClassification): AparteApprovalPolicy {
+export function createApprovalPolicy(
+    getMode: () => ApprovalMode,
+    classification: ApprovalClassification,
+): (...args: Parameters<AparteApprovalPolicy>) => AparteApprovalRuling | undefined {
     return (call) => rulingFor(getMode(), classifyTool(call.name, classification), call);
 }
