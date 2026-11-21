@@ -1,6 +1,6 @@
 ---
 title: Let a coding agent read these docs
-description: Point a coding agent at the docs — the llms.txt index and its files, one per topic, or @aparte/docs-mcp, an MCP server that searches and reads them.
+description: Point a coding agent at the docs — the llms.txt index, every page as Markdown, a file per topic, or @aparte/docs-mcp, an MCP server that searches and reads them.
 sidebar:
   order: 1
   label: Docs for AI agents
@@ -13,8 +13,17 @@ import { LLMS_SETS, llmsSetPath } from '../../../data/llms-sets.mjs';
 
 ## Give it the index
 
-[`/llms.txt`](/llms.txt) is the library in a paragraph and a file per topic, each named in a
-sentence. Hand the index to a model that can fetch, or only the file of the topic at hand:
+[`/llms.txt`](/llms.txt) is the library in a few paragraphs, then every page in one line,
+then a file per topic. Hand it to a model that can fetch: it reads the index, then fetches the
+pages it needs.
+
+Each page links to its Markdown, the same address followed by `index.md`: this one is
+[`/guides/docs-for-agents/index.md`](/guides/docs-for-agents/index.md). That is the text
+alone, without the sidebar, the live previews or their scripts, so a page fits in one fetch.
+Each page also says so in its `<head>`, with `<link rel="alternate" type="text/markdown">`, as
+the [llms.txt proposal](https://llmstxt.org/) asks.
+
+The topic files hold a whole subject at once, for a model that reads everything first:
 
 <table>
   <thead>
