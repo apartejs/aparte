@@ -229,6 +229,22 @@ describe('createAparteAgentHandler', () => {
         expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
     });
 
+    // A server tool's SDK error can carry an HTTP status of its own (413 from an upload API): the
+    // run failed on the tool, not on the person's message, which must not read "too large" nor be
+    // dropped from the next request.
+    it("reads a crashing tool's own HTTP status as the tool's failure, not the model call's", async () => {
+        const upload = {
+            tool: { name: 'upload_report', description: 'Upload.', inputSchema: { type: 'object' } },
+            handler: async () => { throw Object.assign(new Error('Payload Too Large'), { status: 413 }); },
+        };
+        const { provider } = scriptedProvider([{ type: 'tool_use', id: 'u1', name: 'upload_report', input: {} }, { type: 'done' }]);
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await lines(await handlerWith(provider, { tools: [upload] })(post(firstBody())));
+        errorSpy.mockRestore();
+        expect(out.find((l) => l.type === 'tool-failed')).toMatchObject({ toolCallId: 'u1' });
+        expect(out.at(-1)).toMatchObject({ type: 'run-error', code: 'AGENT_RUN_FAILED' });
+    });
+
     it('stops the run when the client disconnects', async () => {
         const { provider } = scriptedProvider([{ type: 'hang' }]);
         const client = new AbortController();

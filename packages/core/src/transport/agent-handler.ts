@@ -298,8 +298,12 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     open = false;
                     try { controller.close(); } catch { /* already closed by a cancel */ }
                 };
+                // The error of the last server tool that crashed: the run ends on that very error,
+                // and its own HTTP status (an upload API's 413) is the tool's, not the model call's.
+                let toolCrash: string | undefined;
                 const emitter = (event: StreamRunEvent): void => {
                     if (event.type === 'tool-failed') {
+                        toolCrash = event.error;
                         // A server tool's error can name a path, a host, a connection
                         // string: the page hears that it failed, the log hears why.
                         console.error(`[aparte] tool call ${event.toolCallId} failed:`, event.error);
@@ -399,7 +403,10 @@ export function createAparteAgentHandler(options: AparteAgentHandlerOptions): (r
                     // send again), so it travels. The engine throws a provider error streamed
                     // after a 200 as a plain Error that carries `code`, which `from` reads;
                     // a failure that says nothing about itself keeps the wire value it had.
-                    const named = AparteError.from(error).code;
+                    // A tool's crash is labelled for what it is, as the page labels one: the status it
+                    // carries says nothing of the person's message or of the model provider.
+                    const text = error instanceof Error ? (error.message || error.name) : String(error);
+                    const named = toolCrash !== undefined && text === toolCrash ? AparteErrorCode.UNKNOWN_ERROR : AparteError.from(error).code;
                     write({
                         type: 'run-error',
                         message: 'The agent run failed.',
