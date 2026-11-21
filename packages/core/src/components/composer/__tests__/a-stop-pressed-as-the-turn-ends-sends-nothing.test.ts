@@ -29,6 +29,10 @@ async function mount(): Promise<{ composer: AparteComposer; button: HTMLButtonEl
 const start = (): void => { window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'r1' } })); };
 const done = (): void => { window.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'r1' } })); };
 const pointer = (el: Element, type: string) => el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+// A click a press produced counts its presses (`detail` 1); one from the keyboard or a script
+// does not (`detail` 0), as in every engine.
+const pointerClick = (el: Element) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+const keyboardClick = (el: Element) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
 
 describe('the button pressed as Stop', () => {
     it('sends nothing when the reply ended before the click', async () => {
@@ -41,7 +45,7 @@ describe('the button pressed as Stop', () => {
         done();
         expect(button.getAttribute('data-act')).toBe('send');
         pointer(button, 'pointerup');
-        button.click();
+        pointerClick(button);
         expect(sent).toEqual([]);
         expect(composer.value).toBe('next question');
     });
@@ -52,9 +56,9 @@ describe('the button pressed as Stop', () => {
         composer.setValue('next question');
         pointer(button, 'pointerdown');
         done();
-        button.click();
+        pointerClick(button);
         pointer(button, 'pointerdown');
-        button.click();
+        pointerClick(button);
         expect(sent).toEqual(['next question']);
     });
 
@@ -63,5 +67,20 @@ describe('the button pressed as Stop', () => {
         composer.setValue('hello');
         button.click();
         expect(sent).toEqual(['hello']);
+    });
+
+    // A press on Stop that never became a click: the pointer slid off before the release, or a
+    // touch turned into a scroll. Its record outlived it, and the next activation from the
+    // keyboard, once the reply had ended, was read as that Stop and sent nothing.
+    it('a Stop press that never clicked does not eat the next Send from the keyboard', async () => {
+        const { composer, button, sent } = await mount();
+        start();
+        composer.setValue('next question');
+        pointer(button, 'pointerdown');
+        pointer(button, 'pointercancel');
+        done();
+        expect(button.getAttribute('data-act')).toBe('send');
+        keyboardClick(button);
+        expect(sent).toEqual(['next question']);
     });
 });
