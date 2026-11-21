@@ -78,7 +78,7 @@ describe('an element defined after its component mounts', () => {
     // brings, for good: the element never saw it.
     it('hands the property to its setter once it is defined, and keeps none of its own', async () => {
         const seen: unknown[] = [];
-        const spec: AparteElementSpec<Record<string, never>, { data?: unknown }, Record<string, never>> = {
+        const spec: AparteElementSpec<Record<never, never>, { data?: unknown }, Record<never, never>> = {
             tag: 'fx-late', attributes: [], properties: ['data'], events: [], initial: [],
         };
         const Late = createAparteElement(spec);

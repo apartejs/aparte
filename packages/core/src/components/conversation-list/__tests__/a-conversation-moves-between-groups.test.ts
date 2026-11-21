@@ -378,7 +378,7 @@ describe('a list that stands for a group of its own (dropKey), and a row from an
         ['dropped on', (b: Element) => drag(b, 'drop')],
         // Left for the page outside: jsdom has no hit-testing, so the point lands on nothing.
         ['left', (b: Element) => {
-            const doc = document as Document & { elementFromPoint?: (x: number, y: number) => Element | null };
+            const doc = document as unknown as { elementFromPoint?: (x: number, y: number) => Element | null };
             const had = doc.elementFromPoint;
             doc.elementFromPoint = () => null;
             try {
