@@ -98,6 +98,32 @@ export type AparteToolApprovalResolver = (
 /** What the model reads for a paused call that did not run because an earlier one of the same step was refused. */
 const NOT_RUN_AFTER_A_REFUSAL = 'Not run: an earlier call of the same step was refused.';
 
+/** Above this a timer fires at once (a 32-bit delay): such a time limit, or `Infinity`, is none. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * A browser tool run for a paused server run, bounded as the page's own loop bounds one call: by
+ * the tool's `timeoutMs`, else the client's `toolTimeoutMs`. `'timeout'` once its time is up, its
+ * signal aborted (a handler that ignores it is left behind, as in the loop). No bound, or one past
+ * a timer's range: the turn's signal alone.
+ */
+async function withinToolBound<T>(run: (signal: AbortSignal) => Promise<T>, turn: AbortSignal, ms: number | undefined): Promise<{ value: T } | 'timeout'> {
+    if (ms === undefined || !(ms > 0) || ms > MAX_TIMER_MS) return { value: await run(turn) };
+    const call = new AbortController();
+    const onTurn = (): void => call.abort();
+    turn.addEventListener('abort', onTurn, { once: true });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<'timeout'>((resolve) => {
+        timer = setTimeout(() => { call.abort(); resolve('timeout'); }, ms);
+    });
+    try {
+        return await Promise.race([run(call.signal).then((value) => ({ value })), expired]);
+    } finally {
+        clearTimeout(timer);
+        turn.removeEventListener('abort', onTurn);
+    }
+}
+
 /**
  * A ruling on its way, awaited until a Stop. A policy gets no signal, so a lookup that hangs
  * would hold the answer past it: on a Stop this rejects as an abort, which every caller here
@@ -2315,11 +2341,17 @@ export class AparteClient {
                     // No `run`: the run that asked is the server's, and it is over. A handler
                     // that opens a sub-agent here gets `runSubAgent`'s clear error. The
                     // conversation, though, is this turn's, as for a tool the page's loop runs.
-                    const result = await handler(ran, signal, {
+                    // One call of the tool, bounded as the page's own loop bounds one: past its
+                    // time it is abandoned, and the turn ends (it does not resume on a failure
+                    // that would invite the model to try again).
+                    const bound = this._config.getTools().find((t) => t.name === p.name)?.timeoutMs ?? this.options.toolTimeoutMs;
+                    const ranWithin = await withinToolBound((callSignal) => handler(ran, callSignal, {
                         target: targetElement as unknown as HTMLElement,
                         config: this._config,
                         ...(turn.conversationId ? { conversationId: turn.conversationId } : {}),
-                    });
+                    }), signal, bound);
+                    if (ranWithin === 'timeout') return undefined;
+                    const result = ranWithin.value;
                     outcomes[p.toolCallId] = {
                         kind: 'result',
                         content: result.content,

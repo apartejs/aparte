@@ -306,6 +306,24 @@ describe('the client resumes a paused server run', () => {
         });
     });
 
+    // A browser tool a paused server run asked for is one call of that tool: its own time limit
+    // bounds it, as in the page's own loop. A handler that never settled (a file dialog left open)
+    // kept the turn spinning until a Stop.
+    it("bounds a browser tool by its own time limit, and ends the turn as the page's loop does", async () => {
+        const { el } = chat();
+        const r = runner(pauseOn({ id: 'w1', name: 'pick_file', reason: 'external' }), finish);
+        let seen: AbortSignal | undefined;
+        const { c, cfg } = client(el, r.run);
+        cfg.registerTool(
+            { name: 'pick_file', description: 'Pick.', inputSchema: { type: 'object' }, timeoutMs: 20 },
+            (_call, signal) => { seen = signal; return new Promise(() => {}); },
+        );
+        const ended = await Promise.race([send(c).then(() => 'ended'), new Promise((res) => setTimeout(() => res('still waiting'), 400))]);
+        expect(ended).toBe('ended');
+        expect(seen?.aborted).toBe(true);
+        expect(r.calls, 'not resumed with an answer nobody gave').toHaveLength(1);
+    });
+
     it('paints the row as waiting while the page asks about a browser tool', async () => {
         const { el, messages } = chat();
         const r = runner(pauseOn({ id: 'w1', name: 'write_file', reason: 'external' }), finish);
